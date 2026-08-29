@@ -34,35 +34,28 @@ dashboard: **Workers & Pages → tusker-web-dev → Settings → Build**.
 
 ### Build settings
 
-| Field | Value |
-| --- | --- |
-| Git repository | `codeuncodeco/tusker-web` |
-| Git branch | `main` |
-| Root directory | `/` |
-| Build command | `pnpm run build` |
-| Deploy command | `pnpm run deploy:ci` |
-| Build caching | on |
+Every field on that page, build variables included:
+
+| Field | Value | Why |
+| --- | --- | --- |
+| Git repository | `codeuncodeco/tusker-web` | |
+| Git branch | `main` | |
+| Root directory | `/` | |
+| Build command | `pnpm run build` | Writes `build/server/wrangler.json`, with the environment already resolved |
+| Deploy command | `pnpm run deploy:ci` | Applies the migrations to the dev D1, then deploys that resolved config |
+| Build caching | on | |
+| Build variable `CLOUDFLARE_ENV` | `dev` | Tells the Cloudflare Vite plugin which `wrangler.jsonc` environment to resolve |
+
+`CLOUDFLARE_ENV` is the only build variable, and it is a plain variable, not a
+secret. The `build` script defaults it to `dev`, so the build works without it.
+Set it anyway. A build that resolves no environment writes a config named
+`tusker-web` with no D1 binding, and the deploy then goes to the wrong Worker.
 
 Cloudflare installs the dependencies itself. It reads the package manager from
 the `packageManager` field in `package.json` and the Node version from
 `.node-version`, so you do not need an install command.
 
-`deploy:ci` applies the migrations to the dev D1, then deploys. The deploy half
-points at `build/server/wrangler.json`, which the build writes with the
-environment already resolved. Do not add `--env` to that half.
-
-### Build variables
-
-Set these under **Build variables** (plain variables, not secrets):
-
-| Name | Value | Why |
-| --- | --- | --- |
-| `CLOUDFLARE_ENV` | `dev` | Tells the Cloudflare Vite plugin which `wrangler.jsonc` environment to resolve |
-
-`CLOUDFLARE_ENV` is the only build variable. The `build` script defaults it to
-`dev`, so the build works without it. Set it anyway. A build that resolves no
-environment writes a config named `tusker-web` with no D1 binding, and the
-deploy then goes to the wrong Worker.
+Do not add `--env` to the deploy. The build already resolved it.
 
 The D1 binding lives in `wrangler.jsonc`, so it travels with the repository.
 

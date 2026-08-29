@@ -81,8 +81,13 @@ never hold it.
 
 ### In Workers Builds
 
-One build variable, `CLOUDFLARE_ENV=dev`. It tells the Cloudflare Vite plugin
-which `wrangler.jsonc` environment to resolve.
+**Workers & Pages → tusker-web-dev → Settings → Build.** Three fields to type:
+
+| Field | Value | Why |
+| --- | --- | --- |
+| Build command | `pnpm run build` | Writes `build/server/wrangler.json`, with the environment already resolved |
+| Deploy command | `pnpm run deploy:ci` | Applies the migrations to the dev D1, then deploys |
+| Build variable `CLOUDFLARE_ENV` | `dev` | Tells the Cloudflare Vite plugin which `wrangler.jsonc` environment to resolve |
 
 The build's own API token needs **D1 (Edit)** on top of what Cloudflare gives it,
 because the deploy applies the migrations. See
