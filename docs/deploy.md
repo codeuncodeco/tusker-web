@@ -3,9 +3,18 @@
 The `dev` environment is the Cloudflare Worker `tusker-web-dev`, with the D1
 database `tusker-dev` bound as `DB`.
 
-- URL: https://tusker-web-dev.forsakenlegacy.workers.dev
+- URL: https://tusker.codeuncode.com
 - Worker name: `tusker-web-dev` (the `dev` environment of `tusker-web`)
 - D1 database: `tusker-dev`, id `f82d4a00-20bb-44ea-95c9-5f9453501781`
+
+`wrangler.jsonc` declares `tusker.codeuncode.com` as a custom domain, so the
+deploy creates the DNS record and the certificate. Cloudflare serves a custom
+domain over HTTPS only. A request to `http://` redirects.
+
+The custom domain turns the `workers.dev` URL off, so
+`tusker-web-dev.forsakenlegacy.workers.dev` now answers 404. `preview_urls` is
+`true`, which keeps a preview URL for each non-production branch that Workers
+Builds builds.
 
 ## From your machine
 

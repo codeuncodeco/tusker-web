@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "tusker-web",
+  "account_id": "9aa603db8b4ff3924b801a2c0f0c49fb",
   "main": "./workers/app.ts",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -8,6 +9,13 @@
   "upload_source_maps": true,
   "env": {
     "dev": {
+      "preview_urls": true,
+      "routes": [
+        {
+          "pattern": "tusker.codeuncode.com",
+          "custom_domain": true
+        }
+      ],
       "d1_databases": [
         {
           "binding": "DB",
