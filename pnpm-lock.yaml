@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       isbot:
-        specifier: ^5
+        specifier: ^5.1.32
         version: 5.2.2
       react:
         specifier: ^19.2.7
