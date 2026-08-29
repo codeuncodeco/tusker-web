@@ -34,10 +34,60 @@ pnpm dev                     # http://localhost:5173
 
 `pnpm dev` runs the app in the Workers runtime through the Cloudflare Vite
 plugin, against a local D1 file under `.wrangler/state`. `.dev.vars` holds the
-local secrets, and git ignores it.
+local secrets, and git ignores it. [Environment](#environment) lists every
+variable.
 
 `RESEND_API_KEY` stays unset locally, so mail goes to the terminal instead of to
 a person. The link and the code are both in that log line.
+
+## Environment
+
+Four names, in three places. A name means the same thing everywhere.
+
+| Name | Holds | Without it |
+| --- | --- | --- |
+| `BETTER_AUTH_SECRET` | A long random string. It signs the sessions and the sign-in tokens | No sign-in works |
+| `RESEND_API_KEY` | The Resend key | Mail goes to the log, not to a person |
+| `INVITE_TOKEN` | The bearer token that `POST /api/invite` demands | That endpoint answers 404, so no account can be made |
+| `MAIL_FROM` | The `From` address, such as `Tusker <tusker@codeuncode.com>`. Resend must hold that domain | Resend refuses the message |
+
+### On your machine
+
+`.dev.vars`, which git ignores:
+
+```sh
+BETTER_AUTH_SECRET="any-long-string-for-local-work"
+INVITE_TOKEN="any-other-long-string"
+# RESEND_API_KEY stays out, so mail goes to the terminal
+```
+
+`MAIL_FROM` comes from `wrangler.jsonc`, so a local run needs no copy of it.
+
+### On the Worker
+
+`MAIL_FROM` is a plain variable in `wrangler.jsonc`. It travels with the
+repository, so nobody sets it by hand.
+
+The other three are secrets. Only the Worker can read a secret:
+
+```sh
+pnpm exec wrangler secret put BETTER_AUTH_SECRET --env dev
+pnpm exec wrangler secret put RESEND_API_KEY --env dev
+pnpm exec wrangler secret put INVITE_TOKEN --env dev
+```
+
+Set each one once. A secret is not a build variable, and Workers Builds must
+never hold it.
+
+### In Workers Builds
+
+One build variable, `CLOUDFLARE_ENV=dev`. It tells the Cloudflare Vite plugin
+which `wrangler.jsonc` environment to resolve.
+
+The build's own API token needs **D1 (Edit)** on top of what Cloudflare gives it,
+because the deploy applies the migrations. See
+[docs/deploy.md](./docs/deploy.md) for that and for the rest of the dashboard
+settings.
 
 ## Sign in
 
@@ -76,7 +126,9 @@ pnpm run db:migrate:local    # local D1
 pnpm run db:migrate:dev      # the dev D1 on Cloudflare
 ```
 
-To add one, write `migrations/000N_<what_it_does>.sql`, then run both commands.
+To add one, write `migrations/000N_<what_it_does>.sql`, then run the local
+command. A push applies it to the dev D1, because `deploy:ci` migrates before it
+deploys. Run `db:migrate:dev` by hand only when you deploy from your machine.
 
 `migrations/0002_better_auth.sql` is generated. After a better-auth upgrade or a
 plugin change, write it again:
@@ -106,11 +158,14 @@ types from `app/routes.ts`, then builds the TypeScript project references.
 ## Deploy
 
 ```sh
+pnpm run db:migrate:dev      # the schema first
 pnpm run deploy
 ```
 
 The build writes a resolved config to `build/server/wrangler.json`, and the
-deploy reads it.
+deploy reads it. `pnpm run deploy` does not migrate, so run the migration
+yourself. The old Worker keeps serving until the new one goes live, so the
+schema must be ready first.
 
 Two traps:
 
@@ -125,9 +180,9 @@ See [docs/deploy.md](./docs/deploy.md).
 
 ### Deploy from GitHub
 
-The Worker is also wired to Workers Builds. See
-[docs/deploy.md](./docs/deploy.md) for the build command, the deploy command and
-the variables the dashboard needs.
+A push to `main` builds and deploys through Workers Builds. Its deploy command
+is `pnpm run deploy:ci`, which applies the migrations to the dev D1 and then
+deploys. See [docs/deploy.md](./docs/deploy.md) for the dashboard settings.
 
 ## Layout
 
