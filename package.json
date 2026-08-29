@@ -1,0 +1,39 @@
+{
+  "name": "tusker-web",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.8.0",
+  "scripts": {
+    "dev": "CLOUDFLARE_ENV=${CLOUDFLARE_ENV:-dev} react-router dev",
+    "build": "CLOUDFLARE_ENV=${CLOUDFLARE_ENV:-dev} react-router build",
+    "preview": "pnpm build && vite preview",
+    "deploy": "pnpm build && wrangler deploy -c build/server/wrangler.json",
+    "typegen": "wrangler types --env dev && react-router typegen",
+    "typecheck": "pnpm typegen && tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 migrations apply tusker-dev --env dev --local",
+    "db:migrate:dev": "wrangler d1 migrations apply tusker-dev --env dev --remote"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^8.3.1",
+    "isbot": "^5"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.54.2",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@react-router/dev": "^8.3.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.1"
+  }
+}
