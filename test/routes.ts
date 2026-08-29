@@ -1,0 +1,45 @@
+import { env } from "cloudflare:workers";
+import { RouterContextProvider } from "react-router";
+
+import { cloudflareEnv } from "../app/context.server";
+
+export const SITE = "https://tusker.test";
+
+/** The arguments a loader or an action takes, with the Worker's env in place. */
+export function routeArgs(request: Request) {
+  const context = new RouterContextProvider();
+  context.set(cloudflareEnv, env);
+  return { request, context, params: {} } as never;
+}
+
+/** A form post to a route action. */
+export function post(path: string, fields: Record<string, string>) {
+  const body = new FormData();
+  for (const [name, value] of Object.entries(fields)) body.append(name, value);
+  return new Request(`${SITE}${path}`, { method: "POST", body });
+}
+
+/** A GET, with cookies when the test carries a session. */
+export function get(path: string, cookie?: string) {
+  return new Request(`${SITE}${path}`, { headers: cookie ? { cookie } : {} });
+}
+
+/** The `Cookie` header that repeats what a response set. */
+export function cookieFrom(response: Response): string {
+  return response.headers
+    .getSetCookie()
+    .map((one) => one.split(";")[0])
+    .join("; ");
+}
+
+/** A thrown redirect reads the same as a returned one. */
+export async function caught(work: Promise<unknown>): Promise<Response> {
+  try {
+    const value = await work;
+    if (value instanceof Response) return value;
+    throw new Error("That call answered with data, not a response.");
+  } catch (thrown) {
+    if (thrown instanceof Response) return thrown;
+    throw thrown;
+  }
+}

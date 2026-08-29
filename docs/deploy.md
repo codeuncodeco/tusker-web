@@ -68,10 +68,18 @@ The D1 binding lives in `wrangler.jsonc`, so it travels with the repository.
 
 ### Runtime secrets
 
-There are none yet. Add the first one with
-`pnpm exec wrangler secret put <NAME> --env dev`. Do not add it as a build
-variable. The build can read a build variable. Only the Worker can read a
-secret.
+Set each one with `pnpm exec wrangler secret put <NAME> --env dev`. Do not add
+any of them as a build variable. The build can read a build variable. Only the
+Worker can read a secret.
+
+| Name | Holds |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | Signs the sessions and the sign-in tokens. A long random string |
+| `RESEND_API_KEY` | The Resend key. Without it the Worker writes the mail to the log |
+| `INVITE_TOKEN` | The bearer token that `POST /api/invite` demands. Without it that endpoint answers 404 |
+
+`MAIL_FROM` is a plain variable in `wrangler.jsonc`, not a secret. Resend must
+hold the domain it names.
 
 ## Migrations are not part of the build
 

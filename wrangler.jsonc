@@ -10,6 +10,9 @@
   "env": {
     "dev": {
       "preview_urls": true,
+      "vars": {
+        "MAIL_FROM": "Tusker <tusker@codeuncode.com>"
+      },
       "routes": [
         {
           "pattern": "tusker.codeuncode.com",
