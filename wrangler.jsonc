@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tusker-web",
+  "main": "./workers/app.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "upload_source_maps": true,
+  "env": {
+    "dev": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "tusker-dev",
+          "database_id": "f82d4a00-20bb-44ea-95c9-5f9453501781",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
+}

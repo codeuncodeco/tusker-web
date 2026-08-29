@@ -1,0 +1,10 @@
+node_modules/
+/build/
+.react-router/
+.wrangler/
+*.tsbuildinfo
+.DS_Store
+
+# Secrets
+.dev.vars*
+.env*
