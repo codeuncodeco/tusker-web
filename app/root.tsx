@@ -34,7 +34,7 @@ export default function App() {
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = "Error";
-  let details = "Something went wrong.";
+  let details = "The server could not complete this request.";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {

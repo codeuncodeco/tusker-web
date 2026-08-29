@@ -1,9 +1,9 @@
+import { env } from "cloudflare:workers";
 import { beforeEach, expect, it } from "vitest";
 
 import { listOrgs } from "../app/orgs.server";
-import { testEnv } from "./env";
 
-const db = testEnv.DB;
+const db = env.DB;
 
 beforeEach(async () => {
   await db.prepare("DELETE FROM orgs").run();

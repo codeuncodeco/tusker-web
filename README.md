@@ -1,7 +1,6 @@
 # tusker-web
 
-Tusker is a keyboard-first task board for several orgs at once. `CONTEXT.md`
-holds the language and `docs/plan.md` holds the phases.
+Tusker is a keyboard-first task board for several orgs at once.
 
 This is the walking skeleton: one route, one D1 database, one migration, on
 Cloudflare Workers.
@@ -14,7 +13,7 @@ runtime. One environment, `dev`.
 
 ## Requirements
 
-- Node 22.22 or later
+- Node 22.22 or later (`.node-version` pins the Cloudflare build to 22.22.0)
 - pnpm 10
 - A Cloudflare account, with `pnpm exec wrangler login` done once
 
@@ -65,8 +64,15 @@ pnpm run deploy
 ```
 
 The build writes a resolved config to `build/server/wrangler.json`, and the
-deploy reads it. Use `pnpm run deploy`, not `pnpm deploy` — the second is a
-built-in pnpm command.
+deploy reads it.
+
+Two traps:
+
+- Run `pnpm run deploy`, not `pnpm deploy`. The second is a built-in pnpm
+  command.
+- Do not run `wrangler deploy` by hand. It reads `wrangler.jsonc`, which has no
+  D1 binding at the top level and points `main` at TypeScript that only the Vite
+  build can resolve.
 
 The `dev` environment is the Worker `tusker-web-dev`.
 

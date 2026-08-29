@@ -1,4 +1,4 @@
-import { cloudflareContext } from "../context.server";
+import { cloudflareEnv } from "../context.server";
 import { listOrgs } from "../orgs.server";
 import type { Route } from "./+types/home";
 
@@ -10,7 +10,7 @@ export function meta(_: Route.MetaArgs) {
 }
 
 export async function loader({ context }: Route.LoaderArgs) {
-  const { env } = context.get(cloudflareContext);
+  const env = context.get(cloudflareEnv);
   const orgs = await listOrgs(env.DB);
   return { orgs };
 }
@@ -22,7 +22,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <main className="mx-auto flex min-h-full max-w-2xl flex-col justify-center gap-6 p-8">
       <h1 className="text-3xl font-semibold tracking-tight">Tusker</h1>
       <p className="text-neutral-600 dark:text-neutral-400">
-        Walking skeleton. The route renders, and D1 answers.
+        The walking skeleton. The route renders, and D1 replies with the rows below.
       </p>
       <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
         <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">Orgs</h2>

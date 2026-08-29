@@ -1,6 +1,6 @@
 import { RouterContextProvider, createRequestHandler } from "react-router";
 
-import { cloudflareContext } from "../app/context.server";
+import { cloudflareEnv } from "../app/context.server";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -8,9 +8,9 @@ const requestHandler = createRequestHandler(
 );
 
 export default {
-  fetch(request, env, ctx) {
+  fetch(request, env) {
     const context = new RouterContextProvider();
-    context.set(cloudflareContext, { env, ctx });
+    context.set(cloudflareEnv, env);
     return requestHandler(request, context);
   },
 } satisfies ExportedHandler<Env>;
