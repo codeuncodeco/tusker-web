@@ -22,6 +22,16 @@ _Avoid_: Personal space, private tasks
 A person with access to an org. Membership is the only permission check.
 _Avoid_: Seat, collaborator
 
+**Account**:
+One person's way in: an email, and a password or a mailed link. An account is
+not an org and not a client, so the word keeps that one meaning.
+_Avoid_: Login, profile, user record
+
+**Invitation**:
+The only way an account is made. Tusker has no public signup, so somebody with
+the invite token makes the account for the person.
+_Avoid_: Signup, registration
+
 **Org app**:
 A separate application that an org runs, such as blrhikes-app. An org app reads
 tasks from the Tusker API and supplies the option lists for reference fields. It

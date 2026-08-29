@@ -55,7 +55,15 @@ export function authOptions({ db, secret, baseURL, mailer }: AuthDeps) {
       user: {
         create: {
           after: async (user) => {
-            await createPersonalOrg(db, { id: user.id, name: user.name, email: user.email });
+            // D1 has no interactive transaction, and this hook runs after the
+            // user row lands. A failure here undoes the row, so no account is
+            // left without an org.
+            try {
+              await createPersonalOrg(db, { id: user.id, name: user.name, email: user.email });
+            } catch (failure) {
+              await db.prepare('DELETE FROM "user" WHERE id = ?').bind(user.id).run();
+              throw failure;
+            }
           },
         },
       },

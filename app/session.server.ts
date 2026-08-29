@@ -12,7 +12,7 @@ export async function getSession(request: Request, env: Env) {
  * The signed-in person, or a redirect to sign-in that remembers where the
  * request was going. Throws the redirect, so a loader can call it and stop.
  */
-export async function requireUser(request: Request, env: Env) {
+export async function requirePerson(request: Request, env: Env) {
   const found = await getSession(request, env);
   if (found) return found.user;
 

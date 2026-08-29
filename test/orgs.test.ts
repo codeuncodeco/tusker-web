@@ -1,17 +1,12 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, expect, it } from "vitest";
 
-import { createPersonalOrg, listOrgsForUser } from "../app/orgs.server";
+import { createPersonalOrg, listOrgsForPerson } from "../app/orgs.server";
+import { wipe } from "./routes";
 
 const db = env.DB;
 
-beforeEach(async () => {
-  await db.batch([
-    db.prepare("DELETE FROM memberships"),
-    db.prepare("DELETE FROM orgs"),
-    db.prepare('DELETE FROM "user"'),
-  ]);
-});
+beforeEach(wipe);
 
 /** A bare user row. `memberships.user_id` points at the better-auth table. */
 async function person(id: string, email: string) {
@@ -38,7 +33,7 @@ it("lists only the orgs the person is a member of", async () => {
   await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
   await createPersonalOrg(db, { id: "u2", name: "Bo", email: "bo@example.test" });
 
-  const mine = await listOrgsForUser(db, "u1");
+  const mine = await listOrgsForPerson(db, "u1");
 
   expect(mine).toEqual([expect.objectContaining({ slug: "ada" })]);
 });
@@ -51,7 +46,7 @@ it("puts the personal org first", async () => {
   await db.prepare("INSERT INTO memberships (org_id, user_id, role) VALUES ('t1', 'u1', 'member')").run();
   await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
 
-  const mine = await listOrgsForUser(db, "u1");
+  const mine = await listOrgsForPerson(db, "u1");
 
   expect(mine.map((org) => org.slug)).toEqual(["ada", "codeuncode"]);
 });

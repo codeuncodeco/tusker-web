@@ -14,7 +14,10 @@ export type Mailer = {
 /** A mail the log mailer kept. Local runs and tests read this. */
 export type SentMail = { to: string; subject: string; text: string };
 
-/** Every mail the log mailer took, newest last. Empty when Resend is on. */
+/** How many mails the log mailer holds. The log itself keeps the rest. */
+const OUTBOX_DEPTH = 20;
+
+/** The last mails the log mailer took, newest last. Empty when Resend is on. */
 export const outbox: SentMail[] = [];
 
 /**
@@ -54,6 +57,7 @@ function logMailer(): Mailer {
 
 function keep(mail: SentMail) {
   outbox.push(mail);
+  if (outbox.length > OUTBOX_DEPTH) outbox.shift();
   console.info(`mail to ${mail.to}: ${mail.subject}\n${mail.text}`);
 }
 
@@ -87,7 +91,7 @@ export function oneMail(mailer: Mailer): { mailer: Mailer; flush(): Promise<void
         to = recipient;
         Object.assign(merged, mail);
       },
-      passwordReset: (recipient, url) => mailer.passwordReset(recipient, url),
+      passwordReset: mailer.passwordReset,
     },
     async flush() {
       if (to) await mailer.signIn(to, merged);

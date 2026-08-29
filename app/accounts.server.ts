@@ -8,6 +8,11 @@ import type { Auth } from "./auth.server";
  *
  * The user row triggers the database hook that creates the personal org, so a
  * new person can make a task straight away.
+ *
+ * This reaches into `auth.$context` because better-auth publishes no endpoint
+ * that makes an account without a signup. `sign-up/email` is off, and the
+ * admin plugin would add a role model Tusker does not want. Watch these three
+ * calls on a better-auth upgrade.
  */
 export async function createAccount(
   auth: Auth,

@@ -9,21 +9,14 @@ import * as inviteRoute from "../app/routes/invite";
 import * as meRoute from "../app/routes/me";
 import * as resetRoute from "../app/routes/reset-password";
 import * as signInRoute from "../app/routes/sign-in";
-import { SITE, caught, cookieFrom, get, post, routeArgs } from "./routes";
+import { SITE, caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
 const EMAIL = "ada@example.test";
 const PASSWORD = "correct horse battery";
 
 beforeEach(async () => {
-  await db.batch([
-    db.prepare("DELETE FROM memberships"),
-    db.prepare("DELETE FROM orgs"),
-    db.prepare("DELETE FROM session"),
-    db.prepare("DELETE FROM account"),
-    db.prepare("DELETE FROM verification"),
-    db.prepare('DELETE FROM "user"'),
-  ]);
+  await wipe();
   outbox.length = 0;
 });
 
@@ -190,6 +183,21 @@ describe("the invite endpoint", () => {
     expect(response.status).toBe(401);
     const { results } = await db.prepare('SELECT id FROM "user"').all();
     expect(results).toEqual([]);
+  });
+
+  it("refuses a password that is too short", async () => {
+    const short = new Request(`${SITE}/api/invite`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${env.INVITE_TOKEN}`,
+      },
+      body: JSON.stringify({ email: "bo@example.test", password: "short" }),
+    });
+
+    const response = await caught(inviteRoute.action(routeArgs(short)));
+
+    expect(response.status).toBe(400);
   });
 
   it("makes an account, and that account gets its personal org", async () => {

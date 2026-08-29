@@ -2,8 +2,8 @@ import { Form, redirect } from "react-router";
 
 import { createAuth } from "../auth.server";
 import { cloudflareEnv } from "../context.server";
-import { listOrgsForUser } from "../orgs.server";
-import { requireUser, withCookies } from "../session.server";
+import { listOrgsForPerson } from "../orgs.server";
+import { requirePerson, withCookies } from "../session.server";
 import type { Route } from "./+types/me";
 
 export function meta(_: Route.MetaArgs) {
@@ -12,9 +12,9 @@ export function meta(_: Route.MetaArgs) {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const user = await requireUser(request, env);
-  const orgs = await listOrgsForUser(env.DB, user.id);
-  return { person: { name: user.name, email: user.email }, orgs };
+  const person = await requirePerson(request, env);
+  const orgs = await listOrgsForPerson(env.DB, person.id);
+  return { person: { name: person.name, email: person.email }, orgs };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {

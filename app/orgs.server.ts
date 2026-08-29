@@ -6,10 +6,8 @@ export type Org = {
   created_at: string;
 };
 
-export type Role = "owner" | "member";
-
 /** The orgs one person is a member of, personal org first, then newest first. */
-export async function listOrgsForUser(db: D1Database, userId: string): Promise<Org[]> {
+export async function listOrgsForPerson(db: D1Database, personId: string): Promise<Org[]> {
   const { results } = await db
     .prepare(
       `SELECT o.id, o.slug, o.name, o.kind, o.created_at
@@ -18,7 +16,7 @@ export async function listOrgsForUser(db: D1Database, userId: string): Promise<O
        WHERE m.user_id = ?
        ORDER BY o.kind = 'personal' DESC, o.created_at DESC`,
     )
-    .bind(userId)
+    .bind(personId)
     .all<Org>();
   return results;
 }
@@ -27,30 +25,49 @@ export async function listOrgsForUser(db: D1Database, userId: string): Promise<O
  * Creates the org Tusker gives a person at signup, with that person as its only
  * member. The org row and the membership row go in one batch, because a person
  * with no org cannot make a task.
+ *
+ * The slug column is unique, so two people invited at once with the same email
+ * local part can collide. The insert then runs again with the next free slug.
  */
 export async function createPersonalOrg(
   db: D1Database,
   person: { id: string; name?: string | null; email: string },
 ): Promise<Org> {
-  const id = crypto.randomUUID();
-  const slug = await freeSlug(db, baseSlug(person.email));
+  const base = baseSlug(person.email);
   const name = person.name?.trim() || person.email;
 
-  await db.batch([
-    db
-      .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'personal')")
-      .bind(id, slug, name),
-    db
-      .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')")
-      .bind(id, person.id),
-  ]);
+  for (let tries = 0; tries < 5; tries++) {
+    const id = crypto.randomUUID();
+    const slug = await freeSlug(db, base);
 
-  const org = await db
-    .prepare("SELECT id, slug, name, kind, created_at FROM orgs WHERE id = ?")
-    .bind(id)
-    .first<Org>();
-  if (!org) throw new Error("The personal org disappeared right after the insert.");
-  return org;
+    try {
+      await db.batch([
+        db
+          .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'personal')")
+          .bind(id, slug, name),
+        db
+          .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')")
+          .bind(id, person.id),
+      ]);
+    } catch (failure) {
+      if (tookTheSlug(failure)) continue;
+      throw failure;
+    }
+
+    const org = await db
+      .prepare("SELECT id, slug, name, kind, created_at FROM orgs WHERE id = ?")
+      .bind(id)
+      .first<Org>();
+    if (!org) throw new Error("The personal org disappeared right after the insert.");
+    return org;
+  }
+
+  throw new Error(`Five tries found no free slug near ${base}.`);
+}
+
+/** True when another org took the slug between the read and the insert. */
+function tookTheSlug(failure: unknown): boolean {
+  return failure instanceof Error && failure.message.includes("UNIQUE constraint failed");
 }
 
 /** The email's local part, cut down to what a URL can hold. */

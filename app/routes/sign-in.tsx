@@ -5,6 +5,7 @@ import { cloudflareEnv } from "../context.server";
 import { createMailer, oneMail } from "../mail.server";
 import { safeNext } from "../paths";
 import { getSession, withCookies } from "../session.server";
+import { fieldClass } from "../forms";
 import type { Route } from "./+types/sign-in";
 
 export function meta(_: Route.MetaArgs) {
@@ -21,9 +22,22 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 /** What the form shows after a post. One shape, so the view stays simple. */
-type Said = { error?: string; sent?: string; email?: string; next: string };
+type SignInReply = { error?: string; sent?: string; email?: string; next: string };
 
-export async function action({ request, context }: Route.ActionArgs): Promise<Said | Response> {
+/**
+ * Turns a better-auth sign-in into a redirect that carries the session cookie,
+ * or into the message the form shows. The password and the code both end here.
+ */
+async function land(
+  attempt: Promise<Response>,
+  wrong: SignInReply,
+): Promise<SignInReply | Response> {
+  const response = await attempt.catch(() => null);
+  if (!response?.ok) return wrong;
+  return withCookies(response, redirect(wrong.next));
+}
+
+export async function action({ request, context }: Route.ActionArgs): Promise<SignInReply | Response> {
   const env = context.get(cloudflareEnv);
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -35,35 +49,35 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Sa
   if (intent === "password") {
     const auth = createAuth(env, request);
     const password = String(form.get("password") ?? "");
-    const response = await auth.api
-      .signInEmail({ body: { email, password }, headers: request.headers, asResponse: true })
-      .catch(() => null);
-
-    if (!response?.ok) return { error: "That email and password do not match.", email, next };
-    return withCookies(response, redirect(next));
+    return land(
+      auth.api.signInEmail({ body: { email, password }, headers: request.headers, asResponse: true }),
+      { error: "That email and password do not match.", email, next },
+    );
   }
 
   if (intent === "code") {
     const auth = createAuth(env, request);
     const otp = String(form.get("otp") ?? "").trim();
-    const response = await auth.api
-      .signInEmailOTP({ body: { email, otp }, headers: request.headers, asResponse: true })
-      .catch(() => null);
-
-    if (!response?.ok) return { error: "That code is wrong or too old.", email, sent: SENT, next };
-    return withCookies(response, redirect(next));
+    return land(
+      auth.api.signInEmailOTP({ body: { email, otp }, headers: request.headers, asResponse: true }),
+      { error: "That code is wrong or too old.", email, sent: SENT, next },
+    );
   }
 
   if (intent === "link") {
     // One mail carries both, because mail latency is the reason a code exists.
     const box = oneMail(createMailer(env));
     const auth = createAuth(env, request, box.mailer);
-    try {
-      await auth.api.signInMagicLink({ body: { email, callbackURL: next }, headers: request.headers });
-      await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: request.headers });
-    } catch {
-      // An unknown email must look the same as a known one.
-    }
+
+    // An unknown email must look the same as a known one, so neither call
+    // changes the answer. A failed call is still worth a line in the log.
+    await auth.api
+      .signInMagicLink({ body: { email, callbackURL: next }, headers: request.headers })
+      .catch((failure) => console.error("The magic link did not go out.", failure));
+    await auth.api
+      .sendVerificationOTP({ body: { email, type: "sign-in" }, headers: request.headers })
+      .catch((failure) => console.error("The code did not go out.", failure));
+
     await box.flush();
     return { sent: SENT, email, next };
   }
@@ -109,7 +123,7 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
             autoComplete="email"
             required
             defaultValue={email}
-            className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+            className={fieldClass}
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -118,7 +132,7 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
             name="password"
             type="password"
             autoComplete="current-password"
-            className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+            className={fieldClass}
           />
         </label>
         <button
@@ -147,7 +161,7 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
             name="otp"
             inputMode="numeric"
             autoComplete="one-time-code"
-            className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+            className={fieldClass}
           />
         </label>
         <button name="intent" value="code" className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">

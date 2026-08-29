@@ -5,6 +5,18 @@ import { cloudflareEnv } from "../app/context.server";
 
 export const SITE = "https://tusker.test";
 
+/** Empties every table, so one test cannot see what another one wrote. */
+export async function wipe() {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM memberships"),
+    env.DB.prepare("DELETE FROM orgs"),
+    env.DB.prepare("DELETE FROM session"),
+    env.DB.prepare("DELETE FROM account"),
+    env.DB.prepare("DELETE FROM verification"),
+    env.DB.prepare('DELETE FROM "user"'),
+  ]);
+}
+
 /** The arguments a loader or an action takes, with the Worker's env in place. */
 export function routeArgs(request: Request) {
   const context = new RouterContextProvider();
