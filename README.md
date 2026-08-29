@@ -1,6 +1,8 @@
 # tusker-web
 
 Tusker is a keyboard-first task board for several orgs at once.
+[CONTEXT.md](./CONTEXT.md) holds the language, [docs/plan.md](./docs/plan.md)
+holds the phases, and [docs/adr/](./docs/adr/) holds the decisions.
 
 This is the walking skeleton: one route, one D1 database, one migration, on
 Cloudflare Workers.
