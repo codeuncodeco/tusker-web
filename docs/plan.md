@@ -80,7 +80,7 @@ Notes that the table does not show:
   helper. Scoping by hand is how a row leaks.
 - `color` and `derives_from` are not built. The colour is the extension's client
   dot, made generic: a reference field carries it and a card draws it. It waits
-  for the card design that shows it.
+  for the card design that shows it. See #32.
 - The two keys point opposite ways. `org_fields.refs_key` is the refs key an org
   app minted, held as plaintext because Tusker sends it. `org_api_keys` holds
   the org key Tusker minted, hashed because Tusker verifies it. See ADR-0005.
