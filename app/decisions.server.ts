@@ -13,10 +13,13 @@ import { redirect } from "react-router";
 
 import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
-import { readTask } from "./tasks.server";
+import { moveTask } from "./tasks.server";
+
+/** A task named where it lives: the id, and the org that holds it. */
+export type TaskInOrg = { id: string; slug: string };
 
 /** The task a page has the prompt raised on. */
-export type Ask = { id: string; slug: string; title: string };
+export type Ask = TaskInOrg & { title: string };
 
 /** One line of the log. `task` is null once the task is gone. */
 export type Logged = {
@@ -41,16 +44,57 @@ type LogRow = {
  * The same page again, with the prompt raised on one task. Every route that
  * finishes a task answers with this.
  */
-export function askOn(request: Request, task: { id: string; slug: string }): Response {
+export function askOn(request: Request, task: TaskInOrg): Response {
   const url = new URL(request.url);
   return redirect(withPrompt(url.pathname, url.search, task));
 }
 
 /**
- * The task this page has the prompt raised on, or null. The row is read
- * through the scope, so a task id a person typed into the query string of an
- * org they belong to still answers null.
+ * Finishes a task, and answers with the prompt when this is the move that
+ * finished it. Finishing is the move the board makes, so one act has one
+ * meaning wherever a page offers it.
+ *
+ * Null is a task finished with nothing to ask: Tusker had already asked.
+ * `moved` is false when the org holds no such row, so the route can answer 404.
  */
+export async function finishTask(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+  taskId: string,
+): Promise<{ moved: boolean; prompt: Response | null }> {
+  const moved = await moveTask(db, scope, { taskId, status: "done", before: null });
+  return {
+    moved: moved.moved,
+    prompt: moved.asks ? askOn(request, { id: taskId, slug: scope.org.slug }) : null,
+  };
+}
+
+/**
+ * The task Tusker may raise the prompt for: one this org holds, one it has
+ * asked about, and one no decision answers for yet.
+ *
+ * The last two rule the query string out as a way back in. A person cannot
+ * type an id into the address bar to raise a prompt that was never due, and a
+ * form posted twice writes one decision, not two.
+ */
+async function askable(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+): Promise<{ id: string; title: string } | null> {
+  const row = await db
+    .prepare(
+      `SELECT t.id, t.title FROM tasks t
+       WHERE t.id = ? AND t.org_id = ? AND t.decision_asked = 1
+         AND NOT EXISTS (SELECT 1 FROM decisions d WHERE d.task_id = t.id)`,
+    )
+    .bind(taskId, scope.org.id)
+    .first<{ id: string; title: string }>();
+  return row ?? null;
+}
+
+/** The task this page has the prompt raised on, or null. */
 export async function askedOn(
   db: D1Database,
   scope: Scope,
@@ -59,7 +103,7 @@ export async function askedOn(
   const id = new URL(request.url).searchParams.get(ASK);
   if (!id) return null;
 
-  const task = await readTask(db, scope, id);
+  const task = await askable(db, scope, id);
   return task ? { id: task.id, slug: scope.org.slug, title: task.title } : null;
 }
 
@@ -77,11 +121,6 @@ export async function askedAcross(
   return scope ? askedOn(db, scope, request) : null;
 }
 
-/** True when the form is the prompt's own save. */
-export function isDecide(form: FormData): boolean {
-  return String(form.get("intent") ?? "") === "decide";
-}
-
 /**
  * Writes the decision one prompt answered, and gives the page back with the
  * prompt gone. An empty title is an error the prompt shows, so the words the
@@ -96,10 +135,9 @@ export async function decide(
   const title = String(form.get("title") ?? "").trim();
   if (!title) return { error: "A decision needs a title." };
 
-  const taskId = String(form.get("id") ?? "");
-  // The task is read through the scope, so a decision cannot be hung on a row
-  // of another org.
-  const task = await readTask(db, scope, taskId);
+  // The task is read through the scope, and only a task with a prompt still
+  // open answers, so no post can hang a second decision on one task.
+  const task = await askable(db, scope, String(form.get("id") ?? ""));
   if (!task) throw new Response("Not found", { status: 404 });
 
   await db

@@ -62,11 +62,13 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
 
           <label className="flex flex-col gap-1 text-sm">
             Title
+            {/* Empty, with the task named beside it. A title that repeats
+                the task says nothing the log did not already hold. */}
             <input
               name="title"
               required
               autoFocus
-              defaultValue={ask.title}
+              placeholder={`What ${ask.title} settled`}
               className={fieldClass}
             />
           </label>

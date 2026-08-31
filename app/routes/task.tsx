@@ -4,7 +4,7 @@ import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { DecisionPrompt } from "../decision-prompt";
-import { askOn, askedOn, decide, isDecide } from "../decisions.server";
+import { askedOn, decide, finishTask } from "../decisions.server";
 import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
@@ -12,7 +12,7 @@ import { fieldClass } from "../forms";
 import { OrgNav } from "../org-nav";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
-import { moveTask, readTask, saveTask } from "../tasks.server";
+import { readTask, saveTask } from "../tasks.server";
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -63,19 +63,15 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   const form = await request.formData();
 
-  if (isDecide(form)) return decide(env.DB, scope, request, form);
+  const intent = String(form.get("intent") ?? "");
 
-  // Finishing here is the move the board makes, so one act has one meaning,
-  // and the prompt is raised wherever a task is finished.
-  if (String(form.get("intent") ?? "") === "finish") {
-    const moved = await moveTask(env.DB, scope, {
-      taskId: params.taskId,
-      status: "done",
-      before: null,
-    });
-    if (!moved.moved) throw new Response("Not found", { status: 404 });
-    if (moved.asks) return askOn(request, { id: params.taskId, slug: scope.org.slug });
-    return { ok: true };
+  // The prompt the Finish button raised, answered.
+  if (intent === "decide") return decide(env.DB, scope, request, form);
+
+  if (intent === "finish") {
+    const finished = await finishTask(env.DB, scope, request, params.taskId);
+    if (!finished.moved) throw new Response("Not found", { status: 404 });
+    return finished.prompt ?? { ok: true };
   }
 
   const title = String(form.get("title") ?? "").trim();

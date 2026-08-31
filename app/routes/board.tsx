@@ -14,7 +14,7 @@ import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
-import { askOn, askedOn, decide, isDecide } from "../decisions.server";
+import { askOn, askedOn, decide } from "../decisions.server";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
@@ -154,7 +154,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
-  if (isDecide(form)) return decide(env.DB, scope, request, form);
+  // The prompt a finished card raised, answered.
+  if (intent === "decide") return decide(env.DB, scope, request, form);
 
   throw new Response("That form does not name an action.", { status: 400 });
 }

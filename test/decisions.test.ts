@@ -48,6 +48,11 @@ function onBoard(cookie: string, slug: string, fields: Record<string, string>, q
   return boardRoute.action(routeArgs(request, { slug }));
 }
 
+/** A task finished on the board, which is what raises the prompt. */
+function finish(cookie: string, slug: string, id: string) {
+  return onBoard(cookie, slug, { intent: "move", id, status: "done" });
+}
+
 /** The board, as one person reads it. */
 function board(cookie: string, slug: string, query = "") {
   return boardRoute.loader(routeArgs(get(`/o/${slug}/board${query}`, cookie), { slug }));
@@ -109,8 +114,8 @@ describe("the prompt on finishing", () => {
       status: "done",
     });
 
-    expect(query(response).get("decide")).toBe("ship");
-    expect((await board(ada.cookie, ada.org.slug, "?decide=ship")).ask).toEqual({
+    expect(query(response).get("ask")).toBe("ship");
+    expect((await board(ada.cookie, ada.org.slug, "?ask=ship")).ask).toEqual({
       id: "ship",
       slug: ada.org.slug,
       title: "ship",
@@ -150,9 +155,9 @@ describe("the prompt on finishing", () => {
 
     const response = await onMe(ada.cookie, { intent: "finish", id: "ship", slug: ada.org.slug });
 
-    expect(query(response).get("decide")).toBe("ship");
+    expect(query(response).get("ask")).toBe("ship");
     expect(query(response).get("org")).toBe(ada.org.slug);
-    expect((await mePage(ada.cookie, `?decide=ship&org=${ada.org.slug}`)).ask).toEqual({
+    expect((await mePage(ada.cookie, `?ask=ship&org=${ada.org.slug}`)).ask).toEqual({
       id: "ship",
       slug: ada.org.slug,
       title: "ship",
@@ -165,11 +170,31 @@ describe("the prompt on finishing", () => {
 
     const response = await onTask(ada.cookie, ada.org.slug, "ship", { intent: "finish" });
 
-    expect(query(response).get("decide")).toBe("ship");
+    expect(query(response).get("ask")).toBe("ship");
     const status = await db.prepare("SELECT status FROM tasks WHERE id = 'ship'").first<{
       status: string;
     }>();
     expect(status!.status).toBe("done");
+  });
+
+  it("is not raised for a task Tusker never asked about", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+
+    expect((await board(ada.cookie, ada.org.slug, "?ask=ship")).ask).toBe(null);
+  });
+
+  it("is gone once the decision is written, so a reload does not ask twice", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+    await finish(ada.cookie, ada.org.slug, "ship");
+    await onBoard(ada.cookie, ada.org.slug, {
+      intent: "decide",
+      id: "ship",
+      title: "Ship on Friday",
+    });
+
+    expect((await board(ada.cookie, ada.org.slug, "?ask=ship")).ask).toBe(null);
   });
 
   it("reads null for a task the person's orgs do not hold", async () => {
@@ -177,8 +202,8 @@ describe("the prompt on finishing", () => {
     const bob = await member("bob@example.test", "Bob");
     await task(bob.org.id, "theirs");
 
-    expect((await board(ada.cookie, ada.org.slug, "?decide=theirs")).ask).toBe(null);
-    expect((await mePage(ada.cookie, `?decide=theirs&org=${bob.org.slug}`)).ask).toBe(null);
+    expect((await board(ada.cookie, ada.org.slug, "?ask=theirs")).ask).toBe(null);
+    expect((await mePage(ada.cookie, `?ask=theirs&org=${bob.org.slug}`)).ask).toBe(null);
   });
 });
 
@@ -233,7 +258,7 @@ describe("saving a decision", () => {
       ada.cookie,
       ada.org.slug,
       { intent: "decide", id: "ship", title: "Ship on Friday", rationale: "The test is green." },
-      "?decide=ship",
+      "?ask=ship",
     );
 
     expect((response as Response).headers.get("location")).toBe(`/o/${ada.org.slug}/board`);
@@ -247,6 +272,7 @@ describe("saving a decision", () => {
   it("names the person who decided", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "ship");
+    await finish(ada.cookie, ada.org.slug, "ship");
 
     await onMe(ada.cookie, {
       intent: "decide",
@@ -264,6 +290,7 @@ describe("saving a decision", () => {
   it("refuses an empty title, and keeps the words the person typed", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "ship");
+    await finish(ada.cookie, ada.org.slug, "ship");
 
     const answer = await onBoard(ada.cookie, ada.org.slug, {
       intent: "decide",
@@ -274,6 +301,19 @@ describe("saving a decision", () => {
 
     expect(answer).toEqual({ error: "A decision needs a title." });
     expect(await rows()).toEqual([]);
+  });
+
+  it("writes one decision for a form posted twice", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+    await finish(ada.cookie, ada.org.slug, "ship");
+    const save = { intent: "decide", id: "ship", title: "Ship on Friday" };
+
+    await onBoard(ada.cookie, ada.org.slug, save);
+    const again = await caught(onBoard(ada.cookie, ada.org.slug, save));
+
+    expect(again.status).toBe(404);
+    expect(await rows()).toHaveLength(1);
   });
 
   it("refuses a task another org holds", async () => {
@@ -298,6 +338,7 @@ describe("a decision outliving its task", () => {
   it("stays in the log with the link cleared when the task is deleted", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "ship");
+    await finish(ada.cookie, ada.org.slug, "ship");
     await onBoard(ada.cookie, ada.org.slug, {
       intent: "decide",
       id: "ship",
@@ -318,6 +359,8 @@ describe("the log", () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "first");
     await task(ada.org.id, "second");
+    await finish(ada.cookie, ada.org.slug, "first");
+    await finish(ada.cookie, ada.org.slug, "second");
     await onBoard(ada.cookie, ada.org.slug, { intent: "decide", id: "first", title: "One" });
     await onBoard(ada.cookie, ada.org.slug, { intent: "decide", id: "second", title: "Two" });
 
@@ -332,6 +375,8 @@ describe("the log", () => {
     const bob = await member("bob@example.test", "Bob");
     await task(ada.org.id, "mine");
     await task(bob.org.id, "theirs");
+    await finish(ada.cookie, ada.org.slug, "mine");
+    await finish(bob.cookie, bob.org.slug, "theirs");
     await onBoard(ada.cookie, ada.org.slug, { intent: "decide", id: "mine", title: "Mine" });
     await onBoard(bob.cookie, bob.org.slug, { intent: "decide", id: "theirs", title: "Theirs" });
 
@@ -353,12 +398,12 @@ describe("the log", () => {
 describe("where the prompt lives", () => {
   it("raises the prompt on a page, keeping the query string it had", () => {
     expect(withPrompt("/o/acme/board", "?cancelled=1", { id: "ship", slug: "acme" })).toBe(
-      "/o/acme/board?cancelled=1&decide=ship&org=acme",
+      "/o/acme/board?cancelled=1&ask=ship&org=acme",
     );
   });
 
   it("closes it, and leaves a page with nothing else to say no query string", () => {
-    expect(withoutPrompt("/me", "?decide=ship&org=acme")).toBe("/me");
-    expect(withoutPrompt("/me", "?decide=ship&org=acme&today=1")).toBe("/me?today=1");
+    expect(withoutPrompt("/me", "?ask=ship&org=acme")).toBe("/me");
+    expect(withoutPrompt("/me", "?ask=ship&org=acme&today=1")).toBe("/me?today=1");
   });
 });

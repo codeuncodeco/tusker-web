@@ -20,7 +20,7 @@ import { Form, Link } from "react-router";
 import { cloudflareEnv } from "../context.server";
 import { dayName, dayOf, isDay } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
-import { askOn, askedAcross } from "../decisions.server";
+import { askedAcross } from "../decisions.server";
 import type { Leftovers } from "../leftovers";
 import { leftoversFor } from "../leftovers.server";
 import { OrgSwitcher } from "../org-switcher";
@@ -107,8 +107,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   const acted = await actOnTask(env, request, set, day, form);
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
-  if (acted instanceof Response) return acted;
-  if (acted.ask) return askOn(request, acted.ask);
 
   return acted;
 }

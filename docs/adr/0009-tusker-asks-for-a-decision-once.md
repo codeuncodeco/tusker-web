@@ -28,7 +28,12 @@ One flag covers both cases. A skipped prompt is not asked again, and neither is
 a task that went out of Done and back, because the ask is what the flag counts,
 not the answer.
 
-The prompt lives in the query string, as `?decide=<task>&org=<slug>`, and not in
+The prompt is open only while the flag is 1 and no decision answers for the
+task. The query string says which task the prompt is on, so that pair is what
+the page reads, not the address alone: a person cannot type an id in to raise a
+prompt that was never due, and a form posted twice writes one decision.
+
+The prompt lives in the query string, as `?ask=<task>&org=<slug>`, and not in
 the answer of the post that finished the task. Every way of finishing therefore
 reaches the same prompt — a board card, a row of the unified view, the task
 page — and each page raises it with one component. A reload before the person
@@ -39,9 +44,9 @@ answers raises the same prompt again, because the place is still in the address.
 Tusker asks once per task, and never twice for one decision.
 
 A person who skips the prompt has no way back to it from the task. The log takes
-no decision without a task, so what is lost is lost until #39 grows an editor.
-That is the price of one flag, and it is the right one while the log is the
-only screen a decision has.
+no decision without a task, so what is lost is lost until a decision can be
+written straight into the log. That is the price of one flag, and it is the
+right one while the log is the only screen a decision has.
 
 A finish answers with a redirect rather than with data. Every finishing route
 therefore hands back a `Response`, and a fetcher that posts one follows it.

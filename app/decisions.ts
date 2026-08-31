@@ -8,7 +8,7 @@
  */
 
 /** The task the prompt asks about. */
-export const ASK = "decide";
+export const ASK = "ask";
 
 /** The org that holds it, which a cross-org page has no path to read. */
 export const ORG = "org";

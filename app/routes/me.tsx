@@ -12,7 +12,7 @@ import { Link } from "react-router";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
-import { askOn, askedAcross } from "../decisions.server";
+import { askedAcross } from "../decisions.server";
 import { OrgSwitcher } from "../org-switcher";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
@@ -55,10 +55,6 @@ export async function action({ request, context }: Route.ActionArgs) {
   const form = await request.formData();
   const acted = await actOnTask(env, request, set, dayOf(request), form);
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
-  if (acted instanceof Response) return acted;
-  // Finishing a task here is finishing it anywhere, so the prompt is raised
-  // the same way the board raises it.
-  if (acted.ask) return askOn(request, acted.ask);
 
   return acted;
 }
