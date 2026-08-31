@@ -78,7 +78,7 @@ function act(cookie: string, fields: Record<string, string>, day = DAY) {
 
 /** The ids the batch holds, in the order the screen draws them. */
 function batch(data: Awaited<ReturnType<typeof focus>>) {
-  return data.tasks.map((one) => one.id);
+  return data.focus.batch.tasks.map((one) => one.id);
 }
 
 /** The order one plans row holds. */
@@ -108,8 +108,8 @@ describe("the batch a plan draws", () => {
     const data = await focus(ada.cookie);
 
     expect(batch(data)).toEqual(["d", "c", "b"]);
-    expect(data.left).toBe(1);
-    expect(data.number).toBe(1);
+    expect(data.focus.batch.left).toBe(1);
+    expect(data.focus.batch.number).toBe(1);
   });
 
   it("holds tasks of several orgs", async () => {
@@ -121,7 +121,7 @@ describe("the batch a plan draws", () => {
 
     const data = await focus(ada.cookie);
 
-    expect(data.tasks.map((one) => one.org.slug)).toEqual(["codeuncode", ada.org.slug]);
+    expect(data.focus.batch.tasks.map((one) => one.org.slug)).toEqual(["codeuncode", ada.org.slug]);
   });
 
   it("shows what there is, under three", async () => {
@@ -139,8 +139,8 @@ describe("the batch a plan draws", () => {
 
     const data = await focus(ada.cookie);
 
-    expect(data.tasks).toEqual([]);
-    expect(data.planEmpty).toBe(true);
+    expect(data.focus.batch.tasks).toEqual([]);
+    expect(data.focus.planEmpty).toBe(true);
   });
 
   it("leaves out a planned task that was archived, without an error", async () => {
@@ -164,8 +164,8 @@ describe("the batch with no plan", () => {
 
     // In progress before To do, which is the order `/me` draws.
     expect(batch(data)).toEqual(["now", "a", "b"]);
-    expect(data.planned).toBe(false);
-    expect(data.left).toBe(1);
+    expect(data.focus.planned).toBe(false);
+    expect(data.focus.batch.left).toBe(1);
   });
 
   it("hides a Backlog task, which is not work for today", async () => {
@@ -187,7 +187,7 @@ describe("finishing from focus", () => {
     const data = await focus(ada.cookie);
 
     expect(batch(data)).toEqual(["a", "b", "c"]);
-    expect(data.tasks[0].finished).toBe(true);
+    expect(data.focus.batch.tasks[0].finished).toBe(true);
   });
 
   it("shows the next batch only once the batch holds no unfinished task", async () => {
@@ -203,7 +203,7 @@ describe("finishing from focus", () => {
     const data = await focus(ada.cookie);
 
     expect(batch(data)).toEqual(["d", "e"]);
-    expect(data.number).toBe(2);
+    expect(data.focus.batch.number).toBe(2);
   });
 
   it("writes the batch as the day's plan, so no fourth task slides in", async () => {
@@ -224,9 +224,10 @@ describe("finishing from focus", () => {
     await act(ada.cookie, { intent: "finish", id: "a", slug: ada.org.slug });
     const data = await focus(ada.cookie);
 
-    expect(data.tasks).toEqual([]);
-    expect(data.planEmpty).toBe(false);
-    expect(data.planned).toBe(true);
+    expect(data.focus.batch.tasks).toEqual([]);
+    expect(data.focus.batch.number).toBe(0);
+    expect(data.focus.planEmpty).toBe(false);
+    expect(data.focus.planned).toBe(true);
   });
 });
 

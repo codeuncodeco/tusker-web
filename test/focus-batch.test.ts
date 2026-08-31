@@ -56,13 +56,15 @@ describe("the batch", () => {
     expect(batch.left).toBe(2);
   });
 
-  it("answers with no task at all when every task is finished", () => {
-    const batch = batchOf([live("a", true), live("b", true)]);
-    expect(batch.tasks).toEqual([]);
-    expect(batch.left).toBe(0);
+  it("answers with no batch at all when every task is finished", () => {
+    expect(batchOf([live("a", true), live("b", true)])).toEqual({
+      tasks: [],
+      number: 0,
+      left: 0,
+    });
   });
 
-  it("answers with no task at all for no task at all", () => {
+  it("answers with no batch at all for no task at all", () => {
     expect(batchOf([])).toEqual({ tasks: [], number: 0, left: 0 });
   });
 });

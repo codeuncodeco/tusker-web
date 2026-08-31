@@ -161,8 +161,9 @@ unified view when none does. See ADR-0009.
 _Avoid_: Focus timer, deep work mode
 
 **Batch**:
-The three tasks focus mode shows. The plan cut into threes from the top, and
-the batch is the first three that hold an unfinished task. Nothing stores one.
+The tasks focus mode shows at one time, three at the most. The plan is cut into
+threes from the top, and the batch is the first three that hold an unfinished
+task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
 
 **Drop**:

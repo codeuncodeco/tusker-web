@@ -6,9 +6,28 @@
  * well. A key and a button post the same fields to either route.
  */
 
-import { addToPlan, dropFromPlan } from "./plans.server";
-import { scopeForSlug, type OrgSet } from "./scope.server";
-import { moveTask, readTask } from "./tasks.server";
+import { appendToPlan, unplanTask } from "./plans.server";
+import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
+import { moveTask, readTask, type Task } from "./tasks.server";
+
+/**
+ * The task a form names, read back through the one-org scope, and the scope
+ * that proved it. A task the person cannot reach is a 404 here, not a row a
+ * plan quietly picks up.
+ *
+ * Every act on one task goes through this, so there is one place to get the
+ * check right. See `CONTEXT.md`, "Scope".
+ */
+export async function taskFrom(
+  env: Env,
+  set: OrgSet,
+  form: FormData,
+): Promise<{ scope: Scope; task: Task }> {
+  const scope = scopeForSlug(set, String(form.get("slug") ?? ""));
+  const task = scope ? await readTask(env.DB, scope, String(form.get("id") ?? "")) : null;
+  if (!scope || !task) throw new Response("Not found", { status: 404 });
+  return { scope, task };
+}
 
 /**
  * True when the form named one of these acts, and the act is done. False for a
@@ -24,13 +43,10 @@ export async function actOnTask(
   const intent = String(form.get("intent") ?? "");
   if (intent !== "plan" && intent !== "unplan" && intent !== "finish") return false;
 
-  const taskId = String(form.get("id") ?? "");
   // Every act names the org the task belongs to, and the row is read back
-  // through the one-org scope. A task the person cannot reach is a 404 here,
-  // not a row a plan quietly picks up.
-  const scope = scopeForSlug(set, String(form.get("slug") ?? ""));
-  const task = scope ? await readTask(env.DB, scope, taskId) : null;
-  if (!scope || !task) throw new Response("Not found", { status: 404 });
+  // through the one-org scope.
+  const { scope, task } = await taskFrom(env, set, form);
+  const taskId = task.id;
 
   if (intent === "plan") {
     // Picking a task for today is the act of taking it out of the backlog, so
@@ -38,10 +54,10 @@ export async function actOnTask(
     if (task.status !== "todo" && task.status !== "in_progress") {
       throw new Response("Only a To do or In progress task can be planned.", { status: 400 });
     }
-    await addToPlan(env.DB, set.personId, day, taskId);
+    await appendToPlan(env.DB, set.personId, day, [taskId]);
   }
 
-  if (intent === "unplan") await dropFromPlan(env.DB, set.personId, day, taskId);
+  if (intent === "unplan") await unplanTask(env.DB, set.personId, day, taskId);
 
   if (intent === "finish") {
     // Finishing here is the move the board makes, so one act has one meaning.

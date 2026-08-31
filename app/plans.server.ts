@@ -30,24 +30,6 @@ export async function readPlan(
 }
 
 /**
- * Adds a task at the end of a day's plan, where a person who names one more
- * task means it after the ones they already named. A task the plan holds is
- * left where it is.
- *
- * The caller proved the person can reach the task, through the scope helper.
- */
-export async function addToPlan(
-  db: D1Database,
-  personId: string,
-  day: string,
-  taskId: string,
-): Promise<void> {
-  const plan = (await readPlan(db, personId, day)) ?? [];
-  if (plan.includes(taskId)) return;
-  await writePlan(db, personId, day, [...plan, taskId]);
-}
-
-/**
  * Writes a day's plan, and only where the person has planned no day yet.
  *
  * Focus mode holds its batch this way: the first act on a batch drawn from the
@@ -69,7 +51,12 @@ export async function startPlan(
     .run();
 }
 
-/** Adds tasks the plan does not hold at the end of a day's plan, in one write. */
+/**
+ * Adds the tasks a day's plan does not hold at its end, in one write, where a
+ * person who names one more task means it after the ones they already named.
+ *
+ * The caller proved the person can reach every task, through the scope helper.
+ */
 export async function appendToPlan(
   db: D1Database,
   personId: string,
@@ -119,7 +106,7 @@ export async function pushDownPlan(
 }
 
 /** Takes a task out of a day's plan, leaving the rest in order. */
-export async function dropFromPlan(
+export async function unplanTask(
   db: D1Database,
   personId: string,
   day: string,

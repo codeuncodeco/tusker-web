@@ -51,7 +51,7 @@ export function UnifiedRow({
   moves?: { up: boolean; down: boolean };
   /** False where planning a task means nothing, which is focus mode. */
   plannable?: boolean;
-  /** True where a task can leave the screen unfinished: focus mode, with a plan. */
+  /** True where a task can leave the screen unfinished, which is focus mode. */
   droppable?: boolean;
 }) {
   const post = useFetcher();

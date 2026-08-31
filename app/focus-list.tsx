@@ -10,12 +10,12 @@
 import { useEffect, useState } from "react";
 import { useFetcher, useNavigate } from "react-router";
 
+import { isPagePress } from "./keys";
 import type { LiveTask } from "./unified";
 import { UnifiedRow, dropFields, finishFields } from "./unified-row";
 
 function useKeys(
   rows: LiveTask[],
-  droppable: boolean,
   on: string | null,
   setOn: (id: string) => void,
   act: (fields: Record<string, string>) => void,
@@ -24,10 +24,7 @@ function useKeys(
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      // A person who types in a box wants the letter, not the key.
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select")) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (!isPagePress(event)) return;
 
       const at = rows.findIndex((one) => one.id === on);
       const task = rows[at];
@@ -40,7 +37,7 @@ function useKeys(
         if (task.finished) return;
         act(finishFields(task));
       } else if (event.key === "d") {
-        if (!droppable || task.finished) return;
+        if (task.finished) return;
         act(dropFields(task));
       } else return;
 
@@ -49,16 +46,16 @@ function useKeys(
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, droppable, on, setOn, act, navigate]);
+  }, [rows, on, setOn, act, navigate]);
 }
 
-export function FocusList({ tasks, droppable }: { tasks: LiveTask[]; droppable: boolean }) {
+export function FocusList({ tasks }: { tasks: LiveTask[] }) {
   const post = useFetcher();
   const [on, setOn] = useState<string | null>(null);
 
   // The cursor names a task, and starts on the first of the batch.
   const cursor = tasks.some((one) => one.id === on) ? on : (tasks[0]?.id ?? null);
-  useKeys(tasks, droppable, cursor, setOn, (fields) => post.submit(fields, { method: "post" }));
+  useKeys(tasks, cursor, setOn, (fields) => post.submit(fields, { method: "post" }));
 
   return (
     <ul className="flex flex-col gap-2">
@@ -70,7 +67,7 @@ export function FocusList({ tasks, droppable }: { tasks: LiveTask[]; droppable: 
           selected={cursor === task.id}
           domId={`row-${task.id}`}
           plannable={false}
-          droppable={droppable}
+          droppable
         />
       ))}
     </ul>
@@ -90,9 +87,7 @@ export function TakeMore() {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select")) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (!isPagePress(event)) return;
       if (event.key !== "n") return;
       take({ intent: "more" }, { method: "post" });
       event.preventDefault();

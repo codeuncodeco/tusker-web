@@ -8,7 +8,7 @@
 import { batchOf, BATCH, type Batch } from "./focus";
 import { appendToPlan, readPlan, startPlan } from "./plans.server";
 import type { OrgSet } from "./scope.server";
-import { groupsFor, type LiveTask } from "./unified";
+import { groupsFor, type GroupKey, type LiveTask } from "./unified";
 import { listUnified } from "./unified.server";
 
 export type Focus = {
@@ -54,11 +54,10 @@ export async function readFocus(
  */
 export async function holdBatch(
   db: D1Database,
-  set: OrgSet,
   personId: string,
   day: string,
+  focus: Focus,
 ): Promise<void> {
-  const focus = await readFocus(db, set, personId, day);
   if (focus.planned) return;
   await startPlan(db, personId, day, focus.batch.tasks.map((one) => one.id));
 }
@@ -92,7 +91,7 @@ async function bothLists(
 ): Promise<{ inPlan: LiveTask[]; rest: LiveTask[] }> {
   const tasks = await listUnified(db, set, plan ?? []);
   const groups = groupsFor(tasks, plan ?? []);
-  const of = (key: string) => groups.find((group) => group.key === key)!.tasks;
+  const of = (key: GroupKey) => groups.find((group) => group.key === key)!.tasks;
 
   // The two groups that are not the plan, in the order `/me` draws them.
   return { inPlan: of("today"), rest: [...of("in_progress"), ...of("todo")] };

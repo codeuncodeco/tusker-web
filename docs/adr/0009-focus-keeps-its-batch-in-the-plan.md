@@ -35,6 +35,22 @@ of today's plan. The task is not finished, not unplanned and not hidden. It
 comes back, last, after the work the person still means to do today. A person
 can clear a blocker; they cannot skim a plan by pressing one key three times.
 
+## What this overrides in the ticket
+
+Ticket #38 asks for "the first three unfinished plan tasks". A batch cut from
+the top is not always that: a plan of `[a done, b, c, d]` gives `a, b, c`, with
+`a` struck through, and not `b, c, d`. The two rules agree while the person
+works in focus mode, and part only where a task was finished somewhere else.
+Stillness wins, because it is the rule the ticket asks for twice: the next three
+appear only when this three are done, and a person who comes back reads the same
+three.
+
+Ticket #38 also puts "changing the plan from inside focus mode" out of scope.
+Focus does not let a person edit the plan — there is no pick, no reorder and no
+unplan on the screen — but the three writes above do change the row. Holding a
+batch with no store to hold it in is not possible, so the exclusion is reopened
+here rather than worked around.
+
 ## Consequences
 
 Working in focus makes a plan, so `/me` shows that work under Today and stops

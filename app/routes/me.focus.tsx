@@ -20,9 +20,8 @@ import { holdBatch, readFocus, takeMore } from "../focus.server";
 import { useLocalDay } from "../local-day";
 import { OrgSwitcher } from "../org-switcher";
 import { pushDownPlan } from "../plans.server";
-import { requireOrgSet, scopeForSlug } from "../scope.server";
-import { readTask } from "../tasks.server";
-import { actOnTask } from "../unified-actions.server";
+import { requireOrgSet } from "../scope.server";
+import { actOnTask, taskFrom } from "../unified-actions.server";
 import type { Route } from "./+types/me.focus";
 
 export function meta(_: Route.MetaArgs) {
@@ -34,17 +33,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const day = dayOf(request);
-  const focus = await readFocus(env.DB, set, set.personId, day);
 
   return {
     orgs: set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind })),
     day,
-    tasks: focus.batch.tasks,
-    number: focus.batch.number,
-    left: focus.batch.left,
-    planned: focus.planned,
-    planEmpty: focus.planEmpty,
-    more: focus.more,
+    focus: await readFocus(env.DB, set, set.personId, day),
   };
 }
 
@@ -64,18 +57,14 @@ export async function action({ request, context }: Route.ActionArgs) {
   // The batch on the screen becomes today's plan before the act lands, so the
   // other two tasks stay where the person left them.
   if (intent === "finish" || intent === "drop") {
-    await holdBatch(env.DB, set, set.personId, day);
+    await holdBatch(env.DB, set.personId, day, await readFocus(env.DB, set, set.personId, day));
   }
 
   if (intent === "drop") {
     // A drop reads the task row like every other act, so a task the person
     // cannot reach is a 404 and not an id a plan quietly moves.
-    const scope = scopeForSlug(set, String(form.get("slug") ?? ""));
-    const taskId = String(form.get("id") ?? "");
-    const task = scope ? await readTask(env.DB, scope, taskId) : null;
-    if (!scope || !task) throw new Response("Not found", { status: 404 });
-
-    await pushDownPlan(env.DB, set.personId, day, taskId);
+    const { task } = await taskFrom(env, set, form);
+    await pushDownPlan(env.DB, set.personId, day, task.id);
     return { ok: true };
   }
 
@@ -86,26 +75,27 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Focus({ loaderData }: Route.ComponentProps) {
-  const { orgs, tasks, number, left, planned, planEmpty, more, day } = loaderData;
+  const { orgs, focus, day } = loaderData;
+  const { batch, planned, planEmpty, more } = focus;
   useLocalDay(day);
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Focus</h1>
-        {number > 0 ? (
-          <span className="text-sm text-neutral-500">Batch {number}</span>
+        {batch.number > 0 ? (
+          <span className="text-sm text-neutral-500">Batch {batch.number}</span>
         ) : null}
         <OrgSwitcher orgs={orgs} />
       </header>
 
-      {tasks.length > 0 ? (
+      {batch.tasks.length > 0 ? (
         <>
-          <FocusList tasks={tasks} droppable={true} />
+          <FocusList tasks={batch.tasks} />
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>x</kbd> finishes and{" "}
             <kbd>d</kbd> drops a task to the end of the plan.{" "}
-            {left > 0 ? `${left} more, after these.` : "This is the last of them."}
+            {batch.left > 0 ? `${batch.left} more, after these.` : "This is the last of them."}
           </p>
         </>
       ) : planEmpty ? (
@@ -124,7 +114,7 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
         </p>
       )}
 
-      {tasks.length === 0 && more > 0 ? <TakeMore /> : null}
+      {batch.tasks.length === 0 && more > 0 ? <TakeMore /> : null}
 
       <Link to="/me" className="text-sm underline">
         Your tasks

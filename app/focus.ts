@@ -15,7 +15,7 @@ export const BATCH = 3;
 export type Batch = {
   /** The tasks on the screen, in the order the list gave them. */
   tasks: LiveTask[];
-  /** Which batch of the day this is, counting from one. Zero for none. */
+  /** Which batch of the day this is, counting from one. Zero where there is none. */
   number: number;
   /** How many tasks the batch hides, so the page can say how much is left. */
   left: number;
@@ -40,5 +40,6 @@ export function batchOf(tasks: LiveTask[]): Batch {
       return { tasks: batch, number: at / BATCH + 1, left: tasks.length - at - batch.length };
     }
   }
-  return { tasks: [], number: Math.ceil(tasks.length / BATCH), left: 0 };
+  // No batch: every task the list holds is finished, or it holds none.
+  return { tasks: [], number: 0, left: 0 };
 }
