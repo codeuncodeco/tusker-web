@@ -25,8 +25,7 @@ blrhikes trails in a reference field.
 4. Org, membership, org switcher. Routes are `/o/:slug/...` and `/me`.
 5. Task table with `org_id`, status, `position`, due date, assignees, JSON `data`.
 6. Board: columns, drag between and inside a column, per-column quick add.
-7. Personal rank: a `rank` row per person per task, the `COALESCE` read, the
-   marker for a rank that differs from the board, and a per-column reset.
+7. Personal rank: dropped. A column holds one order, the org's. See ADR-0006.
 8. Custom fields: the declaration table, a generic renderer, and the four types.
 9. Reference fields: a cache table, a pull on a schedule and on demand, a live
    lookup for a cache miss.
@@ -62,7 +61,6 @@ Tables that carry the design. Field lists are indicative, not final.
 | `orgs` | `id`, `slug`, `name`, `kind` (`personal` or `team`) |
 | `memberships` | `org_id`, `user_id`, `role` |
 | `tasks` | `org_id`, `title`, `description`, `status`, `position`, `due_date`, `archived`, `assignees`, `data` (JSON) |
-| `task_ranks` | `user_id`, `task_id`, `rank` |
 | `task_comments` | `task_id`, `author_id`, `body` |
 | `decisions` | `org_id`, `title`, `rationale`, `task_id` (nullable) |
 | `plans` | `user_id`, `day` (local `YYYY-MM-DD`), ordered task ids |
@@ -72,8 +70,8 @@ Tables that carry the design. Field lists are indicative, not final.
 
 Notes that the table does not show:
 
-- `position` and `rank` are fractions in one space. A drop between two cards takes
-  the midpoint, so no row is renumbered.
+- `position` is a fraction. A drop between two cards takes the midpoint, so no
+  row is renumbered. A column has one order, the org's. See ADR-0006.
 - A plan day is a local calendar date. `toISOString()` converts to UTC first, so
   an evening plan east of UTC would land on tomorrow.
 - Every query that reads task rows takes the session's org set through one

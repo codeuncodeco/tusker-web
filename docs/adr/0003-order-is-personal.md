@@ -1,5 +1,9 @@
 # Order is personal, over a shared position
 
+Superseded by [ADR-0006](./0006-one-order-per-column.md). The argument below
+stands; the answer changed. A column now holds one order, and a person's own
+order is the plan.
+
 In the extension one person used the board, so position was truth. With several
 members in an org, an ordered list needs an owner. Two members will disagree
 about what comes first, and the cross-org list cannot use any single org's order,
