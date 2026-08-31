@@ -171,9 +171,9 @@ describe("changing the slug", () => {
     return { ada, bo };
   }
 
-  /** A post to the settings action for one slug. */
-  function rename(slug: string, cookie: string, next: string) {
-    return send(settingsRoute, `/o/${slug}/settings`, cookie, { slug: next }, { slug });
+  /** A post to the settings action, keeping the name unless one is given. */
+  function rename(slug: string, cookie: string, next: string, name = "codeuncode") {
+    return send(settingsRoute, `/o/${slug}/settings`, cookie, { name, slug: next }, { slug });
   }
 
   it("moves every page of the org to the new slug", async () => {
@@ -230,6 +230,38 @@ describe("changing the slug", () => {
     const response = (await rename("codeuncode", ada.cookie, "codeuncode")) as Response;
 
     expect(response.headers.get("location")).toBe("/o/codeuncode/settings");
+  });
+
+  it("changes the name, and keeps the slug the org is on", async () => {
+    const { ada } = await team();
+
+    const response = (await rename("codeuncode", ada.cookie, "codeuncode", "Code Uncode")) as Response;
+
+    expect(response.headers.get("location")).toBe("/o/codeuncode/settings");
+    const board = await boardRoute.loader(
+      routeArgs(get("/o/codeuncode/board", ada.cookie), { slug: "codeuncode" }),
+    );
+    expect(board.org.name).toBe("Code Uncode");
+  });
+
+  it("refuses an org with no name, and leaves the slug alone", async () => {
+    const { ada } = await team();
+
+    const answer = await rename("codeuncode", ada.cookie, "code-uncode", "  ");
+
+    expect(answer).toEqual({ error: "An org needs a name." });
+    const row = await db.prepare("SELECT slug FROM orgs WHERE name = 'codeuncode'").first<{ slug: string }>();
+    expect(row?.slug).toBe("codeuncode");
+  });
+
+  it("keeps the name when the slug it asks for is taken", async () => {
+    const { ada, bo } = await team();
+    await send(newOrgRoute, "/orgs/new", bo.cookie, { name: "Taken", slug: "taken" });
+
+    await rename("codeuncode", ada.cookie, "taken", "Another name");
+
+    const row = await db.prepare("SELECT name, slug FROM orgs WHERE slug = 'codeuncode'").first<{ name: string }>();
+    expect(row?.name).toBe("codeuncode");
   });
 
   it("does not let a person outside the org change it", async () => {

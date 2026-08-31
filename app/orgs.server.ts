@@ -123,18 +123,23 @@ export async function createTeamOrg(
   return org;
 }
 
-/** What became of an attempt to give an org another slug. */
+/** What became of an attempt to give an org another name or slug. */
 export type Renamed = "changed" | "taken";
 
 /**
- * Gives an org another slug. Every page of the org lives under it, so the
- * caller redirects to the new address once this answers.
+ * Gives an org another name and slug, in one write. Every page of the org
+ * lives under the slug, so the caller redirects to the new address once this
+ * answers.
  *
- * A slug another org already holds leaves the row alone.
+ * A slug another org already holds leaves the row alone, name and all.
  */
-export async function changeSlug(db: D1Database, orgId: string, slug: string): Promise<Renamed> {
+export async function renameOrg(
+  db: D1Database,
+  orgId: string,
+  to: { name: string; slug: string },
+): Promise<Renamed> {
   try {
-    await db.prepare("UPDATE orgs SET slug = ? WHERE id = ?").bind(slug, orgId).run();
+    await db.prepare("UPDATE orgs SET name = ?, slug = ? WHERE id = ?").bind(to.name, to.slug, orgId).run();
   } catch (failure) {
     if (tookTheSlug(failure)) return "taken";
     throw failure;
