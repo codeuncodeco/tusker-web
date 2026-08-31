@@ -37,6 +37,12 @@ The page that makes the first account, at `/bootstrap`. It is open while the
 instance holds no account, and it is a 404 after that.
 _Avoid_: Setup wizard, first-run signup
 
+**Scope**:
+Proof that the signed-in person is a member of one org. Every query that reads
+or writes task rows takes a scope, not a bare org id, and one function makes
+one. Scoping by hand is how a row leaks.
+_Avoid_: Tenant context, org guard
+
 **Org app**:
 A separate application that an org runs, such as blrhikes-app. An org app reads
 tasks from the Tusker API and supplies the option lists for reference fields. It

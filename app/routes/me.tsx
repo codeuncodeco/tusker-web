@@ -33,7 +33,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
 
       <section className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
         <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">Orgs</h2>
-        <ul className="mt-2 list-disc pl-5">
+        <ul className="mt-2 flex flex-col gap-1">
           {orgs.map((org) => (
             <li key={org.id}>
               <Link to={`/o/${org.slug}/board`} className="underline">
@@ -42,10 +42,16 @@ export default function Me({ loaderData }: Route.ComponentProps) {
               <span className="text-neutral-500">/{org.slug}</span>
               {org.kind === "personal" ? (
                 <span className="ml-2 text-xs uppercase tracking-wide text-neutral-500">personal</span>
-              ) : null}
+              ) : null}{" "}
+              <Link to={`/o/${org.slug}/members`} className="ml-2 text-sm underline">
+                Members
+              </Link>
             </li>
           ))}
         </ul>
+        <Link to="/orgs/new" className="mt-3 inline-block text-sm underline">
+          New org
+        </Link>
       </section>
 
       <Form method="post">

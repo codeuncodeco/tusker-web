@@ -88,6 +88,107 @@ export async function createPersonalOrg(
   throw new Error(`Five tries found no free slug near ${base}.`);
 }
 
+/**
+ * Makes an org a person names, with that person as its owner. The org row and
+ * the membership row go in one batch, because an org nobody belongs to is a
+ * row no page can reach.
+ *
+ * Answers null when the slug is taken, so the form can say so.
+ */
+export async function createTeamOrg(
+  db: D1Database,
+  team: { name: string; slug: string; personId: string },
+): Promise<Org | null> {
+  const id = crypto.randomUUID();
+
+  try {
+    await db.batch([
+      db
+        .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'team')")
+        .bind(id, team.slug, team.name),
+      db
+        .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')")
+        .bind(id, team.personId),
+    ]);
+  } catch (failure) {
+    if (tookTheSlug(failure)) return null;
+    throw failure;
+  }
+
+  const org = await db
+    .prepare("SELECT id, slug, name, kind, created_at FROM orgs WHERE id = ?")
+    .bind(id)
+    .first<Org>();
+  if (!org) throw new Error("The org disappeared right after the insert.");
+  return org;
+}
+
+/** What became of an attempt to give an org another name or slug. */
+export type Renamed = "changed" | "taken";
+
+/**
+ * Gives an org another name and slug, in one write. Every page of the org
+ * lives under the slug, so the caller redirects to the new address once this
+ * answers.
+ *
+ * A slug another org already holds leaves the row alone, name and all.
+ */
+export async function renameOrg(
+  db: D1Database,
+  orgId: string,
+  to: { name: string; slug: string },
+): Promise<Renamed> {
+  try {
+    await db.prepare("UPDATE orgs SET name = ?, slug = ? WHERE id = ?").bind(to.name, to.slug, orgId).run();
+  } catch (failure) {
+    if (tookTheSlug(failure)) return "taken";
+    throw failure;
+  }
+  return "changed";
+}
+
+export type Member = { id: string; name: string; email: string; role: string };
+
+/** Everybody in one org, owners first, then by the day they joined. */
+export async function listMembers(db: D1Database, orgId: string): Promise<Member[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT u.id, u.name, u.email, m.role
+       FROM memberships m
+       JOIN "user" u ON u.id = m.user_id
+       WHERE m.org_id = ?
+       ORDER BY m.role = 'owner' DESC, m.created_at, u.email`,
+    )
+    .bind(orgId)
+    .all<Member>();
+  return results;
+}
+
+/** What became of an attempt to add somebody to an org. */
+export type Added = "added" | "already" | "no-account";
+
+/**
+ * Adds an account to an org. Tusker has no public signup, so the account must
+ * exist already: an unknown email is an invitation to make first, not a person
+ * to create here.
+ *
+ * Membership is the only permission check, so any member can add another one.
+ */
+export async function addMember(db: D1Database, orgId: string, email: string): Promise<Added> {
+  const person = await db
+    .prepare('SELECT id FROM "user" WHERE lower(email) = ?')
+    .bind(email.trim().toLowerCase())
+    .first<{ id: string }>();
+  if (!person) return "no-account";
+
+  const done = await db
+    .prepare("INSERT OR IGNORE INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
+    .bind(orgId, person.id)
+    .run();
+
+  return done.meta.changes > 0 ? "added" : "already";
+}
+
 /** True when another org took the slug between the read and the insert. */
 function tookTheSlug(failure: unknown): boolean {
   return failure instanceof Error && failure.message.includes("UNIQUE constraint failed");
@@ -95,17 +196,20 @@ function tookTheSlug(failure: unknown): boolean {
 
 /** The email's local part, cut down to what a URL can hold. */
 function baseSlug(email: string): string {
-  const local = email.split("@")[0] ?? "";
-  const slug = local
+  return slugify(email.split("@")[0] ?? "") || "person";
+}
+
+/** The part of a name a URL can carry: lower case, no run of punctuation. */
+export function slugify(text: string): string {
+  return text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);
-  return slug || "person";
 }
 
 /** The base slug, or the base plus a number when another org already took it. */
-async function freeSlug(db: D1Database, base: string): Promise<string> {
+export async function freeSlug(db: D1Database, base: string): Promise<string> {
   const { results } = await db
     .prepare("SELECT slug FROM orgs WHERE slug = ? OR slug LIKE ?")
     .bind(base, `${base}-%`)

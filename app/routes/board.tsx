@@ -12,8 +12,9 @@ import {
 } from "../board";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
-import { orgForMember } from "../orgs.server";
-import { requirePerson } from "../session.server";
+import { listOrgsForPerson } from "../orgs.server";
+import { OrgSwitcher } from "../org-switcher";
+import { requireScope } from "../scope.server";
 import { createTask, listTasks, moveTask, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
 
@@ -23,17 +24,6 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 /** What one card shows. The task page reads the rest of the row. */
 type Card = { id: string; title: string };
-
-/**
- * The org this request is for, or a 404. A person outside the org gets the
- * same answer as one who named an org that does not exist.
- */
-async function orgOr404(request: Request, env: Env, slug: string) {
-  const person = await requirePerson(request, env);
-  const org = await orgForMember(env.DB, slug, person.id);
-  if (!org) throw new Response("Not found", { status: 404 });
-  return org;
-}
 
 /** Which of the two hidden columns the query string asks for. */
 function readToggles(params: URLSearchParams): Toggles {
@@ -62,9 +52,9 @@ function readStatus(form: FormData): Status {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const org = await orgOr404(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug);
 
-  const tasks = await listTasks(env.DB, org.id);
+  const tasks = await listTasks(env.DB, scope);
   const counts = countByStatus(tasks);
   const toggles = readToggles(new URL(request.url).searchParams);
   const columns = columnsToShow(counts, toggles).map((status) => ({
@@ -76,7 +66,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   }));
 
   return {
-    org: { slug: org.slug, name: org.name },
+    org: { slug: scope.org.slug, name: scope.org.name },
+    orgs: await listOrgsForPerson(env.DB, scope.personId),
     columns,
     toggles,
     // The rule can show Backlog on its own, and then the toggle has nothing to
@@ -87,7 +78,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const org = await orgOr404(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -96,7 +87,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const title = String(form.get("title") ?? "").trim();
     const status = readStatus(form);
     if (!title) return { error: "A task needs a title." };
-    await createTask(env.DB, { orgId: org.id, title, status });
+    await createTask(env.DB, scope, { title, status });
     return { ok: true };
   }
 
@@ -105,7 +96,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const id = String(form.get("id") ?? "");
     // The card the task lands above. Nothing named means the bottom.
     const before = String(form.get("before") ?? "") || null;
-    const moved = await moveTask(env.DB, { orgId: org.id, taskId: id, status, before });
+    const moved = await moveTask(env.DB, scope, { taskId: id, status, before });
     if (!moved) throw new Response("Not found", { status: 404 });
     return { ok: true };
   }
@@ -257,7 +248,7 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles } = loaderData;
+  const { org, orgs, columns, toggles } = loaderData;
   const mover = useFetcher();
 
   /**
@@ -278,11 +269,18 @@ export default function Board({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className="flex min-h-full flex-col gap-6 p-8">
-      <header className="flex items-baseline gap-4">
+      <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
+        <OrgSwitcher orgs={orgs} here={org.slug} />
         <nav className="flex gap-4 text-sm">
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
+          <Link to={`/o/${org.slug}/members`} className="underline">
+            Members
+          </Link>
+          <Link to={`/o/${org.slug}/settings`} className="underline">
+            Settings
+          </Link>
           <Link to="/me" className="underline">
             You
           </Link>

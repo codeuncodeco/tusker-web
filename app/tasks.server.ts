@@ -1,5 +1,6 @@
 import type { Status } from "./board";
 import { between } from "./order";
+import type { Scope } from "./scope.server";
 
 export type Task = {
   id: string;
@@ -22,30 +23,32 @@ const IN_ORDER = "ORDER BY position, created_at, id";
 type Positioned = { id: string; position: number };
 
 /** One org's live tasks, in column order. */
-export async function listTasks(db: D1Database, orgId: string): Promise<Task[]> {
+export async function listTasks(db: D1Database, scope: Scope): Promise<Task[]> {
   const { results } = await db
     .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE org_id = ? AND archived = 0 ${IN_ORDER}`)
-    .bind(orgId)
+    .bind(scope.org.id)
     .all<Task>();
   return results;
 }
 
 /**
  * Adds a task at the top of its column, where a person looks for the one they
- * just typed. The caller has already checked that the person is a member of
- * the org, because `org_id` is the only fence.
+ * just typed. The scope carries the org id, so the membership check is already
+ * done: `org_id` is the only fence.
  */
 export async function createTask(
   db: D1Database,
-  task: { orgId: string; title: string; status: Status },
+  scope: Scope,
+  task: { title: string; status: Status },
 ): Promise<Task> {
   const id = crypto.randomUUID();
-  const column = await columnPlaces(db, task.orgId, task.status);
-  const position = await placeAbove(db, task.orgId, task.status, column, column[0]?.id ?? null);
+  const orgId = scope.org.id;
+  const column = await columnPlaces(db, orgId, task.status);
+  const position = await placeAbove(db, orgId, task.status, column, column[0]?.id ?? null);
 
   await db
     .prepare("INSERT INTO tasks (id, org_id, title, status, position) VALUES (?, ?, ?, ?, ?)")
-    .bind(id, task.orgId, task.title, task.status, position)
+    .bind(id, orgId, task.title, task.status, position)
     .run();
 
   const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Task>();
@@ -65,11 +68,13 @@ export async function createTask(
  */
 export async function moveTask(
   db: D1Database,
-  move: { orgId: string; taskId: string; status: Status; before?: string | null },
+  scope: Scope,
+  move: { taskId: string; status: Status; before?: string | null },
 ): Promise<boolean> {
+  const orgId = scope.org.id;
   // The card leaves its old place, so it is no neighbour of its new one.
-  const column = (await columnPlaces(db, move.orgId, move.status)).filter((one) => one.id !== move.taskId);
-  const position = await placeAbove(db, move.orgId, move.status, column, move.before ?? null);
+  const column = (await columnPlaces(db, orgId, move.status)).filter((one) => one.id !== move.taskId);
+  const position = await placeAbove(db, orgId, move.status, column, move.before ?? null);
 
   const done = await db
     .prepare(
@@ -77,7 +82,7 @@ export async function moveTask(
        SET status = ?, position = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND org_id = ?`,
     )
-    .bind(move.status, position, move.taskId, move.orgId)
+    .bind(move.status, position, move.taskId, orgId)
     .run();
 
   return done.meta.changes > 0;
