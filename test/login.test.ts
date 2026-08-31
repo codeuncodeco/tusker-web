@@ -6,9 +6,9 @@ import { createAuth } from "../app/auth.server";
 import { outbox } from "../app/mail.server";
 import * as authRoute from "../app/routes/api.auth";
 import * as inviteRoute from "../app/routes/invite";
+import * as loginRoute from "../app/routes/login";
 import * as meRoute from "../app/routes/me";
 import * as resetRoute from "../app/routes/reset-password";
-import * as signInRoute from "../app/routes/sign-in";
 import { SITE, caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -27,8 +27,8 @@ async function invite(name = "Ada") {
 }
 
 async function signInWithPassword(password = PASSWORD) {
-  return (await signInRoute.action(
-    routeArgs(post("/sign-in", { intent: "password", email: EMAIL, password })),
+  return (await loginRoute.action(
+    routeArgs(post("/login", { intent: "password", email: EMAIL, password })),
   )) as Response;
 }
 
@@ -75,8 +75,8 @@ describe("sign in", () => {
   it("refuses a wrong password", async () => {
     await invite();
 
-    const said = await signInRoute.action(
-      routeArgs(post("/sign-in", { intent: "password", email: EMAIL, password: "wrong" })),
+    const said = await loginRoute.action(
+      routeArgs(post("/login", { intent: "password", email: EMAIL, password: "wrong" })),
     );
 
     expect(said).toMatchObject({ error: expect.stringContaining("do not match") });
@@ -86,7 +86,7 @@ describe("sign in", () => {
   it("sends the link and the code in one message", async () => {
     await invite();
 
-    await signInRoute.action(routeArgs(post("/sign-in", { intent: "link", email: EMAIL })));
+    await loginRoute.action(routeArgs(post("/login", { intent: "link", email: EMAIL })));
 
     expect(outbox).toHaveLength(1);
     expect(outbox[0].to).toBe(EMAIL);
@@ -96,11 +96,11 @@ describe("sign in", () => {
 
   it("takes the code from that message", async () => {
     await invite();
-    await signInRoute.action(routeArgs(post("/sign-in", { intent: "link", email: EMAIL })));
+    await loginRoute.action(routeArgs(post("/login", { intent: "link", email: EMAIL })));
     const otp = outbox[0].text.match(/code: (\d{6})/)![1];
 
-    const response = (await signInRoute.action(
-      routeArgs(post("/sign-in", { intent: "code", email: EMAIL, otp })),
+    const response = (await loginRoute.action(
+      routeArgs(post("/login", { intent: "code", email: EMAIL, otp })),
     )) as Response;
 
     expect(response.status).toBe(302);
@@ -109,7 +109,7 @@ describe("sign in", () => {
 
   it("takes the link from that message", async () => {
     await invite();
-    await signInRoute.action(routeArgs(post("/sign-in", { intent: "link", email: EMAIL })));
+    await loginRoute.action(routeArgs(post("/login", { intent: "link", email: EMAIL })));
     const url = outbox[0].text.match(/(https:\/\/\S+)/)![1];
 
     const response = await caught(authRoute.loader(routeArgs(get(url.slice(SITE.length)))));
@@ -119,8 +119,8 @@ describe("sign in", () => {
   });
 
   it("refuses an email no account holds, and says nothing either way", async () => {
-    const said = await signInRoute.action(
-      routeArgs(post("/sign-in", { intent: "link", email: "nobody@example.test" })),
+    const said = await loginRoute.action(
+      routeArgs(post("/login", { intent: "link", email: "nobody@example.test" })),
     );
 
     expect(said).toMatchObject({ sent: expect.stringContaining("Check your mail") });
@@ -133,14 +133,14 @@ describe("password reset", () => {
   it("goes through the mail and sets a new password", async () => {
     await invite();
 
-    await signInRoute.action(routeArgs(post("/sign-in", { intent: "forgot", email: EMAIL })));
+    await loginRoute.action(routeArgs(post("/login", { intent: "forgot", email: EMAIL })));
     expect(outbox).toHaveLength(1);
     const token = outbox[0].text.match(/reset-password\/([^?\s]+)/)![1];
 
     const done = await caught(
       resetRoute.action(routeArgs(post("/reset-password", { token, password: "a new long one" }))),
     );
-    expect(done.headers.get("location")).toBe("/sign-in");
+    expect(done.headers.get("location")).toBe("/login");
 
     const response = await signInWithPassword("a new long one");
     expect(response.status).toBe(302);
@@ -152,7 +152,7 @@ describe("/me", () => {
     const response = await caught(meRoute.loader(routeArgs(get("/me"))));
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/sign-in?next=%2Fme");
+    expect(response.headers.get("location")).toBe("/login?next=%2Fme");
   });
 
   it("shows the signed-in person and their orgs", async () => {

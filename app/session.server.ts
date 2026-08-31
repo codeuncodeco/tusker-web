@@ -17,7 +17,7 @@ export async function requirePerson(request: Request, env: Env) {
   if (found) return found.user;
 
   const next = new URL(request.url).pathname;
-  throw redirect(`/sign-in?next=${encodeURIComponent(next)}`);
+  throw redirect(`/login?next=${encodeURIComponent(next)}`);
 }
 
 /** Copies the cookies an auth response set onto a response of our own. */

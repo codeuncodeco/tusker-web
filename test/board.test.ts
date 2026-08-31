@@ -5,7 +5,7 @@ import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
 import type { Status } from "../app/board";
 import * as boardRoute from "../app/routes/board";
-import * as signInRoute from "../app/routes/sign-in";
+import * as loginRoute from "../app/routes/login";
 import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -17,8 +17,8 @@ beforeEach(wipe);
 async function member(email: string, name: string) {
   const auth = createAuth(env, get("/"));
   const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await signInRoute.action(
-    routeArgs(post("/sign-in", { intent: "password", email, password: PASSWORD })),
+  const response = (await loginRoute.action(
+    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
   )) as Response;
   const org = await db
     .prepare("SELECT id, slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ?")
@@ -49,7 +49,7 @@ describe("who can load the board", () => {
     const response = await caught(board("ada", ""));
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/sign-in?next=%2Fo%2Fada%2Fboard");
+    expect(response.headers.get("location")).toBe("/login?next=%2Fo%2Fada%2Fboard");
   });
 
   it("does not show the board to a person outside the org", async () => {

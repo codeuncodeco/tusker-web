@@ -6,7 +6,7 @@ import { createMailer, oneMail } from "../mail.server";
 import { safeNext } from "../paths";
 import { getSession, withCookies } from "../session.server";
 import { fieldClass } from "../forms";
-import type { Route } from "./+types/sign-in";
+import type { Route } from "./+types/login";
 
 export function meta(_: Route.MetaArgs) {
   return [{ title: "Sign in — Tusker" }];

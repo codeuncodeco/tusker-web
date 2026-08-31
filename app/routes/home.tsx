@@ -29,7 +29,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             Make the first account
           </Link>
         ) : (
-          <Link to="/sign-in" className="underline">
+          <Link to="/login" className="underline">
             Sign in
           </Link>
         )}

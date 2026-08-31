@@ -20,7 +20,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export async function action({ request, context }: Route.ActionArgs) {
   const auth = createAuth(context.get(cloudflareEnv), request);
   const response = await auth.api.signOut({ headers: request.headers, asResponse: true });
-  return withCookies(response, redirect("/sign-in"));
+  return withCookies(response, redirect("/login"));
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
