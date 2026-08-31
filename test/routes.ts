@@ -8,6 +8,7 @@ export const SITE = "https://tusker.test";
 /** Empties every table, so one test cannot see what another one wrote. */
 export async function wipe() {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM tasks"),
     env.DB.prepare("DELETE FROM memberships"),
     env.DB.prepare("DELETE FROM orgs"),
     env.DB.prepare("DELETE FROM session"),
@@ -18,10 +19,10 @@ export async function wipe() {
 }
 
 /** The arguments a loader or an action takes, with the Worker's env in place. */
-export function routeArgs(request: Request) {
+export function routeArgs(request: Request, params: Record<string, string> = {}) {
   const context = new RouterContextProvider();
   context.set(cloudflareEnv, env);
-  return { request, context, params: {} } as never;
+  return { request, context, params } as never;
 }
 
 /** A form post to a route action. */
