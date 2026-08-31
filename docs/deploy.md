@@ -57,6 +57,17 @@ the `packageManager` field in `package.json` and the Node version from
 
 Do not add `--env` to the deploy. The build already resolved it.
 
+**The deploy command must be `pnpm run deploy:ci`, not a bare `wrangler deploy`.**
+A bare deploy ships the code and leaves the database behind: the migrations never
+run, and the new Worker meets the old schema. A build log that holds no
+`d1 migrations apply` line is this mistake.
+
+`wrangler` reads `CLOUDFLARE_ENV` as well, so the deploy scripts drop it with
+`env -u`. Without that, wrangler resolves the environment a second time over an
+already resolved config, and the Worker name becomes `tusker-web-dev-dev`.
+Workers Builds overrides the name and the deploy still lands, but the same
+command from your machine makes a second Worker.
+
 The D1 binding lives in `wrangler.jsonc`, so it travels with the repository.
 
 ### The build's API token
