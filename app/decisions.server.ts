@@ -17,11 +17,8 @@ import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
 
-/** A task named where it lives: the id, and the org that holds it. */
-export type TaskInOrg = { id: string; slug: string };
-
-/** The task a page has the prompt raised on. */
-export type Ask = TaskInOrg & { title: string };
+/** The task a page has the prompt raised on: the id, its org, and its title. */
+export type Ask = { id: string; slug: string; title: string };
 
 /** One line of the log. `task` is null once the task is gone. */
 export type Logged = {
@@ -43,17 +40,11 @@ type LogRow = {
 };
 
 /**
- * The same page again, with the prompt raised on one task. Every route that
- * finishes a task answers with this.
- */
-export function askOn(request: Request, task: TaskInOrg): Response {
-  const url = new URL(request.url);
-  return redirect(withPrompt(url.pathname, url.search, task));
-}
-
-/**
  * The prompt a finished task raises, or null for one that raises none. Every
  * way of finishing a task calls this, so the mark is read in one place.
+ *
+ * The prompt is a place, so the answer is this page again with the task named
+ * in the query string. See ADR-0010.
  */
 export async function promptFor(
   db: D1Database,
@@ -62,7 +53,10 @@ export async function promptFor(
   taskId: string,
 ): Promise<Response | null> {
   const task = await askable(db, scope, taskId);
-  return task ? askOn(request, { id: task.id, slug: scope.org.slug }) : null;
+  if (!task) return null;
+
+  const url = new URL(request.url);
+  return redirect(withPrompt(url.pathname, url.search, { id: task.id, slug: scope.org.slug }));
 }
 
 /**
@@ -201,6 +195,8 @@ export async function listDecisions(db: D1Database, scope: Scope): Promise<Logge
     title: row.title,
     rationale: row.rationale,
     created_at: row.created_at,
-    task: row.task_id ? { id: row.task_id, title: row.task_title! } : null,
+    // The join answers, or it does not. Reading `task_id` instead would draw a
+    // link with no words in it when the row is gone.
+    task: row.task_title === null ? null : { id: row.task_id!, title: row.task_title },
   }));
 }

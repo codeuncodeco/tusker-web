@@ -139,7 +139,16 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (!title) return { error: "A task needs a title." };
     // The mark goes on when the task is made, while the thought is there. It
     // is off by default, so an unticked box is a task that decides nothing.
-    await createTask(env.DB, scope, { title, status, decides: form.get("decides") === "1" });
+    const made = await createTask(env.DB, scope, {
+      title,
+      status,
+      decides: form.get("decides") === "1",
+    });
+    // The box sits on every column, Done included. A marked task typed
+    // straight into Done is finished the moment it is made, so it is asked
+    // now: no later move would ask it.
+    const prompt = await promptFor(env.DB, scope, request, made.id);
+    if (prompt) return prompt;
     return { ok: true };
   }
 

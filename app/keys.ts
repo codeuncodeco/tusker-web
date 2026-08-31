@@ -7,9 +7,13 @@
  * title is a page that loses work.
  */
 
-/** True for a press the page can act on. A press in a box is the person's. */
+/**
+ * True for a press the page can act on. A press in a box is the person's, and
+ * so is one inside an open dialog: the decision prompt covers the list, so `x`
+ * on its Skip button must not finish the task behind it.
+ */
 export function isPagePress(event: KeyboardEvent): boolean {
   const target = event.target as HTMLElement | null;
-  if (target?.closest("input, textarea, select")) return false;
+  if (target?.closest('input, textarea, select, [role="dialog"]')) return false;
   return !event.metaKey && !event.ctrlKey && !event.altKey;
 }

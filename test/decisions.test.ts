@@ -163,6 +163,36 @@ describe("marking a task as one that holds a decision", () => {
     expect(made!.decides).toBe(1);
   });
 
+  it("asks at once for a marked task typed straight into Done", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const response = await onBoard(ada.cookie, ada.org.slug, {
+      intent: "create",
+      title: "Pick a database",
+      status: "done",
+      decides: "1",
+    });
+
+    const asked = query(response).get("ask")!;
+    expect((await board(ada.cookie, ada.org.slug, `?ask=${asked}`)).ask).toEqual({
+      id: asked,
+      slug: ada.org.slug,
+      title: "Pick a database",
+    });
+  });
+
+  it("asks nothing for an unmarked task typed straight into Done", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const response = await onBoard(ada.cookie, ada.org.slug, {
+      intent: "create",
+      title: "Water the plants",
+      status: "done",
+    });
+
+    expect(response).toEqual({ ok: true });
+  });
+
   it("goes on and off from the task page, which reads it back", async () => {
     const ada = await member("ada@example.test", "Ada");
     await plainTask(ada.org.id, "ship");
