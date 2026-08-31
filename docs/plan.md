@@ -62,7 +62,7 @@ Tables that carry the design. Field lists are indicative, not final.
 | `memberships` | `org_id`, `user_id`, `role` |
 | `tasks` | `org_id`, `title`, `description`, `status`, `position`, `due_date`, `archived`, `assignees`, `data` (JSON) |
 | `task_comments` | `task_id`, `author_id`, `body` |
-| `decisions` | `org_id`, `title`, `rationale`, `task_id` (nullable) |
+| `decisions` | `org_id`, `title`, `rationale`, `task_id` (nullable), `decided_by` |
 | `plans` | `user_id`, `day` (local `YYYY-MM-DD`), ordered task ids |
 | `org_fields` | `org_id`, `key`, `label`, `type`, `options`, `source_url`, `refs_key`, `refs_pulled_at`, `show_on_card`, `filterable`, `position`, `derives_from` |
 | `org_ref_options` | `org_id`, `field_key`, `ext_id`, `label` (null for a miss), `fetched_at` |
@@ -78,6 +78,8 @@ Notes that the table does not show:
 - Every query that reads task rows takes the session's org set through one
   helper. Scoping by hand is how a row leaks.
 - `derives_from` is not built.
+- `tasks.decision_asked` counts the ask, not the answer. Tusker asks for a
+  decision once per task, on the move to Done. See ADR-0009.
 - `org_field_colors` is the extension's client dot, made generic. One value of a
   reference field carries a colour, and a card draws it as a dot. The colour is a
   palette name or `#rgb` or `#rrggbb`, in one column, told apart by the leading

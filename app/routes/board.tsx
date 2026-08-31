@@ -13,6 +13,8 @@ import {
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
+import { DecisionPrompt } from "../decision-prompt";
+import { askOn, askedOn, decide, isDecide } from "../decisions.server";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
@@ -111,6 +113,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     org: { slug: scope.org.slug, name: scope.org.name },
     orgs: await listOrgsForPerson(env.DB, scope.personId),
     columns,
+    // The prompt a finished card raised, if the query string still holds one.
+    ask: await askedOn(env.DB, scope, request),
     toggles,
     today,
     day,
@@ -143,9 +147,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // The card the task lands above. Nothing named means the bottom.
     const before = String(form.get("before") ?? "") || null;
     const moved = await moveTask(env.DB, scope, { taskId: id, status, before });
-    if (!moved) throw new Response("Not found", { status: 404 });
+    if (!moved.moved) throw new Response("Not found", { status: 404 });
+    // A card dropped into Done is a task finished, and that is when Tusker
+    // asks for the decision.
+    if (moved.asks) return askOn(request, { id, slug: scope.org.slug });
     return { ok: true };
   }
+
+  if (isDecide(form)) return decide(env.DB, scope, request, form);
 
   throw new Response("That form does not name an action.", { status: 400 });
 }
@@ -338,7 +347,7 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, orgs, columns, toggles, today, hasPlan, day } = loaderData;
+  const { org, orgs, columns, toggles, today, hasPlan, day, ask } = loaderData;
   const mover = useFetcher();
 
   // The chip speaks for today, so the board must know which day that is where
@@ -406,6 +415,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           </section>
         ))}
       </div>
+
+      <DecisionPrompt ask={ask} />
     </main>
   );
 }

@@ -1,0 +1,151 @@
+/**
+ * A decision is a record of what was decided, kept by the org.
+ *
+ * Finishing a task is when the reasoning is still in a person's head, so that
+ * is when Tusker asks. It asks once, and the move to Done records the ask, so
+ * a skipped prompt is not raised again. See ADR-0009.
+ *
+ * A decision outlives the task that produced it: `task_id` is nullable, and a
+ * deleted task leaves the record in place with the link cleared.
+ */
+
+import { redirect } from "react-router";
+
+import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
+import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
+import { readTask } from "./tasks.server";
+
+/** The task a page has the prompt raised on. */
+export type Ask = { id: string; slug: string; title: string };
+
+/** One line of the log. `task` is null once the task is gone. */
+export type Logged = {
+  id: string;
+  title: string;
+  rationale: string;
+  created_at: string;
+  task: { id: string; title: string } | null;
+};
+
+/** The row the log reads, with the task flattened by the join. */
+type LogRow = {
+  id: string;
+  title: string;
+  rationale: string;
+  created_at: string;
+  task_id: string | null;
+  task_title: string | null;
+};
+
+/**
+ * The same page again, with the prompt raised on one task. Every route that
+ * finishes a task answers with this.
+ */
+export function askOn(request: Request, task: { id: string; slug: string }): Response {
+  const url = new URL(request.url);
+  return redirect(withPrompt(url.pathname, url.search, task));
+}
+
+/**
+ * The task this page has the prompt raised on, or null. The row is read
+ * through the scope, so a task id a person typed into the query string of an
+ * org they belong to still answers null.
+ */
+export async function askedOn(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+): Promise<Ask | null> {
+  const id = new URL(request.url).searchParams.get(ASK);
+  if (!id) return null;
+
+  const task = await readTask(db, scope, id);
+  return task ? { id: task.id, slug: scope.org.slug, title: task.title } : null;
+}
+
+/**
+ * The same, for a cross-org page. The query string names the org, and the set
+ * turns that name into the one-org scope the read takes.
+ */
+export async function askedAcross(
+  db: D1Database,
+  set: OrgSet,
+  request: Request,
+): Promise<Ask | null> {
+  const slug = new URL(request.url).searchParams.get(ORG) ?? "";
+  const scope = scopeForSlug(set, slug);
+  return scope ? askedOn(db, scope, request) : null;
+}
+
+/** True when the form is the prompt's own save. */
+export function isDecide(form: FormData): boolean {
+  return String(form.get("intent") ?? "") === "decide";
+}
+
+/**
+ * Writes the decision one prompt answered, and gives the page back with the
+ * prompt gone. An empty title is an error the prompt shows, so the words the
+ * person typed are not thrown away.
+ */
+export async function decide(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+  form: FormData,
+): Promise<Response | { error: string }> {
+  const title = String(form.get("title") ?? "").trim();
+  if (!title) return { error: "A decision needs a title." };
+
+  const taskId = String(form.get("id") ?? "");
+  // The task is read through the scope, so a decision cannot be hung on a row
+  // of another org.
+  const task = await readTask(db, scope, taskId);
+  if (!task) throw new Response("Not found", { status: 404 });
+
+  await db
+    .prepare(
+      `INSERT INTO decisions (id, org_id, task_id, decided_by, title, rationale)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      scope.org.id,
+      task.id,
+      scope.personId,
+      title,
+      String(form.get("rationale") ?? "").trim(),
+    )
+    .run();
+
+  const url = new URL(request.url);
+  return redirect(withoutPrompt(url.pathname, url.search));
+}
+
+/**
+ * One org's decisions, newest first.
+ *
+ * `rowid` breaks a tie, so two decisions written in the same millisecond still
+ * read in the order they were written. The join is left, because the record
+ * outlives the task and the log must still show it.
+ */
+export async function listDecisions(db: D1Database, scope: Scope): Promise<Logged[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT d.id, d.title, d.rationale, d.created_at,
+              t.id AS task_id, t.title AS task_title
+       FROM decisions d
+       LEFT JOIN tasks t ON t.id = d.task_id AND t.org_id = d.org_id
+       WHERE d.org_id = ?
+       ORDER BY d.created_at DESC, d.rowid DESC`,
+    )
+    .bind(scope.org.id)
+    .all<LogRow>();
+
+  return results.map((row) => ({
+    id: row.id,
+    title: row.title,
+    rationale: row.rationale,
+    created_at: row.created_at,
+    task: row.task_id ? { id: row.task_id, title: row.task_title! } : null,
+  }));
+}

@@ -72,6 +72,17 @@ One piece of work in one org. A task never belongs to two orgs.
 A record of what was decided, kept by the org. A decision outlives the task that
 produced it, so a deleted task leaves the decision in place.
 
+**Decision prompt**:
+The box that asks for a title and a rationale when a task moves to Done. Tusker
+raises it once per task: the move records the ask, so a skipped prompt and a
+task moved out of Done and back both stay quiet. See ADR-0009.
+_Avoid_: Decision dialog, done modal
+
+**Decision log**:
+One org's decisions, newest first, at `/o/:slug/decisions`. A line with no task
+is a record still standing after the work is gone.
+_Avoid_: Decision history, changelog
+
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled
 status.

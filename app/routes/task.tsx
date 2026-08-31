@@ -3,6 +3,8 @@ import { Form, Link } from "react-router";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
+import { DecisionPrompt } from "../decision-prompt";
+import { askOn, askedOn, decide, isDecide } from "../decisions.server";
 import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
@@ -10,7 +12,7 @@ import { fieldClass } from "../forms";
 import { OrgNav } from "../org-nav";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
-import { readTask, saveTask } from "../tasks.server";
+import { moveTask, readTask, saveTask } from "../tasks.server";
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -37,6 +39,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // dropdown list stays plain: a browser will not style an option, so the
     // dot draws beside the box. See ADR-0006.
     colors: await heldColors(env.DB, scope, fields, task.data),
+    // The prompt the Finish button raised, if the query string still holds it.
+    ask: await askedOn(env.DB, scope, request),
   };
 }
 
@@ -58,6 +62,22 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const scope = await requireScope(request, env, params.slug);
 
   const form = await request.formData();
+
+  if (isDecide(form)) return decide(env.DB, scope, request, form);
+
+  // Finishing here is the move the board makes, so one act has one meaning,
+  // and the prompt is raised wherever a task is finished.
+  if (String(form.get("intent") ?? "") === "finish") {
+    const moved = await moveTask(env.DB, scope, {
+      taskId: params.taskId,
+      status: "done",
+      before: null,
+    });
+    if (!moved.moved) throw new Response("Not found", { status: 404 });
+    if (moved.asks) return askOn(request, { id: params.taskId, slug: scope.org.slug });
+    return { ok: true };
+  }
+
   const title = String(form.get("title") ?? "").trim();
   if (!title) return { error: "A task needs a title." };
 
@@ -177,7 +197,7 @@ function FieldBox({
 }
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, fields, refs, colors } = loaderData;
+  const { org, task, fields, refs, colors, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
@@ -226,6 +246,21 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           Save
         </button>
       </Form>
+
+      {/* Its own form, because finishing is one act and saving is another. */}
+      {task.status === "done" || task.status === "cancelled" ? null : (
+        <Form method="post">
+          <button
+            name="intent"
+            value="finish"
+            className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+          >
+            Finish
+          </button>
+        </Form>
+      )}
+
+      <DecisionPrompt ask={ask} />
     </main>
   );
 }

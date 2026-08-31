@@ -101,6 +101,13 @@ export async function createTask(
   return asTask(made);
 }
 
+/** What a move did: whether a row moved, and whether it now asks for a decision. */
+export type Moved = {
+  moved: boolean;
+  /** True when this move finished the task and Tusker has not asked yet. */
+  asks: boolean;
+};
+
 /**
  * Moves a task, inside its column or into another one. `before` names the card
  * the task lands above; without it the task lands at the bottom.
@@ -109,14 +116,27 @@ export async function createTask(
  * so no other card is renumbered. The `org_id` in the WHERE clause is what
  * stops one org from writing to another org's row.
  *
- * Returns false when no row matched, so the route can answer 404.
+ * A move into Done is a task finished, which is when Tusker asks for the
+ * decision. The same write records the ask, so a task moved out of Done and
+ * back is not asked twice, and a skipped prompt is not raised again. See
+ * ADR-0009.
+ *
+ * `moved` is false when no row matched, so the route can answer 404.
  */
 export async function moveTask(
   db: D1Database,
   scope: Scope,
   move: { taskId: string; status: Status; before?: string | null },
-): Promise<boolean> {
+): Promise<Moved> {
   const orgId = scope.org.id;
+  const was = await db
+    .prepare("SELECT status, decision_asked FROM tasks WHERE id = ? AND org_id = ?")
+    .bind(move.taskId, orgId)
+    .first<{ status: Status; decision_asked: number }>();
+  if (!was) return { moved: false, asks: false };
+
+  const asks = move.status === "done" && was.status !== "done" && was.decision_asked === 0;
+
   // The card leaves its old place, so it is no neighbour of its new one.
   const column = (await columnPlaces(db, orgId, move.status)).filter((one) => one.id !== move.taskId);
   const position = await placeAbove(db, orgId, move.status, column, move.before ?? null);
@@ -124,13 +144,14 @@ export async function moveTask(
   const done = await db
     .prepare(
       `UPDATE tasks
-       SET status = ?, position = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       SET status = ?, position = ?, decision_asked = ?,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND org_id = ?`,
     )
-    .bind(move.status, position, move.taskId, orgId)
+    .bind(move.status, position, asks ? 1 : was.decision_asked, move.taskId, orgId)
     .run();
 
-  return done.meta.changes > 0;
+  return { moved: done.meta.changes > 0, asks };
 }
 
 /** The live cards of one column, in the order the board draws them. */

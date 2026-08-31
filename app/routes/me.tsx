@@ -11,6 +11,8 @@ import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
+import { DecisionPrompt } from "../decision-prompt";
+import { askOn, askedAcross } from "../decisions.server";
 import { OrgSwitcher } from "../org-switcher";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
@@ -41,6 +43,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     groups,
     planned: plan ?? [],
     planStarted: plan !== null,
+    // The prompt a finished row raised, if the query string still holds one.
+    ask: await askedAcross(env.DB, set, request),
   };
 }
 
@@ -49,14 +53,18 @@ export async function action({ request, context }: Route.ActionArgs) {
   const set = await requireOrgSet(request, env);
 
   const form = await request.formData();
-  const done = await actOnTask(env, set, dayOf(request), form);
-  if (!done) throw new Response("That form does not name an action.", { status: 400 });
+  const acted = await actOnTask(env, request, set, dayOf(request), form);
+  if (!acted) throw new Response("That form does not name an action.", { status: 400 });
+  if (acted instanceof Response) return acted;
+  // Finishing a task here is finishing it anywhere, so the prompt is raised
+  // the same way the board raises it.
+  if (acted.ask) return askOn(request, acted.ask);
 
-  return { ok: true };
+  return acted;
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, planStarted, day } = loaderData;
+  const { orgs, groups, planned, planStarted, day, ask } = loaderData;
   const empty = groups.every((group) => group.tasks.length === 0);
 
   return (
@@ -91,6 +99,8 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           Your account
         </Link>
       </div>
+
+      <DecisionPrompt ask={ask} />
     </main>
   );
 }
