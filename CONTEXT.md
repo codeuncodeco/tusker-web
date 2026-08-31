@@ -108,6 +108,17 @@ the org app and reads the cache when a person opens a picker.
 The read-only endpoint an org app exposes for one reference field. It returns
 `{id, label}` rows and nothing else.
 
+**Refs key**:
+The key Tusker sends to an org app to read a refs endpoint. The org app mints
+it, stores it hashed and can revoke it. Tusker holds the plaintext beside the
+reference field. See ADR-0005.
+_Avoid_: Source key, endpoint secret
+
+**Org key**:
+The key an org app sends to Tusker to read tasks. Tusker mints it, stores it
+hashed and can revoke it. It identifies the org, not a person. See ADR-0005.
+_Avoid_: API key, org API key
+
 ### Views
 
 **Board**:
