@@ -139,13 +139,13 @@ describe("the members page", () => {
       { slug: "codeuncode" },
     );
 
-    expect(answer).toEqual({ ok: "bo@example.test is a member now." });
+    expect(answer).toEqual({ ok: "bo@example.test is a member now. Tusker mailed them." });
     const seen = await members("codeuncode", bo.cookie);
     expect(seen.org.slug).toBe("codeuncode");
     expect(seen.members.map((one) => one.email).sort()).toEqual(["ada@example.test", "bo@example.test"]);
   });
 
-  it("refuses an email no account holds", async () => {
+  it("invites an email no account holds", async () => {
     const { ada } = await team();
 
     const answer = await send(
@@ -157,7 +157,7 @@ describe("the members page", () => {
     );
 
     expect(answer).toEqual({
-      error: "No account holds nobody@example.test. Invite them first, then add them here.",
+      ok: "nobody@example.test is a member now. Tusker mailed them a link to sign in.",
     });
   });
 });

@@ -107,7 +107,13 @@ mail.
 and whoever posts to it first owns the instance. The window is yours to keep
 short. A `/` on an empty instance shows the link, so nothing is hidden.
 
-Every account after the first comes from `POST /api/invite`:
+Every account after the first comes from the members page of an org. Open
+`/o/<slug>/members`, give it an email, and Tusker makes the account, its
+personal org and the membership, then mails the person a link that signs them
+in. An email an account already holds is added and mailed without a link.
+
+`POST /api/invite` stays for a script, and for the first accounts that need no
+org but their own:
 
 ```sh
 curl -X POST https://<host>/api/invite \

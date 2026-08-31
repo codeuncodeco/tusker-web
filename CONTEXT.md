@@ -28,8 +28,11 @@ not an org and not a client, so the word keeps that one meaning.
 _Avoid_: Login, profile, user record
 
 **Invitation**:
-How every account after the first is made. Tusker has no public signup, so
-somebody with the invite token makes the account for the person.
+How every account after the first is made. Tusker has no public signup, so a
+member invites the person from the org's members page, or a script posts to the
+invite endpoint with the token. Either way Tusker makes the account. An
+invitation from the members page also mails the person a link that signs them
+in.
 _Avoid_: Signup, registration
 
 **Bootstrap**:

@@ -12,7 +12,7 @@ import type { Auth } from "./auth.server";
  * This reaches into `auth.$context` because better-auth publishes no endpoint
  * that makes an account without a signup. `sign-up/email` is off, and the
  * admin plugin would add a role model Tusker does not want. Watch these three
- * calls on a better-auth upgrade.
+ * calls on a better-auth upgrade, and the fourth in `mintSignInLink`.
  */
 export async function createAccount(
   auth: Auth,
@@ -50,4 +50,13 @@ export async function createAccount(
 export async function noAccountYet(db: D1Database): Promise<boolean> {
   const found = await db.prepare('SELECT 1 FROM "user" LIMIT 1').first();
   return found === null;
+}
+
+/** The name a mail calls an account by: its name, or its email when the name is blank. */
+export async function accountName(db: D1Database, personId: string): Promise<string> {
+  const person = await db
+    .prepare('SELECT name, email FROM "user" WHERE id = ?')
+    .bind(personId)
+    .first<{ name: string; email: string }>();
+  return person?.name?.trim() || person?.email || "Somebody";
 }
