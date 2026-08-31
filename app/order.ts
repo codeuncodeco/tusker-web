@@ -6,7 +6,7 @@
  * null at an end of the column.
  */
 
-/** The step a drop takes past the end of a column. */
+/** The distance a drop keeps from the card at an end of the column. */
 const STEP = 1;
 
 /**

@@ -255,6 +255,16 @@ describe("the order inside a column", () => {
     expect(cards.map((one) => one.title)).toEqual(["Second", "First", "Third"]);
   });
 
+  it("reads an empty neighbour, as the arrow at the foot of a column sends", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "move", id: first.id, status: "todo", before: "" });
+
+    const cards = column(await board("ada", ada.cookie), "todo")!.tasks;
+    expect(cards.map((one) => one.title)).toEqual(["Second", "Third", "First"]);
+  });
+
   it("lands a card dropped into another column at the bottom of it", async () => {
     const ada = await member("ada@example.test", "Ada");
     await act("ada", ada.cookie, { intent: "create", status: "done", title: "Older" });

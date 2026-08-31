@@ -19,7 +19,7 @@ const CARD_FIELDS = "id, org_id, title, status, position, due_date, archived, cr
 const IN_ORDER = "ORDER BY position, created_at, id";
 
 /** A card in a column, cut down to what the order maths reads. */
-type Place = { id: string; position: number };
+type Positioned = { id: string; position: number };
 
 /** One org's live tasks, in column order. */
 export async function listTasks(db: D1Database, orgId: string): Promise<Task[]> {
@@ -41,7 +41,7 @@ export async function createTask(
 ): Promise<Task> {
   const id = crypto.randomUUID();
   const column = await columnPlaces(db, task.orgId, task.status);
-  const position = await positionFor(db, task.orgId, task.status, column, column[0]?.id ?? null);
+  const position = await placeAbove(db, task.orgId, task.status, column, column[0]?.id ?? null);
 
   await db
     .prepare("INSERT INTO tasks (id, org_id, title, status, position) VALUES (?, ?, ?, ?, ?)")
@@ -67,15 +67,9 @@ export async function moveTask(
   db: D1Database,
   move: { orgId: string; taskId: string; status: Status; before?: string | null },
 ): Promise<boolean> {
-  const moving = await db
-    .prepare("SELECT id FROM tasks WHERE id = ? AND org_id = ?")
-    .bind(move.taskId, move.orgId)
-    .first<{ id: string }>();
-  if (!moving) return false;
-
   // The card leaves its old place, so it is no neighbour of its new one.
   const column = (await columnPlaces(db, move.orgId, move.status)).filter((one) => one.id !== move.taskId);
-  const position = await positionFor(db, move.orgId, move.status, column, move.before ?? null);
+  const position = await placeAbove(db, move.orgId, move.status, column, move.before ?? null);
 
   const done = await db
     .prepare(
@@ -90,11 +84,11 @@ export async function moveTask(
 }
 
 /** The live cards of one column, in the order the board draws them. */
-async function columnPlaces(db: D1Database, orgId: string, status: Status): Promise<Place[]> {
+async function columnPlaces(db: D1Database, orgId: string, status: Status): Promise<Positioned[]> {
   const { results } = await db
     .prepare(`SELECT id, position FROM tasks WHERE org_id = ? AND status = ? AND archived = 0 ${IN_ORDER}`)
     .bind(orgId, status)
-    .all<Place>();
+    .all<Positioned>();
   return results;
 }
 
@@ -106,25 +100,32 @@ async function columnPlaces(db: D1Database, orgId: string, status: Status): Prom
  * column is then renumbered whole and the maths asked again, which is the one
  * time a drop touches another row.
  */
-async function positionFor(
+async function placeAbove(
   db: D1Database,
   orgId: string,
   status: Status,
-  column: Place[],
+  column: Positioned[],
   beforeId: string | null,
 ): Promise<number> {
   const found = beforeId === null ? -1 : column.findIndex((one) => one.id === beforeId);
   // A card the column no longer holds names the bottom, as no neighbour does.
   const at = found === -1 ? column.length : found;
-  const position = between(column[at - 1]?.position ?? null, column[at]?.position ?? null);
+
+  const position = gap(column, at);
   if (position !== null) return position;
 
-  const spread = await renumber(db, orgId, status, column);
-  return between(spread[at - 1]?.position ?? null, spread[at]?.position ?? null)!;
+  const spread = await renumber(db, orgId, column);
+  // Whole numbers always leave room, so this second try answers.
+  return gap(spread, at)!;
+}
+
+/** The position between the cards on each side of one place in a column. */
+function gap(column: Positioned[], at: number): number | null {
+  return between(column[at - 1]?.position ?? null, column[at]?.position ?? null);
 }
 
 /** Writes 1, 2, 3 … over a column that has no room left between two cards. */
-async function renumber(db: D1Database, orgId: string, status: Status, column: Place[]): Promise<Place[]> {
+async function renumber(db: D1Database, orgId: string, column: Positioned[]): Promise<Positioned[]> {
   const spread = column.map((one, index) => ({ id: one.id, position: index + 1 }));
 
   await db.batch(

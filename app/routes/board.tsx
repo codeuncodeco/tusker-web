@@ -103,7 +103,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (intent === "move") {
     const status = readStatus(form);
     const id = String(form.get("id") ?? "");
-    // The card the drop landed above. Nothing named means the bottom.
+    // The card the task lands above. Nothing named means the bottom.
     const before = String(form.get("before") ?? "") || null;
     const moved = await moveTask(env.DB, { orgId: org.id, taskId: id, status, before });
     if (!moved) throw new Response("Not found", { status: 404 });
@@ -147,32 +147,38 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
   );
 }
 
-/** What a move asks for: the card, its column, and the card it lands above. */
+/** What a drag asks for: the card, its column, and the card it lands above. */
 type Move = (id: string, status: Status, before: string | null) => void;
 
 /**
- * One card. It shows its number in the column, the way the extension did.
+ * One card. It shows its number in the column, the way the extension did. The
+ * number is the place the board draws it in, not a stored field, so ticket 6's
+ * personal rank keeps its own word.
  *
- * The select moves it to another column and the two arrows move it inside one,
- * so every move has a key. Tusker is keyboard first, so the drag is the second
- * way, not the only one.
+ * The select moves the card to another column, and the two arrows move it
+ * inside one. Both sit in a form that posts on its own, so a move needs no
+ * script. Tusker is keyboard first, so the drag is the second way, not the
+ * only one.
  */
 function CardItem({
-  card,
+  cards,
+  index,
   status,
-  ordinal,
   move,
-  moveUp,
-  moveDown,
 }: {
-  card: Card;
+  cards: Card[];
+  index: number;
   status: Status;
-  ordinal: number;
   move: Move;
-  /** Undefined at the top or the bottom of the column, where the arrow rests. */
-  moveUp?: () => void;
-  moveDown?: () => void;
 }) {
+  const card = cards[index];
+  const post = useFetcher();
+
+  // Up lands above the card overhead. Down lands above the card after the
+  // next one, and an empty value names the bottom of the column.
+  const up = index === 0 ? null : cards[index - 1].id;
+  const down = index === cards.length - 1 ? null : (cards[index + 2]?.id ?? "");
+
   return (
     <li
       draggable
@@ -188,14 +194,18 @@ function CardItem({
       className="flex cursor-grab flex-col gap-2 rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
     >
       <span className="flex gap-2">
-        <span className="tabular-nums text-neutral-400">{ordinal}</span>
+        <span className="tabular-nums text-neutral-400">{index + 1}</span>
         <span>{card.title}</span>
       </span>
-      <div className="flex gap-2">
+
+      <post.Form method="post" className="flex gap-2">
+        <input type="hidden" name="intent" value="move" />
+        <input type="hidden" name="id" value={card.id} />
         <select
+          name="status"
           aria-label={`Column for ${card.title}`}
-          value={status}
-          onChange={(event) => move(card.id, event.currentTarget.value as Status, null)}
+          defaultValue={status}
+          onChange={(event) => post.submit(event.currentTarget.form)}
           className="rounded border border-neutral-300 bg-transparent px-1 py-0.5 text-xs dark:border-neutral-700"
         >
           {STATUSES.map((one) => (
@@ -204,25 +214,29 @@ function CardItem({
             </option>
           ))}
         </select>
+        {/* The submit the select needs when no script runs. */}
+        <button name="before" value="" className="sr-only">
+          Move
+        </button>
         <button
-          type="button"
-          disabled={!moveUp}
+          name="before"
+          value={up ?? ""}
+          disabled={up === null}
           aria-label={`Move ${card.title} up`}
-          onClick={moveUp}
           className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
         >
           ↑
         </button>
         <button
-          type="button"
-          disabled={!moveDown}
+          name="before"
+          value={down ?? ""}
+          disabled={down === null}
           aria-label={`Move ${card.title} down`}
-          onClick={moveDown}
           className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
         >
           ↓
         </button>
-      </div>
+      </post.Form>
     </li>
   );
 }
@@ -247,9 +261,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   const mover = useFetcher();
 
   /**
-   * One post carries every move: the card, the column it lands in, and the
-   * card it lands above. No card named means the bottom of the column. The
-   * loader then reloads the board.
+   * The post a drag makes: the card, the column it lands in, and the card it
+   * lands above. No card named means the bottom of the column. A card's own
+   * form carries the moves the keyboard makes.
    */
   const move: Move = (id, status, before) => {
     mover.submit({ intent: "move", id, status, before: before ?? "" }, { method: "post" });
@@ -293,22 +307,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               {column.tasks.map((card, index) => (
                 <CardItem
                   key={card.id}
-                  card={card}
+                  cards={column.tasks}
+                  index={index}
                   status={column.status}
-                  ordinal={index + 1}
                   move={move}
-                  // Up lands above the card overhead. Down lands above the one
-                  // after the next, or at the bottom when there is none.
-                  moveUp={
-                    index === 0
-                      ? undefined
-                      : () => move(card.id, column.status, column.tasks[index - 1].id)
-                  }
-                  moveDown={
-                    index === column.tasks.length - 1
-                      ? undefined
-                      : () => move(card.id, column.status, column.tasks[index + 2]?.id ?? null)
-                  }
                 />
               ))}
             </ul>
