@@ -14,7 +14,7 @@ import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
 import { orgForMember } from "../orgs.server";
 import { requirePerson } from "../session.server";
-import { createTask, listTasks, setTaskStatus, type Task } from "../tasks.server";
+import { createTask, listTasks, moveTask, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -103,7 +103,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (intent === "move") {
     const status = readStatus(form);
     const id = String(form.get("id") ?? "");
-    const moved = await setTaskStatus(env.DB, { orgId: org.id, taskId: id, status });
+    // The card the task lands above. Nothing named means the bottom.
+    const before = String(form.get("before") ?? "") || null;
+    const moved = await moveTask(env.DB, { orgId: org.id, taskId: id, status, before });
     if (!moved) throw new Response("Not found", { status: 404 });
     return { ok: true };
   }
@@ -145,28 +147,65 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
   );
 }
 
+/** What a drag asks for: the card, its column, and the card it lands above. */
+type Move = (id: string, status: Status, before: string | null) => void;
+
 /**
- * One card. The select moves it by keyboard, and the same post carries a drop.
- * Tusker is keyboard first, so the drag is the second way, not the only one.
+ * One card. It shows its number in the column, the way the extension did. The
+ * number is the place the board draws it in, not a stored field, so ticket 6's
+ * personal rank keeps its own word.
+ *
+ * The select moves the card to another column, and the two arrows move it
+ * inside one. Both sit in a form that posts on its own, so a move needs no
+ * script. Tusker is keyboard first, so the drag is the second way, not the
+ * only one.
  */
-function CardItem({ card, status }: { card: Card; status: Status }) {
-  const move = useFetcher();
+function CardItem({
+  cards,
+  index,
+  status,
+  move,
+}: {
+  cards: Card[];
+  index: number;
+  status: Status;
+  move: Move;
+}) {
+  const card = cards[index];
+  const post = useFetcher();
+
+  // Up lands above the card overhead. Down lands above the card after the
+  // next one, and an empty value names the bottom of the column.
+  const up = index === 0 ? null : cards[index - 1].id;
+  const down = index === cards.length - 1 ? null : (cards[index + 2]?.id ?? "");
 
   return (
     <li
       draggable
       onDragStart={(event) => event.dataTransfer.setData("text/plain", card.id)}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        // The dragged card takes this one's place, so this one slides down.
+        event.stopPropagation();
+        event.preventDefault();
+        const dragged = event.dataTransfer.getData("text/plain");
+        if (dragged && dragged !== card.id) move(dragged, status, card.id);
+      }}
       className="flex cursor-grab flex-col gap-2 rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
     >
-      <span>{card.title}</span>
-      <move.Form method="post" className="flex gap-2">
+      <span className="flex gap-2">
+        <span className="tabular-nums text-neutral-400">{index + 1}</span>
+        <span>{card.title}</span>
+      </span>
+
+      <post.Form method="post" className="flex gap-2">
         <input type="hidden" name="intent" value="move" />
         <input type="hidden" name="id" value={card.id} />
         <select
           name="status"
           aria-label={`Column for ${card.title}`}
           defaultValue={status}
-          onChange={(event) => move.submit(event.currentTarget.form)}
+          onChange={(event) => post.submit(event.currentTarget.form)}
           className="rounded border border-neutral-300 bg-transparent px-1 py-0.5 text-xs dark:border-neutral-700"
         >
           {STATUSES.map((one) => (
@@ -175,8 +214,29 @@ function CardItem({ card, status }: { card: Card; status: Status }) {
             </option>
           ))}
         </select>
-        <button className="sr-only">Move</button>
-      </move.Form>
+        {/* The submit the select needs when no script runs. */}
+        <button name="before" value="" className="sr-only">
+          Move
+        </button>
+        <button
+          name="before"
+          value={up ?? ""}
+          disabled={up === null}
+          aria-label={`Move ${card.title} up`}
+          className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+        >
+          ↑
+        </button>
+        <button
+          name="before"
+          value={down ?? ""}
+          disabled={down === null}
+          aria-label={`Move ${card.title} down`}
+          className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+        >
+          ↓
+        </button>
+      </post.Form>
     </li>
   );
 }
@@ -198,13 +258,22 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
 
 export default function Board({ loaderData }: Route.ComponentProps) {
   const { org, columns, toggles } = loaderData;
-  const drop = useFetcher();
+  const mover = useFetcher();
 
-  /** A drop tells the server the card's new column. The loader then reloads. */
+  /**
+   * The post a drag makes: the card, the column it lands in, and the card it
+   * lands above. No card named means the bottom of the column. A card's own
+   * form carries the moves the keyboard makes.
+   */
+  const move: Move = (id, status, before) => {
+    mover.submit({ intent: "move", id, status, before: before ?? "" }, { method: "post" });
+  };
+
+  /** A drop on the column itself, past the last card, lands at the bottom. */
   function onDrop(status: Status, event: React.DragEvent) {
     event.preventDefault();
     const id = event.dataTransfer.getData("text/plain");
-    if (id) drop.submit({ intent: "move", id, status }, { method: "post" });
+    if (id) move(id, status, null);
   }
 
   return (
@@ -235,8 +304,14 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             <QuickAdd status={column.status} label={column.label} />
 
             <ul className="flex flex-col gap-2">
-              {column.tasks.map((card) => (
-                <CardItem key={card.id} card={card} status={column.status} />
+              {column.tasks.map((card, index) => (
+                <CardItem
+                  key={card.id}
+                  cards={column.tasks}
+                  index={index}
+                  status={column.status}
+                  move={move}
+                />
               ))}
             </ul>
           </section>
