@@ -137,7 +137,7 @@ describe("inviting from the members page", () => {
 
     const answer = await invite(ada.cookie, "BO@Example.test");
 
-    expect(answer.ok).toContain("is a member now");
+    expect(answer.ok).toBe("bo@example.test is a member now. Tusker mailed them.");
     expect(await memberCount()).toBe(2);
     const { results } = await db.prepare('SELECT id FROM "user"').all();
     expect(results).toHaveLength(2);

@@ -99,38 +99,40 @@ export function createAuth(env: Env, request: Request, mailer: Mailer = createMa
 export type Auth = ReturnType<typeof createAuth>;
 
 /**
- * Mints a magic-link row of its own and answers the URL that spends it.
+ * Mints a magic-link row that lives `INVITE_TTL`, and answers the URL that
+ * spends it. The link lands on `next` once the person is signed in.
  *
  * The invitation link must outlive a sign-in link, and `expiresIn` on the
  * `magicLink` plugin sets one life for every link and every code. So this
- * writes the verification row itself, with the life the caller names. The
- * token shape and the verify route are the ones the plugin already uses, so
- * the existing `/api/auth/magic-link/verify` spends this link with no change.
+ * writes the verification row itself. The verify route is the one the plugin
+ * already publishes, so `/api/auth/magic-link/verify` spends this link with no
+ * change to it.
  *
  * `sendMagicLink` mails the URL and returns nothing, which is the other reason
- * the endpoint cannot serve here: the caller needs the URL in its own mail.
+ * the endpoint cannot serve here: the caller needs the URL for its own mail.
+ *
+ * The row holds the token as it stands, which is what the plugin does while
+ * its `storeToken` option is left alone. Setting that option to `hashed` would
+ * make the verify route look up a hash and find none of these rows, so this
+ * function must hash the same way on the day anybody sets it.
  *
  * This reaches into `auth.$context`, as `createAccount` does. Watch it on a
  * better-auth upgrade.
  */
-export async function mintSignInLink(
-  auth: Auth,
-  email: string,
-  options: { ttl: number; next: string },
-): Promise<string> {
+export async function mintInviteLink(auth: Auth, email: string, next: string): Promise<string> {
   const ctx = await auth.$context;
   const token = generateRandomString(32, "a-z", "A-Z");
 
   await ctx.internalAdapter.createVerificationValue({
     identifier: token,
     value: JSON.stringify({ email: email.toLowerCase() }),
-    expiresAt: new Date(Date.now() + options.ttl * 1000),
+    expiresAt: new Date(Date.now() + INVITE_TTL * 1000),
   });
 
   // The context base URL already carries the auth base path, `/api/auth`, so
   // the verify route hangs straight off it.
   const url = new URL(`${ctx.baseURL.replace(/\/+$/, "")}/magic-link/verify`);
   url.searchParams.set("token", token);
-  url.searchParams.set("callbackURL", options.next);
+  url.searchParams.set("callbackURL", next);
   return url.toString();
 }

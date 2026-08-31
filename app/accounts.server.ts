@@ -51,3 +51,12 @@ export async function noAccountYet(db: D1Database): Promise<boolean> {
   const found = await db.prepare('SELECT 1 FROM "user" LIMIT 1').first();
   return found === null;
 }
+
+/** The name a mail calls an account by: its name, or its email when the name is blank. */
+export async function accountName(db: D1Database, personId: string): Promise<string> {
+  const person = await db
+    .prepare('SELECT name, email FROM "user" WHERE id = ?')
+    .bind(personId)
+    .first<{ name: string; email: string }>();
+  return person?.name?.trim() || person?.email || "Somebody";
+}

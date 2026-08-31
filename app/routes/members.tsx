@@ -10,6 +10,9 @@ import { listMembers } from "../orgs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/members";
 
+/** A personal org holds one person, so it has no member to add. */
+const PERSONAL_ORG = "A personal org holds one person. Make another org to work with somebody else.";
+
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `Members of ${loaderData.org.name} — Tusker` }];
 }
@@ -27,12 +30,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug);
 
-  if (scope.org.kind === "personal") {
-    return { error: "A personal org holds one person. Make another org to work with somebody else." };
-  }
+  if (scope.org.kind === "personal") return { error: PERSONAL_ORG };
 
   const form = await request.formData();
-  const email = String(form.get("email") ?? "").trim();
+  const email = String(form.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   if (!email) return { error: "Name the email of the person to invite." };
 
   const mailer = createMailer(env);
@@ -70,7 +73,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
 
       {org.kind === "personal" ? (
         <p className="text-neutral-600 dark:text-neutral-400">
-          A personal org holds one person. Make another org to work with somebody else.
+          {PERSONAL_ORG}
         </p>
       ) : (
         <Form method="post" className="flex flex-col gap-3">

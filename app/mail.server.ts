@@ -11,7 +11,12 @@ export type SignInMail = { url?: string; otp?: string };
  * account for this person, so they have no other way in yet. No link means
  * they held an account already and sign in as they always do.
  */
-export type InvitationMail = { by: string; org: string; board: string; signIn?: string };
+export type InvitationMail = {
+  by: string;
+  org: string;
+  board: string;
+  signIn?: { url: string; days: number };
+};
 
 export type Mailer = {
   signIn(to: string, mail: SignInMail): Promise<void>;
@@ -94,7 +99,8 @@ function passwordResetBody(url: string) {
 function invitationBody(mail: InvitationMail) {
   const lines = [`${mail.by} added you to ${mail.org} on Tusker.`];
   if (mail.signIn) {
-    lines.push("", "Open this link to sign in:", mail.signIn, "", "The link stops working in 7 days.");
+    const { url, days } = mail.signIn;
+    lines.push("", "Open this link to sign in:", url, "", `The link stops working in ${days} days.`);
   } else {
     lines.push("", "The board is here:", mail.board, "", "Sign in the way you always do.");
   }

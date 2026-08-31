@@ -198,14 +198,6 @@ export async function addMemberById(
   return done.meta.changes > 0 ? "added" : "already";
 }
 
-/** The name a mail calls a member by: their name, or their email when it is blank. */
-export async function memberName(db: D1Database, personId: string): Promise<string> {
-  const person = await db
-    .prepare('SELECT name, email FROM "user" WHERE id = ?')
-    .bind(personId)
-    .first<{ name: string; email: string }>();
-  return person?.name?.trim() || person?.email || "Somebody";
-}
 
 /** True when another org took the slug between the read and the insert. */
 function tookTheSlug(failure: unknown): boolean {
