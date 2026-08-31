@@ -3,6 +3,7 @@
 Tusker is a keyboard-first task board for several orgs at once.
 [CONTEXT.md](./CONTEXT.md) holds the language, [docs/plan.md](./docs/plan.md)
 holds the phases, and [docs/adr/](./docs/adr/) holds the decisions.
+[docs/task-api.md](./docs/task-api.md) is the read API an org app calls.
 
 Sign-in runs on better-auth over D1, with three ways in: a password, a magic
 link and an email code. Resend sends the mail. There is no public signup.

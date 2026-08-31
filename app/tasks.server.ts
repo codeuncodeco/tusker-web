@@ -1,6 +1,6 @@
 import type { Status } from "./board";
 import { between } from "./order";
-import type { Scope } from "./scope.server";
+import type { ReadScope, Scope } from "./scope.server";
 
 export type Task = {
   id: string;
@@ -184,4 +184,72 @@ async function renumber(db: D1Database, orgId: string, column: Positioned[]): Pr
   );
 
   return spread;
+}
+
+/**
+ * A task as the read API answers it. An org app draws a screen from this, so
+ * it carries the description and the times the board does not read.
+ *
+ * A reference value stays the external id the task holds. The org app minted
+ * that id, so it names the record better than Tusker's cached label does.
+ */
+export type ApiTask = {
+  id: string;
+  title: string;
+  description: string;
+  status: Status;
+  position: number;
+  due_date: string | null;
+  data: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+};
+
+/** The columns the read API answers with. */
+const API_FIELDS =
+  "id, title, description, status, position, due_date, data, created_at, updated_at";
+
+/** What a read of the API narrows to: nothing, or both of these. */
+export type TaskFilter = {
+  /** The statuses to answer. Empty means every status. */
+  statuses: Status[];
+  /** The custom field values a task must hold, all of them. */
+  fields: { key: string; value: string }[];
+};
+
+/**
+ * One org's live tasks for the read API, in column order.
+ *
+ * The scope carries the org id and nothing else can reach this query, so a key
+ * for one org cannot name another org's rows.
+ *
+ * Archived tasks stay out, as they do on the board. An org app draws work in
+ * hand, and Done is a status, not the archive.
+ */
+export async function filterTasks(
+  db: D1Database,
+  scope: ReadScope,
+  filter: TaskFilter,
+): Promise<ApiTask[]> {
+  const where = ["org_id = ?", "archived = 0"];
+  const values: unknown[] = [scope.org.id];
+
+  if (filter.statuses.length > 0) {
+    where.push(`status IN (${filter.statuses.map(() => "?").join(", ")})`);
+    values.push(...filter.statuses);
+  }
+
+  // The key is bound, not written into the SQL, so a field key is a value here
+  // as it is everywhere else.
+  for (const field of filter.fields) {
+    where.push("json_extract(data, '$.' || ?) = ?");
+    values.push(field.key, field.value);
+  }
+
+  const { results } = await db
+    .prepare(`SELECT ${API_FIELDS} FROM tasks WHERE ${where.join(" AND ")} ${IN_ORDER}`)
+    .bind(...values)
+    .all<Omit<ApiTask, "data"> & { data: string }>();
+
+  return results.map((row) => ({ ...row, data: JSON.parse(row.data) as Record<string, string> }));
 }
