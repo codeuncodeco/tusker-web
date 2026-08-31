@@ -12,7 +12,7 @@ import type { Auth } from "./auth.server";
  * This reaches into `auth.$context` because better-auth publishes no endpoint
  * that makes an account without a signup. `sign-up/email` is off, and the
  * admin plugin would add a role model Tusker does not want. Watch these three
- * calls on a better-auth upgrade.
+ * calls on a better-auth upgrade, and the fourth in `mintSignInLink`.
  */
 export async function createAccount(
   auth: Auth,

@@ -113,8 +113,18 @@ Tusker has no public signup. Every way in refuses an email no account holds.
 
 ### Make an account
 
-`POST /api/invite` makes one. It answers only when `INVITE_TOKEN` is set and the
-request carries it, so an environment with no token has no endpoint.
+The members page of an org makes one. `/o/:slug/members` takes an email, and an
+email no account holds gets an account, a personal org, the membership, and a
+mail with a link that signs the person in. The link lasts 7 days. An email an
+account already holds gets the membership and a mail with no link. Membership
+is the only permission check, so any member invites — and so any member can
+make an account on the instance. This is not a public signup: every way in
+still refuses an email no account holds.
+
+`POST /api/invite` makes one too. It is the way a script makes an account, and
+the way to make one with no org but its own. It answers only when
+`INVITE_TOKEN` is set and the request carries it, so an environment with no
+token has no endpoint.
 
 ```sh
 curl -X POST http://localhost:5173/api/invite \
