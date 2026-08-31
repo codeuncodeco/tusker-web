@@ -1,7 +1,15 @@
 import { useEffect, useRef } from "react";
 import { Link, useFetcher, useSearchParams } from "react-router";
 
-import { STATUS_LABEL, columnsToShow, isStatus, type Status, type Toggles } from "../board";
+import {
+  STATUSES,
+  STATUS_LABEL,
+  backlogByRule,
+  columnsToShow,
+  isStatus,
+  type Status,
+  type Toggles,
+} from "../board";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
 import { orgForMember } from "../orgs.server";
@@ -12,6 +20,9 @@ import type { Route } from "./+types/board";
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData.org.name} — Tusker` }];
 }
+
+/** What one card shows. The task page reads the rest of the row. */
+type Card = { id: string; title: string };
 
 /**
  * The org this request is for, or a 404. A person outside the org gets the
@@ -42,19 +53,36 @@ function countByStatus(tasks: Task[]): Record<Status, number> {
   return counts;
 }
 
+/** The status the form names, or a 400. */
+function readStatus(form: FormData): Status {
+  const status = form.get("status");
+  if (!isStatus(status)) throw new Response("That is not a column.", { status: 400 });
+  return status;
+}
+
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const org = await orgOr404(request, env, params.slug);
 
   const tasks = await listTasks(env.DB, org.id);
+  const counts = countByStatus(tasks);
   const toggles = readToggles(new URL(request.url).searchParams);
-  const columns = columnsToShow(countByStatus(tasks), toggles).map((status) => ({
+  const columns = columnsToShow(counts, toggles).map((status) => ({
     status,
     label: STATUS_LABEL[status],
-    tasks: tasks.filter((task) => task.status === status),
+    tasks: tasks
+      .filter((task) => task.status === status)
+      .map(({ id, title }): Card => ({ id, title })),
   }));
 
-  return { org: { slug: org.slug, name: org.name }, columns, toggles };
+  return {
+    org: { slug: org.slug, name: org.name },
+    columns,
+    toggles,
+    // The rule can show Backlog on its own, and then the toggle has nothing to
+    // add. The header reads this to leave the toggle out.
+    backlogByRule: backlogByRule(counts),
+  };
 }
 
 export async function action({ request, context, params }: Route.ActionArgs) {
@@ -63,17 +91,17 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
-  const status = form.get("status");
-  if (!isStatus(status)) throw new Response("That is not a column.", { status: 400 });
 
   if (intent === "create") {
     const title = String(form.get("title") ?? "").trim();
+    const status = readStatus(form);
     if (!title) return { error: "A task needs a title." };
     await createTask(env.DB, { orgId: org.id, title, status });
     return { ok: true };
   }
 
   if (intent === "move") {
+    const status = readStatus(form);
     const id = String(form.get("id") ?? "");
     const moved = await setTaskStatus(env.DB, { orgId: org.id, taskId: id, status });
     if (!moved) throw new Response("Not found", { status: 404 });
@@ -85,23 +113,71 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
 /**
  * The box at the top of a column. It posts on Enter and empties itself once
- * the task lands, so a person can type the next one straight away.
+ * the task lands, so a person can type the next one at once.
  */
 function QuickAdd({ status, label }: { status: Status; label: string }) {
-  const add = useFetcher();
+  const add = useFetcher<typeof action>();
   const form = useRef<HTMLFormElement>(null);
+  const error = add.data && "error" in add.data ? add.data.error : null;
 
   useEffect(() => {
-    if (add.state === "idle" && add.data?.ok) form.current?.reset();
+    if (add.state === "idle" && add.data && "ok" in add.data) form.current?.reset();
   }, [add.state, add.data]);
 
   return (
     <add.Form method="post" ref={form} className="flex flex-col gap-2">
       <input type="hidden" name="intent" value="create" />
       <input type="hidden" name="status" value={status} />
-      <input name="title" placeholder={`Add to ${label}`} aria-label={`Add to ${label}`} className={fieldClass} />
+      <input
+        name="title"
+        required
+        placeholder={`Add to ${label}`}
+        aria-label={`Add to ${label}`}
+        className={fieldClass}
+      />
       <button className="sr-only">Add</button>
+      {error ? (
+        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+          {error}
+        </p>
+      ) : null}
     </add.Form>
+  );
+}
+
+/**
+ * One card. The select moves it by keyboard, and the same post carries a drop.
+ * Tusker is keyboard first, so the drag is the second way, not the only one.
+ */
+function CardItem({ card, status }: { card: Card; status: Status }) {
+  const move = useFetcher();
+
+  return (
+    <li
+      draggable
+      onDragStart={(event) => event.dataTransfer.setData("text/plain", card.id)}
+      className="flex cursor-grab flex-col gap-2 rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+    >
+      <span>{card.title}</span>
+      <move.Form method="post" className="flex gap-2">
+        <input type="hidden" name="intent" value="move" />
+        <input type="hidden" name="id" value={card.id} />
+        <select
+          name="status"
+          aria-label={`Column for ${card.title}`}
+          defaultValue={status}
+          onChange={(event) => move.submit(event.currentTarget.form)}
+          className="rounded border border-neutral-300 bg-transparent px-1 py-0.5 text-xs dark:border-neutral-700"
+        >
+          {STATUSES.map((one) => (
+            <option key={one} value={one}>
+              {STATUS_LABEL[one]}
+            </option>
+          ))}
+        </select>
+        <button className="sr-only">Move</button>
+      </move.Form>
+    </li>
   );
 }
 
@@ -114,7 +190,7 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
   const query = next.toString();
 
   return (
-    <Link to={query ? `?${query}` : "?"} className="underline" aria-pressed={toggles[which]}>
+    <Link to={query ? `?${query}` : "?"} className="underline">
       {toggles[which] ? "Hide" : "Show"} {STATUS_LABEL[which]}
     </Link>
   );
@@ -122,13 +198,13 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
 
 export default function Board({ loaderData }: Route.ComponentProps) {
   const { org, columns, toggles } = loaderData;
-  const move = useFetcher();
+  const drop = useFetcher();
 
   /** A drop tells the server the card's new column. The loader then reloads. */
-  function drop(status: Status, event: React.DragEvent) {
+  function onDrop(status: Status, event: React.DragEvent) {
     event.preventDefault();
     const id = event.dataTransfer.getData("text/plain");
-    if (id) move.submit({ intent: "move", id, status }, { method: "post" });
+    if (id) drop.submit({ intent: "move", id, status }, { method: "post" });
   }
 
   return (
@@ -136,7 +212,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       <header className="flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
         <nav className="flex gap-4 text-sm">
-          <Toggle which="backlog" toggles={toggles} />
+          {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
           <Link to="/me" className="underline">
             You
@@ -149,7 +225,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           <section
             key={column.status}
             onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => drop(column.status, event)}
+            onDrop={(event) => onDrop(column.status, event)}
             className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
           >
             <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
@@ -159,15 +235,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             <QuickAdd status={column.status} label={column.label} />
 
             <ul className="flex flex-col gap-2">
-              {column.tasks.map((task) => (
-                <li
-                  key={task.id}
-                  draggable
-                  onDragStart={(event) => event.dataTransfer.setData("text/plain", task.id)}
-                  className="cursor-grab rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
-                >
-                  {task.title}
-                </li>
+              {column.tasks.map((card) => (
+                <CardItem key={card.id} card={card} status={column.status} />
               ))}
             </ul>
           </section>

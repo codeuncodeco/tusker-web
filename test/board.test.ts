@@ -62,7 +62,7 @@ describe("who can load the board", () => {
   });
 
   it("does not let a person outside the org write to it", async () => {
-    const ada = await member("ada@example.test", "Ada");
+    await member("ada@example.test", "Ada");
     const bo = await member("bo@example.test", "Bo");
 
     const response = await caught(act("ada", bo.cookie, { intent: "create", status: "todo", title: "Theirs" }));
@@ -70,7 +70,6 @@ describe("who can load the board", () => {
     expect(response.status).toBe(404);
     const { results } = await db.prepare("SELECT id FROM tasks").all();
     expect(results).toEqual([]);
-    expect(ada.org.slug).toBe("ada");
   });
 });
 
@@ -82,8 +81,9 @@ describe("quick add", () => {
 
     const data = await board("ada", ada.cookie);
     expect(column(data, "in_progress")!.tasks).toEqual([
-      expect.objectContaining({ title: "Write the board", status: "in_progress" }),
+      expect.objectContaining({ title: "Write the board" }),
     ]);
+    expect(column(data, "todo")!.tasks).toEqual([]);
   });
 
   it("refuses an empty title", async () => {
@@ -149,6 +149,16 @@ describe("the columns the board shows", () => {
       "in_progress",
       "done",
     ]);
+  });
+
+  it("leaves the Backlog toggle out while the rule already shows the column", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    expect((await board("ada", ada.cookie)).backlogByRule).toBe(true);
+
+    await act("ada", ada.cookie, { intent: "create", status: "todo", title: "Something" });
+
+    expect((await board("ada", ada.cookie)).backlogByRule).toBe(false);
   });
 
   it("shows Backlog and Cancelled when the toggles ask for them", async () => {

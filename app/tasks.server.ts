@@ -14,7 +14,10 @@ export type Task = {
 /** The fields a card needs. `description`, `assignees` and `data` wait for the task page. */
 const CARD_FIELDS = "id, org_id, title, status, position, due_date, archived, created_at";
 
-/** One org's live tasks, in column order. Ticket 5 makes `position` mean more. */
+/**
+ * One org's live tasks, in column order. Ticket 5 replaces this order with a
+ * fraction that a drop can take the midpoint of.
+ */
 export async function listTasks(db: D1Database, orgId: string): Promise<Task[]> {
   const { results } = await db
     .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE org_id = ? AND archived = 0 ORDER BY position, created_at, id`)
@@ -32,14 +35,10 @@ export async function createTask(
   task: { orgId: string; title: string; status: Status },
 ): Promise<Task> {
   const id = crypto.randomUUID();
-  const last = await db
-    .prepare("SELECT MAX(position) AS at FROM tasks WHERE org_id = ? AND status = ?")
-    .bind(task.orgId, task.status)
-    .first<{ at: number | null }>();
 
   await db
     .prepare("INSERT INTO tasks (id, org_id, title, status, position) VALUES (?, ?, ?, ?, ?)")
-    .bind(id, task.orgId, task.title, task.status, (last?.at ?? 0) + 1)
+    .bind(id, task.orgId, task.title, task.status, await nextPosition(db, task.orgId, task.status))
     .run();
 
   const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Task>();
@@ -57,19 +56,23 @@ export async function setTaskStatus(
   db: D1Database,
   move: { orgId: string; taskId: string; status: Status },
 ): Promise<boolean> {
-  const last = await db
-    .prepare("SELECT MAX(position) AS at FROM tasks WHERE org_id = ? AND status = ?")
-    .bind(move.orgId, move.status)
-    .first<{ at: number | null }>();
-
   const done = await db
     .prepare(
       `UPDATE tasks
        SET status = ?, position = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND org_id = ?`,
     )
-    .bind(move.status, (last?.at ?? 0) + 1, move.taskId, move.orgId)
+    .bind(move.status, await nextPosition(db, move.orgId, move.status), move.taskId, move.orgId)
     .run();
 
   return done.meta.changes > 0;
+}
+
+/** The place after the last card in a column. Ticket 5 replaces this rule. */
+async function nextPosition(db: D1Database, orgId: string, status: Status): Promise<number> {
+  const last = await db
+    .prepare("SELECT MAX(position) AS at FROM tasks WHERE org_id = ? AND status = ?")
+    .bind(orgId, status)
+    .first<{ at: number | null }>();
+  return (last?.at ?? 0) + 1;
 }

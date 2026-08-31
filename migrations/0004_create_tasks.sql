@@ -15,5 +15,6 @@ CREATE TABLE tasks (
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
--- The board reads one org's column at a time, in order.
+-- A write to a column reads the last position in it first. This index serves
+-- that read, and the per-column reads that come later.
 CREATE INDEX tasks_org_status_idx ON tasks (org_id, status, position);
