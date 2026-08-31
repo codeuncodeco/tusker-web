@@ -12,12 +12,15 @@ import {
 } from "../board";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
+import { dayOf } from "../day";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { refLabels } from "../refs.server";
 import { fieldClass } from "../forms";
+import { useLocalDay } from "../local-day";
 import { listOrgsForPerson } from "../orgs.server";
+import { readPlan } from "../plans.server";
 import { OrgNav } from "../org-nav";
 import { OrgSwitcher } from "../org-switcher";
 import { requireScope } from "../scope.server";
@@ -30,6 +33,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 /** What one card shows. The task page reads the rest of the row. */
 type Card = { id: string; title: string; fields: Shown[] };
+
+/** True while the board is narrowed to today's plan. */
+function readToday(params: URLSearchParams): boolean {
+  return params.get("today") === "1";
+}
 
 /** Which of the two hidden columns the query string asks for. */
 function readToggles(params: URLSearchParams): Toggles {
@@ -70,12 +78,25 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The colour one value carries, so a card tells one client from another at a
   // glance. One query covers every card. See ADR-0006.
   const colors = await listColors(env.DB, scope);
+  // The chip narrows the board to the tasks today's plan holds. A null plan is
+  // a day the person has not planned, and then the board offers no chip.
+  const day = dayOf(request);
+  const plan = await readPlan(env.DB, scope.personId, day);
+  const query = new URL(request.url).searchParams;
+  // An emptied plan holds nothing to narrow to, so it carries no chip either.
+  const held = new Set(plan ?? []);
+  const hasPlan = held.size > 0;
+  const today = readToday(query) && hasPlan;
+  const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
+
+  // The Backlog rule reads the whole board, so narrowing does not change which
+  // columns a person sees. Clearing the chip gives the board back as it was.
   const counts = countByStatus(tasks);
-  const toggles = readToggles(new URL(request.url).searchParams);
+  const toggles = readToggles(query);
   const columns = columnsToShow(counts, toggles).map((status) => ({
     status,
     label: STATUS_LABEL[status],
-    tasks: tasks
+    tasks: shown
       .filter((task) => task.status === status)
       .map(
         (task): Card => ({
@@ -91,6 +112,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     orgs: await listOrgsForPerson(env.DB, scope.personId),
     columns,
     toggles,
+    today,
+    day,
+    /** Today's plan holds a task, so the chip has something to narrow to. */
+    hasPlan,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
@@ -270,24 +295,55 @@ function CardItem({
   );
 }
 
+/**
+ * The query string with one switch turned the other way, and the rest of it
+ * kept. Every switch the header draws is one of these.
+ */
+function flipped(params: URLSearchParams, which: string, on: boolean): string {
+  const next = new URLSearchParams(params);
+  if (on) next.delete(which);
+  else next.set(which, "1");
+  const query = next.toString();
+  return query ? `?${query}` : "?";
+}
+
+/** The chip that narrows the board to today's plan, and gives it back. */
+function TodayChip({ today }: { today: boolean }) {
+  const [params] = useSearchParams();
+
+  return (
+    <Link
+      to={flipped(params, "today", today)}
+      aria-pressed={today}
+      className={`rounded-full border px-2 py-0.5 text-xs ${
+        today
+          ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
+          : "border-neutral-300 dark:border-neutral-700"
+      }`}
+    >
+      Today
+    </Link>
+  );
+}
+
 /** The link that turns one hidden column on or off, keeping the other one. */
 function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: Toggles }) {
   const [params] = useSearchParams();
-  const next = new URLSearchParams(params);
-  if (toggles[which]) next.delete(which);
-  else next.set(which, "1");
-  const query = next.toString();
 
   return (
-    <Link to={query ? `?${query}` : "?"} className="underline">
+    <Link to={flipped(params, which, toggles[which])} className="underline">
       {toggles[which] ? "Hide" : "Show"} {STATUS_LABEL[which]}
     </Link>
   );
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, orgs, columns, toggles } = loaderData;
+  const { org, orgs, columns, toggles, today, hasPlan, day } = loaderData;
   const mover = useFetcher();
+
+  // The chip speaks for today, so the board must know which day that is where
+  // the person is, not where the Worker runs.
+  useLocalDay(day);
 
   /**
    * The post a drag makes: the card, the column it lands in, and the card it
@@ -310,7 +366,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
         <OrgSwitcher orgs={orgs} here={org.slug} />
-        <nav className="flex gap-4 text-sm">
+        <nav className="flex items-baseline gap-4 text-sm">
+          {hasPlan ? <TodayChip today={today} /> : null}
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
           <Link to="/me" className="underline">
