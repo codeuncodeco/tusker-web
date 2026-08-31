@@ -6,6 +6,7 @@ export default [
   route("bootstrap", "routes/bootstrap.tsx"),
   route("reset-password", "routes/reset-password.tsx"),
   route("me", "routes/me.tsx"),
+  route("me/focus", "routes/me.focus.tsx"),
   route("me/plan", "routes/me.plan.tsx"),
   // The same page for a named day, so a person can read back the day they
   // planned. One file, because two lists that sort differently go wrong.

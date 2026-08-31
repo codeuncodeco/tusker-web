@@ -48,6 +48,41 @@ export async function addToPlan(
 }
 
 /**
+ * Writes a day's plan, and only where the person has planned no day yet.
+ *
+ * Focus mode holds its batch this way: the first act on a batch drawn from the
+ * unified view writes that batch as the day's plan, so the three stay still.
+ * A day that already has a plan keeps it. See ADR-0009.
+ */
+export async function startPlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskIds: string[],
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO plans (user_id, day, task_ids) VALUES (?, ?, ?)
+       ON CONFLICT (user_id, day) DO NOTHING`,
+    )
+    .bind(personId, day, JSON.stringify(taskIds))
+    .run();
+}
+
+/** Adds tasks the plan does not hold at the end of a day's plan, in one write. */
+export async function appendToPlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskIds: string[],
+): Promise<void> {
+  const plan = (await readPlan(db, personId, day)) ?? [];
+  const add = taskIds.filter((one) => !plan.includes(one));
+  if (add.length === 0) return;
+  await writePlan(db, personId, day, [...plan, ...add]);
+}
+
+/**
  * Moves one task a place up or down a day's plan.
  *
  * The order is what a plan says, so this is the whole of the reorder: the row
@@ -65,6 +100,22 @@ export async function movePlan(
   const moved = moveInPlan(plan, taskId, step);
   if (moved === plan) return;
   await writePlan(db, personId, day, moved);
+}
+
+/**
+ * Moves a task to the end of a day's plan, where focus mode drops one out of a
+ * batch. A task the plan does not hold is left alone: a drop says "not now"
+ * about a task the person already planned. See ADR-0009.
+ */
+export async function pushDownPlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskId: string,
+): Promise<void> {
+  const plan = await readPlan(db, personId, day);
+  if (!plan?.includes(taskId) || plan[plan.length - 1] === taskId) return;
+  await writePlan(db, personId, day, [...plan.filter((one) => one !== taskId), taskId]);
 }
 
 /** Takes a task out of a day's plan, leaving the rest in order. */

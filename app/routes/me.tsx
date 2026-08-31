@@ -83,9 +83,14 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         <UnifiedList groups={groups} planned={new Set(planned)} day={day} />
       )}
 
-      <Link to="/account" className="text-sm underline">
-        Your account
-      </Link>
+      <div className="flex gap-4 text-sm">
+        <Link to="/me/focus" className="underline">
+          Focus on three
+        </Link>
+        <Link to="/account" className="underline">
+          Your account
+        </Link>
+      </div>
     </main>
   );
 }

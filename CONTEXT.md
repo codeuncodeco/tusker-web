@@ -155,8 +155,20 @@ with no plan for today carries no chip.
 _Avoid_: Today filter, my-day toggle
 
 **Focus**:
-A mode that shows one batch of three tasks and hides the rest until that batch
-is done. It draws from the plan when a plan exists.
+A mode that shows one batch of tasks and hides the rest until that batch is
+done, at `/me/focus`. It draws from the plan when a plan exists, and from the
+unified view when none does. See ADR-0009.
+_Avoid_: Focus timer, deep work mode
+
+**Batch**:
+The three tasks focus mode shows. The plan cut into threes from the top, and
+the batch is the first three that hold an unfinished task. Nothing stores one.
+_Avoid_: Chunk, sprint, session
+
+**Drop**:
+Taking a task out of a batch without finishing it. The task moves to the end of
+today's plan, so it comes back last. See ADR-0009.
+_Avoid_: Skip, snooze, defer
 
 **Unified view**:
 One person's tasks across every org they belong to, in percentile order.
