@@ -6,6 +6,8 @@
  * screen, the task editor and the board all state one rule once.
  */
 
+import { isDay } from "./day";
+
 /** The types Tusker renders. */
 export const FIELD_TYPES = ["text", "select", "date", "reference"] as const;
 
@@ -88,9 +90,6 @@ export function readOptions(text: string): string[] {
 /** A value the field takes, or the reason it does not. */
 export type Reading = { value: string | null } | { error: string };
 
-/** The date shape a date field holds, as SQLite and the browser both read it. */
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-
 /**
  * What one field makes of what a person typed. An empty answer is no value, so
  * clearing a box removes the key rather than writing an empty string.
@@ -172,9 +171,3 @@ export function shownOnCard(
     }));
 }
 
-/** True for a date a calendar holds, so 2026-13-01 is not one. */
-function isDay(text: string): boolean {
-  if (!DAY.test(text)) return false;
-  const date = new Date(`${text}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
-}

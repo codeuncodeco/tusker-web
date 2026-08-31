@@ -31,6 +31,9 @@ export function OrgSwitcher({ orgs, here }: { orgs: SwitchTo[]; here?: string })
       <Link to="/orgs/new" className="underline">
         New org
       </Link>
+      <Link to="/account" className="underline">
+        Account
+      </Link>
     </nav>
   );
 }

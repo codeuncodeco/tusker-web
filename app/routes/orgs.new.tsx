@@ -65,7 +65,7 @@ export default function NewOrg({ actionData }: Route.ComponentProps) {
         </button>
       </Form>
 
-      <Link to="/me" className="text-sm underline">
+      <Link to="/account" className="text-sm underline">
         Back to you
       </Link>
     </main>
