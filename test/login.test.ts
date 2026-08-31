@@ -7,7 +7,7 @@ import { outbox } from "../app/mail.server";
 import * as authRoute from "../app/routes/api.auth";
 import * as inviteRoute from "../app/routes/invite";
 import * as loginRoute from "../app/routes/login";
-import * as meRoute from "../app/routes/me";
+import * as accountRoute from "../app/routes/account";
 import * as resetRoute from "../app/routes/reset-password";
 import { SITE, caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
@@ -68,7 +68,7 @@ describe("sign in", () => {
     const response = await signInWithPassword();
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/me");
+    expect(response.headers.get("location")).toBe("/account");
     expect(cookieFrom(response)).toContain("better-auth");
   });
 
@@ -147,19 +147,19 @@ describe("password reset", () => {
   });
 });
 
-describe("/me", () => {
+describe("/account", () => {
   it("sends a signed-out request to sign-in", async () => {
-    const response = await caught(meRoute.loader(routeArgs(get("/me"))));
+    const response = await caught(accountRoute.loader(routeArgs(get("/account"))));
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/login?next=%2Fme");
+    expect(response.headers.get("location")).toBe("/login?next=%2Faccount");
   });
 
   it("shows the signed-in person and their orgs", async () => {
     await invite();
     const cookie = cookieFrom(await signInWithPassword());
 
-    const data = await meRoute.loader(routeArgs(get("/me", cookie)));
+    const data = await accountRoute.loader(routeArgs(get("/account", cookie)));
 
     expect(data.person).toMatchObject({ name: "Ada", email: EMAIL });
     expect(data.orgs).toEqual([expect.objectContaining({ slug: "ada", kind: "personal" })]);

@@ -314,7 +314,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
           <Link to="/me" className="underline">
-            You
+            Your tasks
           </Link>
         </nav>
         <OrgNav slug={org.slug} here="board" />

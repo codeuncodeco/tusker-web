@@ -26,7 +26,7 @@ describe("the bootstrap route", () => {
     const response = (await setUp()) as Response;
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/me");
+    expect(response.headers.get("location")).toBe("/account");
     expect(cookieFrom(response)).toContain("better-auth");
 
     const org = await db.prepare("SELECT slug, kind FROM orgs").first<{ slug: string; kind: string }>();

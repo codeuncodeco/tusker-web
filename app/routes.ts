@@ -6,6 +6,7 @@ export default [
   route("bootstrap", "routes/bootstrap.tsx"),
   route("reset-password", "routes/reset-password.tsx"),
   route("me", "routes/me.tsx"),
+  route("account", "routes/account.tsx"),
   route("orgs/new", "routes/orgs.new.tsx"),
   route("o/:slug/board", "routes/board.tsx"),
   route("o/:slug/fields", "routes/fields.tsx"),
