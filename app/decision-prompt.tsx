@@ -9,9 +9,10 @@ import { fieldClass } from "./forms";
  * The prompt a finished task raises: a title, and the reasoning while it is
  * still in the person's head.
  *
- * Esc skips it, and the task is Done all the same. A skip writes nothing,
- * because the move that finished the task already recorded the ask. See
- * ADR-0009.
+ * Esc skips it, and the task is Done all the same. A skip writes nothing, and
+ * nothing records that it happened: the prompt is raised again the next time
+ * the task is finished, and the person unmarks the task to end it. See
+ * ADR-0010.
  *
  * The form posts to the page it sits on, so one component serves the board,
  * the task page and both cross-org lists. With no script it is a plain form

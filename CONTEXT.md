@@ -72,10 +72,18 @@ One piece of work in one org. A task never belongs to two orgs.
 A record of what was decided, kept by the org. A decision outlives the task that
 produced it, so a deleted task leaves the decision in place.
 
+**Decision mark**:
+The flag that says a task holds a decision, in `tasks.decides`. It is off by
+default, and only a marked task raises the decision prompt. A person sets it in
+the board's quick-add box when the task is made, and on the task page after.
+See ADR-0010.
+_Avoid_: Decision flag, needs-decision
+
 **Decision prompt**:
-The box that asks for a title and a rationale when a task moves to Done. Tusker
-raises it once per task: the move records the ask, so a skipped prompt and a
-task moved out of Done and back both stay quiet. See ADR-0009.
+The box that asks for a title and a rationale when a marked task moves to Done.
+Nothing records the ask: a skip is a not-now, and the prompt comes back the next
+time the task is finished. A task that already holds a decision is never asked
+again. See ADR-0010.
 _Avoid_: Decision dialog, done modal
 
 **Decision log**:

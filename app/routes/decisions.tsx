@@ -40,7 +40,8 @@ export default function Decisions({ loaderData }: Route.ComponentProps) {
 
       {decisions.length === 0 ? (
         <p className="text-neutral-600 dark:text-neutral-400">
-          No decision yet. Finish a task, and Tusker asks for one.
+          No decision yet. Mark a task as one that holds a decision, and Tusker asks when
+          you finish it.
         </p>
       ) : (
         <ul className="flex flex-col gap-4">

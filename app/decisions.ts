@@ -2,9 +2,9 @@
  * Where the decision prompt lives while it is raised: the query string.
  *
  * The prompt is not the answer of the post that finished the task. It is a
- * place, so every way of finishing reaches it — a board card, a row of the
- * unified view, the task page — and a reload before the person answers raises
- * the same prompt again.
+ * place, so every way of finishing reaches it — a board card, the task page, a
+ * row of the unified view, focus mode — and a reload before the person answers
+ * raises the same prompt again. See ADR-0010.
  */
 
 /** The task the prompt asks about. */

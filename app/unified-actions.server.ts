@@ -74,6 +74,8 @@ export async function actOnTask(
   // gives the page back with the prompt gone.
   if (intent === "decide") return decide(env.DB, scope, request, form);
 
+  // Finishing here is the move the board makes, so one act has one meaning,
+  // and a marked task raises the prompt from any of these screens.
   if (intent === "finish" && task.status !== "done") {
     const finished = await finishTask(env.DB, scope, request, taskId);
     if (finished.prompt) return finished.prompt;

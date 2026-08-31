@@ -78,8 +78,9 @@ Notes that the table does not show:
 - Every query that reads task rows takes the session's org set through one
   helper. Scoping by hand is how a row leaks.
 - `derives_from` is not built.
-- `tasks.decision_asked` counts the ask, not the answer. Tusker asks for a
-  decision once per task, on the move to Done. See ADR-0009.
+- `tasks.decides` marks a task as one that holds a decision. Only a marked task
+  raises the prompt when it is finished, and the `decisions` table is the
+  once-only guard, so nothing records the ask. See ADR-0010.
 - `org_field_colors` is the extension's client dot, made generic. One value of a
   reference field carries a colour, and a card draws it as a dot. The colour is a
   palette name or `#rgb` or `#rrggbb`, in one column, told apart by the leading

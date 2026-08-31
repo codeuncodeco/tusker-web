@@ -14,7 +14,7 @@ import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
-import { askOn, askedOn, decide } from "../decisions.server";
+import { askedOn, decide, promptFor } from "../decisions.server";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
@@ -137,7 +137,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const title = String(form.get("title") ?? "").trim();
     const status = readStatus(form);
     if (!title) return { error: "A task needs a title." };
-    await createTask(env.DB, scope, { title, status });
+    // The mark goes on when the task is made, while the thought is there. It
+    // is off by default, so an unticked box is a task that decides nothing.
+    await createTask(env.DB, scope, { title, status, decides: form.get("decides") === "1" });
     return { ok: true };
   }
 
@@ -148,9 +150,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const before = String(form.get("before") ?? "") || null;
     const moved = await moveTask(env.DB, scope, { taskId: id, status, before });
     if (!moved.moved) throw new Response("Not found", { status: 404 });
-    // A card dropped into Done is a task finished, and that is when Tusker
-    // asks for the decision.
-    if (moved.asks) return askOn(request, { id, slug: scope.org.slug });
+    // A card dropped into Done is a task finished, and a marked task is the
+    // one Tusker asks about.
+    if (moved.finished) {
+      const prompt = await promptFor(env.DB, scope, request, id);
+      if (prompt) return prompt;
+    }
     return { ok: true };
   }
 
@@ -184,6 +189,12 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
         aria-label={`Add to ${label}`}
         className={fieldClass}
       />
+      {/* Off by default. Most tasks decide nothing, and a prompt people
+          learn to dismiss is how a log goes empty. See ADR-0010. */}
+      <label className="flex items-center gap-2 text-xs text-neutral-500">
+        <input type="checkbox" name="decides" value="1" />
+        Holds a decision
+      </label>
       <button className="sr-only">Add</button>
       {error ? (
         <p role="alert" className="text-sm text-red-700 dark:text-red-400">

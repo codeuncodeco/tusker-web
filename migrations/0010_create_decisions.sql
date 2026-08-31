@@ -15,8 +15,11 @@ CREATE TABLE decisions (
 -- The log reads one org, newest first. This index serves that read.
 CREATE INDEX decisions_org_created_idx ON decisions (org_id, created_at);
 
--- Tusker asks for a decision when a task is finished, and asks once. The move
--- to Done sets this, so a skipped prompt and a task moved out of Done and back
--- both stay quiet. See ADR-0009.
-ALTER TABLE tasks ADD COLUMN decision_asked INTEGER NOT NULL DEFAULT 0
-  CHECK (decision_asked IN (0, 1));
+-- A person marks a task as one that holds a decision, and only that task
+-- raises the prompt. It is off by default: most tasks decide nothing, and a
+-- prompt people learn to dismiss is how a log goes empty. See ADR-0010.
+--
+-- Nothing records the ask. The `decisions` table is the once-only guard, so a
+-- skipped prompt is raised again the next time the task is finished.
+ALTER TABLE tasks ADD COLUMN decides INTEGER NOT NULL DEFAULT 0
+  CHECK (decides IN (0, 1));

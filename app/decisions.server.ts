@@ -2,8 +2,10 @@
  * A decision is a record of what was decided, kept by the org.
  *
  * Finishing a task is when the reasoning is still in a person's head, so that
- * is when Tusker asks. It asks once, and the move to Done records the ask, so
- * a skipped prompt is not raised again. See ADR-0009.
+ * is when Tusker asks. It does not ask on every finish: a person marks the
+ * task, and only a marked task raises the prompt. The `decisions` table is the
+ * once-only guard, so a skip is a not-now and a task that already holds a
+ * decision is never asked again. See ADR-0010.
  *
  * A decision outlives the task that produced it: `task_id` is nullable, and a
  * deleted task leaves the record in place with the link cleared.
@@ -50,12 +52,27 @@ export function askOn(request: Request, task: TaskInOrg): Response {
 }
 
 /**
- * Finishes a task, and answers with the prompt when this is the move that
- * finished it. Finishing is the move the board makes, so one act has one
- * meaning wherever a page offers it.
+ * The prompt a finished task raises, or null for one that raises none. Every
+ * way of finishing a task calls this, so the mark is read in one place.
+ */
+export async function promptFor(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+  taskId: string,
+): Promise<Response | null> {
+  const task = await askable(db, scope, taskId);
+  return task ? askOn(request, { id: task.id, slug: scope.org.slug }) : null;
+}
+
+/**
+ * Finishes a task, and answers with the prompt when the task is marked as one
+ * that holds a decision. Finishing is the move the board makes, so one act has
+ * one meaning wherever a page offers it.
  *
- * Null is a task finished with nothing to ask: Tusker had already asked.
- * `moved` is false when the org holds no such row, so the route can answer 404.
+ * Null is a task finished with nothing to ask: an unmarked task, or one that
+ * already holds a decision. `moved` is false when the org holds no such row,
+ * so the route can answer 404.
  */
 export async function finishTask(
   db: D1Database,
@@ -66,15 +83,15 @@ export async function finishTask(
   const moved = await moveTask(db, scope, { taskId, status: "done", before: null });
   return {
     moved: moved.moved,
-    prompt: moved.asks ? askOn(request, { id: taskId, slug: scope.org.slug }) : null,
+    prompt: moved.finished ? await promptFor(db, scope, request, taskId) : null,
   };
 }
 
 /**
- * The task Tusker may raise the prompt for: one this org holds, one it has
- * asked about, and one no decision answers for yet.
+ * The task Tusker may raise the prompt for: one this org holds, one a person
+ * marked, one that is finished, and one no decision answers for yet.
  *
- * The last two rule the query string out as a way back in. A person cannot
+ * Those last three rule the query string out as a way back in. A person cannot
  * type an id into the address bar to raise a prompt that was never due, and a
  * form posted twice writes one decision, not two.
  */
@@ -86,7 +103,7 @@ async function askable(
   const row = await db
     .prepare(
       `SELECT t.id, t.title FROM tasks t
-       WHERE t.id = ? AND t.org_id = ? AND t.decision_asked = 1
+       WHERE t.id = ? AND t.org_id = ? AND t.decides = 1 AND t.status = 'done'
          AND NOT EXISTS (SELECT 1 FROM decisions d WHERE d.task_id = t.id)`,
     )
     .bind(taskId, scope.org.id)
