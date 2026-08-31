@@ -40,18 +40,36 @@ export async function setColors(
   fieldKey: string,
   colors: Record<string, string | null>,
 ): Promise<void> {
-  const writes = Object.entries(colors).map(([value, color]) =>
-    color === null
-      ? db
-          .prepare("DELETE FROM org_field_colors WHERE org_id = ? AND field_key = ? AND value = ?")
-          .bind(scope.org.id, fieldKey, value)
-      : db
-          .prepare(
-            `INSERT INTO org_field_colors (org_id, field_key, value, color) VALUES (?, ?, ?, ?)
-             ON CONFLICT (org_id, field_key, value) DO UPDATE SET color = excluded.color`,
-          )
-          .bind(scope.org.id, fieldKey, value, color),
-  );
+  const entries = Object.entries(colors);
+  const cleared = entries.filter(([, color]) => color === null).map(([value]) => value);
+  const set = entries.filter((entry): entry is [string, string] => entry[1] !== null);
+
+  const writes: D1PreparedStatement[] = [];
+
+  // Every empty box clears in one statement, so a form of many boxes and few
+  // colours costs one write, not one per box.
+  if (cleared.length > 0) {
+    const holes = cleared.map(() => "?").join(", ");
+    writes.push(
+      db
+        .prepare(
+          `DELETE FROM org_field_colors
+           WHERE org_id = ? AND field_key = ? AND value IN (${holes})`,
+        )
+        .bind(scope.org.id, fieldKey, ...cleared),
+    );
+  }
+
+  for (const [value, color] of set) {
+    writes.push(
+      db
+        .prepare(
+          `INSERT INTO org_field_colors (org_id, field_key, value, color) VALUES (?, ?, ?, ?)
+           ON CONFLICT (org_id, field_key, value) DO UPDATE SET color = excluded.color`,
+        )
+        .bind(scope.org.id, fieldKey, value, color),
+    );
+  }
 
   if (writes.length > 0) await db.batch(writes);
 }

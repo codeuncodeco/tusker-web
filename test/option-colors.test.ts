@@ -140,10 +140,11 @@ async function withOptions(over: { show_on_card?: string } = {}) {
 }
 
 describe("the values one field can colour", () => {
-  it("lists every cached option, and then every colour the cache no longer names", () => {
-    expect(colorRows(KUMARA, { t1: "blue", gone: "red" })).toEqual([
+  it("lists every cached option, and then every value a task holds or a colour names", () => {
+    expect(colorRows(KUMARA, { t1: "blue", gone: "red" }, ["t9", "t1"])).toEqual([
       { value: "t1", label: "Kumara Parvatha", color: "blue", cached: true },
       { value: "gone", label: "gone", color: "red", cached: false },
+      { value: "t9", label: "t9", color: null, cached: false },
     ]);
   });
 });
@@ -175,7 +176,7 @@ describe("colouring a value", () => {
 
     expect(answer).toEqual({
       error:
-        "Trail: A colour is a palette name or an exact colour, as blue or #2563eb. rebeccapurple is neither.",
+        "Trail: A colour is a palette name or an exact colour, for example blue or #2563eb. rebeccapurple is neither.",
     });
     expect((await fieldsOf(ada.cookie)).colors.trail[0].color).toBeNull();
   });
@@ -215,6 +216,25 @@ describe("colouring a value", () => {
   });
 });
 
+describe("a value the cache does not name", () => {
+  it("still takes a colour, because the colour hangs off the value", async () => {
+    const ada = await withOptions({ show_on_card: "1" });
+    // An id made after the last pull, which the picker took as typed.
+    await addTask(ada.cookie, "Walk the new one", "t9");
+
+    expect((await fieldsOf(ada.cookie)).colors.trail).toContainEqual({
+      value: "t9",
+      label: "t9",
+      color: null,
+      cached: false,
+    });
+
+    await setColor(ada.cookie, { t9: "red" });
+
+    expect((await todo(ada.cookie))[0].fields[0].color).toBe("red");
+  });
+});
+
 describe("the card", () => {
   it("draws the colour of the value the task holds", async () => {
     const ada = await withOptions({ show_on_card: "1" });
@@ -247,7 +267,7 @@ describe("the task page", () => {
       routeArgs(get(`/o/codeuncode/t/${task}`, ada.cookie), { slug: "codeuncode", taskId: task }),
     );
 
-    expect(edit.colors).toEqual({ trail: { t1: "blue" } });
+    expect(edit.colors).toEqual({ trail: "blue" });
   });
 });
 

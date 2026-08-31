@@ -9,6 +9,11 @@
 --
 -- The colour is a palette name or an exact colour, in one column. The leading
 -- `#` tells the two apart.
+--
+-- The foreign key cascades, so a dropped declaration takes its colours. SQLite
+-- cannot widen a CHECK, and 0006 rebuilt org_fields by DROP and RENAME. A
+-- rebuild in that style now drops these rows with it, so a later one has to
+-- carry this table across as well.
 CREATE TABLE org_field_colors (
   org_id     TEXT NOT NULL,
   field_key  TEXT NOT NULL,

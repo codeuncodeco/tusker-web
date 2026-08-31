@@ -1,6 +1,6 @@
 import { Form } from "react-router";
 
-import { colorRows, PALETTE, readColor, type ColorRow } from "../colors";
+import { colorRows, PALETTE_NAMES, readColor, type ColorRow } from "../colors";
 import { listColors, setColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { Dot } from "../dot";
@@ -14,10 +14,17 @@ import {
   type FieldType,
   type OrgField,
 } from "../fields";
-import { declareField, editField, listFields, readField, removeField } from "../fields.server";
+import {
+  declareField,
+  editField,
+  heldValues,
+  listFields,
+  readField,
+  removeField,
+} from "../fields.server";
 import { fieldClass } from "../forms";
 import { OrgNav } from "../org-nav";
-import { countRefOptions, listRefOptions, refreshField } from "../refs.server";
+import { refOptionsOfOrg, refreshField } from "../refs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/fields";
 
@@ -30,15 +37,18 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const scope = await requireScope(request, env, params.slug);
 
   const fields = await listFields(env.DB, scope);
-  const colors = await listColors(env.DB, scope);
+  const references = fields.filter((field) => field.type === "reference").map((field) => field.key);
+  const [colors, options, held] = await Promise.all([
+    listColors(env.DB, scope),
+    refOptionsOfOrg(env.DB, scope),
+    heldValues(env.DB, scope, references),
+  ]);
 
   // The lines the colour form draws for each reference field: the cached
-  // options, and then the values that keep a colour the cache no longer names.
+  // options, and then every other value a task holds or a colour names.
   const rows: Record<string, ColorRow[]> = {};
-  for (const field of fields) {
-    if (field.type !== "reference") continue;
-    const options = await listRefOptions(env.DB, scope, field.key);
-    rows[field.key] = colorRows(options, colors[field.key] ?? {});
+  for (const key of references) {
+    rows[key] = colorRows(options[key] ?? [], colors[key] ?? {}, held[key] ?? []);
   }
 
   return {
@@ -47,10 +57,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // How many options each reference field has cached. The count is what
     // tells a person the pull worked, and the key it was pulled with stays on
     // the server: this payload goes to the browser.
-    cached: await countRefOptions(env.DB, scope),
+    cached: Object.fromEntries(Object.entries(options).map(([key, one]) => [key, one.length])),
     colors: rows,
   };
 }
+
+/** The name each colour box carries, ahead of the value it colours. */
+const COLOR_BOX = "color.";
 
 /**
  * The colours one post names, as `stored value → colour`, or the first reason
@@ -71,9 +84,6 @@ function readColors(
 
   return { colors };
 }
-
-/** The name each colour box carries, ahead of the value it colours. */
-const COLOR_BOX = "color.";
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
@@ -290,11 +300,11 @@ function RefColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
 
       <span className="text-neutral-500">
         A colour draws as a dot on the card and beside the box on the task page. Type a palette
-        name or an exact colour, as blue or #2563eb. Empty draws plain.
+        name or an exact colour, for example blue or #2563eb. Empty draws plain.
       </span>
 
       <datalist id={list}>
-        {PALETTE.map((name) => (
+        {PALETTE_NAMES.map((name) => (
           <option key={name} value={name} />
         ))}
       </datalist>
@@ -308,7 +318,7 @@ function RefColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
               {row.cached ? null : <span className="text-neutral-500"> (gone)</span>}
             </span>
             <input
-              name={`color.${row.value}`}
+              name={`${COLOR_BOX}${row.value}`}
               list={list}
               defaultValue={row.color ?? ""}
               aria-label={`Colour for ${row.label}`}
@@ -382,9 +392,12 @@ function DeclaredField({
         </span>
       </Form>
 
-      {field.type === "reference" ? <RefCache field={field} cached={cached} /> : null}
-
-      {field.type === "reference" ? <RefColors field={field} rows={colors} /> : null}
+      {field.type === "reference" ? (
+        <>
+          <RefCache field={field} cached={cached} />
+          <RefColors field={field} rows={colors} />
+        </>
+      ) : null}
 
       <Form method="post">
         <input type="hidden" name="intent" value="remove" />
