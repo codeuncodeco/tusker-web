@@ -42,9 +42,14 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <Link to={`/o/${org.slug}/board`} className="text-sm underline">
-          Board
-        </Link>
+        <nav className="flex gap-4 text-sm">
+          <Link to={`/o/${org.slug}/board`} className="underline">
+            Board
+          </Link>
+          <Link to={`/o/${org.slug}/settings`} className="underline">
+            Settings
+          </Link>
+        </nav>
       </header>
 
       <ul className="flex flex-col gap-1">

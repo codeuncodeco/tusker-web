@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
+import * as boardRoute from "../app/routes/board";
 import * as loginRoute from "../app/routes/login";
 import * as membersRoute from "../app/routes/members";
 import * as newOrgRoute from "../app/routes/orgs.new";
+import * as settingsRoute from "../app/routes/settings";
 import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -157,5 +159,86 @@ describe("the members page", () => {
     expect(answer).toEqual({
       error: "No account holds nobody@example.test. Invite them first, then add them here.",
     });
+  });
+});
+
+describe("changing the slug", () => {
+  /** Ada, her org at /codeuncode, and Bo, who is not in it. */
+  async function team() {
+    const ada = await member("ada@example.test", "Ada");
+    const bo = await member("bo@example.test", "Bo");
+    await send(newOrgRoute, "/orgs/new", ada.cookie, { name: "codeuncode", slug: "codeuncode" });
+    return { ada, bo };
+  }
+
+  /** A post to the settings action for one slug. */
+  function rename(slug: string, cookie: string, next: string) {
+    return send(settingsRoute, `/o/${slug}/settings`, cookie, { slug: next }, { slug });
+  }
+
+  it("moves every page of the org to the new slug", async () => {
+    const { ada } = await team();
+
+    const response = (await rename("codeuncode", ada.cookie, "Code Uncode")) as Response;
+
+    expect(response.headers.get("location")).toBe("/o/code-uncode/settings");
+    const board = await boardRoute.loader(
+      routeArgs(get("/o/code-uncode/board", ada.cookie), { slug: "code-uncode" }),
+    );
+    expect(board.org.slug).toBe("code-uncode");
+    expect(await caught(boardRoute.loader(routeArgs(get("/o/codeuncode/board", ada.cookie), { slug: "codeuncode" })))).toMatchObject({
+      status: 404,
+    });
+  });
+
+  it("keeps the tasks the org already holds", async () => {
+    const { ada } = await team();
+    const add = post("/o/codeuncode/board", { intent: "create", status: "todo", title: "Stays" });
+    add.headers.set("cookie", ada.cookie);
+    await boardRoute.action(routeArgs(add, { slug: "codeuncode" }));
+
+    await rename("codeuncode", ada.cookie, "code-uncode");
+
+    const board = await boardRoute.loader(
+      routeArgs(get("/o/code-uncode/board", ada.cookie), { slug: "code-uncode" }),
+    );
+    expect(board.columns.find((one) => one.status === "todo")!.tasks.map((one) => one.title)).toEqual(["Stays"]);
+  });
+
+  it("refuses a slug another org holds", async () => {
+    const { ada, bo } = await team();
+    await send(newOrgRoute, "/orgs/new", bo.cookie, { name: "Taken", slug: "taken" });
+
+    const answer = await rename("codeuncode", ada.cookie, "taken");
+
+    expect(answer).toEqual({ error: "Another org already holds /taken." });
+    const row = await db.prepare("SELECT slug FROM orgs WHERE name = 'codeuncode'").first<{ slug: string }>();
+    expect(row?.slug).toBe("codeuncode");
+  });
+
+  it("refuses a slug that holds no letter or number", async () => {
+    const { ada } = await team();
+
+    const answer = await rename("codeuncode", ada.cookie, " -- ");
+
+    expect(answer).toEqual({ error: "A slug needs a letter or a number." });
+  });
+
+  it("takes the slug the org already holds as no change", async () => {
+    const { ada } = await team();
+
+    const response = (await rename("codeuncode", ada.cookie, "codeuncode")) as Response;
+
+    expect(response.headers.get("location")).toBe("/o/codeuncode/settings");
+  });
+
+  it("does not let a person outside the org change it", async () => {
+    const { bo } = await team();
+
+    const response = await caught(rename("codeuncode", bo.cookie, "theirs"));
+
+    expect(response.status).toBe(404);
+    const row = await db.prepare("SELECT slug FROM orgs WHERE name = 'codeuncode'").first<{ slug: string }>();
+    expect(row?.slug).toBe("codeuncode");
   });
 });

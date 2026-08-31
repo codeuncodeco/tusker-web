@@ -278,6 +278,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           <Link to={`/o/${org.slug}/members`} className="underline">
             Members
           </Link>
+          <Link to={`/o/${org.slug}/settings`} className="underline">
+            Settings
+          </Link>
           <Link to="/me" className="underline">
             You
           </Link>
