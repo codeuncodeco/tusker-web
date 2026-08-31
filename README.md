@@ -44,12 +44,12 @@ a person. The link and the code are both in that log line.
 
 Four names, in three places. A name means the same thing everywhere.
 
-| Name | Holds | Without it |
-| --- | --- | --- |
-| `BETTER_AUTH_SECRET` | A long random string. It signs the sessions and the sign-in tokens | No sign-in works |
-| `RESEND_API_KEY` | The Resend key | Mail goes to the log, not to a person |
-| `INVITE_TOKEN` | The bearer token that `POST /api/invite` demands | That endpoint answers 404, so no account can be made |
-| `MAIL_FROM` | The `From` address, such as `Tusker <tusker@codeuncode.com>`. Resend must hold that domain | Resend refuses the message |
+| Name                 | Holds                                                                                      | Without it                                           |
+| -------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `BETTER_AUTH_SECRET` | A long random string. It signs the sessions and the sign-in tokens                         | No sign-in works                                     |
+| `RESEND_API_KEY`     | The Resend key                                                                             | Mail goes to the log, not to a person                |
+| `INVITE_TOKEN`       | The bearer token that `POST /api/invite` demands                                           | That endpoint answers 404, so no account can be made |
+| `MAIL_FROM`          | The `From` address, such as `Tusker <tusker@codeuncode.com>`. Resend must hold that domain | Resend refuses the message                           |
 
 ### On your machine
 
@@ -83,11 +83,11 @@ never hold it.
 
 **Workers & Pages → tusker-web-dev → Settings → Build.** Three fields to type:
 
-| Field | Value | Why |
-| --- | --- | --- |
-| Build command | `pnpm run build` | Writes `build/server/wrangler.json`, with the environment already resolved |
-| Deploy command | `pnpm run deploy:ci` | Applies the migrations to the dev D1, then deploys |
-| Build variable `CLOUDFLARE_ENV` | `dev` | Tells the Cloudflare Vite plugin which `wrangler.jsonc` environment to resolve |
+| Field                           | Value                | Why                                                                            |
+| ------------------------------- | -------------------- | ------------------------------------------------------------------------------ |
+| Build command                   | `pnpm run build`     | Writes `build/server/wrangler.json`, with the environment already resolved     |
+| Deploy command                  | `pnpm run deploy:ci` | Applies the migrations to the dev D1, then deploys                             |
+| Build variable `CLOUDFLARE_ENV` | `dev`                | Tells the Cloudflare Vite plugin which `wrangler.jsonc` environment to resolve |
 
 The build's own API token needs **D1 (Edit)** on top of what Cloudflare gives it,
 because the deploy applies the migrations. See
@@ -187,16 +187,16 @@ See [docs/deploy.md](./docs/deploy.md).
 
 A push to `main` builds and deploys through Workers Builds. Its deploy command
 is `pnpm run deploy:ci`, which applies the migrations to the dev D1 and then
-deploys. See [docs/deploy.md](./docs/deploy.md) for the dashboard settings.
+deploys. See [docs/deploy.md](./docs/deploy.md) for the dashboard settings
 
 ## Layout
 
-| Path | Holds |
-| --- | --- |
-| `app/` | Routes, loaders and the server-only modules they call |
-| `app/auth.server.ts` | The better-auth options and the per-request instance |
-| `scripts/` | Build-time scripts. `auth-schema.ts` writes the better-auth SQL |
-| `workers/app.ts` | The Worker entry. It puts the Cloudflare bindings on the router context |
-| `migrations/` | Numbered SQL migrations for D1 |
-| `test/` | Vitest tests, run inside the Workers runtime |
-| `wrangler.jsonc` | The Worker and its bindings, per environment |
+| Path                 | Holds                                                                   |
+| -------------------- | ----------------------------------------------------------------------- |
+| `app/`               | Routes, loaders and the server-only modules they call                   |
+| `app/auth.server.ts` | The better-auth options and the per-request instance                    |
+| `scripts/`           | Build-time scripts. `auth-schema.ts` writes the better-auth SQL         |
+| `workers/app.ts`     | The Worker entry. It puts the Cloudflare bindings on the router context |
+| `migrations/`        | Numbered SQL migrations for D1                                          |
+| `test/`              | Vitest tests, run inside the Workers runtime                            |
+| `wrangler.jsonc`     | The Worker and its bindings, per environment                            |
