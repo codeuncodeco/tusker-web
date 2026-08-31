@@ -1,7 +1,8 @@
-import { Form, Link } from "react-router";
+import { Form } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
+import { OrgNav } from "../org-nav";
 import { addMember, listMembers } from "../orgs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/members";
@@ -42,14 +43,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <nav className="flex gap-4 text-sm">
-          <Link to={`/o/${org.slug}/board`} className="underline">
-            Board
-          </Link>
-          <Link to={`/o/${org.slug}/settings`} className="underline">
-            Settings
-          </Link>
-        </nav>
+        <OrgNav slug={org.slug} here="members" />
       </header>
 
       <ul className="flex flex-col gap-1">

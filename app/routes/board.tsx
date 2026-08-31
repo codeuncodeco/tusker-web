@@ -11,8 +11,11 @@ import {
   type Toggles,
 } from "../board";
 import { cloudflareEnv } from "../context.server";
+import { shownOnCard, type Shown } from "../fields";
+import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
 import { listOrgsForPerson } from "../orgs.server";
+import { OrgNav } from "../org-nav";
 import { OrgSwitcher } from "../org-switcher";
 import { requireScope } from "../scope.server";
 import { createTask, listTasks, moveTask, type Task } from "../tasks.server";
@@ -23,7 +26,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /** What one card shows. The task page reads the rest of the row. */
-type Card = { id: string; title: string };
+type Card = { id: string; title: string; fields: Shown[] };
 
 /** Which of the two hidden columns the query string asks for. */
 function readToggles(params: URLSearchParams): Toggles {
@@ -55,6 +58,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const scope = await requireScope(request, env, params.slug);
 
   const tasks = await listTasks(env.DB, scope);
+  // The org's declarations decide what a card shows, so the board needs no
+  // code for any one org's fields.
+  const declared = await listFields(env.DB, scope);
   const counts = countByStatus(tasks);
   const toggles = readToggles(new URL(request.url).searchParams);
   const columns = columnsToShow(counts, toggles).map((status) => ({
@@ -62,7 +68,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     label: STATUS_LABEL[status],
     tasks: tasks
       .filter((task) => task.status === status)
-      .map(({ id, title }): Card => ({ id, title })),
+      .map(
+        (task): Card => ({
+          id: task.id,
+          title: task.title,
+          fields: shownOnCard(declared, task.data),
+        }),
+      ),
   }));
 
   return {
@@ -155,11 +167,13 @@ function CardItem({
   cards,
   index,
   status,
+  slug,
   move,
 }: {
   cards: Card[];
   index: number;
   status: Status;
+  slug: string;
   move: Move;
 }) {
   const card = cards[index];
@@ -186,8 +200,20 @@ function CardItem({
     >
       <span className="flex gap-2">
         <span className="tabular-nums text-neutral-400">{index + 1}</span>
-        <span>{card.title}</span>
+        <Link to={`/o/${slug}/t/${card.id}`} className="underline-offset-2 hover:underline">
+          {card.title}
+        </Link>
       </span>
+
+      {card.fields.length > 0 ? (
+        <ul className="flex flex-wrap gap-2 text-xs text-neutral-500">
+          {card.fields.map((field) => (
+            <li key={field.key} className="rounded bg-neutral-100 px-1.5 py-0.5 dark:bg-neutral-800">
+              <span className="text-neutral-400">{field.label}</span> {field.value}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <post.Form method="post" className="flex gap-2">
         <input type="hidden" name="intent" value="move" />
@@ -275,16 +301,11 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         <nav className="flex gap-4 text-sm">
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
-          <Link to={`/o/${org.slug}/members`} className="underline">
-            Members
-          </Link>
-          <Link to={`/o/${org.slug}/settings`} className="underline">
-            Settings
-          </Link>
           <Link to="/me" className="underline">
             You
           </Link>
         </nav>
+        <OrgNav slug={org.slug} here="board" />
       </header>
 
       <div className="flex flex-1 gap-4 overflow-x-auto">
@@ -308,6 +329,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                   cards={column.tasks}
                   index={index}
                   status={column.status}
+                  slug={org.slug}
                   move={move}
                 />
               ))}

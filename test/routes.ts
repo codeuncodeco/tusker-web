@@ -9,6 +9,7 @@ export const SITE = "https://tusker.test";
 export async function wipe() {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM tasks"),
+    env.DB.prepare("DELETE FROM org_fields"),
     env.DB.prepare("DELETE FROM memberships"),
     env.DB.prepare("DELETE FROM orgs"),
     env.DB.prepare("DELETE FROM session"),
