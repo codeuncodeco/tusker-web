@@ -19,5 +19,6 @@ export default [
   route("o/:slug/members", "routes/members.tsx"),
   route("o/:slug/settings", "routes/settings.tsx"),
   route("api/auth/*", "routes/api.auth.ts"),
+  route("api/tasks", "routes/api.tasks.ts"),
   route("api/invite", "routes/invite.ts"),
 ] satisfies RouteConfig;

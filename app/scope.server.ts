@@ -1,3 +1,5 @@
+import { bearerKey } from "./org-keys";
+import { orgForKey } from "./org-keys.server";
 import { listOrgsForPerson, orgForMember, type Org } from "./orgs.server";
 import { requirePerson } from "./session.server";
 
@@ -8,7 +10,17 @@ import { requirePerson } from "./session.server";
  * id, because `org_id` is the only fence between two orgs. A scope is made in
  * one place, `requireScope`, so no route can invent one by hand.
  */
-export type Scope = { org: Org; personId: string };
+export type Scope = ReadScope & { personId: string };
+
+/**
+ * Proof that a request may read one org's task rows. A member's scope is one.
+ * An org key is the other: it names an org and no person, because crew who
+ * read an org app's task screen are not Tusker accounts. See ADR-0005.
+ *
+ * Every read an org key can reach takes this. Every write still takes a
+ * `Scope`, so a key cannot change a row.
+ */
+export type ReadScope = { org: Org };
 
 /**
  * The scope for a request under `/o/:slug`, or a throw that ends the request:
@@ -62,4 +74,18 @@ export function scopeForSlug(set: OrgSet, slug: string): Scope | null {
 function scopeFor(set: OrgSet, is: (org: Org) => boolean): Scope | null {
   const org = set.orgs.find(is);
   return org ? { org, personId: set.personId } : null;
+}
+
+/**
+ * The read scope an org key names, or a throw that ends the request with 401.
+ *
+ * A missing key, a key nothing hashes to and a revoked key all read the same,
+ * because none of them names an org and the caller learns nothing from which
+ * it was.
+ */
+export async function requireKeyScope(request: Request, env: Env): Promise<ReadScope> {
+  const key = bearerKey(request.headers.get("authorization"));
+  const org = key ? await orgForKey(env.DB, key) : null;
+  if (!org) throw Response.json({ error: "That key opens nothing." }, { status: 401 });
+  return { org };
 }

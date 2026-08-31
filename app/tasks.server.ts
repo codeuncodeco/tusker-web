@@ -1,6 +1,7 @@
-import type { Status } from "./board";
+import { isStatus, STATUSES, type Status } from "./board";
+import { listFields } from "./fields.server";
 import { between } from "./order";
-import type { Scope } from "./scope.server";
+import type { ReadScope, Scope } from "./scope.server";
 
 export type Task = {
   id: string;
@@ -71,7 +72,7 @@ export async function saveTask(
 }
 
 /** The row as every screen reads it, with the JSON column parsed. */
-function asTask(row: Row): Task {
+function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: Record<string, string> } {
   return { ...row, data: JSON.parse(row.data) as Record<string, string> };
 }
 
@@ -184,4 +185,118 @@ async function renumber(db: D1Database, orgId: string, column: Positioned[]): Pr
   );
 
   return spread;
+}
+
+/**
+ * A task as the read API answers it. An org app draws a screen from this, so
+ * it carries the description and the times the board does not read.
+ *
+ * A reference value stays the external id the task holds. The org app minted
+ * that id, so it names the record better than Tusker's cached label does.
+ */
+export type ApiTask = Omit<Task, "org_id" | "archived"> & {
+  description: string;
+  updated_at: string;
+};
+
+/** The columns the read API answers with. */
+const API_COLUMNS =
+  "id, title, description, status, position, due_date, data, created_at, updated_at";
+
+/**
+ * The board's columns, in board order, as SQL. A task's status decides its
+ * group, and the position orders it inside that group: a position is a place
+ * in one column, so a list of two columns is meaningless without this.
+ */
+const IN_COLUMN_ORDER = `ORDER BY CASE status
+  ${STATUSES.map((status, at) => `WHEN '${status}' THEN ${at}`).join("\n  ")}
+  END, position, created_at, id`;
+
+/** What a read of the API narrows to: nothing, or both of these. */
+export type TaskFilter = {
+  /** The statuses to answer. Empty means every status. */
+  statuses: Status[];
+  /** The custom field values a task must hold, all of them. */
+  fields: { key: string; value: string }[];
+};
+
+/** The name a custom field filter carries, ahead of the key it narrows by. */
+const FIELD_QUERY = "field.";
+
+/**
+ * What a query of the read API narrows to, or the reason it narrows to nothing
+ * a task could match.
+ *
+ * A status Tusker does not draw, a field the org does not declare and a filter
+ * with no value are all reasons rather than empty answers, because each one is
+ * a caller typing a name wrong, and an empty list reads as "no work" instead.
+ */
+export async function readTaskFilter(
+  db: D1Database,
+  scope: ReadScope,
+  query: URLSearchParams,
+): Promise<TaskFilter | { error: string }> {
+  const statuses: Status[] = [];
+  for (const value of query.getAll("status")) {
+    if (!isStatus(value)) {
+      return { error: `No status is called ${value}. They are ${STATUSES.join(", ")}.` };
+    }
+    statuses.push(value);
+  }
+
+  const asked = [...query.keys()].filter((name) => name.startsWith(FIELD_QUERY));
+  if (asked.length === 0) return { statuses, fields: [] };
+
+  const declared = new Set((await listFields(db, scope)).map((field) => field.key));
+  const fields = [];
+  for (const name of asked) {
+    const key = name.slice(FIELD_QUERY.length);
+    if (!declared.has(key)) return { error: `${scope.org.name} declares no field called ${key}.` };
+
+    const value = query.get(name) ?? "";
+    if (!value) return { error: `${name} needs the value to narrow by.` };
+    fields.push({ key, value });
+  }
+
+  return { statuses, fields };
+}
+
+/**
+ * One org's live tasks for the read API, in board order.
+ *
+ * The scope carries the org id and nothing else can reach this query, so a key
+ * for one org cannot name another org's rows.
+ *
+ * Archived tasks stay out, as they do on the board. An org app draws work in
+ * hand, and Done is a status, not the archive.
+ *
+ * The whole list answers at once. One org's live tasks are hundreds of rows,
+ * as they are for the unified view, so there is no page and no limit.
+ */
+export async function filterTasks(
+  db: D1Database,
+  scope: ReadScope,
+  filter: TaskFilter,
+): Promise<ApiTask[]> {
+  const where = ["org_id = ?", "archived = 0"];
+  const values: unknown[] = [scope.org.id];
+
+  if (filter.statuses.length > 0) {
+    where.push(`status IN (${filter.statuses.map(() => "?").join(", ")})`);
+    values.push(...filter.statuses);
+  }
+
+  // The key is bound, not written into the SQL, so a field key is a value here
+  // as it is everywhere else.
+  for (const field of filter.fields) {
+    where.push("json_extract(data, '$.' || ?) = ?");
+    values.push(field.key, field.value);
+  }
+
+  const { results } = await db
+    .prepare(`SELECT ${API_COLUMNS} FROM tasks WHERE ${where.join(" AND ")} ${IN_COLUMN_ORDER}`)
+    .bind(...values)
+    .all<Omit<ApiTask, "data"> & { data: string }>();
+
+  return results.map(asTask);
 }

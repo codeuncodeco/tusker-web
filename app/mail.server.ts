@@ -6,9 +6,22 @@ import { Resend } from "resend";
  */
 export type SignInMail = { url?: string; otp?: string };
 
+/**
+ * What one invitation mail carries. A sign-in link means Tusker made the
+ * account for this person, so they have no other way in yet. No link means
+ * they held an account already and sign in as they always do.
+ */
+export type InvitationMail = {
+  by: string;
+  org: string;
+  board: string;
+  signIn?: { url: string; days: number };
+};
+
 export type Mailer = {
   signIn(to: string, mail: SignInMail): Promise<void>;
   passwordReset(to: string, url: string): Promise<void>;
+  invitation(to: string, mail: InvitationMail): Promise<void>;
 };
 
 /** A mail the log mailer kept. Local runs and tests read this. */
@@ -41,6 +54,10 @@ function resendMailer(env: Env): Mailer {
       const { subject, text } = passwordResetBody(url);
       await resend.emails.send({ from, to, subject, text });
     },
+    async invitation(to, mail) {
+      const { subject, text } = invitationBody(mail);
+      await resend.emails.send({ from, to, subject, text });
+    },
   };
 }
 
@@ -51,6 +68,9 @@ function logMailer(): Mailer {
     },
     async passwordReset(to, url) {
       keep({ to, ...passwordResetBody(url) });
+    },
+    async invitation(to, mail) {
+      keep({ to, ...invitationBody(mail) });
     },
   };
 }
@@ -76,6 +96,17 @@ function passwordResetBody(url: string) {
   };
 }
 
+function invitationBody(mail: InvitationMail) {
+  const lines = [`${mail.by} added you to ${mail.org} on Tusker.`];
+  if (mail.signIn) {
+    const { url, days } = mail.signIn;
+    lines.push("", "Open this link to sign in:", url, "", `The link stops working in ${days} days.`);
+  } else {
+    lines.push("", "The board is here:", mail.board, "", "Sign in the way you always do.");
+  }
+  return { subject: `${mail.by} added you to ${mail.org} on Tusker`, text: lines.join("\n") };
+}
+
 /**
  * Merges the link and the code into one mail. better-auth sends the magic link
  * and the code through two callbacks, so the sign-in action collects both and
@@ -92,6 +123,7 @@ export function oneMail(mailer: Mailer): { mailer: Mailer; flush(): Promise<void
         Object.assign(merged, mail);
       },
       passwordReset: mailer.passwordReset,
+      invitation: mailer.invitation,
     },
     async flush() {
       if (to) await mailer.signIn(to, merged);

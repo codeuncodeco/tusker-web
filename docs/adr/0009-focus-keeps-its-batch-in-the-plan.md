@@ -63,3 +63,7 @@ work in front of the dropped task, which is the escape.
 
 A plan of fewer than three unfinished tasks is a batch of what there is. An
 empty plan says so, and offers the day.
+
+A person who starts the day in focus mode gets no leftovers offer, because the
+first act writes a plan and plan mode offers leftovers only to a day with none.
+The work they did is the day they started.

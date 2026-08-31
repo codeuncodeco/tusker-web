@@ -8,6 +8,7 @@
  * plan. See ADR-0004.
  */
 
+import type { Leftovers } from "./leftovers";
 import { moveInPlan, type Step } from "./plan";
 
 /**
@@ -30,11 +31,34 @@ export async function readPlan(
 }
 
 /**
- * Writes a day's plan, and only where the person has planned no day yet.
+ * The last plan before a day, or null when the person planned no earlier day.
  *
- * Focus mode holds its batch this way: the first act on a batch drawn from the
- * unified view writes that batch as the day's plan, so the three stay still.
- * A day that already has a plan keeps it. See ADR-0009.
+ * The day it names is the last day that holds a plan, so after a weekend it is
+ * Friday and not yesterday. A plan for a later day says nothing about this
+ * one.
+ */
+export async function lastPlanBefore(
+  db: D1Database,
+  personId: string,
+  day: string,
+): Promise<Leftovers | null> {
+  const row = await db
+    .prepare(
+      "SELECT day, task_ids FROM plans WHERE user_id = ? AND day < ? ORDER BY day DESC LIMIT 1",
+    )
+    .bind(personId, day)
+    .first<{ day: string; task_ids: string }>();
+  return row ? { from: row.day, taskIds: JSON.parse(row.task_ids) as string[] } : null;
+}
+
+/**
+ * Starts a day with an order, and leaves a day already started alone.
+ *
+ * Three acts are this one write. Leftovers carry a day forward or start it
+ * clean, and focus mode holds its batch: the first act on a batch drawn from
+ * the unified view writes those three as the day's plan, so they stay still.
+ * A person who already planned the day keeps that plan, so a second press of
+ * any of them changes nothing. See ADR-0009.
  */
 export async function startPlan(
   db: D1Database,

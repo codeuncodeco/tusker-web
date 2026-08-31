@@ -28,6 +28,18 @@ export function localDay(at: Date = new Date()): string {
 }
 
 /**
+ * The day as a person reads it: the weekday and the date. The weekday is read
+ * in UTC, so the name is the day itself and not the reader's evening.
+ */
+export function dayName(day: string): string {
+  const weekday = new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${day}T00:00:00Z`));
+  return `${weekday} ${day}`;
+}
+
+/**
  * The day a request speaks for: the one the browser wrote, or the Worker's own
  * day until it does. A person east of UTC therefore reads yesterday's plan for
  * one render, and the page asks again with the right day.

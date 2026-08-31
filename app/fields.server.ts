@@ -1,5 +1,5 @@
 import type { FieldType, OrgField } from "./fields";
-import type { Scope } from "./scope.server";
+import type { ReadScope, Scope } from "./scope.server";
 
 /** The row as the table holds it: options as JSON, the flags as 0 or 1. */
 type Row = {
@@ -48,7 +48,7 @@ export type Declared = "declared" | "taken";
  * One org's declared fields. The scope carries the org id, so a field one org
  * declares is unreachable from another one.
  */
-export async function listFields(db: D1Database, scope: Scope): Promise<OrgField[]> {
+export async function listFields(db: D1Database, scope: ReadScope): Promise<OrgField[]> {
   const { results } = await db
     .prepare(`SELECT ${COLUMNS} FROM org_fields WHERE org_id = ? ${IN_ORDER}`)
     .bind(scope.org.id)

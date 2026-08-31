@@ -15,12 +15,14 @@
  * ADR-0008, "A plan commits as it is made".
  */
 
-import { Link } from "react-router";
+import { Form, Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
-import { dayOf, isDay } from "../day";
+import { dayName, dayOf, isDay } from "../day";
+import type { Leftovers } from "../leftovers";
+import { leftoversFor } from "../leftovers.server";
 import { OrgSwitcher } from "../org-switcher";
-import { movePlan, readPlan } from "../plans.server";
+import { movePlan, readPlan, startPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { actOnTask } from "../unified-actions.server";
@@ -47,12 +49,18 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const day = dayFor(request, params.day);
-  const plan = (await readPlan(env.DB, set.personId, day)) ?? [];
-  const tasks = await listUnified(env.DB, set, plan);
+  const plan = await readPlan(env.DB, set.personId, day);
+  // A day already planned raises no prompt, emptied plan included: the row
+  // says the person started this day, and a plan is theirs to empty. Only the
+  // day the person is in raises one at all, because leftovers carry into
+  // today and not into a day the path names.
+  const leftovers =
+    plan === null && day === dayOf(request) ? await leftoversFor(env.DB, set, day) : null;
+  const tasks = await listUnified(env.DB, set, plan ?? []);
   // The first group holds the plan in plan order. A planned id no org answers
   // for is left out, so a task that was archived or deleted drops out of the
   // plan rather than raising an error.
-  const groups = groupsFor(tasks, plan);
+  const groups = groupsFor(tasks, plan ?? []);
   const inPlan = groups.find((group) => group.key === "today")!;
 
   return {
@@ -60,6 +68,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     day,
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
+    /** What the last plan leaves over, or null when there is nothing to offer. */
+    leftovers,
     groups,
     planned: inPlan.tasks.map((one) => one.id),
   };
@@ -80,6 +90,17 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // Carrying forward copies the leftovers into today's row. The old row is
+  // read and never written, because a plan is what that day meant to be.
+  if (intent === "carry" || intent === "clean") {
+    if (day !== dayOf(request)) {
+      throw new Response("Leftovers carry into today, not into a named day.", { status: 400 });
+    }
+    const carried = intent === "carry" ? await leftoversFor(env.DB, set, day) : null;
+    await startPlan(env.DB, set.personId, day, carried?.taskIds ?? []);
+    return { ok: true };
+  }
+
   const done = await actOnTask(env, set, day, form);
   if (!done) throw new Response("That form does not name an action.", { status: 400 });
 
@@ -87,7 +108,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, day, named } = loaderData;
+  const { orgs, groups, planned, day, named, leftovers } = loaderData;
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
@@ -101,6 +122,8 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         Press <kbd>p</kbd> to plan a task, and <kbd>J</kbd> and <kbd>K</kbd> to say in what
         order you will work them. Every act is kept, so nothing waits on this tab.
       </p>
+
+      {leftovers && <LeftoverPrompt leftovers={leftovers} />}
 
       <UnifiedList
         groups={groups}
@@ -122,5 +145,39 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         </Link>
       </div>
     </main>
+  );
+}
+
+/**
+ * The two ways out of an unfinished day: carry the leftovers into this one, or
+ * start clean. The prompt names the day it carries from, because the last plan
+ * is often not yesterday.
+ */
+function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
+  const count = leftovers.taskIds.length;
+
+  return (
+    <section className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
+      <p className="grow">
+        {dayName(leftovers.from)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
+      </p>
+
+      <Form method="post" className="flex gap-2">
+        <button
+          name="intent"
+          value="carry"
+          className="rounded border border-neutral-300 px-3 py-1 dark:border-neutral-700"
+        >
+          Carry {count === 1 ? "it" : "them"} forward
+        </button>
+        <button
+          name="intent"
+          value="clean"
+          className="rounded border border-neutral-300 px-3 py-1 dark:border-neutral-700"
+        >
+          Start clean
+        </button>
+      </Form>
+    </section>
   );
 }

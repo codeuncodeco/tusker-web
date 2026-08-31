@@ -28,8 +28,11 @@ not an org and not a client, so the word keeps that one meaning.
 _Avoid_: Login, profile, user record
 
 **Invitation**:
-How every account after the first is made. Tusker has no public signup, so
-somebody with the invite token makes the account for the person.
+How every account after the first is made. Tusker has no public signup, so a
+member invites the person from the org's members page, or a script posts to the
+invite endpoint with the token. Either way Tusker makes the account. An
+invitation from the members page also mails the person a link that signs them
+in.
 _Avoid_: Signup, registration
 
 **Bootstrap**:
@@ -42,6 +45,12 @@ Proof that the signed-in person is a member of one org. Every query that reads
 or writes task rows takes a scope, not a bare org id, and one function makes
 one. Scoping by hand is how a row leaks.
 _Avoid_: Tenant context, org guard
+
+**Read scope**:
+Proof that a request may read one org's task rows. A scope is one. An org key
+is the other, and it names an org and no person. Every read an org key can
+reach takes a read scope, and every write still takes a scope.
+_Avoid_: Anonymous scope, key context
 
 **Org app**:
 A separate application that an org runs, such as blrhikes-app. An org app reads
@@ -132,6 +141,13 @@ The key an org app sends to Tusker to read tasks. Tusker mints it, stores it
 hashed and can revoke it. It identifies the org, not a person. See ADR-0005.
 _Avoid_: API key, org API key
 
+**Task API**:
+The read-only endpoint Tusker exposes for an org app, at `/api/tasks`. It takes
+an org key, answers that org's live tasks and narrows by status and by a custom
+field value. It is the mirror of the refs endpoint: this one Tusker serves and
+the org app reads. See `docs/task-api.md`.
+_Avoid_: Tasks endpoint, public API
+
 ### Views
 
 **Board**:
@@ -148,6 +164,13 @@ is the unified view with selection turned on, at `/me/plan`, and `/me/plan/:day`
 for a named day. Every pick and every step writes the plan row, so nothing waits
 on a tab and there is no Commit button. See ADR-0008.
 _Avoid_: Daily planner, plan builder
+
+**Leftovers**:
+The tasks the last plan holds that are still unfinished. Opening plan mode on a
+day with no plan offers them: carry them forward, or start clean. A plan is
+never rewritten after its day, so carrying forward copies them and leaves the
+old row as it was.
+_Avoid_: Rollover, unfinished carry-over
 
 **Today chip**:
 The control on a board that narrows it to the tasks today's plan holds. A board

@@ -168,9 +168,9 @@ export async function listMembers(db: D1Database, orgId: string): Promise<Member
 export type Added = "added" | "already" | "no-account";
 
 /**
- * Adds an account to an org. Tusker has no public signup, so the account must
- * exist already: an unknown email is an invitation to make first, not a person
- * to create here.
+ * Adds an account to an org by its email. The account must exist already: an
+ * unknown email answers `no-account`, which the invite path takes as the cue
+ * to make one.
  *
  * Membership is the only permission check, so any member can add another one.
  */
@@ -181,13 +181,23 @@ export async function addMember(db: D1Database, orgId: string, email: string): P
     .first<{ id: string }>();
   if (!person) return "no-account";
 
+  return addMemberById(db, orgId, person.id);
+}
+
+/** Adds an account Tusker holds the id of. Every new member lands as `member`. */
+export async function addMemberById(
+  db: D1Database,
+  orgId: string,
+  personId: string,
+): Promise<Exclude<Added, "no-account">> {
   const done = await db
     .prepare("INSERT OR IGNORE INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
-    .bind(orgId, person.id)
+    .bind(orgId, personId)
     .run();
 
   return done.meta.changes > 0 ? "added" : "already";
 }
+
 
 /** True when another org took the slug between the read and the insert. */
 function tookTheSlug(failure: unknown): boolean {
