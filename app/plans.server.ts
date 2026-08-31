@@ -8,6 +8,7 @@
  * plan. See ADR-0004.
  */
 
+import type { Leftovers } from "./leftovers";
 import { moveInPlan, type Step } from "./plan";
 
 /**
@@ -27,6 +28,49 @@ export async function readPlan(
     .bind(personId, day)
     .first<{ task_ids: string }>();
   return row ? (JSON.parse(row.task_ids) as string[]) : null;
+}
+
+/**
+ * The last plan before a day, or null when the person planned no earlier day.
+ *
+ * The day it names is the last day that holds a plan, so after a weekend it is
+ * Friday and not yesterday. A plan for a later day says nothing about this
+ * one.
+ */
+export async function lastPlanBefore(
+  db: D1Database,
+  personId: string,
+  day: string,
+): Promise<Leftovers | null> {
+  const row = await db
+    .prepare(
+      "SELECT day, task_ids FROM plans WHERE user_id = ? AND day < ? ORDER BY day DESC LIMIT 1",
+    )
+    .bind(personId, day)
+    .first<{ day: string; task_ids: string }>();
+  return row ? { from: row.day, taskIds: JSON.parse(row.task_ids) as string[] } : null;
+}
+
+/**
+ * Starts a day with an order, and leaves a day already started alone.
+ *
+ * Carrying forward and starting clean are both this write. A person who
+ * already planned the day keeps that plan, so a second press of either button
+ * changes nothing.
+ */
+export async function startPlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskIds: string[],
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO plans (user_id, day, task_ids) VALUES (?, ?, ?)
+       ON CONFLICT (user_id, day) DO NOTHING`,
+    )
+    .bind(personId, day, JSON.stringify(taskIds))
+    .run();
 }
 
 /**

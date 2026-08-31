@@ -149,6 +149,13 @@ for a named day. Every pick and every step writes the plan row, so nothing waits
 on a tab and there is no Commit button. See ADR-0008.
 _Avoid_: Daily planner, plan builder
 
+**Leftovers**:
+The tasks the last plan holds that are still unfinished. Opening plan mode on a
+day with no plan offers them: carry them forward, or start clean. A plan is
+never rewritten after its day, so carrying forward copies them and leaves the
+old row as it was.
+_Avoid_: Rollover, unfinished carry-over
+
 **Today chip**:
 The control on a board that narrows it to the tasks today's plan holds. A board
 with no plan for today carries no chip.
