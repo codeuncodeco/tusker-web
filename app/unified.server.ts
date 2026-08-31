@@ -9,13 +9,17 @@
  */
 
 import type { Status } from "./board";
-import { shownOnCard } from "./fields";
+import { listColors } from "./colors.server";
+import { shownOnCard, type Shown } from "./fields";
 import { listFields } from "./fields.server";
 import { refLabels } from "./refs.server";
 import { scopeIn, type OrgSet } from "./scope.server";
-import type { Live } from "./unified";
+import type { LiveTask } from "./unified";
 
-/** The statuses the page draws. Backlog is the pile you decided not to work. */
+/**
+ * The statuses the page draws. Backlog stays off it: a task in Backlog is one
+ * the person decided not to work, and Done belongs to the decisions log.
+ */
 const LIVE_STATUSES = ["todo", "in_progress"] as const;
 
 /** The row the query answers with, before a card's fields are read. */
@@ -42,7 +46,7 @@ export async function listUnified(
   db: D1Database,
   set: OrgSet,
   plan: string[],
-): Promise<Live[]> {
+): Promise<LiveTask[]> {
   if (set.orgs.length === 0) return [];
 
   const rows = await placedRows(db, set, plan);
@@ -67,9 +71,9 @@ export async function listUnified(
 /**
  * Every task the page can draw, with its percentile.
  *
- * The window runs over the whole live board of each org, and the filter comes
- * after it, so a plan task that is now Done does not shorten the column the
- * percentiles are measured against.
+ * The window runs over every live task of the org set, and the filter comes
+ * after it. A task the plan holds therefore keeps a percentile from its own
+ * column, whichever column it is now in.
  */
 async function placedRows(db: D1Database, set: OrgSet, plan: string[]): Promise<Row[]> {
   const orgs = holes(set.orgs.length);
@@ -96,25 +100,30 @@ async function placedRows(db: D1Database, set: OrgSet, plan: string[]): Promise<
   return results;
 }
 
+/** What one org's card shows of one task's stored values. */
+type ShowFields = (data: Record<string, string>) => Shown[];
+
 /**
- * How to read one org's card fields, per org.
+ * How to read a card, per org.
  *
- * The labels of the reference fields come from the option cache, one read per
- * org rather than one per card: sixty rows must not become sixty calls to org
- * apps, and a cache miss shows the raw id instead.
+ * The labels of the reference fields come from the option cache, and the dots
+ * from the org's option colours: one read per org and none per card. Sixty
+ * rows must not become sixty calls to org apps, so an id the cache does not
+ * hold shows raw.
  */
-async function cardsByOrg(
-  db: D1Database,
-  set: OrgSet,
-): Promise<Map<string, (data: Record<string, string>) => ReturnType<typeof shownOnCard>>> {
+async function cardsByOrg(db: D1Database, set: OrgSet): Promise<Map<string, ShowFields>> {
   const read = await Promise.all(
     set.orgs.map(async (org) => {
       const scope = scopeIn(set, org.id)!;
-      const [declared, labels] = await Promise.all([
+      const [declared, labels, colors] = await Promise.all([
         listFields(db, scope),
         refLabels(db, scope),
+        listColors(db, scope),
       ]);
-      return [org.id, (data: Record<string, string>) => shownOnCard(declared, data, labels)] as const;
+      return [
+        org.id,
+        (data: Record<string, string>) => shownOnCard(declared, data, labels, colors),
+      ] as const;
     }),
   );
   return new Map(read);

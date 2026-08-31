@@ -7,26 +7,23 @@
  * reorder and the commit on the same row.
  */
 
-/** The ordered task ids one person planned for one day. */
-export async function readPlan(db: D1Database, personId: string, day: string): Promise<string[]> {
+/**
+ * The ordered task ids one person planned for one day, or null when they
+ * planned no day.
+ *
+ * The null is not an empty list. A person who takes the last task out of a
+ * plan still made one, so the page does not offer to start it again.
+ */
+export async function readPlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+): Promise<string[] | null> {
   const row = await db
     .prepare("SELECT task_ids FROM plans WHERE user_id = ? AND day = ?")
     .bind(personId, day)
     .first<{ task_ids: string }>();
-  return row ? (JSON.parse(row.task_ids) as string[]) : [];
-}
-
-/**
- * True when the person planned that day at all, which is not the same as the
- * plan holding a task. An emptied plan is still a plan, so the page does not
- * offer to start one again.
- */
-export async function hasPlan(db: D1Database, personId: string, day: string): Promise<boolean> {
-  const row = await db
-    .prepare("SELECT 1 AS one FROM plans WHERE user_id = ? AND day = ?")
-    .bind(personId, day)
-    .first<{ one: number }>();
-  return row !== null;
+  return row ? (JSON.parse(row.task_ids) as string[]) : null;
 }
 
 /**
@@ -42,7 +39,7 @@ export async function addToPlan(
   day: string,
   taskId: string,
 ): Promise<void> {
-  const plan = await readPlan(db, personId, day);
+  const plan = (await readPlan(db, personId, day)) ?? [];
   if (plan.includes(taskId)) return;
   await writePlan(db, personId, day, [...plan, taskId]);
 }
@@ -55,7 +52,7 @@ export async function dropFromPlan(
   taskId: string,
 ): Promise<void> {
   const plan = await readPlan(db, personId, day);
-  if (!plan.includes(taskId)) return;
+  if (!plan?.includes(taskId)) return;
   await writePlan(
     db,
     personId,

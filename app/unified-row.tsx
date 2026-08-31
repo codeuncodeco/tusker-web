@@ -1,14 +1,14 @@
-import { useFetcher } from "react-router";
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 
-import type { Live } from "./unified";
+import { Dot } from "./dot";
+import type { LiveTask } from "./unified";
 
 /** The fields a plan or a finish posts, so a key and a button send the same thing. */
-export function planFields(task: Live, planned: boolean) {
+export function planFields(task: LiveTask, planned: boolean) {
   return { intent: planned ? "unplan" : "plan", id: task.id, slug: task.org.slug };
 }
 
-export function finishFields(task: Live) {
+export function finishFields(task: LiveTask) {
   return { intent: "finish", id: task.id, slug: task.org.slug };
 }
 
@@ -29,7 +29,7 @@ export function UnifiedRow({
   selected,
   domId,
 }: {
-  task: Live;
+  task: LiveTask;
   /** True when today's plan holds the task, which turns Plan into Unplan. */
   planned: boolean;
   selected: boolean;
@@ -61,13 +61,15 @@ export function UnifiedRow({
         {task.org.name}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
-        {task.fields.map((field) => field.value).join(" · ")}
+      <span className="flex min-w-0 flex-1 gap-1 truncate text-xs text-neutral-500">
+        {task.fields.map((field, at) => (
+          <span key={field.key} className="flex items-center gap-1 truncate">
+            {at > 0 ? <span aria-hidden="true">·</span> : null}
+            <Dot color={field.color} />
+            {field.value}
+          </span>
+        ))}
       </span>
-
-      {task.due_date ? (
-        <span className="shrink-0 tabular-nums text-xs text-neutral-500">{task.due_date}</span>
-      ) : null}
 
       <post.Form method="post" className="flex shrink-0 gap-2">
         <input type="hidden" name="id" value={task.id} />
@@ -88,6 +90,12 @@ export function UnifiedRow({
           Finish
         </button>
       </post.Form>
+
+      {/* Rightmost, and it never truncates: the due date is the one signal
+          that reads the same in every org. */}
+      {task.due_date ? (
+        <span className="shrink-0 tabular-nums text-xs text-neutral-500">{task.due_date}</span>
+      ) : null}
     </li>
   );
 }

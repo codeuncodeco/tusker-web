@@ -1,10 +1,11 @@
 /**
- * A day is a local calendar date, as `YYYY-MM-DD`. A plan belongs to the day
- * the person is living, not to the day the Worker runs in, so the browser
- * names it and the server is told.
+ * A day is a calendar date, written `YYYY-MM-DD`. Two parts of Tusker read
+ * one: a date field holds a day, and a plan belongs to a day.
  *
- * `toISOString()` converts to UTC first, so an evening plan east of UTC would
- * land on tomorrow. Nothing here calls it.
+ * A plan takes the day the person is in, not the day the Worker runs in, so
+ * the browser names it and the server is told. `toISOString()` converts to
+ * UTC first, so an evening plan east of UTC would land on tomorrow. Nothing
+ * here calls it.
  */
 
 /** The shape a day takes, as SQLite and the browser both read it. */

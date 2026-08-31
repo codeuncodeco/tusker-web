@@ -1,8 +1,8 @@
 /**
  * The account page: the name, the orgs and Sign out.
  *
- * It held `/me` until the unified view took that URL. A page of work earns the
- * front door more than a page of links.
+ * It held `/me` until the unified view took that URL. `/me` now shows the
+ * tasks, because a person opens Tusker to work, not to read a list of links.
  */
 
 import { Form, Link, redirect } from "react-router";

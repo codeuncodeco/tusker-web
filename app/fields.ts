@@ -1,5 +1,3 @@
-import { colorOf, type OptionColors } from "./colors";
-
 /**
  * A field an org declares for its tasks. The value lives in the task's JSON
  * `data` column under `key`, so a new field needs no column and no code.
@@ -8,6 +6,7 @@ import { colorOf, type OptionColors } from "./colors";
  * screen, the task editor and the board all state one rule once.
  */
 
+import { colorOf, type OptionColors } from "./colors";
 import { isDay } from "./day";
 
 /** The types Tusker renders. */

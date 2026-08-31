@@ -48,6 +48,18 @@ export async function requireOrgSet(request: Request, env: Env): Promise<OrgSet>
  * reach is a null here rather than a missing WHERE clause further down.
  */
 export function scopeIn(set: OrgSet, orgId: string): Scope | null {
-  const org = set.orgs.find((one) => one.id === orgId);
+  return scopeFor(set, (org) => org.id === orgId);
+}
+
+/**
+ * The same scope, for an org a form named by its slug. A form carries the slug
+ * because a card links by it, and a slug a person invents answers null.
+ */
+export function scopeForSlug(set: OrgSet, slug: string): Scope | null {
+  return scopeFor(set, (org) => org.slug === slug);
+}
+
+function scopeFor(set: OrgSet, is: (org: Org) => boolean): Scope | null {
+  const org = set.orgs.find(is);
   return org ? { org, personId: set.personId } : null;
 }

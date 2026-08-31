@@ -152,7 +152,7 @@ describe("the percentile", () => {
     expect(ids(data, "todo")).toEqual(["long-1", "long-2", "short-1", "long-3", "long-4", "short-2"]);
   });
 
-  it("measures a column against its whole length, not the part the page draws", async () => {
+  it("counts the place from one, so the last card of a column is 1", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a", { position: 1 });
     await task(ada.org.id, "b", { position: 2 });
@@ -334,6 +334,31 @@ describe("what a row carries", () => {
   });
 });
 
+describe("the option colour", () => {
+  it("gives a card the dot the board draws", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO org_fields (org_id, key, label, type, source_url, show_on_card, position)
+           VALUES (?, 'client', 'Client', 'reference', 'https://blrhikes.test/clients', 1, 1)`,
+        )
+        .bind(ada.org.id),
+      db
+        .prepare("INSERT INTO org_field_colors (org_id, field_key, value, color) VALUES (?, 'client', 'acme', 'teal')")
+        .bind(ada.org.id),
+    ]);
+    await task(ada.org.id, "a");
+    await db.prepare("UPDATE tasks SET data = '{\"client\":\"acme\"}' WHERE id = 'a'").run();
+
+    const rows = (await page(ada.cookie)).groups.find((one) => one.key === "todo")!.tasks;
+
+    expect(rows[0].fields).toEqual([
+      { key: "client", label: "Client", value: "acme", color: "teal" },
+    ]);
+  });
+});
+
 describe("what the page refuses", () => {
   it("does not plan a task from an org the person is not in", async () => {
     const ada = await member("ada@example.test", "Ada");
@@ -357,6 +382,42 @@ describe("what the page refuses", () => {
     expect(response.status).toBe(404);
     const row = await db.prepare("SELECT status FROM tasks WHERE id = 'theirs'").first<{ status: string }>();
     expect(row?.status).toBe("todo");
+  });
+
+  it("does not plan a Backlog task, which must move to To do first", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "later", { status: "backlog" });
+
+    const response = await caught(act(ada.cookie, { intent: "plan", id: "later", slug: ada.org.slug }));
+
+    expect(response.status).toBe(400);
+    const { results } = await db.prepare("SELECT day FROM plans").all();
+    expect(results).toEqual([]);
+  });
+
+  it("does not plan a task already Done", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "over", { status: "done" });
+
+    const response = await caught(act(ada.cookie, { intent: "plan", id: "over", slug: ada.org.slug }));
+
+    expect(response.status).toBe(400);
+  });
+
+  it("leaves a task that is already Done where it is", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await act(ada.cookie, { intent: "finish", id: "a", slug: ada.org.slug });
+    const first = await db.prepare("SELECT position FROM tasks WHERE id = 'a'").first<{ position: number }>();
+
+    await act(ada.cookie, { intent: "finish", id: "a", slug: ada.org.slug });
+
+    const again = await db.prepare("SELECT status, position FROM tasks WHERE id = 'a'").first<{
+      status: string;
+      position: number;
+    }>();
+    expect(again).toEqual({ status: "done", position: first!.position });
   });
 
   it("refuses a form that names no act", async () => {

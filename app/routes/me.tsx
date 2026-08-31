@@ -4,7 +4,7 @@
  *
  * The list is derived, not draggable. #34 dropped the personal rank, so this
  * page answers "what is next" and the plan answers "in what order I will do
- * it". See ADR-0006.
+ * it". See ADR-0006, "One order per column".
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -13,10 +13,10 @@ import { Link, useFetcher, useNavigate, useRevalidator } from "react-router";
 import { cloudflareEnv } from "../context.server";
 import { DAY_COOKIE, dayOf, localDay } from "../day";
 import { OrgSwitcher } from "../org-switcher";
-import { addToPlan, dropFromPlan, hasPlan, readPlan } from "../plans.server";
-import { requireOrgSet, scopeIn } from "../scope.server";
+import { addToPlan, dropFromPlan, readPlan } from "../plans.server";
+import { requireOrgSet, scopeForSlug } from "../scope.server";
 import { moveTask, readTask } from "../tasks.server";
-import { groupsFor, type Live } from "../unified";
+import { groupsFor, type LiveTask } from "../unified";
 import { listUnified } from "../unified.server";
 import { UnifiedRow, finishFields, planFields } from "../unified-row";
 import type { Route } from "./+types/me";
@@ -30,16 +30,18 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const day = dayOf(request);
+  // A null plan is a day the person has not planned. An emptied plan is not
+  // one, so the offer to plan the day goes away once they start.
   const plan = await readPlan(env.DB, set.personId, day);
-  const tasks = await listUnified(env.DB, set, plan);
-  const groups = groupsFor(tasks, plan);
+  const tasks = await listUnified(env.DB, set, plan ?? []);
+  const groups = groupsFor(tasks, plan ?? []);
 
   return {
     orgs: set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind })),
     day,
     groups,
-    planned: plan,
-    planStarted: await hasPlan(env.DB, set.personId, day),
+    planned: plan ?? [],
+    planStarted: plan !== null,
   };
 }
 
@@ -55,13 +57,16 @@ export async function action({ request, context }: Route.ActionArgs) {
   // Every act names the org the task belongs to, and the row is read back
   // through the one-org scope. A task the person cannot reach is a 404 here,
   // not a row a plan quietly picks up.
-  const org = set.orgs.find((one) => one.slug === String(form.get("slug") ?? ""));
-  const scope = org ? scopeIn(set, org.id) : null;
-  if (!scope || !(await readTask(env.DB, scope, taskId))) {
-    throw new Response("Not found", { status: 404 });
-  }
+  const scope = scopeForSlug(set, String(form.get("slug") ?? ""));
+  const task = scope ? await readTask(env.DB, scope, taskId) : null;
+  if (!scope || !task) throw new Response("Not found", { status: 404 });
 
   if (intent === "plan") {
+    // Picking a task for today is the act of taking it out of the backlog, so
+    // a person moves it to To do first. The write says so, not only the page.
+    if (task.status !== "todo" && task.status !== "in_progress") {
+      throw new Response("Only a To do or In progress task can be planned.", { status: 400 });
+    }
     await addToPlan(env.DB, set.personId, day, taskId);
     return { ok: true };
   }
@@ -75,7 +80,9 @@ export async function action({ request, context }: Route.ActionArgs) {
     // Finishing here is the move the board makes, so one act has one meaning.
     // The decision prompt lands with #39, which raises it wherever a task is
     // finished.
-    await moveTask(env.DB, scope, { taskId, status: "done", before: null });
+    if (task.status !== "done") {
+      await moveTask(env.DB, scope, { taskId, status: "done", before: null });
+    }
     return { ok: true };
   }
 
@@ -83,9 +90,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 /**
- * Tells the server which day the person is living in. The Worker runs in UTC,
- * so until the browser says otherwise an evening east of UTC would read
- * yesterday's plan. The cookie is written once and the page asks again.
+ * Tells the server which day the person is in. The Worker runs in UTC, so an
+ * evening east of UTC reads the wrong plan until the browser says the day.
+ * The cookie is written once, and the page then asks again.
  */
 function useLocalDay(day: string) {
   const revalidator = useRevalidator();
@@ -100,61 +107,69 @@ function useLocalDay(day: string) {
 
 /**
  * The keys the page binds: `j` and `k` move, `Enter` opens, `p` plans and `x`
- * finishes. A key posts the same fields the row's own buttons carry.
+ * finishes. A key posts the fields the row's own buttons carry, so a key and a
+ * click send one thing.
+ *
+ * The cursor names a task, not a place in the list. A plan moves a row into
+ * Today, and the cursor goes with it.
  */
 function useKeys(
-  rows: Live[],
+  rows: LiveTask[],
   planned: Set<string>,
-  at: number,
-  setAt: (at: number) => void,
+  on: string | null,
+  setOn: (id: string) => void,
   act: (fields: Record<string, string>) => void,
 ) {
   const navigate = useNavigate();
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      // A person typing in a box means the letter, not the key.
+      // A person who types in a box wants the letter, not the key.
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select")) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
+      const at = rows.findIndex((one) => one.id === on);
       const task = rows[at];
-      if (event.key === "j") setAt(Math.min(at + 1, rows.length - 1));
-      else if (event.key === "k") setAt(Math.max(at - 1, 0));
+      if (event.key === "j") setOn(rows[Math.min(at + 1, rows.length - 1)]?.id ?? "");
+      else if (event.key === "k") setOn(rows[Math.max(at - 1, 0)]?.id ?? "");
       else if (!task) return;
       else if (event.key === "Enter") navigate(`/o/${task.org.slug}/t/${task.id}`);
       else if (event.key === "p") act(planFields(task, planned.has(task.id)));
-      else if (event.key === "x") act(finishFields(task));
-      else return;
+      // A task already finished has nothing left to finish.
+      else if (event.key === "x") {
+        if (task.finished) return;
+        act(finishFields(task));
+      } else return;
 
       event.preventDefault();
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, planned, at, setAt, act, navigate]);
+  }, [rows, planned, on, setOn, act, navigate]);
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
   const { orgs, groups, planned, planStarted, day } = loaderData;
   const post = useFetcher();
-  const [at, setAt] = useState(0);
+  const [on, setOn] = useState<string | null>(null);
   const list = useRef<HTMLDivElement>(null);
 
   // One flat order, so `j` and `k` walk the page the way a person reads it.
   const rows = groups.flatMap((group) => group.tasks);
   const plannedIds = new Set(planned);
   const empty = rows.length === 0;
+  // The cursor starts at the top, and stays on its task while the list moves.
+  const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
 
   useLocalDay(day);
-  useKeys(rows, plannedIds, Math.min(at, Math.max(rows.length - 1, 0)), setAt, (fields) =>
-    post.submit(fields, { method: "post" }),
-  );
+  useKeys(rows, plannedIds, cursor, setOn, (fields) => post.submit(fields, { method: "post" }));
 
-  // The selected row follows the keys down a list longer than the window.
+  // The cursor follows the keys down a list longer than the window.
   useEffect(() => {
     list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [at]);
+  }, [cursor]);
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
@@ -162,6 +177,12 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
         <OrgSwitcher orgs={orgs} />
       </header>
+
+      {planStarted ? null : (
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          Plan your day: press <kbd>p</kbd> on a task to put it in today's plan.
+        </p>
+      )}
 
       {empty ? (
         <p className="text-neutral-600 dark:text-neutral-400">
@@ -175,19 +196,13 @@ export default function Me({ loaderData }: Route.ComponentProps) {
                 {group.label} <span className="text-neutral-400">{group.tasks.length}</span>
               </h2>
 
-              {group.key === "today" && !planStarted ? (
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Plan your day: press <kbd>p</kbd> on a task to put it in today's plan.
-                </p>
-              ) : null}
-
               <ul className="flex flex-col gap-2">
                 {group.tasks.map((task) => (
                   <UnifiedRow
                     key={task.id}
                     task={task}
                     planned={plannedIds.has(task.id)}
-                    selected={rows[at]?.id === task.id}
+                    selected={cursor === task.id}
                     domId={`row-${task.id}`}
                   />
                 ))}

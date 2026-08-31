@@ -1,21 +1,21 @@
 /**
  * The unified view: one person's tasks across every org they belong to.
  *
- * This module holds the sort and the grouping, so plan mode (#36) draws the
- * same list from the same rules. Two cross-org lists that sort differently is
- * a bug the day one of them changes.
+ * This module holds the sort and the grouping. Plan mode (#36) draws the same
+ * list from the same rules, because two cross-org lists that sort differently
+ * go wrong as soon as one of them changes.
  */
 
 import type { Status } from "./board";
 import type { Shown } from "./fields";
 
-/** The org a row belongs to, as the card names it. */
-export type Belongs = { slug: string; name: string };
+/** The org a card names. It carries no id, because a screen reads this. */
+export type CardOrg = { slug: string; name: string };
 
 /** One task of any org, as the unified view sorts and draws it. */
-export type Live = {
+export type LiveTask = {
   id: string;
-  org: Belongs;
+  org: CardOrg;
   title: string;
   status: Status;
   due_date: string | null;
@@ -44,7 +44,7 @@ export const GROUP_LABEL: Record<GroupKey, string> = {
   todo: "To do",
 };
 
-export type Group = { key: GroupKey; label: string; tasks: Live[] };
+export type Group = { key: GroupKey; label: string; tasks: LiveTask[] };
 
 /**
  * The order inside a group: percentile, due date, `created_at`, id. The tail
@@ -54,7 +54,7 @@ export type Group = { key: GroupKey; label: string; tasks: Live[] };
  * the sort — an overdue task does not jump the list, because that is priority
  * under a new name.
  */
-export function inOrder(a: Live, b: Live): number {
+export function inOrder(a: LiveTask, b: LiveTask): number {
   return (
     a.percentile - b.percentile ||
     byDueDate(a.due_date, b.due_date) ||
@@ -70,7 +70,7 @@ export function inOrder(a: Live, b: Live): number {
  * drawn twice. A planned id no org answers for is left out: a task that was
  * archived or deleted drops out of the plan rather than raising an error.
  */
-export function groupsFor(tasks: Live[], plan: string[]): Group[] {
+export function groupsFor(tasks: LiveTask[], plan: string[]): Group[] {
   const byId = new Map(tasks.map((one) => [one.id, one]));
   const planned = new Set(plan);
 

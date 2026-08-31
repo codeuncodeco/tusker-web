@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { groupsFor, inOrder, type Live } from "../app/unified";
+import { groupsFor, inOrder, type LiveTask } from "../app/unified";
 
 /** A row with only the parts the sort reads named. */
-function live(some: Partial<Live> & { id: string }): Live {
+function live(some: Partial<LiveTask> & { id: string }): LiveTask {
   return {
     org: { slug: "ada", name: "Ada" },
     title: some.id,
@@ -18,7 +18,7 @@ function live(some: Partial<Live> & { id: string }): Live {
 }
 
 /** The ids the sort leaves in order. */
-function sorted(...rows: Live[]): string[] {
+function sorted(...rows: LiveTask[]): string[] {
   return [...rows].sort(inOrder).map((one) => one.id);
 }
 
