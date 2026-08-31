@@ -85,6 +85,28 @@ Worker can read a secret.
 `MAIL_FROM` is a plain variable in `wrangler.jsonc`, not a secret. Resend must
 hold the domain it names.
 
+## The first account
+
+`/bootstrap` makes it. The page is open while the `user` table is empty, and it
+answers 404 from the moment the first account lands. It asks for a name, an
+email and a password, and it signs you in, so the first person does not wait on
+mail.
+
+**Open it as soon as the first deploy is up.** Until you do, the page is public,
+and whoever posts to it first owns the instance. The window is yours to keep
+short. A `/` on an empty instance shows the link, so nothing is hidden.
+
+Every account after the first comes from `POST /api/invite`:
+
+```sh
+curl -X POST https://<host>/api/invite \
+  -H "authorization: Bearer $INVITE_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"email":"bo@example.com","name":"Bo","password":"a long one"}'
+```
+
+The password is optional. With no password the person signs in by link or code.
+
 ## Migrations
 
 A push runs them. `deploy:ci` migrates first and deploys second, so the schema

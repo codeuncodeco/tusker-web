@@ -18,8 +18,9 @@ export type AuthDeps = {
  * Every option the auth instance takes. `scripts/auth-schema.ts` calls this
  * too, so the checked-in schema stays in step with the plugins the app runs.
  *
- * Tusker has no public signup. Every way in refuses an unknown email, and an
- * account comes from an invitation or from a hand-made row.
+ * Tusker has no public signup. Every way in refuses an unknown email. The
+ * first account comes from `/bootstrap`, and every one after it from an
+ * invitation or a hand-made row.
  */
 export function authOptions({ db, secret, baseURL, mailer }: AuthDeps) {
   return {
