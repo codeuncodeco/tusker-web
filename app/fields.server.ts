@@ -173,6 +173,31 @@ export async function removeField(db: D1Database, scope: Scope, key: string): Pr
   return dropped.meta.changes > 0;
 }
 
+/**
+ * The values the org's tasks hold for each of these fields. The colour screen
+ * reads it, so a value the option cache does not name still takes a colour.
+ */
+export async function heldValues(
+  db: D1Database,
+  scope: Scope,
+  keys: string[],
+): Promise<Record<string, string[]>> {
+  const held = await Promise.all(
+    keys.map(async (key) => {
+      const { results } = await db
+        .prepare(
+          `SELECT DISTINCT json_extract(data, '$.' || ?) AS value FROM tasks
+           WHERE org_id = ? AND json_extract(data, '$.' || ?) IS NOT NULL`,
+        )
+        .bind(key, scope.org.id, key)
+        .all<{ value: string }>();
+      return [key, results.map((row) => row.value)] as const;
+    }),
+  );
+
+  return Object.fromEntries(held);
+}
+
 /** Clears the value of every task that holds an option the select dropped. */
 async function dropUndeclared(
   db: D1Database,

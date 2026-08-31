@@ -42,19 +42,28 @@ export async function listRefOptions(
   return results;
 }
 
-/** How many options each reference field of the org has cached. */
-export async function countRefOptions(
+/**
+ * The cached options of every reference field of the org, in label order. One
+ * query draws the whole manage screen, however many fields the org declares.
+ */
+export async function refOptionsOfOrg(
   db: D1Database,
   scope: Scope,
-): Promise<Record<string, number>> {
+): Promise<Record<string, RefOption[]>> {
   const { results } = await db
     .prepare(
-      `SELECT field_key, count(*) AS n FROM org_ref_options
-       WHERE org_id = ? AND label IS NOT NULL GROUP BY field_key`,
+      `SELECT field_key, ext_id AS id, label FROM org_ref_options
+       WHERE org_id = ? AND label IS NOT NULL
+       ORDER BY label, ext_id`,
     )
     .bind(scope.org.id)
-    .all<{ field_key: string; n: number }>();
-  return Object.fromEntries(results.map((row) => [row.field_key, row.n]));
+    .all<RefOption & { field_key: string }>();
+
+  const options: Record<string, RefOption[]> = {};
+  for (const row of results) {
+    (options[row.field_key] ??= []).push({ id: row.id, label: row.label });
+  }
+  return options;
 }
 
 /**

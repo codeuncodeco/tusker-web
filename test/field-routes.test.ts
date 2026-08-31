@@ -352,7 +352,7 @@ describe("the board card", () => {
     );
 
     const card = board.columns.find((one) => one.status === "todo")!.tasks[0];
-    expect(card.fields).toEqual([{ key: "client", label: "Client", value: "Acme" }]);
+    expect(card.fields).toEqual([{ key: "client", label: "Client", value: "Acme", color: null }]);
   });
 });
 

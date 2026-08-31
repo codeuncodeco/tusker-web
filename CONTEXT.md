@@ -109,6 +109,18 @@ the org app and reads the cache when a person opens a picker.
 The read-only endpoint an org app exposes for one reference field. It returns
 `{id, label}` rows and nothing else.
 
+**Option colour**:
+A colour one value of a reference field carries, so a card tells one client from
+another at a glance. It belongs to the value, not to the field, and Tusker holds
+it rather than the org app. A value with no option colour draws plain. See
+ADR-0006.
+_Avoid_: Field colour, tag colour, client dot
+
+**Palette**:
+The closed set of named colours an option colour can name. A colour is a palette
+name or an exact colour, and nothing else.
+_Avoid_: Theme, swatch set
+
 **Refs key**:
 The key Tusker sends to an org app to read a refs endpoint. The org app mints
 it, stores it hashed and can revoke it. Tusker holds the plaintext beside the

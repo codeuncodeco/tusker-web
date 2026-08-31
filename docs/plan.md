@@ -64,8 +64,9 @@ Tables that carry the design. Field lists are indicative, not final.
 | `task_comments` | `task_id`, `author_id`, `body` |
 | `decisions` | `org_id`, `title`, `rationale`, `task_id` (nullable) |
 | `plans` | `user_id`, `day` (local `YYYY-MM-DD`), ordered task ids |
-| `org_fields` | `org_id`, `key`, `label`, `type`, `options`, `source_url`, `refs_key`, `refs_pulled_at`, `show_on_card`, `filterable`, `position`, `color`, `derives_from` |
+| `org_fields` | `org_id`, `key`, `label`, `type`, `options`, `source_url`, `refs_key`, `refs_pulled_at`, `show_on_card`, `filterable`, `position`, `derives_from` |
 | `org_ref_options` | `org_id`, `field_key`, `ext_id`, `label` (null for a miss), `fetched_at` |
+| `org_field_colors` | `org_id`, `field_key`, `value`, `color` |
 | `org_api_keys` | `org_id`, hashed org key, `last_used_at` |
 
 Notes that the table does not show:
@@ -76,9 +77,12 @@ Notes that the table does not show:
   an evening plan east of UTC would land on tomorrow.
 - Every query that reads task rows takes the session's org set through one
   helper. Scoping by hand is how a row leaks.
-- `color` and `derives_from` are not built. The colour is the extension's client
-  dot, made generic: a reference field carries it and a card draws it. It waits
-  for the card design that shows it. See #32.
+- `derives_from` is not built.
+- `org_field_colors` is the extension's client dot, made generic. One value of a
+  reference field carries a colour, and a card draws it as a dot. The colour is a
+  palette name or `#rgb` or `#rrggbb`, in one column, told apart by the leading
+  `#`. A pull writes `org_ref_options` whole, so the colour sits in its own table
+  and survives one. A colour outlives the option that is gone. See ADR-0006.
 - The two keys point opposite ways. `org_fields.refs_key` is the refs key an org
   app minted, held as plaintext because Tusker sends it. `org_api_keys` holds
   the org key Tusker minted, hashed because Tusker verifies it. See ADR-0005.

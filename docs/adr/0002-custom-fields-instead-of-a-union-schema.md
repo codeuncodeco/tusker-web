@@ -21,9 +21,11 @@ UI, or a rule the generic engine cannot state. We expect few of them.
 core columns. The extension's rule "a trail makes the task ops work" becomes a
 declarative rule or a plugin.
 
-A generic engine has to carry two extras the extension had for free: a reference
-field can hold a color, and one field can derive its value from another. Both are
-general, so both belong in the engine.
+A generic engine has to carry two extras the extension had for free: a value of a
+reference field can carry a colour, and one field can derive its value from
+another. Both are general, so both belong in the engine. The colour hangs off the
+value and not off the field, and Tusker owns it rather than the org app. See
+ADR-0006.
 
 D1 is SQLite with JSON1, so a JSON value is queryable, and a generated column can
 index a field that filters often.
