@@ -47,7 +47,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     .signInEmail({ body: { email, password }, headers: request.headers, asResponse: true })
     .catch(() => null);
 
-  if (!response?.ok) throw redirect("/sign-in");
+  if (!response?.ok) throw redirect("/login");
   return withCookies(response, redirect("/me"));
 }
 

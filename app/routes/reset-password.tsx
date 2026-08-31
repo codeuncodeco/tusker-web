@@ -25,7 +25,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     .catch(() => null);
 
   if (!done) return { error: "That link is wrong or too old. Ask for a new one." };
-  throw redirect("/sign-in");
+  throw redirect("/login");
 }
 
 export default function ResetPassword({ actionData }: Route.ComponentProps) {
