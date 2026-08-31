@@ -34,52 +34,74 @@ dashboard: **Workers & Pages → tusker-web-dev → Settings → Build**.
 
 ### Build settings
 
-| Field | Value |
-| --- | --- |
-| Git repository | `codeuncodeco/tusker-web` |
-| Git branch | `main` |
-| Root directory | `/` |
-| Build command | `pnpm run build` |
-| Deploy command | `pnpm exec wrangler deploy -c build/server/wrangler.json` |
-| Build caching | on |
+Every field on that page, build variables included:
+
+| Field | Value | Why |
+| --- | --- | --- |
+| Git repository | `codeuncodeco/tusker-web` | |
+| Git branch | `main` | |
+| Root directory | `/` | |
+| Build command | `pnpm run build` | Writes `build/server/wrangler.json`, with the environment already resolved |
+| Deploy command | `pnpm run deploy:ci` | Applies the migrations to the dev D1, then deploys that resolved config |
+| Build caching | on | |
+| Build variable `CLOUDFLARE_ENV` | `dev` | Tells the Cloudflare Vite plugin which `wrangler.jsonc` environment to resolve |
+
+`CLOUDFLARE_ENV` is the only build variable, and it is a plain variable, not a
+secret. The `build` script defaults it to `dev`, so the build works without it.
+Set it anyway. A build that resolves no environment writes a config named
+`tusker-web` with no D1 binding, and the deploy then goes to the wrong Worker.
 
 Cloudflare installs the dependencies itself. It reads the package manager from
 the `packageManager` field in `package.json` and the Node version from
 `.node-version`, so you do not need an install command.
 
-The deploy command must point at `build/server/wrangler.json`. The build writes
-that file with the environment already resolved. Do not add `--env` to the
-deploy.
-
-### Build variables
-
-Set these under **Build variables** (plain variables, not secrets):
-
-| Name | Value | Why |
-| --- | --- | --- |
-| `CLOUDFLARE_ENV` | `dev` | Tells the Cloudflare Vite plugin which `wrangler.jsonc` environment to resolve |
-
-`CLOUDFLARE_ENV` is the only build variable. The `build` script defaults it to
-`dev`, so the build works without it. Set it anyway. A build that resolves no
-environment writes a config named `tusker-web` with no D1 binding, and the
-deploy then goes to the wrong Worker.
+Do not add `--env` to the deploy. The build already resolved it.
 
 The D1 binding lives in `wrangler.jsonc`, so it travels with the repository.
 
+### The build's API token
+
+**Workers & Pages → tusker-web-dev → Settings → Build → API token.**
+
+The token Cloudflare makes for you covers Workers Scripts, KV, R2 and Routes. It
+does **not** cover D1, so `deploy:ci` stops at the migration with a permission
+error. Edit the token and add **D1 (Edit)** for this account.
+
+The build then runs the migration and the deploy under the one token, and no
+token needs to sit in a build variable.
+
 ### Runtime secrets
 
-There are none yet. Add the first one with
-`pnpm exec wrangler secret put <NAME> --env dev`. Do not add it as a build
-variable. The build can read a build variable. Only the Worker can read a
-secret.
+Set each one with `pnpm exec wrangler secret put <NAME> --env dev`. Do not add
+any of them as a build variable. The build can read a build variable. Only the
+Worker can read a secret.
 
-## Migrations are not part of the build
+| Name | Holds |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | Signs the sessions and the sign-in tokens. A long random string |
+| `RESEND_API_KEY` | The Resend key. Without it the Worker writes the mail to the log |
+| `INVITE_TOKEN` | The bearer token that `POST /api/invite` demands. Without it that endpoint answers 404 |
 
-Workers Builds does not run migrations. Run this yourself:
+`MAIL_FROM` is a plain variable in `wrangler.jsonc`, not a secret. Resend must
+hold the domain it names.
+
+## Migrations
+
+A push runs them. `deploy:ci` migrates first and deploys second, so the schema
+is ready before the new Worker serves a request. The old Worker keeps serving
+until then, and it must not meet a column that has already gone.
+
+That order makes one rule: **a migration may only add.** Write the column, ship
+it, and drop the old one in a later push. A migration that drops a column in the
+same push breaks the Worker that is still serving.
+
+`wrangler d1 migrations apply` skips its confirmation in a non-interactive
+shell, and it takes a backup before it starts. A migration that fails rolls
+back, and the deploy never runs, because `deploy:ci` chains the two with `&&`.
+
+A deploy from your machine does not migrate. Run it yourself first:
 
 ```sh
 pnpm run db:migrate:dev
+pnpm run deploy
 ```
-
-Run it before you merge the code that reads the new column. The old Worker keeps
-serving until the new one goes live, so the schema must be ready first.
