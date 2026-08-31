@@ -5,3 +5,34 @@
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
 }
+
+/*
+ * The palette an option colour names. A card draws the dot with the token, so
+ * one name reads on the light theme and on the dark one. An exact colour skips
+ * this and draws as the person typed it. See ADR-0006.
+ */
+:root {
+  --dot-grey: #4b5563;
+  --dot-red: #dc2626;
+  --dot-orange: #ea580c;
+  --dot-amber: #d97706;
+  --dot-green: #16a34a;
+  --dot-teal: #0d9488;
+  --dot-blue: #2563eb;
+  --dot-purple: #9333ea;
+  --dot-pink: #db2777;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dot-grey: #9ca3af;
+    --dot-red: #f87171;
+    --dot-orange: #fb923c;
+    --dot-amber: #fbbf24;
+    --dot-green: #4ade80;
+    --dot-teal: #2dd4bf;
+    --dot-blue: #60a5fa;
+    --dot-purple: #c084fc;
+    --dot-pink: #f472b6;
+  }
+}

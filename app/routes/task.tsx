@@ -1,6 +1,9 @@
 import { Form, Link } from "react-router";
 
+import { colorOf } from "../colors";
+import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
+import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
@@ -30,6 +33,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // The cached options each reference field draws. The refs key that filled
     // that cache stays on the server: this payload goes to the browser.
     refs: await refPickers(env.DB, scope, fields, task.data),
+    // The colour each value carries. The dropdown list stays plain: a browser
+    // will not style an option, so the dot draws beside the box. See ADR-0006.
+    colors: await listColors(env.DB, scope),
   };
 }
 
@@ -64,10 +70,12 @@ function RefBox({
   field,
   value,
   picker,
+  color,
 }: {
   field: OrgField;
   value: string | undefined;
   picker: RefPicker | undefined;
+  color: string | null;
 }) {
   const name = `field.${field.key}`;
   const options = picker?.options ?? [];
@@ -76,7 +84,10 @@ function RefBox({
   if (!picker?.pulled) {
     return (
       <label className="flex flex-col gap-1">
-        {field.label}
+        <span className="flex items-center gap-1">
+          {field.label}
+          <Dot color={color} />
+        </span>
         <span className="text-sm text-neutral-500">
           No options pulled yet. Refresh this field on the fields screen, or type the id.
         </span>
@@ -87,7 +98,10 @@ function RefBox({
 
   return (
     <label className="flex flex-col gap-1">
-      {field.label}
+      <span className="flex items-center gap-1">
+        {field.label}
+        <Dot color={color} />
+      </span>
       <select name={name} defaultValue={value ?? ""} className={fieldClass}>
         <option value="">—</option>
         {unnamed ? <option value={value}>{picker.label ?? value}</option> : null}
@@ -106,15 +120,17 @@ function FieldBox({
   field,
   value,
   picker,
+  color,
 }: {
   field: OrgField;
   value: string | undefined;
   picker: RefPicker | undefined;
+  color: string | null;
 }) {
   const name = `field.${field.key}`;
 
   if (field.type === "reference") {
-    return <RefBox field={field} value={value} picker={picker} />;
+    return <RefBox field={field} value={value} picker={picker} color={color} />;
   }
 
   if (field.type === "select") {
@@ -147,7 +163,7 @@ function FieldBox({
 }
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, fields, refs } = loaderData;
+  const { org, task, fields, refs, colors } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
@@ -169,6 +185,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
             field={field}
             value={task.data[field.key]}
             picker={refs[field.key]}
+            color={colorOf(colors, field.key, task.data[field.key])}
           />
         ))}
 

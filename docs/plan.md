@@ -84,8 +84,7 @@ Notes that the table does not show:
   reference field carries a colour, and a card draws it as a dot. The colour is a
   palette name or `#rgb` or `#rrggbb`, in one column, told apart by the leading
   `#`. A pull writes `org_ref_options` whole, so the colour sits in its own table
-  and survives one. A colour outlives the option that is gone. See ADR-0006
-  and #32.
+  and survives one. A colour outlives the option that is gone. See ADR-0006.
 - The two keys point opposite ways. `org_fields.refs_key` is the refs key an org
   app minted, held as plaintext because Tusker sends it. `org_api_keys` holds
   the org key Tusker minted, hashed because Tusker verifies it. See ADR-0005.
