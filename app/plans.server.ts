@@ -54,9 +54,11 @@ export async function lastPlanBefore(
 /**
  * Starts a day with an order, and leaves a day already started alone.
  *
- * Carrying forward and starting clean are both this write. A person who
- * already planned the day keeps that plan, so a second press of either button
- * changes nothing.
+ * Three acts are this one write. Leftovers carry a day forward or start it
+ * clean, and focus mode holds its batch: the first act on a batch drawn from
+ * the unified view writes those three as the day's plan, so they stay still.
+ * A person who already planned the day keeps that plan, so a second press of
+ * any of them changes nothing. See ADR-0009.
  */
 export async function startPlan(
   db: D1Database,
@@ -74,21 +76,21 @@ export async function startPlan(
 }
 
 /**
- * Adds a task at the end of a day's plan, where a person who names one more
- * task means it after the ones they already named. A task the plan holds is
- * left where it is.
+ * Adds the tasks a day's plan does not hold at its end, in one write, where a
+ * person who names one more task means it after the ones they already named.
  *
- * The caller proved the person can reach the task, through the scope helper.
+ * The caller proved the person can reach every task, through the scope helper.
  */
-export async function addToPlan(
+export async function appendToPlan(
   db: D1Database,
   personId: string,
   day: string,
-  taskId: string,
+  taskIds: string[],
 ): Promise<void> {
   const plan = (await readPlan(db, personId, day)) ?? [];
-  if (plan.includes(taskId)) return;
-  await writePlan(db, personId, day, [...plan, taskId]);
+  const add = taskIds.filter((one) => !plan.includes(one));
+  if (add.length === 0) return;
+  await writePlan(db, personId, day, [...plan, ...add]);
 }
 
 /**
@@ -111,8 +113,24 @@ export async function movePlan(
   await writePlan(db, personId, day, moved);
 }
 
+/**
+ * Moves a task to the end of a day's plan, where focus mode drops one out of a
+ * batch. A task the plan does not hold is left alone: a drop says "not now"
+ * about a task the person already planned. See ADR-0009.
+ */
+export async function pushDownPlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskId: string,
+): Promise<void> {
+  const plan = await readPlan(db, personId, day);
+  if (!plan?.includes(taskId) || plan[plan.length - 1] === taskId) return;
+  await writePlan(db, personId, day, [...plan.filter((one) => one !== taskId), taskId]);
+}
+
 /** Takes a task out of a day's plan, leaving the rest in order. */
-export async function dropFromPlan(
+export async function unplanTask(
   db: D1Database,
   personId: string,
   day: string,

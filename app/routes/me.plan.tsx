@@ -136,9 +136,14 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         label={(group) => (group.key === "today" ? "Plan" : group.label)}
       />
 
-      <Link to="/me" className="text-sm underline">
-        Your tasks
-      </Link>
+      <div className="flex gap-4 text-sm">
+        <Link to="/me" className="underline">
+          Your tasks
+        </Link>
+        <Link to="/me/focus" className="underline">
+          Focus on three
+        </Link>
+      </div>
     </main>
   );
 }

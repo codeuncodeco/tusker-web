@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFetcher, useNavigate } from "react-router";
 
+import { isPagePress } from "./keys";
 import { useLocalDay } from "./local-day";
 import type { Group, GroupKey, LiveTask } from "./unified";
 import { UnifiedRow, finishFields, planFields } from "./unified-row";
@@ -35,10 +36,7 @@ function useKeys(
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      // A person who types in a box wants the letter, not the key.
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select")) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (!isPagePress(event)) return;
 
       const at = rows.findIndex((one) => one.id === on);
       const task = rows[at];

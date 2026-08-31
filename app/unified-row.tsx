@@ -12,6 +12,11 @@ export function finishFields(task: LiveTask) {
   return { intent: "finish", id: task.id, slug: task.org.slug };
 }
 
+/** What a drop posts: focus mode moves the task down today's plan. See ADR-0009. */
+export function dropFields(task: LiveTask) {
+  return { intent: "drop", id: task.id, slug: task.org.slug };
+}
+
 /**
  * One row of the unified view, and of plan mode, so the two lists cannot drift
  * apart.
@@ -29,6 +34,8 @@ export function UnifiedRow({
   selected,
   domId,
   moves,
+  plannable = true,
+  droppable = false,
 }: {
   task: LiveTask;
   /** True when the day's plan holds the task, which turns Plan into Unplan. */
@@ -42,6 +49,10 @@ export function UnifiedRow({
    * column".
    */
   moves?: { up: boolean; down: boolean };
+  /** False where planning a task means nothing, which is focus mode. */
+  plannable?: boolean;
+  /** True where a task can leave the screen unfinished, which is focus mode. */
+  droppable?: boolean;
 }) {
   const post = useFetcher();
   const plan = planFields(task, planned);
@@ -104,13 +115,26 @@ export function UnifiedRow({
             </button>
           </>
         ) : null}
-        <button
-          name="intent"
-          value={plan.intent}
-          className="rounded border border-neutral-300 px-1.5 text-xs dark:border-neutral-700"
-        >
-          {planned ? "Unplan" : "Plan"}
-        </button>
+        {plannable ? (
+          <button
+            name="intent"
+            value={plan.intent}
+            className="rounded border border-neutral-300 px-1.5 text-xs dark:border-neutral-700"
+          >
+            {planned ? "Unplan" : "Plan"}
+          </button>
+        ) : null}
+        {droppable ? (
+          <button
+            name="intent"
+            value="drop"
+            disabled={task.finished}
+            aria-label={`Drop ${task.title} to the end of the plan`}
+            className="rounded border border-neutral-300 px-1.5 text-xs disabled:opacity-30 dark:border-neutral-700"
+          >
+            Drop
+          </button>
+        ) : null}
         <button
           name="intent"
           value="finish"
