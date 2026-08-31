@@ -81,9 +81,16 @@ takes the midpoint. Any member can change it.
 
 **Rank**:
 One person's own number for one task, in the same fraction space as position. A
-rank exists only for a task that person dragged. The order a person sees is
+rank exists only for a task that person dragged, and for the rest of a column
+that ran out of fractions and had to be spread. The order a person sees is
 `COALESCE(rank, position)`.
 _Avoid_: Personal priority
+
+**Marker**:
+The sign a card shows while its rank puts it somewhere other than the board
+does. It says the order is that person's, not the org's. A per-column reset
+drops the ranks of that column and the markers with them.
+_Avoid_: Dirty flag, conflict badge
 
 **Percentile order**:
 The rule that sorts the cross-org list. A task takes its fractional place inside

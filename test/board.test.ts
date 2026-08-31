@@ -292,3 +292,161 @@ describe("the order inside a column", () => {
     expect(cards.map((one) => one.title)).toEqual(["Older", "First"]);
   });
 });
+
+describe("one person's own order", () => {
+  /** A team org that both Ada and Bo belong to, and their cookies. */
+  async function team() {
+    const ada = await member("ada@example.test", "Ada");
+    const bo = await member("bo@example.test", "Bo");
+    await db.prepare("INSERT INTO orgs (id, slug, name, kind) VALUES ('t1', 'team', 'Team', 'team')").run();
+    for (const one of [ada, bo]) {
+      await db
+        .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES ('t1', ?, 'member')")
+        .bind(one.person.id)
+        .run();
+    }
+    for (const title of ["Third", "Second", "First"]) {
+      await act("team", ada.cookie, { intent: "create", status: "todo", title });
+    }
+    return { ada, bo };
+  }
+
+  /** The titles one member reads down a column. */
+  async function titles(cookie: string, status: Status = "todo") {
+    return column(await board("team", cookie), status)!.tasks.map((one) => one.title);
+  }
+
+  /** Every task of the org, with its shared position and one person's rank. */
+  async function rows(personId: string) {
+    const { results } = await db
+      .prepare(
+        `SELECT title, position, ranks.rank FROM tasks
+         LEFT JOIN task_ranks AS ranks ON ranks.task_id = tasks.id AND ranks.user_id = ?`,
+      )
+      .bind(personId)
+      .all<{ title: string; position: number; rank: number | null }>();
+    return results;
+  }
+
+  it("writes a rank for the person who dragged, and leaves the shared position alone", async () => {
+    const { ada } = await team();
+    const before = await rows(ada.person.id);
+    const first = column(await board("team", ada.cookie), "todo")!.tasks[0];
+
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: first.id });
+
+    expect(await titles(ada.cookie)).toEqual(["Second", "Third", "First"]);
+    const after = await rows(ada.person.id);
+    expect(after.map((one) => one.position)).toEqual(before.map((one) => one.position));
+    expect(after.filter((one) => one.rank !== null).map((one) => one.title)).toEqual(["First"]);
+  });
+
+  it("leaves the other member's board as the org left it", async () => {
+    const { ada, bo } = await team();
+    const first = column(await board("team", ada.cookie), "todo")!.tasks[0];
+
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: first.id });
+
+    expect(await titles(bo.cookie)).toEqual(["First", "Second", "Third"]);
+  });
+
+  it("marks the cards that differ from the board, for the person who ranked them", async () => {
+    const { ada, bo } = await team();
+    const first = column(await board("team", ada.cookie), "todo")!.tasks[0];
+
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: first.id });
+
+    const mine = column(await board("team", ada.cookie), "todo")!.tasks;
+    expect(mine.filter((one) => one.marked).map((one) => one.title)).toEqual(["First"]);
+    const theirs = column(await board("team", bo.cookie), "todo")!.tasks;
+    expect(theirs.every((one) => !one.marked)).toBe(true);
+  });
+
+  it("marks a card once a teammate moves the shared order under it", async () => {
+    const { ada, bo } = await team();
+    const [, second, third] = column(await board("team", ada.cookie), "todo")!.tasks;
+    // Ada drops Second where the board already puts it, so nothing differs.
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: second.id, before: third.id });
+    expect(column(await board("team", ada.cookie), "todo")!.tasks.some((one) => one.marked)).toBe(false);
+
+    // Bo moves the shared position of the same card to the bottom.
+    await act("team", bo.cookie, { intent: "move", status: "todo", id: second.id });
+
+    expect(await titles(ada.cookie)).toEqual(["First", "Second", "Third"]);
+    expect(
+      column(await board("team", ada.cookie), "todo")!
+        .tasks.filter((one) => one.marked)
+        .map((one) => one.title),
+    ).toEqual(["Second"]);
+  });
+
+  it("clears that person's ranks for one column, and leaves another column alone", async () => {
+    const { ada } = await team();
+    await act("team", ada.cookie, { intent: "create", status: "done", title: "Older" });
+    await act("team", ada.cookie, { intent: "create", status: "done", title: "Newer" });
+    const todo = column(await board("team", ada.cookie), "todo")!.tasks;
+    const done = column(await board("team", ada.cookie), "done")!.tasks;
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: todo[0].id });
+    await act("team", ada.cookie, { intent: "rank", status: "done", id: done[0].id });
+
+    await act("team", ada.cookie, { intent: "reset", status: "todo" });
+
+    expect(await titles(ada.cookie)).toEqual(["First", "Second", "Third"]);
+    expect(await titles(ada.cookie, "done")).toEqual(["Older", "Newer"]);
+  });
+
+  it("leaves the ranks of the other members where they are", async () => {
+    const { ada, bo } = await team();
+    const first = column(await board("team", ada.cookie), "todo")!.tasks[0];
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: first.id });
+    await act("team", bo.cookie, { intent: "rank", status: "todo", id: first.id });
+
+    await act("team", bo.cookie, { intent: "reset", status: "todo" });
+
+    expect(await titles(ada.cookie)).toEqual(["Second", "Third", "First"]);
+    expect(await titles(bo.cookie)).toEqual(["First", "Second", "Third"]);
+  });
+
+  it("spreads that person's order when the gap is too tight to split", async () => {
+    const { ada, bo } = await team();
+    const [first, second, third] = column(await board("team", ada.cookie), "todo")!.tasks;
+    // Two ranks a hair apart leave no fraction between them.
+    for (const [task, rank] of [[second, 1], [third, 1 + Number.EPSILON]] as const) {
+      await db
+        .prepare("INSERT INTO task_ranks (task_id, user_id, rank) VALUES (?, ?, ?)")
+        .bind(task.id, ada.person.id, rank)
+        .run();
+    }
+
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: first.id, before: third.id });
+
+    expect(await titles(ada.cookie)).toEqual(["Second", "First", "Third"]);
+    expect(await titles(bo.cookie)).toEqual(["First", "Second", "Third"]);
+  });
+
+  it("keeps one person's rank while another member moves the card on the board", async () => {
+    const { ada, bo } = await team();
+    const first = column(await board("team", ada.cookie), "todo")!.tasks[0];
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: first.id });
+
+    await act("team", bo.cookie, { intent: "move", status: "done", id: first.id });
+
+    const row = await db
+      .prepare("SELECT user_id FROM task_ranks WHERE task_id = ?")
+      .bind(first.id)
+      .first<{ user_id: string }>();
+    expect(row?.user_id).toBe(ada.person.id);
+  });
+
+  it("does not let a person outside the org rank a task in it", async () => {
+    const { ada } = await team();
+    const first = column(await board("team", ada.cookie), "todo")!.tasks[0];
+    const outsider = await member("cy@example.test", "Cy");
+
+    const response = await caught(act("team", outsider.cookie, { intent: "rank", status: "todo", id: first.id }));
+
+    expect(response.status).toBe(404);
+    const { results } = await db.prepare("SELECT task_id FROM task_ranks").all();
+    expect(results).toEqual([]);
+  });
+});

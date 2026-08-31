@@ -17,16 +17,22 @@ import { fieldClass } from "../forms";
 import { listOrgsForPerson } from "../orgs.server";
 import { OrgNav } from "../org-nav";
 import { OrgSwitcher } from "../org-switcher";
+import { marked, seenBy } from "../order";
 import { requireScope } from "../scope.server";
-import { createTask, listTasks, moveTask, type Task } from "../tasks.server";
+import { clearRanks, createTask, listTasks, moveTask, rankTask, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData.org.name} — Tusker` }];
 }
 
-/** What one card shows. The task page reads the rest of the row. */
-type Card = { id: string; title: string; fields: Shown[] };
+/**
+ * What one card shows. The task page reads the rest of the row.
+ *
+ * `marked` is true while the card carries a rank that puts it somewhere other
+ * than the board does, which is what the marker says.
+ */
+type Card = { id: string; title: string; fields: Shown[]; marked: boolean };
 
 /** Which of the two hidden columns the query string asks for. */
 function readToggles(params: URLSearchParams): Toggles {
@@ -63,19 +69,27 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const declared = await listFields(env.DB, scope);
   const counts = countByStatus(tasks);
   const toggles = readToggles(new URL(request.url).searchParams);
-  const columns = columnsToShow(counts, toggles).map((status) => ({
-    status,
-    label: STATUS_LABEL[status],
-    tasks: tasks
-      .filter((task) => task.status === status)
-      .map(
+  const columns = columnsToShow(counts, toggles).map((status) => {
+    // The board's own order first, so the marker can name what moved, and the
+    // person's own order after it.
+    const column = tasks.filter((task) => task.status === status);
+    const off = marked(column);
+
+    return {
+      status,
+      label: STATUS_LABEL[status],
+      // The reset only has something to clear while this person ranked a card.
+      ranked: column.some((task) => task.rank !== null),
+      tasks: seenBy(column).map(
         (task): Card => ({
           id: task.id,
           title: task.title,
           fields: shownOnCard(declared, task.data),
+          marked: off.has(task.id),
         }),
       ),
-  }));
+    };
+  });
 
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
@@ -103,13 +117,21 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
-  if (intent === "move") {
+  if (intent === "move" || intent === "rank") {
     const status = readStatus(form);
     const id = String(form.get("id") ?? "");
     // The card the task lands above. Nothing named means the bottom.
     const before = String(form.get("before") ?? "") || null;
-    const moved = await moveTask(env.DB, scope, { taskId: id, status, before });
+    // A drag inside a column is one person's own order; a drag into another
+    // column is the board's, because the column a task sits in is shared.
+    const write = intent === "rank" ? rankTask : moveTask;
+    const moved = await write(env.DB, scope, { taskId: id, status, before });
     if (!moved) throw new Response("Not found", { status: 404 });
+    return { ok: true };
+  }
+
+  if (intent === "reset") {
+    await clearRanks(env.DB, scope, readStatus(form));
     return { ok: true };
   }
 
@@ -150,18 +172,34 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
   );
 }
 
-/** What a drag asks for: the card, its column, and the card it lands above. */
-type Move = (id: string, status: Status, before: string | null) => void;
+/**
+ * What a drag asks for: the card, its column, and the card it lands above.
+ * `intent` says whose order it writes — "rank" for this person's own, "move"
+ * for the board's.
+ */
+type Drag = (intent: "move" | "rank", id: string, status: Status, before: string | null) => void;
+
+/** The column a dragged card left, beside the id every drag already carries. */
+const FROM_COLUMN = "application/x-tusker-column";
+
+/**
+ * What a drop writes: this person's own order while the card stays in its
+ * column, and the board's order when the card changes column, because the
+ * column a task sits in is shared.
+ */
+function intentFor(event: React.DragEvent, status: Status): "move" | "rank" {
+  return event.dataTransfer.getData(FROM_COLUMN) === status ? "rank" : "move";
+}
 
 /**
  * One card. It shows its number in the column, the way the extension did. The
- * number is the place the board draws it in, not a stored field, so ticket 6's
- * personal rank keeps its own word.
+ * number is the place the card takes in the order this person reads, not a
+ * stored field.
  *
  * The select moves the card to another column, and the two arrows move it
- * inside one. Both sit in a form that posts on its own, so a move needs no
- * script. Tusker is keyboard first, so the drag is the second way, not the
- * only one.
+ * inside one. Both write the board's order, for every member, and both sit in
+ * a form that posts on its own, so a move needs no script. A drag inside a
+ * column writes this person's own order instead.
  */
 function CardItem({
   cards,
@@ -174,7 +212,7 @@ function CardItem({
   index: number;
   status: Status;
   slug: string;
-  move: Move;
+  move: Drag;
 }) {
   const card = cards[index];
   const post = useFetcher();
@@ -187,14 +225,17 @@ function CardItem({
   return (
     <li
       draggable
-      onDragStart={(event) => event.dataTransfer.setData("text/plain", card.id)}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/plain", card.id);
+        event.dataTransfer.setData(FROM_COLUMN, status);
+      }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         // The dragged card takes this one's place, so this one slides down.
         event.stopPropagation();
         event.preventDefault();
         const dragged = event.dataTransfer.getData("text/plain");
-        if (dragged && dragged !== card.id) move(dragged, status, card.id);
+        if (dragged && dragged !== card.id) move(intentFor(event, status), dragged, status, card.id);
       }}
       className="flex cursor-grab flex-col gap-2 rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
     >
@@ -203,6 +244,15 @@ function CardItem({
         <Link to={`/o/${slug}/t/${card.id}`} className="underline-offset-2 hover:underline">
           {card.title}
         </Link>
+        {card.marked ? (
+          <span
+            title="Your order, not the board's"
+            aria-label="Your order, not the board's"
+            className="text-amber-600 dark:text-amber-500"
+          >
+            ●
+          </span>
+        ) : null}
       </span>
 
       {card.fields.length > 0 ? (
@@ -258,6 +308,23 @@ function CardItem({
   );
 }
 
+/**
+ * The action that drops this person's order for one column, so the column
+ * reads as the board holds it again. It shows only while they ranked a card
+ * in that column.
+ */
+function ResetOrder({ status }: { status: Status }) {
+  const reset = useFetcher();
+
+  return (
+    <reset.Form method="post">
+      <input type="hidden" name="intent" value="reset" />
+      <input type="hidden" name="status" value={status} />
+      <button className="text-xs normal-case underline">Reset order</button>
+    </reset.Form>
+  );
+}
+
 /** The link that turns one hidden column on or off, keeping the other one. */
 function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: Toggles }) {
   const [params] = useSearchParams();
@@ -278,19 +345,19 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   const mover = useFetcher();
 
   /**
-   * The post a drag makes: the card, the column it lands in, and the card it
-   * lands above. No card named means the bottom of the column. A card's own
-   * form carries the moves the keyboard makes.
+   * The post a drag makes: whose order it writes, the card, the column it
+   * lands in, and the card it lands above. No card named means the bottom of
+   * the column. A card's own form carries the moves the keyboard makes.
    */
-  const move: Move = (id, status, before) => {
-    mover.submit({ intent: "move", id, status, before: before ?? "" }, { method: "post" });
+  const move: Drag = (intent, id, status, before) => {
+    mover.submit({ intent, id, status, before: before ?? "" }, { method: "post" });
   };
 
   /** A drop on the column itself, past the last card, lands at the bottom. */
   function onDrop(status: Status, event: React.DragEvent) {
     event.preventDefault();
     const id = event.dataTransfer.getData("text/plain");
-    if (id) move(id, status, null);
+    if (id) move(intentFor(event, status), id, status, null);
   }
 
   return (
@@ -316,8 +383,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             onDrop={(event) => onDrop(column.status, event)}
             className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
           >
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
+            <h2 className="flex items-baseline gap-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
               {column.label} <span className="text-neutral-400">{column.tasks.length}</span>
+              {column.ranked ? <ResetOrder status={column.status} /> : null}
             </h2>
 
             <QuickAdd status={column.status} label={column.label} />

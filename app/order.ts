@@ -22,3 +22,45 @@ export function between(before: number | null, after: number | null): number | n
   const middle = before + (after - before) / 2;
   return middle > before && middle < after ? middle : null;
 }
+
+/**
+ * A card as both orders read it: the org's shared `position`, and the `rank`
+ * one person set for it, or null for a card that person never dragged.
+ */
+export type Ranked = { id: string; position: number; rank: number | null };
+
+/** The number a card takes in one person's order. */
+function seen(card: Ranked): number {
+  return card.rank ?? card.position;
+}
+
+/**
+ * The order one person sees, from a column in the board's own order: their
+ * rank where they set one, the shared position everywhere else. Ranked and
+ * unranked cards therefore interleave.
+ *
+ * The sort is stable, so two cards of the same number keep the order the board
+ * gave them.
+ */
+export function seenBy<T extends Ranked>(column: T[]): T[] {
+  return [...column].sort((one, other) => seen(one) - seen(other));
+}
+
+/**
+ * The cards that carry a marker, from a column in the board's own order: the
+ * ranked ones that sit in another place than the board puts them.
+ *
+ * A rank that asks for the place the board already gives marks nothing. A card
+ * without a rank never marks either, because it has nothing to differ with:
+ * it sits where the board and the ranks around it leave it.
+ */
+export function marked(column: Ranked[]): Set<string> {
+  const board = new Map(column.map((card, at) => [card.id, at]));
+  const off = new Set<string>();
+
+  for (const [at, card] of seenBy(column).entries()) {
+    if (card.rank !== null && board.get(card.id) !== at) off.add(card.id);
+  }
+
+  return off;
+}
