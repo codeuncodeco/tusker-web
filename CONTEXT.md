@@ -145,6 +145,18 @@ shown by rule.
 The tasks one person chose for one day, in the order they mean to work them. A
 plan belongs to the person and can hold tasks from several orgs.
 
+**Plan mode**:
+The page where a person builds a plan: pick the tasks, order them, keep them. It
+is the unified view with selection turned on, at `/me/plan`, and `/me/plan/:day`
+for a named day. Every pick and every step writes the plan row, so nothing waits
+on a tab and there is no Commit button. See ADR-0008.
+_Avoid_: Daily planner, plan builder
+
+**Today chip**:
+The control on a board that narrows it to the tasks today's plan holds. A board
+with no plan for today carries no chip.
+_Avoid_: Today filter, my-day toggle
+
 **Focus**:
 A mode that shows one batch of three tasks and hides the rest until that batch
 is done. It draws from the plan when a plan exists.
