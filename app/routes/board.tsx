@@ -158,9 +158,8 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
 type Move = (id: string, status: Status, before: string | null) => void;
 
 /**
- * One card. It shows its number in the column, the way the extension did. The
- * number is the place the board draws it in, not a stored field, so ticket 6's
- * personal rank keeps its own word.
+ * One card. It shows its rank, the way the extension did: the place the board
+ * draws it in, counting from one. No row stores it.
  *
  * The select moves the card to another column, and the two arrows move it
  * inside one. Both sit in a form that posts on its own, so a move needs no
