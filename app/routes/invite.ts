@@ -5,8 +5,8 @@ import { MIN_PASSWORD } from "../forms";
 import type { Route } from "./+types/invite";
 
 /**
- * Makes one account. Tusker has no public signup, so this is how the first
- * person gets in and how an invitation lands.
+ * Makes one account. Tusker has no public signup, so this is how an
+ * invitation lands. The first account comes from `/bootstrap` instead.
  *
  * The endpoint answers only when `INVITE_TOKEN` is set and the request carries
  * it. An environment with no token has no endpoint.

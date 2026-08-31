@@ -28,9 +28,14 @@ not an org and not a client, so the word keeps that one meaning.
 _Avoid_: Login, profile, user record
 
 **Invitation**:
-The only way an account is made. Tusker has no public signup, so somebody with
-the invite token makes the account for the person.
+How every account after the first is made. Tusker has no public signup, so
+somebody with the invite token makes the account for the person.
 _Avoid_: Signup, registration
+
+**Bootstrap**:
+The page that makes the first account, at `/bootstrap`. It is open while the
+instance holds no account, and it is a 404 after that.
+_Avoid_: Setup wizard, first-run signup
 
 **Org app**:
 A separate application that an org runs, such as blrhikes-app. An org app reads

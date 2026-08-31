@@ -4,7 +4,7 @@ import type { Auth } from "./auth.server";
 
 /**
  * Makes an account. Tusker has no public signup, so this is the one way in:
- * an invitation or a hand-run script calls it.
+ * the bootstrap page, an invitation, or a hand-run script calls it.
  *
  * The user row triggers the database hook that creates the personal org, so a
  * new person can make a task straight away.
@@ -41,4 +41,13 @@ export async function createAccount(
   }
 
   return user;
+}
+
+/**
+ * True while no account exists. The bootstrap route is open only then, so this
+ * read decides whether the instance still has a way in.
+ */
+export async function noAccountYet(db: D1Database): Promise<boolean> {
+  const found = await db.prepare('SELECT 1 FROM "user" LIMIT 1').first();
+  return found === null;
 }
