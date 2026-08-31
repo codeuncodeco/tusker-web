@@ -10,11 +10,16 @@ export type Task = {
   position: number;
   due_date: string | null;
   archived: number;
+  /** The custom field values, keyed by the key the org declared. */
+  data: Record<string, string>;
   created_at: string;
 };
 
-/** The fields a card needs. `description`, `assignees` and `data` wait for the task page. */
-const CARD_FIELDS = "id, org_id, title, status, position, due_date, archived, created_at";
+/** The row as the table holds it: `data` as the JSON text of the column. */
+type Row = Omit<Task, "data"> & { data: string };
+
+/** The fields a card needs. `description` and `assignees` wait for the task page. */
+const CARD_FIELDS = "id, org_id, title, status, position, due_date, archived, data, created_at";
 
 /** The order of a column, everywhere it is read. */
 const IN_ORDER = "ORDER BY position, created_at, id";
@@ -27,8 +32,47 @@ export async function listTasks(db: D1Database, scope: Scope): Promise<Task[]> {
   const { results } = await db
     .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE org_id = ? AND archived = 0 ${IN_ORDER}`)
     .bind(scope.org.id)
-    .all<Task>();
-  return results;
+    .all<Row>();
+  return results.map(asTask);
+}
+
+/** One task of the org, or null when the org holds no such row. */
+export async function readTask(db: D1Database, scope: Scope, taskId: string): Promise<Task | null> {
+  const row = await db
+    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ? AND org_id = ?`)
+    .bind(taskId, scope.org.id)
+    .first<Row>();
+  return row ? asTask(row) : null;
+}
+
+/**
+ * Writes a task the editor changed: the title, and the whole custom field
+ * data. The caller built `data` from the org's declarations, so a key another
+ * org declared never reaches the column.
+ *
+ * Returns false when no row matched, so the route can answer 404.
+ */
+export async function saveTask(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+  save: { title: string; data: Record<string, string> },
+): Promise<boolean> {
+  const done = await db
+    .prepare(
+      `UPDATE tasks
+       SET title = ?, data = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE id = ? AND org_id = ?`,
+    )
+    .bind(save.title, JSON.stringify(save.data), taskId, scope.org.id)
+    .run();
+
+  return done.meta.changes > 0;
+}
+
+/** The row as every screen reads it, with the JSON column parsed. */
+function asTask(row: Row): Task {
+  return { ...row, data: JSON.parse(row.data) as Record<string, string> };
 }
 
 /**
@@ -51,9 +95,9 @@ export async function createTask(
     .bind(id, orgId, task.title, task.status, position)
     .run();
 
-  const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Task>();
+  const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Row>();
   if (!made) throw new Error("The task disappeared right after the insert.");
-  return made;
+  return asTask(made);
 }
 
 /**

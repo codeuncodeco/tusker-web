@@ -47,6 +47,9 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           <Link to={`/o/${org.slug}/members`} className="underline">
             Members
           </Link>
+          <Link to={`/o/${org.slug}/fields`} className="underline">
+            Fields
+          </Link>
         </nav>
       </header>
 
