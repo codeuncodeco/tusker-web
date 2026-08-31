@@ -7,8 +7,7 @@
  * it". See ADR-0006, "One order per column".
  */
 
-import { useEffect, useRef, useState } from "react";
-import { Link, useFetcher } from "react-router";
+import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
@@ -18,8 +17,7 @@ import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
-import { useLocalDay, useUnifiedKeys } from "../unified-keys";
-import { UnifiedRow } from "../unified-row";
+import { UnifiedList } from "../unified-list";
 import type { Route } from "./+types/me";
 
 export function meta(_: Route.MetaArgs) {
@@ -59,24 +57,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function Me({ loaderData }: Route.ComponentProps) {
   const { orgs, groups, planned, planStarted, day } = loaderData;
-  const post = useFetcher();
-  const [on, setOn] = useState<string | null>(null);
-  const list = useRef<HTMLDivElement>(null);
-
-  // One flat order, so `j` and `k` walk the page the way a person reads it.
-  const rows = groups.flatMap((group) => group.tasks);
-  const plannedIds = new Set(planned);
-  const empty = rows.length === 0;
-  // The cursor starts at the top, and stays on its task while the list moves.
-  const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
-
-  useLocalDay(day);
-  useUnifiedKeys(rows, plannedIds, cursor, setOn, (fields) => post.submit(fields, { method: "post" }));
-
-  // The cursor follows the keys down a list longer than the window.
-  useEffect(() => {
-    list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [cursor]);
+  const empty = groups.every((group) => group.tasks.length === 0);
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
@@ -99,27 +80,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           Nothing to do: no org you belong to holds a live task.
         </p>
       ) : (
-        <div ref={list} className="flex flex-col gap-6">
-          {groups.map((group) => (
-            <section key={group.key} className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-                {group.label} <span className="text-neutral-400">{group.tasks.length}</span>
-              </h2>
-
-              <ul className="flex flex-col gap-2">
-                {group.tasks.map((task) => (
-                  <UnifiedRow
-                    key={task.id}
-                    task={task}
-                    planned={plannedIds.has(task.id)}
-                    selected={cursor === task.id}
-                    domId={`row-${task.id}`}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+        <UnifiedList groups={groups} planned={new Set(planned)} day={day} />
       )}
 
       <Link to="/account" className="text-sm underline">

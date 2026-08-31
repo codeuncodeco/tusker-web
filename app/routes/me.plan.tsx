@@ -11,12 +11,11 @@
  * act of taking it out of the backlog, so a person moves it to To do first.
  *
  * Every pick, drop and step writes the row. There is no draft the browser
- * holds, because a plan the tab can lose is no plan, and Tusker is server
- * authoritative. See ADR-0004.
+ * holds and no Commit button, because a plan the tab can lose is no plan. See
+ * ADR-0008, "A plan commits as it is made".
  */
 
-import { useEffect, useRef, useState } from "react";
-import { Link, useFetcher } from "react-router";
+import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { dayOf, isDay } from "../day";
@@ -26,8 +25,7 @@ import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
-import { useLocalDay, useUnifiedKeys } from "../unified-keys";
-import { UnifiedRow } from "../unified-row";
+import { UnifiedList } from "../unified-list";
 import type { Route } from "./+types/me.plan";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -51,10 +49,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const day = dayFor(request, params.day);
   const plan = (await readPlan(env.DB, set.personId, day)) ?? [];
   const tasks = await listUnified(env.DB, set, plan);
-  // The picked group holds the plan in plan order. A planned id no org answers
+  // The first group holds the plan in plan order. A planned id no org answers
   // for is left out, so a task that was archived or deleted drops out of the
   // plan rather than raising an error.
   const groups = groupsFor(tasks, plan);
+  const inPlan = groups.find((group) => group.key === "today")!;
 
   return {
     orgs: set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind })),
@@ -62,7 +61,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
     groups,
-    picked: groups[0].tasks.map((one) => one.id),
+    planned: inPlan.tasks.map((one) => one.id),
   };
 }
 
@@ -88,70 +87,31 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, picked, day, named } = loaderData;
-  const post = useFetcher();
-  const [on, setOn] = useState<string | null>(null);
-  const list = useRef<HTMLDivElement>(null);
-
-  // One flat order, so `j` and `k` walk the page the way a person reads it.
-  const rows = groups.flatMap((group) => group.tasks);
-  const pickedIds = new Set(picked);
-  const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
-
-  useLocalDay(day, !named);
-  useUnifiedKeys(rows, pickedIds, cursor, setOn, (fields) => post.submit(fields, { method: "post" }));
-
-  useEffect(() => {
-    list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [cursor]);
+  const { orgs, groups, planned, day, named } = loaderData;
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Plan</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Your plan</h1>
         <span className="tabular-nums text-sm text-neutral-500">{day}</span>
         <OrgSwitcher orgs={orgs} />
       </header>
 
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Press <kbd>p</kbd> to pick a task, and the arrows to say in what order you will work
-        them. Every pick is kept.
+        Press <kbd>p</kbd> to plan a task, and <kbd>J</kbd> and <kbd>K</kbd> to say in what
+        order you will work them. Every act is kept, so nothing waits on this tab.
       </p>
 
-      <div ref={list} className="flex flex-col gap-6">
-        {groups.map((group) => (
-          <section key={group.key} className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-              {group.key === "today" ? "Picked" : group.label}{" "}
-              <span className="text-neutral-400">{group.tasks.length}</span>
-            </h2>
-
-            {group.key === "today" && group.tasks.length === 0 ? (
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Nothing picked yet.
-              </p>
-            ) : null}
-
-            <ul className="flex flex-col gap-2">
-              {group.tasks.map((task, at) => (
-                <UnifiedRow
-                  key={task.id}
-                  task={task}
-                  planned={pickedIds.has(task.id)}
-                  selected={cursor === task.id}
-                  domId={`row-${task.id}`}
-                  // Only the picked list has an order of the person's own.
-                  moves={
-                    group.key === "today"
-                      ? { up: at > 0, down: at < group.tasks.length - 1 }
-                      : undefined
-                  }
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
+      <UnifiedList
+        groups={groups}
+        planned={new Set(planned)}
+        day={day}
+        namedDay={named}
+        // The plan is the one order here that belongs to the person, so it is
+        // the one group whose rows step. See ADR-0006, "One order per column".
+        ordered="today"
+        label={(group) => (group.key === "today" ? "Plan" : group.label)}
+      />
 
       <Link to="/me" className="text-sm underline">
         Your tasks

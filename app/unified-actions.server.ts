@@ -10,7 +10,11 @@ import { addToPlan, dropFromPlan } from "./plans.server";
 import { scopeForSlug, type OrgSet } from "./scope.server";
 import { moveTask, readTask } from "./tasks.server";
 
-/** True when the form named one of these acts and the act is done. */
+/**
+ * True when the form named one of these acts, and the act is done. False for a
+ * form that named something else, which the route answers for: a page can add
+ * an act of its own without this module knowing it.
+ */
 export async function actOnTask(
   env: Env,
   set: OrgSet,

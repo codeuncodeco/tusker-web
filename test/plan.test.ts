@@ -131,6 +131,7 @@ describe("the candidate list", () => {
 
     expect(picked.map((one) => one.id)).toEqual(["mine", "ours"]);
     expect(picked.map((one) => one.org.slug)).toEqual([ada.org.slug, "codeuncode"]);
+    expect((await planPage(ada.cookie)).planned).toEqual(["mine", "ours"]);
   });
 
   it("refuses a Backlog task, which must move to To do first", async () => {
@@ -279,33 +280,48 @@ describe("re-opening a day", () => {
 });
 
 describe("the day a plan lands on", () => {
-  // 23:00 on 2026-09-01 in Asia/Kolkata is 17:30Z the same day, and 04:00 on
-  // 2026-09-02 there is 22:30Z the day before. The browser names the day it is
-  // in, so neither reading turns into the Worker's own day.
-  const EVENING = new Date("2026-09-01T17:30:00.000Z");
-  const AFTER_MIDNIGHT = new Date("2026-09-01T22:30:00.000Z");
+  /** The day a browser in one zone reads off its own clock. */
+  function dayIn(zone: string, at: Date) {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(at);
+  }
 
-  it("takes the person's local day at 23:00 in Asia/Kolkata, not the next one", async () => {
+  const KOLKATA = "Asia/Kolkata";
+  // 23:00 on 2026-09-01 in Asia/Kolkata, and 00:30 on 2026-09-02 there. The
+  // second one is the reading a UTC clock gets wrong, because the Worker is
+  // still on 2026-09-01.
+  const EVENING = new Date("2026-09-01T17:30:00.000Z");
+  const AFTER_MIDNIGHT = new Date("2026-09-01T19:00:00.000Z");
+
+  it("takes 23:00 in Asia/Kolkata as that day, not the next one", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
+    const there = dayIn(KOLKATA, EVENING);
+    expect(there).toBe("2026-09-01");
 
-    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug }, "2026-09-01");
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug }, there);
 
     expect(await stored(ada.person.id, "2026-09-01")).toEqual(["a"]);
     expect(await stored(ada.person.id, "2026-09-02")).toBe(null);
-    expect(dayOf(get("/me/plan", "day=2026-09-01"), EVENING)).toBe("2026-09-01");
+    expect(dayOf(get("/me/plan", `day=${there}`), EVENING)).toBe("2026-09-01");
   });
 
-  it("takes the person's day where the Worker's UTC day is still yesterday", async () => {
+  it("takes the day in Asia/Kolkata where the Worker is still on the day before", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
+    const there = dayIn(KOLKATA, AFTER_MIDNIGHT);
+    expect(there).toBe("2026-09-02");
 
-    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug }, "2026-09-02");
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug }, there);
 
     expect(await stored(ada.person.id, "2026-09-02")).toEqual(["a"]);
-    // The Worker alone would have said the day before.
+    // The Worker's own clock alone would have said the day before.
     expect(dayOf(get("/me/plan"), AFTER_MIDNIGHT)).toBe("2026-09-01");
-    expect(dayOf(get("/me/plan", "day=2026-09-02"), AFTER_MIDNIGHT)).toBe("2026-09-02");
+    expect(dayOf(get("/me/plan", `day=${there}`), AFTER_MIDNIGHT)).toBe("2026-09-02");
   });
 });
 
@@ -328,7 +344,7 @@ describe("the Today chip on a board", () => {
     ]);
   });
 
-  it("is absent while no plan for today exists", async () => {
+  it("is absent while today's plan holds nothing", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
 
@@ -337,6 +353,21 @@ describe("the Today chip on a board", () => {
     expect((await board(ada.cookie, ada.org.slug)).hasPlan).toBe(true);
     // Another day is another plan, so the chip goes with it.
     expect((await board(ada.cookie, ada.org.slug, "", "2026-09-02")).hasPlan).toBe(false);
+    // An emptied plan narrows to nothing, so it carries no chip either.
+    await act(ada.cookie, { intent: "unplan", id: "a", slug: ada.org.slug });
+    expect((await board(ada.cookie, ada.org.slug)).hasPlan).toBe(false);
+  });
+
+  it("narrows nothing once the plan is emptied", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await act(ada.cookie, { intent: "unplan", id: "a", slug: ada.org.slug });
+
+    const data = await board(ada.cookie, ada.org.slug, "?today=1");
+
+    expect(data.today).toBe(false);
+    expect(data.columns.flatMap((one) => one.tasks.map((card) => card.id))).toEqual(["a"]);
   });
 
   it("narrows nothing when no plan for today exists", async () => {

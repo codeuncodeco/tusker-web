@@ -38,7 +38,8 @@ export function UnifiedRow({
   /**
    * Which way the row can step, in a list whose order a person owns. Nothing
    * here leaves the arrows off, which is the unified view: that order is
-   * derived, and to say "this first" is to plan it. See ADR-0006.
+   * derived, and to say "this first" is to plan it. See ADR-0006, "One order per
+   * column".
    */
   moves?: { up: boolean; down: boolean };
 }) {

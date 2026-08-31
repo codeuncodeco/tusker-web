@@ -14,9 +14,10 @@ export type Step = "up" | "down";
 /**
  * The plan with one task one place further up or down.
  *
- * A step off either end, and a task the plan does not hold, leave the order as
- * it was. A person who presses the key once more than the list allows means
- * nothing by it.
+ * A step off either end, and a task the plan does not hold, answer with the
+ * order that came in, the same array. A caller reads that as "nothing moved"
+ * and writes no row. A person who presses the key once more than the list
+ * allows means nothing by it.
  */
 export function moveInPlan(order: string[], taskId: string, step: Step): string[] {
   const at = order.indexOf(taskId);
