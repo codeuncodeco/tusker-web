@@ -6,9 +6,10 @@
  * well. A key and a button post the same fields to either route.
  */
 
+import { decide, finishTask } from "./decisions.server";
 import { appendToPlan, unplanTask } from "./plans.server";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
-import { moveTask, readTask, type Task } from "./tasks.server";
+import { readTask, type Task } from "./tasks.server";
 
 /**
  * The task a form names, read back through the one-org scope, and the scope
@@ -29,19 +30,29 @@ export async function taskFrom(
   return { scope, task };
 }
 
+/** The acts this module answers for. Any other form is the route's own. */
+const ACTS = ["plan", "unplan", "finish", "decide"] as const;
+
 /**
- * True when the form named one of these acts, and the act is done. False for a
- * form that named something else, which the route answers for: a page can add
- * an act of its own without this module knowing it.
+ * What one act answers with: the page again when it raised or answered the
+ * prompt, and otherwise a word for the fetcher that posted it.
+ */
+export type Acted = Response | { ok: true } | { error: string };
+
+/**
+ * What one of these acts left behind, or null for a form that named something
+ * else. The route answers for that null: a page can add an act of its own
+ * without this module knowing it.
  */
 export async function actOnTask(
   env: Env,
+  request: Request,
   set: OrgSet,
   day: string,
   form: FormData,
-): Promise<boolean> {
+): Promise<Acted | null> {
   const intent = String(form.get("intent") ?? "");
-  if (intent !== "plan" && intent !== "unplan" && intent !== "finish") return false;
+  if (!ACTS.some((act) => act === intent)) return null;
 
   // Every act names the org the task belongs to, and the row is read back
   // through the one-org scope.
@@ -59,14 +70,16 @@ export async function actOnTask(
 
   if (intent === "unplan") await unplanTask(env.DB, set.personId, day, taskId);
 
-  if (intent === "finish") {
-    // Finishing here is the move the board makes, so one act has one meaning.
-    // The decision prompt lands with #39, which raises it wherever a task is
-    // finished.
-    if (task.status !== "done") {
-      await moveTask(env.DB, scope, { taskId, status: "done", before: null });
-    }
+  // The prompt one of these pages raised, answered. It writes the decision and
+  // gives the page back with the prompt gone.
+  if (intent === "decide") return decide(env.DB, scope, request, form);
+
+  // Finishing here is the move the board makes, so one act has one meaning,
+  // and a marked task raises the prompt from any of these screens.
+  if (intent === "finish" && task.status !== "done") {
+    const finished = await finishTask(env.DB, scope, request, taskId);
+    if (finished.prompt) return finished.prompt;
   }
 
-  return true;
+  return { ok: true };
 }

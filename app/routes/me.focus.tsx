@@ -15,6 +15,8 @@ import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
+import { DecisionPrompt } from "../decision-prompt";
+import { askedAcross } from "../decisions.server";
 import { FocusList, TakeMore } from "../focus-list";
 import { holdBatch, readFocus, takeMore } from "../focus.server";
 import { useLocalDay } from "../local-day";
@@ -38,6 +40,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     orgs: set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind })),
     day,
     focus: await readFocus(env.DB, set, set.personId, day),
+    // The prompt a finished task raised, if the query string still holds one.
+    ask: await askedAcross(env.DB, set, request),
   };
 }
 
@@ -68,14 +72,16 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { ok: true };
   }
 
-  const done = await actOnTask(env, set, day, form);
-  if (!done) throw new Response("That form does not name an action.", { status: 400 });
+  // Finishing here is the act the board makes, so a marked task raises the
+  // prompt from focus mode as it does from every other screen.
+  const acted = await actOnTask(env, request, set, day, form);
+  if (!acted) throw new Response("That form does not name an action.", { status: 400 });
 
-  return { ok: true };
+  return acted;
 }
 
 export default function Focus({ loaderData }: Route.ComponentProps) {
-  const { orgs, focus, day } = loaderData;
+  const { orgs, focus, day, ask } = loaderData;
   const { batch, planned, planEmpty, more } = focus;
   useLocalDay(day);
 
@@ -119,6 +125,8 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
       <Link to="/me" className="text-sm underline">
         Your tasks
       </Link>
+
+      <DecisionPrompt ask={ask} />
     </main>
   );
 }

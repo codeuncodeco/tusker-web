@@ -15,6 +15,7 @@ export default [
   route("orgs/new", "routes/orgs.new.tsx"),
   route("o/:slug/board", "routes/board.tsx"),
   route("o/:slug/fields", "routes/fields.tsx"),
+  route("o/:slug/decisions", "routes/decisions.tsx"),
   route("o/:slug/t/:taskId", "routes/task.tsx"),
   route("o/:slug/members", "routes/members.tsx"),
   route("o/:slug/settings", "routes/settings.tsx"),

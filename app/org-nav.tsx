@@ -3,6 +3,7 @@ import { Link } from "react-router";
 /** The pages one org holds, in the order every header lists them. */
 const PAGES = [
   { to: "board", label: "Board" },
+  { to: "decisions", label: "Decisions" },
   { to: "fields", label: "Fields" },
   { to: "members", label: "Members" },
   { to: "settings", label: "Settings" },

@@ -11,6 +11,8 @@ export type Task = {
   position: number;
   due_date: string | null;
   archived: number;
+  /** 1 when a person marked the task as one that holds a decision. */
+  decides: number;
   /** The custom field values, keyed by the key the org declared. */
   data: Record<string, string>;
   created_at: string;
@@ -20,7 +22,8 @@ export type Task = {
 type Row = Omit<Task, "data"> & { data: string };
 
 /** The columns a card and the task editor read. `description` and `assignees` wait. */
-const CARD_FIELDS = "id, org_id, title, status, position, due_date, archived, data, created_at";
+const CARD_FIELDS =
+  "id, org_id, title, status, position, due_date, archived, decides, data, created_at";
 
 /** The order of a column, everywhere it is read. */
 const IN_ORDER = "ORDER BY position, created_at, id";
@@ -47,9 +50,10 @@ export async function readTask(db: D1Database, scope: Scope, taskId: string): Pr
 }
 
 /**
- * Writes a task the editor changed: the title, and the whole custom field
- * data. The caller built `data` from the org's declarations, so a key another
- * org declared never reaches the column.
+ * Writes a task the editor changed: the title, the mark that says the task
+ * holds a decision, and the whole custom field data. The caller built `data`
+ * from the org's declarations, so a key another org declared never reaches the
+ * column.
  *
  * Returns false when no row matched, so the route can answer 404.
  */
@@ -57,15 +61,16 @@ export async function saveTask(
   db: D1Database,
   scope: Scope,
   taskId: string,
-  save: { title: string; data: Record<string, string> },
+  save: { title: string; data: Record<string, string>; decides: boolean },
 ): Promise<boolean> {
   const done = await db
     .prepare(
       `UPDATE tasks
-       SET title = ?, data = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       SET title = ?, data = ?, decides = ?,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND org_id = ?`,
     )
-    .bind(save.title, JSON.stringify(save.data), taskId, scope.org.id)
+    .bind(save.title, JSON.stringify(save.data), save.decides ? 1 : 0, taskId, scope.org.id)
     .run();
 
   return done.meta.changes > 0;
@@ -84,7 +89,7 @@ function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: R
 export async function createTask(
   db: D1Database,
   scope: Scope,
-  task: { title: string; status: Status },
+  task: { title: string; status: Status; decides: boolean },
 ): Promise<Task> {
   const id = crypto.randomUUID();
   const orgId = scope.org.id;
@@ -92,14 +97,23 @@ export async function createTask(
   const position = await placeAbove(db, orgId, task.status, column, column[0]?.id ?? null);
 
   await db
-    .prepare("INSERT INTO tasks (id, org_id, title, status, position) VALUES (?, ?, ?, ?, ?)")
-    .bind(id, orgId, task.title, task.status, position)
+    .prepare(
+      "INSERT INTO tasks (id, org_id, title, status, position, decides) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(id, orgId, task.title, task.status, position, task.decides ? 1 : 0)
     .run();
 
   const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Row>();
   if (!made) throw new Error("The task disappeared right after the insert.");
   return asTask(made);
 }
+
+/** What a move did: whether a row moved, and whether the move finished it. */
+export type Moved = {
+  moved: boolean;
+  /** True when the move landed in Done and the task was not there before. */
+  finished: boolean;
+};
 
 /**
  * Moves a task, inside its column or into another one. `before` names the card
@@ -109,14 +123,26 @@ export async function createTask(
  * so no other card is renumbered. The `org_id` in the WHERE clause is what
  * stops one org from writing to another org's row.
  *
- * Returns false when no row matched, so the route can answer 404.
+ * A move into Done is a task finished, which is when Tusker may ask for the
+ * decision. This function only reports that the move finished the task. Who is
+ * asked is the mark's business, not the move's. See ADR-0010.
+ *
+ * `moved` is false when no row matched, so the route can answer 404.
  */
 export async function moveTask(
   db: D1Database,
   scope: Scope,
   move: { taskId: string; status: Status; before?: string | null },
-): Promise<boolean> {
+): Promise<Moved> {
   const orgId = scope.org.id;
+  const was = await db
+    .prepare("SELECT status FROM tasks WHERE id = ? AND org_id = ?")
+    .bind(move.taskId, orgId)
+    .first<{ status: Status }>();
+  if (!was) return { moved: false, finished: false };
+
+  const finished = move.status === "done" && was.status !== "done";
+
   // The card leaves its old place, so it is no neighbour of its new one.
   const column = (await columnPlaces(db, orgId, move.status)).filter((one) => one.id !== move.taskId);
   const position = await placeAbove(db, orgId, move.status, column, move.before ?? null);
@@ -124,13 +150,14 @@ export async function moveTask(
   const done = await db
     .prepare(
       `UPDATE tasks
-       SET status = ?, position = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       SET status = ?, position = ?,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND org_id = ?`,
     )
     .bind(move.status, position, move.taskId, orgId)
     .run();
 
-  return done.meta.changes > 0;
+  return { moved: done.meta.changes > 0, finished };
 }
 
 /** The live cards of one column, in the order the board draws them. */

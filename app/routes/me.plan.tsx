@@ -19,6 +19,8 @@ import { Form, Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { dayName, dayOf, isDay } from "../day";
+import { DecisionPrompt } from "../decision-prompt";
+import { askedAcross } from "../decisions.server";
 import type { Leftovers } from "../leftovers";
 import { leftoversFor } from "../leftovers.server";
 import { OrgSwitcher } from "../org-switcher";
@@ -72,6 +74,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     leftovers,
     groups,
     planned: inPlan.tasks.map((one) => one.id),
+    // The prompt a finished row raised, if the query string still holds one.
+    ask: await askedAcross(env.DB, set, request),
   };
 }
 
@@ -101,14 +105,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
-  const done = await actOnTask(env, set, day, form);
-  if (!done) throw new Response("That form does not name an action.", { status: 400 });
+  const acted = await actOnTask(env, request, set, day, form);
+  if (!acted) throw new Response("That form does not name an action.", { status: 400 });
 
-  return { ok: true };
+  return acted;
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, day, named, leftovers } = loaderData;
+  const { orgs, groups, planned, day, named, leftovers, ask } = loaderData;
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
@@ -144,6 +148,8 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
           Focus on three
         </Link>
       </div>
+
+      <DecisionPrompt ask={ask} />
     </main>
   );
 }

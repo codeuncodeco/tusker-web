@@ -72,6 +72,25 @@ One piece of work in one org. A task never belongs to two orgs.
 A record of what was decided, kept by the org. A decision outlives the task that
 produced it, so a deleted task leaves the decision in place.
 
+**Decision mark**:
+The flag that says a task holds a decision, in `tasks.decides`. It is off by
+default, and only a marked task raises the decision prompt. A person sets it in
+the board's quick-add box when the task is made, and on the task page after.
+See ADR-0010.
+_Avoid_: Decision flag, needs-decision
+
+**Decision prompt**:
+The box that asks for a title and a rationale when a marked task moves to Done.
+Nothing records the ask: a skip is a not-now, and the prompt comes back the next
+time the task is finished. A task that already holds a decision is never asked
+again. See ADR-0010.
+_Avoid_: Decision dialog, done modal
+
+**Decision log**:
+One org's decisions, newest first, at `/o/:slug/decisions`. A line with no task
+is a record still standing after the work is gone.
+_Avoid_: Decision history, changelog
+
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled
 status.

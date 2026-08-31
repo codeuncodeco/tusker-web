@@ -3,6 +3,8 @@ import { Form, Link } from "react-router";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
+import { DecisionPrompt } from "../decision-prompt";
+import { askedOn, decide, finishTask } from "../decisions.server";
 import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
@@ -28,7 +30,14 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
-    task: { id: task.id, title: task.title, status: task.status, data: task.data },
+    task: {
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      data: task.data,
+      // A task made before the thought landed is marked here instead.
+      decides: task.decides === 1,
+    },
     fields,
     // The cached options each reference field draws. The refs key that filled
     // that cache stays on the server: this payload goes to the browser.
@@ -37,6 +46,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // dropdown list stays plain: a browser will not style an option, so the
     // dot draws beside the box. See ADR-0006.
     colors: await heldColors(env.DB, scope, fields, task.data),
+    // The prompt the Finish button raised, if the query string still holds it.
+    ask: await askedOn(env.DB, scope, request),
   };
 }
 
@@ -58,6 +69,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const scope = await requireScope(request, env, params.slug);
 
   const form = await request.formData();
+
+  const intent = String(form.get("intent") ?? "");
+
+  // The prompt the Finish button raised, answered.
+  if (intent === "decide") return decide(env.DB, scope, request, form);
+
+  if (intent === "finish") {
+    const finished = await finishTask(env.DB, scope, request, params.taskId);
+    if (!finished.moved) throw new Response("Not found", { status: 404 });
+    return finished.prompt ?? { ok: true };
+  }
+
   const title = String(form.get("title") ?? "").trim();
   if (!title) return { error: "A task needs a title." };
 
@@ -66,7 +89,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const read = readData(await listFields(env.DB, scope), form);
   if ("error" in read) return read;
 
-  const saved = await saveTask(env.DB, scope, params.taskId, { title, data: read.data });
+  const saved = await saveTask(env.DB, scope, params.taskId, {
+    title,
+    data: read.data,
+    // The box is absent from the post when it is unticked, which unmarks the
+    // task. Saving the task is how the mark goes on and off.
+    decides: form.get("decides") === "1",
+  });
   if (!saved) throw new Response("Not found", { status: 404 });
   return { ok: true };
 }
@@ -177,7 +206,7 @@ function FieldBox({
 }
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, fields, refs, colors } = loaderData;
+  const { org, task, fields, refs, colors, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
@@ -191,6 +220,13 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
         <label className="flex flex-col gap-1">
           Title
           <input name="title" required defaultValue={task.title} className={fieldClass} />
+        </label>
+
+        {/* Off by default, and only a marked task raises the prompt when it is
+            finished. See ADR-0010. */}
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="decides" value="1" defaultChecked={task.decides} />
+          Holds a decision
         </label>
 
         {fields.map((field) => (
@@ -226,6 +262,21 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           Save
         </button>
       </Form>
+
+      {/* Its own form, because finishing is one act and saving is another. */}
+      {task.status === "done" || task.status === "cancelled" ? null : (
+        <Form method="post">
+          <button
+            name="intent"
+            value="finish"
+            className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+          >
+            Finish
+          </button>
+        </Form>
+      )}
+
+      <DecisionPrompt ask={ask} />
     </main>
   );
 }

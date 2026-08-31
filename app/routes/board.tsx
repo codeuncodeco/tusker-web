@@ -13,6 +13,8 @@ import {
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
+import { DecisionPrompt } from "../decision-prompt";
+import { askedOn, decide, promptFor } from "../decisions.server";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
@@ -111,6 +113,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     org: { slug: scope.org.slug, name: scope.org.name },
     orgs: await listOrgsForPerson(env.DB, scope.personId),
     columns,
+    // The prompt a finished card raised, if the query string still holds one.
+    ask: await askedOn(env.DB, scope, request),
     toggles,
     today,
     day,
@@ -133,7 +137,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const title = String(form.get("title") ?? "").trim();
     const status = readStatus(form);
     if (!title) return { error: "A task needs a title." };
-    await createTask(env.DB, scope, { title, status });
+    // The mark goes on when the task is made, while the thought is there. It
+    // is off by default, so an unticked box is a task that decides nothing.
+    const made = await createTask(env.DB, scope, {
+      title,
+      status,
+      decides: form.get("decides") === "1",
+    });
+    // The box sits on every column, Done included. A marked task typed
+    // straight into Done is finished the moment it is made, so it is asked
+    // now: no later move would ask it.
+    const prompt = await promptFor(env.DB, scope, request, made.id);
+    if (prompt) return prompt;
     return { ok: true };
   }
 
@@ -143,9 +158,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // The card the task lands above. Nothing named means the bottom.
     const before = String(form.get("before") ?? "") || null;
     const moved = await moveTask(env.DB, scope, { taskId: id, status, before });
-    if (!moved) throw new Response("Not found", { status: 404 });
+    if (!moved.moved) throw new Response("Not found", { status: 404 });
+    // A card dropped into Done is a task finished, and a marked task is the
+    // one Tusker asks about.
+    if (moved.finished) {
+      const prompt = await promptFor(env.DB, scope, request, id);
+      if (prompt) return prompt;
+    }
     return { ok: true };
   }
+
+  // The prompt a finished card raised, answered.
+  if (intent === "decide") return decide(env.DB, scope, request, form);
 
   throw new Response("That form does not name an action.", { status: 400 });
 }
@@ -174,6 +198,12 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
         aria-label={`Add to ${label}`}
         className={fieldClass}
       />
+      {/* Off by default. Most tasks decide nothing, and a prompt people
+          learn to dismiss is how a log goes empty. See ADR-0010. */}
+      <label className="flex items-center gap-2 text-xs text-neutral-500">
+        <input type="checkbox" name="decides" value="1" />
+        Holds a decision
+      </label>
       <button className="sr-only">Add</button>
       {error ? (
         <p role="alert" className="text-sm text-red-700 dark:text-red-400">
@@ -338,7 +368,7 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, orgs, columns, toggles, today, hasPlan, day } = loaderData;
+  const { org, orgs, columns, toggles, today, hasPlan, day, ask } = loaderData;
   const mover = useFetcher();
 
   // The chip speaks for today, so the board must know which day that is where
@@ -406,6 +436,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           </section>
         ))}
       </div>
+
+      <DecisionPrompt ask={ask} />
     </main>
   );
 }
