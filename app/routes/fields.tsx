@@ -1,4 +1,4 @@
-import { Form, Link } from "react-router";
+import { Form } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import {
@@ -9,8 +9,9 @@ import {
   readOptions,
   type OrgField,
 } from "../fields";
-import { declareField, editField, listFields, removeField } from "../fields.server";
+import { declareField, editField, listFields, readField, removeField } from "../fields.server";
 import { fieldClass } from "../forms";
+import { OrgNav } from "../org-nav";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/fields";
 
@@ -47,13 +48,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (!label) return { error: "A field needs a label with a letter or a number." };
 
   if (intent === "edit") {
-    const changed = await editField(env.DB, scope, String(form.get("key") ?? ""), {
-      label,
-      options,
-      show_on_card,
-      filterable,
-    });
-    if (!changed) throw new Response("Not found", { status: 404 });
+    const field = await readField(env.DB, scope, String(form.get("key") ?? ""));
+    if (!field) throw new Response("Not found", { status: 404 });
+    if (field.type === "select" && options.length === 0) {
+      return { error: "A select needs at least one option." };
+    }
+
+    await editField(env.DB, scope, field, { label, options, show_on_card, filterable });
     return { ok: true };
   }
 
@@ -103,7 +104,7 @@ function Flags({ field }: { field?: OrgField }) {
  * stay: a value lives under the key, so a new key would leave every value
  * behind.
  */
-function Declared({ field }: { field: OrgField }) {
+function DeclaredField({ field }: { field: OrgField }) {
   return (
     <li className="flex flex-col gap-2 rounded border border-neutral-200 p-3 dark:border-neutral-800">
       <span className="flex items-baseline gap-2 text-sm">
@@ -123,6 +124,9 @@ function Declared({ field }: { field: OrgField }) {
         {field.type === "select" ? (
           <label className="flex flex-col gap-1">
             Options, one per line
+            <span className="text-sm text-neutral-500">
+              An option you drop empties the field on every task that held it.
+            </span>
             <textarea
               name="options"
               rows={3}
@@ -160,14 +164,7 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <nav className="flex gap-4 text-sm">
-          <Link to={`/o/${org.slug}/board`} className="underline">
-            Board
-          </Link>
-          <Link to={`/o/${org.slug}/settings`} className="underline">
-            Settings
-          </Link>
-        </nav>
+        <OrgNav slug={org.slug} here="fields" />
       </header>
 
       <p className="text-neutral-600 dark:text-neutral-400">
@@ -176,7 +173,7 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
 
       <ul className="flex flex-col gap-3">
         {fields.map((field) => (
-          <Declared key={field.key} field={field} />
+          <DeclaredField key={field.key} field={field} />
         ))}
       </ul>
 

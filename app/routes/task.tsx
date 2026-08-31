@@ -4,6 +4,7 @@ import { cloudflareEnv } from "../context.server";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
+import { OrgNav } from "../org-nav";
 import { requireScope } from "../scope.server";
 import { readTask, saveTask } from "../tasks.server";
 import type { Route } from "./+types/task";
@@ -85,14 +86,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <nav className="flex gap-4 text-sm">
-          <Link to={`/o/${org.slug}/board`} className="underline">
-            Board
-          </Link>
-          <Link to={`/o/${org.slug}/fields`} className="underline">
-            Fields
-          </Link>
-        </nav>
+        <OrgNav slug={org.slug} />
       </header>
 
       <Form method="post" key={task.id} className="flex flex-col gap-3">

@@ -18,7 +18,7 @@ export type Task = {
 /** The row as the table holds it: `data` as the JSON text of the column. */
 type Row = Omit<Task, "data"> & { data: string };
 
-/** The fields a card needs. `description` and `assignees` wait for the task page. */
+/** The columns a card and the task editor read. `description` and `assignees` wait. */
 const CARD_FIELDS = "id, org_id, title, status, position, due_date, archived, data, created_at";
 
 /** The order of a column, everywhere it is read. */

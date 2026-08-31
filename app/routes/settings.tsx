@@ -1,7 +1,8 @@
-import { Form, Link, redirect } from "react-router";
+import { Form, redirect } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
+import { OrgNav } from "../org-nav";
 import { renameOrg, slugify } from "../orgs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/settings";
@@ -40,17 +41,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <nav className="flex gap-4 text-sm">
-          <Link to={`/o/${org.slug}/board`} className="underline">
-            Board
-          </Link>
-          <Link to={`/o/${org.slug}/members`} className="underline">
-            Members
-          </Link>
-          <Link to={`/o/${org.slug}/fields`} className="underline">
-            Fields
-          </Link>
-        </nav>
+        <OrgNav slug={org.slug} here="settings" />
       </header>
 
       <Form method="post" className="flex flex-col gap-3">

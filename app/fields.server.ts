@@ -85,21 +85,34 @@ export async function declareField(
 }
 
 /** What an edit can change. The key and the type stay as declared. */
-export type Change = {
-  label: string;
-  options: string[];
-  show_on_card: boolean;
-  filterable: boolean;
-};
+export type Change = Omit<Declaration, "key" | "type">;
 
-/** Gives a declared field another label, options or flags. False when the org holds no such field. */
-export async function editField(
+/** One declared field of the org, or null when the org declares no such key. */
+export async function readField(
   db: D1Database,
   scope: Scope,
   key: string,
+): Promise<OrgField | null> {
+  const row = await db
+    .prepare(`SELECT ${COLUMNS} FROM org_fields WHERE org_id = ? AND key = ?`)
+    .bind(scope.org.id, key)
+    .first<Row>();
+  return row ? asField(row) : null;
+}
+
+/**
+ * Gives a declared field another label, options or flags.
+ *
+ * A select that loses an option loses it on the tasks as well, because a value
+ * the field no longer declares is a value the editor cannot show or save.
+ */
+export async function editField(
+  db: D1Database,
+  scope: Scope,
+  field: OrgField,
   change: Change,
-): Promise<boolean> {
-  const done = await db
+): Promise<void> {
+  await db
     .prepare(
       `UPDATE org_fields SET label = ?, options = ?, show_on_card = ?, filterable = ?
        WHERE org_id = ? AND key = ?`,
@@ -110,11 +123,11 @@ export async function editField(
       Number(change.show_on_card),
       Number(change.filterable),
       scope.org.id,
-      key,
+      field.key,
     )
     .run();
 
-  return done.meta.changes > 0;
+  if (field.type === "select") await dropUndeclared(db, scope, field.key, change.options);
 }
 
 /**
@@ -131,6 +144,25 @@ export async function removeField(db: D1Database, scope: Scope, key: string): Pr
   ]);
 
   return dropped.meta.changes > 0;
+}
+
+/** Clears the value of every task that holds an option the select dropped. */
+async function dropUndeclared(
+  db: D1Database,
+  scope: Scope,
+  key: string,
+  options: string[],
+): Promise<void> {
+  const holes = options.map(() => "?").join(", ");
+  await db
+    .prepare(
+      `UPDATE tasks SET data = json_remove(data, '$.' || ?)
+       WHERE org_id = ?
+         AND json_extract(data, '$.' || ?) IS NOT NULL
+         AND json_extract(data, '$.' || ?) NOT IN (${holes})`,
+    )
+    .bind(key, scope.org.id, key, key, ...options)
+    .run();
 }
 
 /** The row as every screen reads it. */

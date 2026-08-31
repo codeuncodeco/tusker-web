@@ -6,7 +6,7 @@
  * screen, the task editor and the board all state one rule once.
  */
 
-/** The types this ticket renders. `reference` waits for ticket 9. */
+/** The types Tusker renders. A reference field comes later. */
 export const FIELD_TYPES = ["text", "select", "date"] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -58,7 +58,7 @@ export function readOptions(text: string): string[] {
 }
 
 /** A value the field takes, or the reason it does not. */
-export type Read = { value: string | null } | { error: string };
+export type Reading = { value: string | null } | { error: string };
 
 /** The date shape a date field holds, as SQLite and the browser both read it. */
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,7 +67,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
  * What one field makes of what a person typed. An empty answer is no value, so
  * clearing a box removes the key rather than writing an empty string.
  */
-export function readValue(field: OrgField, raw: unknown): Read {
+export function readValue(field: OrgField, raw: unknown): Reading {
   const text = typeof raw === "string" ? raw.trim() : "";
   if (!text) return { value: null };
 
@@ -103,6 +103,19 @@ export function readData(
 /** The fields a card shows, in the order the org declared them. */
 export function cardFields(fields: OrgField[]): OrgField[] {
   return fields.filter((field) => field.show_on_card);
+}
+
+/** One custom field value, as a card shows it. */
+export type Shown = { key: string; label: string; value: string };
+
+/**
+ * What one card shows of one task: the marked fields the task holds a value
+ * for. A field the task left empty takes no room on the card.
+ */
+export function shownOnCard(fields: OrgField[], data: Record<string, string>): Shown[] {
+  return cardFields(fields)
+    .filter((field) => data[field.key] !== undefined)
+    .map((field) => ({ key: field.key, label: field.label, value: data[field.key] }));
 }
 
 /** True for a date a calendar holds, so 2026-13-01 is not one. */

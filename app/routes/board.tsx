@@ -11,10 +11,11 @@ import {
   type Toggles,
 } from "../board";
 import { cloudflareEnv } from "../context.server";
-import { cardFields } from "../fields";
+import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
 import { listOrgsForPerson } from "../orgs.server";
+import { OrgNav } from "../org-nav";
 import { OrgSwitcher } from "../org-switcher";
 import { requireScope } from "../scope.server";
 import { createTask, listTasks, moveTask, type Task } from "../tasks.server";
@@ -23,9 +24,6 @@ import type { Route } from "./+types/board";
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData.org.name} — Tusker` }];
 }
-
-/** One custom field value, as a card shows it. */
-type Shown = { key: string; label: string; value: string };
 
 /** What one card shows. The task page reads the rest of the row. */
 type Card = { id: string; title: string; fields: Shown[] };
@@ -62,7 +60,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const tasks = await listTasks(env.DB, scope);
   // The org's declarations decide what a card shows, so the board needs no
   // code for any one org's fields.
-  const shown = cardFields(await listFields(env.DB, scope));
+  const declared = await listFields(env.DB, scope);
   const counts = countByStatus(tasks);
   const toggles = readToggles(new URL(request.url).searchParams);
   const columns = columnsToShow(counts, toggles).map((status) => ({
@@ -74,9 +72,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
         (task): Card => ({
           id: task.id,
           title: task.title,
-          fields: shown
-            .filter((field) => task.data[field.key] !== undefined)
-            .map((field) => ({ key: field.key, label: field.label, value: task.data[field.key] })),
+          fields: shownOnCard(declared, task.data),
         }),
       ),
   }));
@@ -305,19 +301,11 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         <nav className="flex gap-4 text-sm">
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
-          <Link to={`/o/${org.slug}/members`} className="underline">
-            Members
-          </Link>
-          <Link to={`/o/${org.slug}/fields`} className="underline">
-            Fields
-          </Link>
-          <Link to={`/o/${org.slug}/settings`} className="underline">
-            Settings
-          </Link>
           <Link to="/me" className="underline">
             You
           </Link>
         </nav>
+        <OrgNav slug={org.slug} here="board" />
       </header>
 
       <div className="flex flex-1 gap-4 overflow-x-auto">

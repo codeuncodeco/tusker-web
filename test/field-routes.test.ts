@@ -175,6 +175,60 @@ describe("editing and removing a field", () => {
     });
   });
 
+  it("refuses to leave a select with no option", async () => {
+    const { ada } = await twoOrgs();
+    await declare("codeuncode", ada.cookie, { label: "Kind", type: "select", options: "Bug" });
+
+    const answer = await send(
+      fieldsRoute,
+      "/o/codeuncode/fields",
+      ada.cookie,
+      { intent: "edit", key: "kind", label: "Kind", options: "  " },
+      { slug: "codeuncode" },
+    );
+
+    expect(answer).toEqual({ error: "A select needs at least one option." });
+    expect((await fieldsOf("codeuncode", ada.cookie)).fields[0].options).toEqual(["Bug"]);
+  });
+
+  it("empties the tasks that held an option the select dropped", async () => {
+    const { ada } = await twoOrgs();
+    await declare("codeuncode", ada.cookie, { label: "Kind", type: "select", options: "Bug\nChore" });
+    const bug = await addTask("codeuncode", ada.cookie, "Fix the header");
+    const chore = await addTask("codeuncode", ada.cookie, "Tidy the log");
+    await save("codeuncode", ada.cookie, bug, { title: "Fix the header", "field.kind": "Bug" });
+    await save("codeuncode", ada.cookie, chore, { title: "Tidy the log", "field.kind": "Chore" });
+
+    await send(
+      fieldsRoute,
+      "/o/codeuncode/fields",
+      ada.cookie,
+      { intent: "edit", key: "kind", label: "Kind", options: "Bug" },
+      { slug: "codeuncode" },
+    );
+
+    expect((await editor("codeuncode", ada.cookie, bug)).task.data).toEqual({ kind: "Bug" });
+    expect((await editor("codeuncode", ada.cookie, chore)).task.data).toEqual({});
+  });
+
+  it("answers 404 for a key the org does not declare", async () => {
+    const { ada, bo } = await twoOrgs();
+    await declare("blrhikes", bo.cookie, { label: "Trail name", type: "text" });
+
+    const response = await caught(
+      send(
+        fieldsRoute,
+        "/o/codeuncode/fields",
+        ada.cookie,
+        { intent: "edit", key: "trail_name", label: "Theirs" },
+        { slug: "codeuncode" },
+      ),
+    );
+
+    expect(response.status).toBe(404);
+    expect((await fieldsOf("blrhikes", bo.cookie)).fields[0].label).toBe("Trail name");
+  });
+
   it("removes the declaration and the values the tasks held for it", async () => {
     const { ada } = await twoOrgs();
     await declare("codeuncode", ada.cookie, { label: "Client", type: "text" });
