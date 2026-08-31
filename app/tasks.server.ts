@@ -1,4 +1,5 @@
 import type { Status } from "./board";
+import { between } from "./order";
 
 export type Task = {
   id: string;
@@ -14,31 +15,37 @@ export type Task = {
 /** The fields a card needs. `description`, `assignees` and `data` wait for the task page. */
 const CARD_FIELDS = "id, org_id, title, status, position, due_date, archived, created_at";
 
-/**
- * One org's live tasks, in column order. Ticket 5 replaces this order with a
- * fraction that a drop can take the midpoint of.
- */
+/** The order of a column, everywhere it is read. */
+const IN_ORDER = "ORDER BY position, created_at, id";
+
+/** A card in a column, cut down to what the order maths reads. */
+type Place = { id: string; position: number };
+
+/** One org's live tasks, in column order. */
 export async function listTasks(db: D1Database, orgId: string): Promise<Task[]> {
   const { results } = await db
-    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE org_id = ? AND archived = 0 ORDER BY position, created_at, id`)
+    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE org_id = ? AND archived = 0 ${IN_ORDER}`)
     .bind(orgId)
     .all<Task>();
   return results;
 }
 
 /**
- * Adds a task at the end of its column. The caller has already checked that
- * the person is a member of the org, because `org_id` is the only fence.
+ * Adds a task at the top of its column, where a person looks for the one they
+ * just typed. The caller has already checked that the person is a member of
+ * the org, because `org_id` is the only fence.
  */
 export async function createTask(
   db: D1Database,
   task: { orgId: string; title: string; status: Status },
 ): Promise<Task> {
   const id = crypto.randomUUID();
+  const column = await columnPlaces(db, task.orgId, task.status);
+  const position = await positionFor(db, task.orgId, task.status, column, column[0]?.id ?? null);
 
   await db
     .prepare("INSERT INTO tasks (id, org_id, title, status, position) VALUES (?, ?, ?, ?, ?)")
-    .bind(id, task.orgId, task.title, task.status, await nextPosition(db, task.orgId, task.status))
+    .bind(id, task.orgId, task.title, task.status, position)
     .run();
 
   const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Task>();
@@ -47,32 +54,84 @@ export async function createTask(
 }
 
 /**
- * Moves a task to another column. The `org_id` in the WHERE clause is what
+ * Moves a task, inside its column or into another one. `before` names the card
+ * the task lands above; without it the task lands at the bottom.
+ *
+ * The move writes one row: the new position is the midpoint of its neighbours,
+ * so no other card is renumbered. The `org_id` in the WHERE clause is what
  * stops one org from writing to another org's row.
  *
  * Returns false when no row matched, so the route can answer 404.
  */
-export async function setTaskStatus(
+export async function moveTask(
   db: D1Database,
-  move: { orgId: string; taskId: string; status: Status },
+  move: { orgId: string; taskId: string; status: Status; before?: string | null },
 ): Promise<boolean> {
+  const moving = await db
+    .prepare("SELECT id FROM tasks WHERE id = ? AND org_id = ?")
+    .bind(move.taskId, move.orgId)
+    .first<{ id: string }>();
+  if (!moving) return false;
+
+  // The card leaves its old place, so it is no neighbour of its new one.
+  const column = (await columnPlaces(db, move.orgId, move.status)).filter((one) => one.id !== move.taskId);
+  const position = await positionFor(db, move.orgId, move.status, column, move.before ?? null);
+
   const done = await db
     .prepare(
       `UPDATE tasks
        SET status = ?, position = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND org_id = ?`,
     )
-    .bind(move.status, await nextPosition(db, move.orgId, move.status), move.taskId, move.orgId)
+    .bind(move.status, position, move.taskId, move.orgId)
     .run();
 
   return done.meta.changes > 0;
 }
 
-/** The place after the last card in a column. Ticket 5 replaces this rule. */
-async function nextPosition(db: D1Database, orgId: string, status: Status): Promise<number> {
-  const last = await db
-    .prepare("SELECT MAX(position) AS at FROM tasks WHERE org_id = ? AND status = ?")
+/** The live cards of one column, in the order the board draws them. */
+async function columnPlaces(db: D1Database, orgId: string, status: Status): Promise<Place[]> {
+  const { results } = await db
+    .prepare(`SELECT id, position FROM tasks WHERE org_id = ? AND status = ? AND archived = 0 ${IN_ORDER}`)
     .bind(orgId, status)
-    .first<{ at: number | null }>();
-  return (last?.at ?? 0) + 1;
+    .all<Place>();
+  return results;
+}
+
+/**
+ * The position a card takes when it lands above `beforeId`, or at the bottom
+ * when that is null.
+ *
+ * A column can run out of fractions after many drops into the same gap. The
+ * column is then renumbered whole and the maths asked again, which is the one
+ * time a drop touches another row.
+ */
+async function positionFor(
+  db: D1Database,
+  orgId: string,
+  status: Status,
+  column: Place[],
+  beforeId: string | null,
+): Promise<number> {
+  const found = beforeId === null ? -1 : column.findIndex((one) => one.id === beforeId);
+  // A card the column no longer holds names the bottom, as no neighbour does.
+  const at = found === -1 ? column.length : found;
+  const position = between(column[at - 1]?.position ?? null, column[at]?.position ?? null);
+  if (position !== null) return position;
+
+  const spread = await renumber(db, orgId, status, column);
+  return between(spread[at - 1]?.position ?? null, spread[at]?.position ?? null)!;
+}
+
+/** Writes 1, 2, 3 … over a column that has no room left between two cards. */
+async function renumber(db: D1Database, orgId: string, status: Status, column: Place[]): Promise<Place[]> {
+  const spread = column.map((one, index) => ({ id: one.id, position: index + 1 }));
+
+  await db.batch(
+    spread.map((one) =>
+      db.prepare("UPDATE tasks SET position = ? WHERE id = ? AND org_id = ?").bind(one.position, one.id, orgId),
+    ),
+  );
+
+  return spread;
 }

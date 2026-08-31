@@ -177,3 +177,92 @@ describe("the columns the board shows", () => {
     expect(data.toggles).toEqual({ backlog: true, cancelled: true });
   });
 });
+
+describe("the order inside a column", () => {
+  /** Three cards in To do, top first, with the ids the board shows. */
+  async function threeCards(cookie: string) {
+    for (const title of ["Third", "Second", "First"]) {
+      await act("ada", cookie, { intent: "create", status: "todo", title });
+    }
+    const data = await board("ada", cookie);
+    return column(data, "todo")!.tasks;
+  }
+
+  /** The position of one row, straight from the table. */
+  async function positionOf(id: string) {
+    const row = await db.prepare("SELECT position FROM tasks WHERE id = ?").bind(id).first<{ position: number }>();
+    return row!.position;
+  }
+
+  it("puts a new task at the top of its column", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const cards = await threeCards(ada.cookie);
+
+    expect(cards.map((one) => one.title)).toEqual(["First", "Second", "Third"]);
+  });
+
+  it("writes the midpoint of the new neighbours, and leaves every other row alone", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first, second, third] = await threeCards(ada.cookie);
+    const before = {
+      first: await positionOf(first.id),
+      second: await positionOf(second.id),
+      third: await positionOf(third.id),
+    };
+
+    // First lands above Third, so it takes the midpoint of Second and Third.
+    await act("ada", ada.cookie, { intent: "move", id: first.id, status: "todo", before: third.id });
+
+    expect(await positionOf(first.id)).toBe(before.second + (before.third - before.second) / 2);
+    expect(await positionOf(second.id)).toBe(before.second);
+    expect(await positionOf(third.id)).toBe(before.third);
+  });
+
+  it("keeps the new order after a reload", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first, second, third] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "move", id: third.id, status: "todo", before: second.id });
+
+    const cards = column(await board("ada", ada.cookie), "todo")!.tasks;
+    expect(cards.map((one) => one.title)).toEqual(["First", "Third", "Second"]);
+  });
+
+  it("drops a card at the bottom when the drop names no neighbour", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "move", id: first.id, status: "todo" });
+
+    const cards = column(await board("ada", ada.cookie), "todo")!.tasks;
+    expect(cards.map((one) => one.title)).toEqual(["Second", "Third", "First"]);
+  });
+
+  it("renumbers the column when the gap is too tight to split", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first, second, third] = await threeCards(ada.cookie);
+    // Two cards a hair apart leave no fraction between them.
+    await db
+      .prepare("UPDATE tasks SET position = ? WHERE id = ?")
+      .bind(1 + Number.EPSILON, third.id)
+      .run();
+    await db.prepare("UPDATE tasks SET position = 1 WHERE id = ?").bind(second.id).run();
+
+    await act("ada", ada.cookie, { intent: "move", id: first.id, status: "todo", before: third.id });
+
+    const cards = column(await board("ada", ada.cookie), "todo")!.tasks;
+    expect(cards.map((one) => one.title)).toEqual(["Second", "First", "Third"]);
+  });
+
+  it("lands a card dropped into another column at the bottom of it", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await act("ada", ada.cookie, { intent: "create", status: "done", title: "Older" });
+    const [first] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "move", id: first.id, status: "done" });
+
+    const cards = column(await board("ada", ada.cookie), "done")!.tasks;
+    expect(cards.map((one) => one.title)).toEqual(["Older", "First"]);
+  });
+});
