@@ -167,6 +167,30 @@ describe("declaring a reference field", () => {
     });
   });
 
+  it("stores no source URL or key on a type that reads neither", async () => {
+    const ada = await anOrg();
+
+    await send(
+      fieldsRoute,
+      "/o/codeuncode/fields",
+      ada.cookie,
+      {
+        intent: "declare",
+        label: "Client",
+        type: "text",
+        options: "",
+        source_url: TRAILS,
+        refs_key: "typed-in-the-wrong-box",
+      },
+      { slug: "codeuncode" },
+    );
+
+    const row = await db
+      .prepare("SELECT source_url, refs_key FROM org_fields WHERE key = 'client'")
+      .first<{ source_url: string; refs_key: string }>();
+    expect(row).toEqual({ source_url: "", refs_key: "" });
+  });
+
   it("refuses a reference that carries no refs key", async () => {
     const ada = await anOrg();
 
@@ -193,6 +217,25 @@ describe("the refs key", () => {
     expect(JSON.stringify(edit)).not.toContain("minted-by-blrhikes");
     // The screen says a key is there, without saying what it is.
     expect(screen.fields[0].has_refs_key).toBe(true);
+  });
+
+  it("cannot be edited away from a field that holds none", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    // A field left keyless, as a row written before this screen demanded one.
+    await db.prepare("UPDATE org_fields SET refs_key = '' WHERE key = 'trail'").run();
+
+    const answer = await send(
+      fieldsRoute,
+      "/o/codeuncode/fields",
+      ada.cookie,
+      { intent: "edit", key: "trail", label: "Hike", source_url: TRAILS, refs_key: "" },
+      { slug: "codeuncode" },
+    );
+
+    expect(answer).toEqual({
+      error: "A reference needs the refs key the org app minted for it.",
+    });
   });
 
   it("is kept when an edit leaves the box empty, and replaced when it does not", async () => {
@@ -380,6 +423,54 @@ describe("an id the cache does not hold", () => {
 
     expect(edit.refs.trail.label).toBeNull();
     expect(edit.task.data).toEqual({ trail: "gone" });
+  });
+
+  it("is looked up once, not on every load of the task", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    orgApp({ options: KUMARA });
+    await refresh(ada.cookie);
+    const task = await addTask(ada.cookie, "Walk a ghost");
+    await save(ada.cookie, task, { title: "Walk a ghost", "field.trail": "gone" });
+
+    const calls = orgApp({ options: KUMARA });
+    await editor(ada.cookie, task);
+    await editor(ada.cookie, task);
+    await editor(ada.cookie, task);
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it("never shows the miss as an option a person can pick", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    orgApp({ options: KUMARA });
+    await refresh(ada.cookie);
+    const task = await addTask(ada.cookie, "Walk a ghost");
+    await save(ada.cookie, task, { title: "Walk a ghost", "field.trail": "gone" });
+    orgApp({ options: KUMARA });
+
+    const edit = await editor(ada.cookie, task);
+
+    expect(edit.refs.trail.options).toEqual(KUMARA);
+    expect((await fieldsOf(ada.cookie)).cached).toEqual({ trail: 1 });
+  });
+
+  it("gets another chance after the next pull", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    orgApp({ options: KUMARA });
+    await refresh(ada.cookie);
+    const task = await addTask(ada.cookie, "Walk the new one");
+    await save(ada.cookie, task, { title: "Walk the new one", "field.trail": "t9" });
+    orgApp({ options: KUMARA });
+    await editor(ada.cookie, task);
+
+    // The org app made t9 after the miss, and the cron picks it up.
+    orgApp({ options: [...KUMARA, { id: "t9", label: "Kodachadri" }] });
+    await refreshEveryField(db);
+
+    expect((await editor(ada.cookie, task)).refs.trail.label).toBe("Kodachadri");
   });
 });
 

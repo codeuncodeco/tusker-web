@@ -38,11 +38,16 @@ ALTER TABLE org_fields_new RENAME TO org_fields;
 -- app answered with an empty list. `org_fields.refs_pulled_at` tells the two
 -- apart, which is what stops an empty dropdown reading as "this app has no
 -- trails".
+--
+-- A row with no label is a miss: an id a task holds that the org app does not
+-- know. It stops the live lookup running again for that id on every load. The
+-- next pull writes the cache whole, so a miss lasts until the cron runs.
 CREATE TABLE org_ref_options (
   org_id     TEXT NOT NULL,
   field_key  TEXT NOT NULL,
   ext_id     TEXT NOT NULL,
-  label      TEXT NOT NULL,
+  label      TEXT,
   fetched_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  PRIMARY KEY (org_id, field_key, ext_id)
+  PRIMARY KEY (org_id, field_key, ext_id),
+  FOREIGN KEY (org_id, field_key) REFERENCES org_fields(org_id, key) ON DELETE CASCADE
 );

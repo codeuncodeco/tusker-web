@@ -166,9 +166,6 @@ export async function removeField(db: D1Database, scope: Scope, key: string): Pr
   const [dropped] = await db.batch([
     db.prepare("DELETE FROM org_fields WHERE org_id = ? AND key = ?").bind(scope.org.id, key),
     db
-      .prepare("DELETE FROM org_ref_options WHERE org_id = ? AND field_key = ?")
-      .bind(scope.org.id, key),
-    db
       .prepare("UPDATE tasks SET data = json_remove(data, '$.' || ?) WHERE org_id = ?")
       .bind(key, scope.org.id),
   ]);

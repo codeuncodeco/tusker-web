@@ -18,6 +18,10 @@ import type { Scope } from "./scope.server";
 /** Where one reference field reads from, and what it reads with. */
 type Source = { org_id: string; key: string; source_url: string; refs_key: string };
 
+/** The columns a source reads. `refs_key` is here and in no other read. */
+const SOURCE_COLUMNS = "org_id, key, source_url, refs_key";
+
+
 /** What became of a pull: the options it cached, or why it cached none. */
 export type Pulled = { pulled: number } | { error: string };
 
@@ -30,7 +34,8 @@ export async function listRefOptions(
   const { results } = await db
     .prepare(
       `SELECT ext_id AS id, label FROM org_ref_options
-       WHERE org_id = ? AND field_key = ? ORDER BY label, ext_id`,
+       WHERE org_id = ? AND field_key = ? AND label IS NOT NULL
+       ORDER BY label, ext_id`,
     )
     .bind(scope.org.id, fieldKey)
     .all<RefOption>();
@@ -44,7 +49,8 @@ export async function countRefOptions(
 ): Promise<Record<string, number>> {
   const { results } = await db
     .prepare(
-      "SELECT field_key, count(*) AS n FROM org_ref_options WHERE org_id = ? GROUP BY field_key",
+      `SELECT field_key, count(*) AS n FROM org_ref_options
+       WHERE org_id = ? AND label IS NOT NULL GROUP BY field_key`,
     )
     .bind(scope.org.id)
     .all<{ field_key: string; n: number }>();
@@ -58,7 +64,9 @@ export async function countRefOptions(
  */
 export async function refLabels(db: D1Database, scope: Scope): Promise<RefLabels> {
   const { results } = await db
-    .prepare("SELECT field_key, ext_id, label FROM org_ref_options WHERE org_id = ?")
+    .prepare(
+      "SELECT field_key, ext_id, label FROM org_ref_options WHERE org_id = ? AND label IS NOT NULL",
+    )
     .bind(scope.org.id)
     .all<{ field_key: string; ext_id: string; label: string }>();
 
@@ -75,7 +83,9 @@ export async function refLabels(db: D1Database, scope: Scope): Promise<RefLabels
  */
 export async function refreshField(db: D1Database, scope: Scope, field: OrgField): Promise<Pulled> {
   const source = await sourceFor(db, scope.org.id, field.key);
-  if (!source) return { error: `${field.label} is not a reference field.` };
+  // The caller read this field a moment ago, so a missing row means the field
+  // went while the request ran, not that a person asked for the wrong one.
+  if (!source) return { error: `${field.label} is gone.` };
   return pull(db, source);
 }
 
@@ -100,10 +110,24 @@ export async function lookUpRef(
   if ("error" in pulled) return null;
 
   const row = await db
-    .prepare("SELECT label FROM org_ref_options WHERE org_id = ? AND field_key = ? AND ext_id = ?")
+    .prepare(
+      `SELECT label FROM org_ref_options
+       WHERE org_id = ? AND field_key = ? AND ext_id = ? AND label IS NOT NULL`,
+    )
     .bind(scope.org.id, field.key, extId)
     .first<{ label: string }>();
-  return row?.label ?? null;
+  if (row) return row.label;
+
+  // The org app does not know this id either. The miss is a row with no label,
+  // so the next load of the task reads it instead of calling the org app.
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO org_ref_options (org_id, field_key, ext_id, label)
+       VALUES (?, ?, ?, NULL)`,
+    )
+    .bind(scope.org.id, field.key, extId)
+    .run();
+  return null;
 }
 
 /** What the task editor needs to draw one reference field. */
@@ -123,9 +147,15 @@ export type RefPicker = {
  * What the editor draws every reference field of the org with.
  *
  * An id the cache does not hold costs one live lookup, which is the escape
- * hatch for a record made since the last cron run. A field that was never
- * pulled costs none: it has nothing configured to look up with, and the editor
- * would then call the org app on every load.
+ * hatch for a record made since the last cron run.
+ *
+ * An id the org app does not know either costs one lookup and no more: the
+ * miss is remembered, so a task holding a deleted trail does not call the org
+ * app on every load of the page. The next pull clears every miss with the rest
+ * of the cache, which gives the id another chance each time the cron runs.
+ *
+ * A field that was never pulled costs nothing: it has nothing to look up
+ * with.
  */
 export async function refPickers(
   db: D1Database,
@@ -142,7 +172,7 @@ export async function refPickers(
     const held = data[field.key];
     let label = held ? (options.find((one) => one.id === held)?.label ?? null) : null;
 
-    if (held && label === null && field.refs_pulled_at !== null) {
+    if (held && label === null && field.refs_pulled_at !== null && !(await missed(db, scope, field, held))) {
       label = await lookUpRef(db, scope, field, held);
       if (label !== null) options = await listRefOptions(db, scope, field.key);
     }
@@ -151,6 +181,23 @@ export async function refPickers(
   }
 
   return pickers;
+}
+
+/** True when a live lookup already failed to name this id. */
+async function missed(
+  db: D1Database,
+  scope: Scope,
+  field: OrgField,
+  extId: string,
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT 1 FROM org_ref_options
+       WHERE org_id = ? AND field_key = ? AND ext_id = ? AND label IS NULL`,
+    )
+    .bind(scope.org.id, field.key, extId)
+    .first();
+  return row !== null;
 }
 
 /** What one run of the cron refresh did. */
@@ -167,15 +214,21 @@ export type Refreshed = { fields: number; failed: number };
 export async function refreshEveryField(db: D1Database): Promise<Refreshed> {
   const { results } = await db
     .prepare(
-      `SELECT org_id, key, source_url, refs_key FROM org_fields
+      `SELECT ${SOURCE_COLUMNS} FROM org_fields
        WHERE type = 'reference' AND source_url <> ''`,
     )
     .all<Source>();
 
   let failed = 0;
   for (const source of results) {
-    const pulled = await pull(db, source);
-    if ("error" in pulled) failed += 1;
+    // One org app must not end the run for the rest. A throw here is a bad
+    // write, not a bad answer: `pull` already reports a bad answer.
+    try {
+      const pulled = await pull(db, source);
+      if ("error" in pulled) failed += 1;
+    } catch {
+      failed += 1;
+    }
   }
 
   return { fields: results.length, failed };
@@ -185,7 +238,7 @@ export async function refreshEveryField(db: D1Database): Promise<Refreshed> {
 async function sourceFor(db: D1Database, orgId: string, key: string): Promise<Source | null> {
   const row = await db
     .prepare(
-      `SELECT org_id, key, source_url, refs_key FROM org_fields
+      `SELECT ${SOURCE_COLUMNS} FROM org_fields
        WHERE org_id = ? AND key = ? AND type = 'reference'`,
     )
     .bind(orgId, key)
@@ -235,6 +288,9 @@ async function read(source: Source): Promise<{ options: RefOption[] } | { error:
   try {
     response = await fetch(source.source_url, {
       headers: { authorization: `Bearer ${source.refs_key}` },
+      // An org app that never answers would otherwise hold the cron run, or a
+      // person's task page, for as long as the platform allows.
+      signal: AbortSignal.timeout(10_000),
     });
   } catch {
     return { error: "The org app did not answer." };

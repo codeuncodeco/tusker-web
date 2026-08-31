@@ -8,6 +8,7 @@ import {
   isFieldType,
   isSourceUrl,
   readOptions,
+  type FieldType,
   type OrgField,
 } from "../fields";
 import { declareField, editField, listFields, readField, removeField } from "../fields.server";
@@ -58,24 +59,32 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   const label = String(form.get("label") ?? "").trim();
   const options = readOptions(String(form.get("options") ?? ""));
-  const source_url = String(form.get("source_url") ?? "").trim();
-  const refs_key = String(form.get("refs_key") ?? "").trim();
   const show_on_card = form.get("show_on_card") === "1";
   const filterable = form.get("filterable") === "1";
   if (!label) return { error: "A field needs a label with a letter or a number." };
 
+  // Only a reference reads these two boxes. The declare form draws them for
+  // every type, so a URL typed under Text would otherwise be stored. An edit
+  // draws them for a reference alone, so it can read them as they come.
+  const noSource = intent === "declare" && form.get("type") !== "reference";
+  const source_url = noSource ? "" : String(form.get("source_url") ?? "").trim();
+  const refs_key = noSource ? "" : String(form.get("refs_key") ?? "").trim();
+
   if (intent === "edit") {
     const field = await readField(env.DB, scope, String(form.get("key") ?? ""));
     if (!field) throw new Response("Not found", { status: 404 });
-    if (field.type === "select" && options.length === 0) {
-      return { error: "A select needs at least one option." };
-    }
-    if (field.type === "reference" && !isSourceUrl(source_url)) {
-      return { error: "A reference needs a source URL, as https://blrhikes.example/api." };
-    }
 
-    // An empty refs key keeps the one the field holds. No screen shows the
-    // value, so a person editing the label cannot type it back.
+    // The check reads the shape the field ends in, not the boxes. An edit that
+    // leaves the key box empty keeps the key the field holds, so a field that
+    // already carries one needs nothing typed back — and one that carries none
+    // cannot be saved without a key.
+    const wrong = check(field.type, {
+      options,
+      source_url,
+      keyed: refs_key !== "" || field.has_refs_key,
+    });
+    if (wrong) return { error: wrong };
+
     await editField(env.DB, scope, field, { label, options, source_url, refs_key, show_on_card, filterable });
     return { ok: true };
   }
@@ -86,15 +95,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
     const key = fieldKey(label);
     if (!key) return { error: "A field needs a label with a letter or a number." };
-    if (type === "select" && options.length === 0) {
-      return { error: "A select needs at least one option." };
-    }
-    if (type === "reference" && !isSourceUrl(source_url)) {
-      return { error: "A reference needs a source URL, as https://blrhikes.example/api." };
-    }
-    if (type === "reference" && !refs_key) {
-      return { error: "A reference needs the refs key the org app minted for it." };
-    }
+
+    const wrong = check(type, { options, source_url, keyed: refs_key !== "" });
+    if (wrong) return { error: wrong };
 
     const declared = await declareField(env.DB, scope, {
       key,
@@ -111,6 +114,28 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   }
 
   throw new Response("That form does not name an action.", { status: 400 });
+}
+
+/**
+ * What one type demands of a field, or null when the field answers it. This
+ * reads the shape the write leaves behind, so a declare and an edit hold to
+ * one set of rules and a field cannot be edited into a shape it could not have
+ * been declared in.
+ */
+function check(
+  type: FieldType,
+  after: { options: string[]; source_url: string; keyed: boolean },
+): string | null {
+  if (type === "select" && after.options.length === 0) {
+    return "A select needs at least one option.";
+  }
+  if (type === "reference" && !isSourceUrl(after.source_url)) {
+    return "A reference needs a source URL, as https://blrhikes.example/api.";
+  }
+  if (type === "reference" && !after.keyed) {
+    return "A reference needs the refs key the org app minted for it.";
+  }
+  return null;
 }
 
 /** The two boxes every field carries, on the declare form and on an edit. */
