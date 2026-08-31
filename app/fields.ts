@@ -1,3 +1,5 @@
+import { colorOf, type OptionColors } from "./colors";
+
 /**
  * A field an org declares for its tasks. The value lives in the task's JSON
  * `data` column under `key`, so a new field needs no column and no code.
@@ -136,7 +138,7 @@ export function cardFields(fields: OrgField[]): OrgField[] {
 }
 
 /** One custom field value, as a card shows it. */
-export type Shown = { key: string; label: string; value: string };
+export type Shown = { key: string; label: string; value: string; color: string | null };
 
 /** The cached labels of the reference fields, as `field key → id → label`. */
 export type RefLabels = Record<string, Record<string, string>>;
@@ -161,6 +163,7 @@ export function shownOnCard(
   fields: OrgField[],
   data: Record<string, string>,
   labels: RefLabels = {},
+  colors: OptionColors = {},
 ): Shown[] {
   return cardFields(fields)
     .filter((field) => data[field.key] !== undefined)
@@ -168,6 +171,9 @@ export function shownOnCard(
       key: field.key,
       label: field.label,
       value: shownValue(field, data[field.key], labels),
+      // The colour hangs off the value the task holds, not off the field, so
+      // one client reads apart from another. See ADR-0006.
+      color: colorOf(colors, field.key, data[field.key]),
     }));
 }
 

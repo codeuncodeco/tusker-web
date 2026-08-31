@@ -71,8 +71,10 @@ _Avoid_: Closed, hidden
 ### Order
 
 **Order**:
-The sequence of tasks in a column. Tusker has no priority levels. The sequence
-is the priority.
+The sequence of tasks in a column. A column has one order, the org's, and any
+member can change it. Tusker has no priority levels. The sequence is the
+priority. One person's own order is the plan, not a second order of the board.
+See ADR-0006.
 _Avoid_: Priority
 
 **Position**:
@@ -80,10 +82,9 @@ The org's shared number for a task, a fraction so that a drop between two cards
 takes the midpoint. Any member can change it.
 
 **Rank**:
-One person's own number for one task, in the same fraction space as position. A
-rank exists only for a task that person dragged. The order a person sees is
-`COALESCE(rank, position)`.
-_Avoid_: Personal priority
+The number a card shows in its column, counting from one. It is the place the
+order puts the card, read at draw time, and no row stores it.
+_Avoid_: Personal priority, personal rank
 
 **Percentile order**:
 The rule that sorts the cross-org list. A task takes its fractional place inside
@@ -107,6 +108,18 @@ the org app and reads the cache when a person opens a picker.
 **Refs endpoint**:
 The read-only endpoint an org app exposes for one reference field. It returns
 `{id, label}` rows and nothing else.
+
+**Option colour**:
+A colour one value of a reference field carries, so a card tells one client from
+another at a glance. It belongs to the value, not to the field, and Tusker holds
+it rather than the org app. A value with no option colour draws plain. See
+ADR-0006.
+_Avoid_: Field colour, tag colour, client dot
+
+**Palette**:
+The closed set of named colours an option colour can name. A colour is a palette
+name or an exact colour, and nothing else.
+_Avoid_: Theme, swatch set
 
 **Refs key**:
 The key Tusker sends to an org app to read a refs endpoint. The org app mints

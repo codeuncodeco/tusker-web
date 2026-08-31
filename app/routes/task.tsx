@@ -1,12 +1,15 @@
 import { Form, Link } from "react-router";
 
+import { colorOf } from "../colors";
+import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
+import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
 import { OrgNav } from "../org-nav";
 import { refPickers, type RefPicker } from "../refs.server";
-import { requireScope } from "../scope.server";
+import { requireScope, type Scope } from "../scope.server";
 import { readTask, saveTask } from "../tasks.server";
 import type { Route } from "./+types/task";
 
@@ -30,7 +33,24 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // The cached options each reference field draws. The refs key that filled
     // that cache stays on the server: this payload goes to the browser.
     refs: await refPickers(env.DB, scope, fields, task.data),
+    // The colour of the value this task holds, per field, and no other. The
+    // dropdown list stays plain: a browser will not style an option, so the
+    // dot draws beside the box. See ADR-0006.
+    colors: await heldColors(env.DB, scope, fields, task.data),
   };
+}
+
+/** The colour each field gives the value this task holds, or null for none. */
+async function heldColors(
+  db: D1Database,
+  scope: Scope,
+  fields: OrgField[],
+  data: Record<string, string>,
+): Promise<Record<string, string | null>> {
+  const colors = await listColors(db, scope);
+  return Object.fromEntries(
+    fields.map((field) => [field.key, colorOf(colors, field.key, data[field.key])]),
+  );
 }
 
 export async function action({ request, context, params }: Route.ActionArgs) {
@@ -64,10 +84,12 @@ function RefBox({
   field,
   value,
   picker,
+  color,
 }: {
   field: OrgField;
   value: string | undefined;
   picker: RefPicker | undefined;
+  color: string | null;
 }) {
   const name = `field.${field.key}`;
   const options = picker?.options ?? [];
@@ -80,7 +102,10 @@ function RefBox({
         <span className="text-sm text-neutral-500">
           No options pulled yet. Refresh this field on the fields screen, or type the id.
         </span>
-        <input name={name} type="text" defaultValue={value ?? ""} className={fieldClass} />
+        <span className="flex items-center gap-2">
+          <input name={name} type="text" defaultValue={value ?? ""} className={`${fieldClass} flex-1`} />
+          <Dot color={color} />
+        </span>
       </label>
     );
   }
@@ -88,15 +113,18 @@ function RefBox({
   return (
     <label className="flex flex-col gap-1">
       {field.label}
-      <select name={name} defaultValue={value ?? ""} className={fieldClass}>
-        <option value="">—</option>
-        {unnamed ? <option value={value}>{picker.label ?? value}</option> : null}
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <span className="flex items-center gap-2">
+        <select name={name} defaultValue={value ?? ""} className={`${fieldClass} flex-1`}>
+          <option value="">—</option>
+          {unnamed ? <option value={value}>{picker.label ?? value}</option> : null}
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <Dot color={color} />
+      </span>
     </label>
   );
 }
@@ -106,15 +134,17 @@ function FieldBox({
   field,
   value,
   picker,
+  color,
 }: {
   field: OrgField;
   value: string | undefined;
   picker: RefPicker | undefined;
+  color: string | null;
 }) {
   const name = `field.${field.key}`;
 
   if (field.type === "reference") {
-    return <RefBox field={field} value={value} picker={picker} />;
+    return <RefBox field={field} value={value} picker={picker} color={color} />;
   }
 
   if (field.type === "select") {
@@ -147,7 +177,7 @@ function FieldBox({
 }
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, fields, refs } = loaderData;
+  const { org, task, fields, refs, colors } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
@@ -169,6 +199,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
             field={field}
             value={task.data[field.key]}
             picker={refs[field.key]}
+            color={colors[field.key] ?? null}
           />
         ))}
 

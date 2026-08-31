@@ -10,7 +10,9 @@ import {
   type Status,
   type Toggles,
 } from "../board";
+import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
+import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { refLabels } from "../refs.server";
@@ -65,6 +67,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // A reference card shows the cached label. The board does no live lookup: a
   // column of misses would be a column of calls to the org app.
   const labels = await refLabels(env.DB, scope);
+  // The colour one value carries, so a card tells one client from another at a
+  // glance. One query covers every card. See ADR-0006.
+  const colors = await listColors(env.DB, scope);
   const counts = countByStatus(tasks);
   const toggles = readToggles(new URL(request.url).searchParams);
   const columns = columnsToShow(counts, toggles).map((status) => ({
@@ -76,7 +81,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
         (task): Card => ({
           id: task.id,
           title: task.title,
-          fields: shownOnCard(declared, task.data, labels),
+          fields: shownOnCard(declared, task.data, labels, colors),
         }),
       ),
   }));
@@ -158,9 +163,8 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
 type Move = (id: string, status: Status, before: string | null) => void;
 
 /**
- * One card. It shows its number in the column, the way the extension did. The
- * number is the place the board draws it in, not a stored field, so ticket 6's
- * personal rank keeps its own word.
+ * One card. It shows its rank, the way the extension did: the place the board
+ * draws it in, counting from one. No row stores it.
  *
  * The select moves the card to another column, and the two arrows move it
  * inside one. Both sit in a form that posts on its own, so a move needs no
@@ -212,7 +216,11 @@ function CardItem({
       {card.fields.length > 0 ? (
         <ul className="flex flex-wrap gap-2 text-xs text-neutral-500">
           {card.fields.map((field) => (
-            <li key={field.key} className="rounded bg-neutral-100 px-1.5 py-0.5 dark:bg-neutral-800">
+            <li
+              key={field.key}
+              className="flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 dark:bg-neutral-800"
+            >
+              <Dot color={field.color} />
               <span className="text-neutral-400">{field.label}</span> {field.value}
             </li>
           ))}
