@@ -134,6 +134,20 @@ describe("minting and revoking an org key", () => {
     expect(screen.keys[0].revoked_at).not.toBeNull();
   });
 
+  it("says the same thing when the same key is revoked twice", async () => {
+    const { bo } = await twoOrgs();
+    await mint("blrhikes", bo.cookie);
+    const id = (await settingsOf("blrhikes", bo.cookie)).keys[0].id;
+    const revoke = () =>
+      send(settingsRoute, "/o/blrhikes/settings", bo.cookie, { intent: "revoke-key", id }, { slug: "blrhikes" });
+
+    await revoke();
+    const first = (await settingsOf("blrhikes", bo.cookie)).keys[0].revoked_at;
+    await revoke();
+
+    expect((await settingsOf("blrhikes", bo.cookie)).keys[0].revoked_at).toBe(first);
+  });
+
   it("refuses to revoke another org's key", async () => {
     const { ada, bo } = await twoOrgs();
     const key = await mint("blrhikes", bo.cookie);
@@ -175,6 +189,30 @@ describe("reading tasks with an org key", () => {
     expect(body.tasks.map((one) => one.title)).toEqual(["Second", "First"]);
   });
 
+  it("answers the columns in board order, whatever the query asked for", async () => {
+    const { bo } = await twoOrgs();
+    await addTask("blrhikes", bo.cookie, "Read the map", "done");
+    await addTask("blrhikes", bo.cookie, "Book the bus", "todo");
+    await addTask("blrhikes", bo.cookie, "Pay the driver", "in_progress");
+    const key = await mint("blrhikes", bo.cookie);
+
+    const body = (await (await read("", key)).json()) as { tasks: { title: string }[] };
+
+    // A position is a place in one column, so a list of columns is meaningless
+    // until the status groups it.
+    expect(body.tasks.map((one) => one.title)).toEqual(["Book the bus", "Pay the driver", "Read the map"]);
+  });
+
+  it("reads a bearer scheme in either case", async () => {
+    const { bo } = await twoOrgs();
+    const key = await mint("blrhikes", bo.cookie);
+    const request = new Request(`${SITE}/api/tasks`, { headers: { authorization: `bearer ${key}` } });
+
+    const response = await caught(Promise.resolve(apiRoute.loader(routeArgs(request))));
+
+    expect(response.status).toBe(200);
+  });
+
   it("filters by status", async () => {
     const { bo } = await twoOrgs();
     await addTask("blrhikes", bo.cookie, "Book the bus", "todo");
@@ -211,6 +249,16 @@ describe("reading tasks with an org key", () => {
     const key = await mint("blrhikes", bo.cookie);
 
     const response = await read("?status=someday", key);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses a filter that names no value", async () => {
+    const { bo } = await twoOrgs();
+    await declare("blrhikes", bo.cookie, { label: "Trail", type: "text" });
+    const key = await mint("blrhikes", bo.cookie);
+
+    const response = await read("?field.trail=", key);
 
     expect(response.status).toBe(400);
   });

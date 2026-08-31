@@ -10,13 +10,17 @@
  * The start of every org key. A key that turns up in a log or a repository is
  * then recognisable as Tusker's, by a person and by a secret scanner.
  */
-export const KEY_PREFIX = "tskr_";
+const KEY_PREFIX = "tskr_";
 
 /** How many random bytes a key carries. 24 bytes is 32 base64url characters. */
 const KEY_BYTES = 24;
 
-/** How much of a key the settings screen shows, to tell one from another. */
-const PREVIEW_LENGTH = 12;
+/**
+ * How much of a key the settings screen shows. Four characters after the
+ * prefix tell one key from another and give away almost none of the 192 bits
+ * the rest of it holds.
+ */
+const PREVIEW_LENGTH = KEY_PREFIX.length + 4;
 
 /** A new key, as the org app will send it. Tusker shows this once. */
 export function mintKey(): string {
@@ -41,9 +45,13 @@ export async function hashKey(key: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** The key a request carries, or null when it carries no bearer token. */
+/**
+ * The key a request carries, or null when it carries no bearer token. The
+ * scheme reads either case, as RFC 7235 says it must, so `bearer` is not a
+ * 401 that reads as a bad key.
+ */
 export function bearerKey(header: string | null): string | null {
-  const match = /^Bearer (\S+)$/.exec(header ?? "");
+  const match = /^Bearer\s+(\S+)$/i.exec(header ?? "");
   return match ? match[1] : null;
 }
 

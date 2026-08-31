@@ -43,6 +43,12 @@ or writes task rows takes a scope, not a bare org id, and one function makes
 one. Scoping by hand is how a row leaks.
 _Avoid_: Tenant context, org guard
 
+**Read scope**:
+Proof that a request may read one org's task rows. A scope is one. An org key
+is the other, and it names an org and no person. Every read an org key can
+reach takes a read scope, and every write still takes a scope.
+_Avoid_: Anonymous scope, key context
+
 **Org app**:
 A separate application that an org runs, such as blrhikes-app. An org app reads
 tasks from the Tusker API and supplies the option lists for reference fields. It
@@ -131,6 +137,13 @@ _Avoid_: Source key, endpoint secret
 The key an org app sends to Tusker to read tasks. Tusker mints it, stores it
 hashed and can revoke it. It identifies the org, not a person. See ADR-0005.
 _Avoid_: API key, org API key
+
+**Task API**:
+The read-only endpoint Tusker exposes for an org app, at `/api/tasks`. It takes
+an org key, answers that org's live tasks and narrows by status and by a custom
+field value. It is the mirror of the refs endpoint: this one Tusker serves and
+the org app reads. See `docs/task-api.md`.
+_Avoid_: Tasks endpoint, public API
 
 ### Views
 

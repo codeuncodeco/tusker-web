@@ -23,7 +23,12 @@ GET /api/tasks
 Authorization: Bearer tskr_…
 ```
 
-The answer holds the org's live tasks, in the order of their columns.
+The answer holds the org's live tasks, in board order: the columns in the order
+the board draws them, and each column in its own order. A position is a place
+in one column, so a list of two columns needs the status to group it.
+
+The whole list answers at once. One org's live tasks are hundreds of rows, so
+there is no page and no limit.
 
 ```json
 {
@@ -46,7 +51,10 @@ The answer holds the org's live tasks, in the order of their columns.
 
 `data` holds the custom field values, keyed by the key the org declared. A
 reference field holds the external id the org app minted, not Tusker's cached
-label: the org app names its own records better than the cache does.
+label: the org app names its own records better than the cache does. A text
+field and a select field hold what a person typed or chose, so the value reads
+as it is. The label of the field itself is not in the answer, and the org app
+names its own screen.
 
 Archived tasks stay out, as they do on the board.
 
@@ -55,7 +63,7 @@ Archived tasks stay out, as they do on the board.
 | Query               | Narrows to                                                     |
 | ------------------- | -------------------------------------------------------------- |
 | `status=todo`       | One status. Repeat the name for more than one                   |
-| `field.<key>=<value>` | The tasks whose custom field `<key>` holds `<value>`          |
+| `field.<key>=<value>` | The tasks whose custom field `<key>` holds `<value>` exactly |
 
 Two filters read as "and". `?status=todo&status=in_progress&field.trail=skandagiri`
 answers the To do and In progress tasks of that trail.
@@ -67,7 +75,7 @@ The statuses are `backlog`, `todo`, `in_progress`, `done` and `cancelled`.
 | Status | Means                                                                   |
 | ------ | ----------------------------------------------------------------------- |
 | 200    | The tasks, as above                                                     |
-| 400    | A status Tusker does not draw, or a field the org does not declare       |
+| 400    | A status Tusker does not draw, a field the org does not declare, or a filter with no value |
 | 401    | No key, a key nothing matches, or a revoked key                          |
 
 A 400 carries `{ "error": "…" }` that names what was wrong. A 401 says nothing

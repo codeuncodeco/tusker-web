@@ -51,14 +51,18 @@ export async function createOrgKey(db: D1Database, scope: Scope, name: string): 
 
 /**
  * Stops a key working. The row stays, because it is the record that the key
- * existed. Answers false when the org holds no such key, so the route can
- * answer 404 rather than tell one org about another org's row.
+ * existed, and it keeps the time of the first revoke: a second press of the
+ * button is the same answer, not a later one and not a 404.
+ *
+ * Answers false when the org holds no such key, so the route can answer 404
+ * rather than tell one org about another org's row.
  */
 export async function revokeOrgKey(db: D1Database, scope: Scope, id: string): Promise<boolean> {
   const done = await db
     .prepare(
-      `UPDATE org_keys SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE id = ? AND org_id = ? AND revoked_at IS NULL`,
+      `UPDATE org_keys
+       SET revoked_at = COALESCE(revoked_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+       WHERE id = ? AND org_id = ?`,
     )
     .bind(id, scope.org.id)
     .run();
