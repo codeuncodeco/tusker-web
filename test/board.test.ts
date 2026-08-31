@@ -450,3 +450,63 @@ describe("one person's own order", () => {
     expect(results).toEqual([]);
   });
 });
+
+describe("the arrows on a card a person ranked", () => {
+  /** A team org that both Ada and Bo belong to, and their cookies. */
+  async function team() {
+    const ada = await member("ada@example.test", "Ada");
+    const bo = await member("bo@example.test", "Bo");
+    await db.prepare("INSERT INTO orgs (id, slug, name, kind) VALUES ('t1', 'team', 'Team', 'team')").run();
+    for (const one of [ada, bo]) {
+      await db
+        .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES ('t1', ?, 'member')")
+        .bind(one.person.id)
+        .run();
+    }
+    for (const title of ["Third", "Second", "First"]) {
+      await act("team", ada.cookie, { intent: "create", status: "todo", title });
+    }
+    return { ada, bo };
+  }
+
+  /** The cards of one column, keyed by title, as one member reads them. */
+  async function cardsOf(cookie: string) {
+    const cards = column(await board("team", cookie), "todo")!.tasks;
+    return new Map(cards.map((one) => [one.title, one]));
+  }
+
+  it("sends the board's neighbours, not the neighbours the person sees", async () => {
+    const { ada } = await team();
+    const board_ = await cardsOf(ada.cookie);
+    // Ada drags First to the foot, so she reads Second, Third, First. The
+    // board still holds First, Second, Third.
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: board_.get("First")!.id });
+
+    const cards = await cardsOf(ada.cookie);
+
+    expect([...cards.keys()]).toEqual(["Second", "Third", "First"]);
+    // First is still the top card of the board, so its up arrow is dead.
+    expect(cards.get("First")!.up).toBeNull();
+    expect(cards.get("First")!.down).toBe(board_.get("Third")!.id);
+    expect(cards.get("Second")!.up).toBe(board_.get("First")!.id);
+    expect(cards.get("Third")!.down).toBeNull();
+  });
+
+  it("leaves the board's order alone when the arrow of a ranked card is pressed", async () => {
+    const { ada, bo } = await team();
+    const start = await cardsOf(ada.cookie);
+    await act("team", ada.cookie, { intent: "rank", status: "todo", id: start.get("First")!.id });
+    const cards = await cardsOf(ada.cookie);
+
+    // The down arrow on First, as the card now carries it.
+    await act("team", ada.cookie, {
+      intent: "move",
+      status: "todo",
+      id: start.get("First")!.id,
+      before: cards.get("First")!.down!,
+    });
+
+    // First slides one place down the board, as the arrow says on the card.
+    expect([...(await cardsOf(bo.cookie)).keys()]).toEqual(["Second", "First", "Third"]);
+  });
+});

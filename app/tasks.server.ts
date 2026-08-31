@@ -1,5 +1,5 @@
 import type { Status } from "./board";
-import { between, seenBy, type Ranked } from "./order";
+import { between, seen, seenBy, type Ranked } from "./order";
 import type { Scope } from "./scope.server";
 
 export type Task = {
@@ -37,8 +37,13 @@ const WITH_RANK = "LEFT JOIN task_ranks AS ranks ON ranks.task_id = tasks.id AND
  */
 const IN_ORDER = "ORDER BY tasks.position, tasks.created_at, tasks.id";
 
-/** A card in a column, cut down to what the order maths reads. */
-type Positioned = { id: string; position: number };
+/**
+ * A card in a column, cut down to what the order maths reads. `at` is the
+ * number the card sits at in whichever order the caller asked for: the shared
+ * position for the board, and the rank a person set where they set one. The
+ * maths is the same either way, so the field does not name one of the two.
+ */
+type Placed = { id: string; at: number };
 
 /** The write that gives one person one number for one task. */
 const RANK_UPSERT =
@@ -129,7 +134,7 @@ export type Move = { taskId: string; status: Status; before?: string | null };
 
 /**
  * Moves a task on the board, inside its column or into another one, for every
- * member at once. `before` names the card the task lands above; without it the
+ * member at once. `before` names the card the task lands above. Without it the
  * task lands at the bottom.
  *
  * The move writes one row: the new position is the midpoint of its neighbours,
@@ -201,14 +206,14 @@ export async function clearRanks(db: D1Database, scope: Scope, status: Status): 
 }
 
 /** The live cards of one column, in the order the board draws them. */
-async function columnPlaces(db: D1Database, orgId: string, status: Status): Promise<Positioned[]> {
+async function columnPlaces(db: D1Database, orgId: string, status: Status): Promise<Placed[]> {
   const { results } = await db
     .prepare(
-      `SELECT tasks.id, tasks.position FROM tasks
+      `SELECT tasks.id, tasks.position AS at FROM tasks
        WHERE tasks.org_id = ? AND tasks.status = ? AND tasks.archived = 0 ${IN_ORDER}`,
     )
     .bind(orgId, status)
-    .all<Positioned>();
+    .all<Placed>();
   return results;
 }
 
@@ -220,7 +225,7 @@ async function columnPlaces(db: D1Database, orgId: string, status: Status): Prom
  * The table gives the board's order and `seenBy` turns it into theirs, so the
  * order they read and the order a drop lands in come from one rule.
  */
-async function placesAsSeen(db: D1Database, scope: Scope, status: Status): Promise<Positioned[]> {
+async function placesAsSeen(db: D1Database, scope: Scope, status: Status): Promise<Placed[]> {
   const { results } = await db
     .prepare(
       `SELECT tasks.id, tasks.position, ranks.rank FROM tasks ${WITH_RANK}
@@ -228,7 +233,7 @@ async function placesAsSeen(db: D1Database, scope: Scope, status: Status): Promi
     )
     .bind(scope.personId, scope.org.id, status)
     .all<Ranked>();
-  return seenBy(results).map((one) => ({ id: one.id, position: one.rank ?? one.position }));
+  return seenBy(results).map((one) => ({ id: one.id, at: seen(one) }));
 }
 
 /**
@@ -241,9 +246,9 @@ async function placesAsSeen(db: D1Database, scope: Scope, status: Status): Promi
  * is the one time a drop touches another row.
  */
 async function placeAbove(
-  column: Positioned[],
+  column: Placed[],
   beforeId: string | null,
-  spread: (column: Positioned[]) => Promise<Positioned[]>,
+  spread: (column: Placed[]) => Promise<Placed[]>,
 ): Promise<number> {
   const found = beforeId === null ? -1 : column.findIndex((one) => one.id === beforeId);
   // A card the column no longer holds names the bottom, as no neighbour does.
@@ -257,8 +262,8 @@ async function placeAbove(
 }
 
 /** The position between the cards on each side of one place in a column. */
-function gap(column: Positioned[], at: number): number | null {
-  return between(column[at - 1]?.position ?? null, column[at]?.position ?? null);
+function gap(column: Placed[], at: number): number | null {
+  return between(column[at - 1]?.at ?? null, column[at]?.at ?? null);
 }
 
 /**
@@ -268,18 +273,18 @@ function gap(column: Positioned[], at: number): number | null {
  */
 async function spreadOut(
   db: D1Database,
-  column: Positioned[],
-  write: (card: Positioned) => D1PreparedStatement,
-): Promise<Positioned[]> {
-  const spread = column.map((one, index) => ({ id: one.id, position: index + 1 }));
+  column: Placed[],
+  write: (card: Placed) => D1PreparedStatement,
+): Promise<Placed[]> {
+  const spread = column.map((one, index) => ({ id: one.id, at: index + 1 }));
   await db.batch(spread.map(write));
   return spread;
 }
 
 /** Spreads the board's own order, which every member reads. */
-function renumber(db: D1Database, orgId: string, column: Positioned[]): Promise<Positioned[]> {
+function renumber(db: D1Database, orgId: string, column: Placed[]): Promise<Placed[]> {
   return spreadOut(db, column, (card) =>
-    db.prepare("UPDATE tasks SET position = ? WHERE id = ? AND org_id = ?").bind(card.position, card.id, orgId),
+    db.prepare("UPDATE tasks SET position = ? WHERE id = ? AND org_id = ?").bind(card.at, card.id, orgId),
   );
 }
 
@@ -290,8 +295,8 @@ function renumber(db: D1Database, orgId: string, column: Positioned[]): Promise<
  * one time a rank lands on a card they never dragged, and their per-column
  * reset drops the lot.
  */
-function renumberRanks(db: D1Database, scope: Scope, column: Positioned[]): Promise<Positioned[]> {
+function renumberRanks(db: D1Database, scope: Scope, column: Placed[]): Promise<Placed[]> {
   return spreadOut(db, column, (card) =>
-    db.prepare(RANK_UPSERT).bind(card.id, scope.personId, card.position, card.position),
+    db.prepare(RANK_UPSERT).bind(card.id, scope.personId, card.at, card.at),
   );
 }

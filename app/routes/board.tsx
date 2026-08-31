@@ -17,7 +17,7 @@ import { fieldClass } from "../forms";
 import { listOrgsForPerson } from "../orgs.server";
 import { OrgNav } from "../org-nav";
 import { OrgSwitcher } from "../org-switcher";
-import { marked, seenBy } from "../order";
+import { arrowsOn, marked, seenBy, type Arrows } from "../order";
 import { requireScope } from "../scope.server";
 import { clearRanks, createTask, listTasks, moveTask, rankTask, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
@@ -31,8 +31,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
  *
  * `marked` is true while the card carries a rank that puts it somewhere other
  * than the board does, which is what the marker says.
+ *
+ * `up` and `down` name the card each arrow lands the card above. They come
+ * from the board's order, because the arrows write the board's order.
  */
-type Card = { id: string; title: string; fields: Shown[]; marked: boolean };
+type Card = { id: string; title: string; fields: Shown[]; marked: boolean } & Arrows;
 
 /** Which of the two hidden columns the query string asks for. */
 function readToggles(params: URLSearchParams): Toggles {
@@ -73,7 +76,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // The board's own order first, so the marker can name what moved, and the
     // person's own order after it.
     const column = tasks.filter((task) => task.status === status);
-    const off = marked(column);
+    const markers = marked(column);
+    const arrows = arrowsOn(column);
 
     return {
       status,
@@ -85,7 +89,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
           id: task.id,
           title: task.title,
           fields: shownOnCard(declared, task.data),
-          marked: off.has(task.id),
+          marked: markers.has(task.id),
+          ...arrows.get(task.id)!,
         }),
       ),
     };
@@ -122,8 +127,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const id = String(form.get("id") ?? "");
     // The card the task lands above. Nothing named means the bottom.
     const before = String(form.get("before") ?? "") || null;
-    // A drag inside a column is one person's own order; a drag into another
-    // column is the board's, because the column a task sits in is shared.
+    // `intentFor` says which order the drag asked for.
     const write = intent === "rank" ? rankTask : moveTask;
     const moved = await write(env.DB, scope, { taskId: id, status, before });
     if (!moved) throw new Response("Not found", { status: 404 });
@@ -174,8 +178,7 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
 
 /**
  * What a drag asks for: the card, its column, and the card it lands above.
- * `intent` says whose order it writes — "rank" for this person's own, "move"
- * for the board's.
+ * `intent` names the order it writes.
  */
 type Drag = (intent: "move" | "rank", id: string, status: Status, before: string | null) => void;
 
@@ -183,9 +186,9 @@ type Drag = (intent: "move" | "rank", id: string, status: Status, before: string
 const FROM_COLUMN = "application/x-tusker-column";
 
 /**
- * What a drop writes: this person's own order while the card stays in its
- * column, and the board's order when the card changes column, because the
- * column a task sits in is shared.
+ * Which order a drop writes. A card that stays in its column moves in this
+ * person's own order. A card that changes column moves on the board, because
+ * the column a task sits in is shared. See ADR-0003.
  */
 function intentFor(event: React.DragEvent, status: Status): "move" | "rank" {
   return event.dataTransfer.getData(FROM_COLUMN) === status ? "rank" : "move";
@@ -199,28 +202,27 @@ function intentFor(event: React.DragEvent, status: Status): "move" | "rank" {
  * The select moves the card to another column, and the two arrows move it
  * inside one. Both write the board's order, for every member, and both sit in
  * a form that posts on its own, so a move needs no script. A drag inside a
- * column writes this person's own order instead.
+ * column writes this person's own order instead. Ticket #30 holds the keyboard
+ * path to that order.
+ *
+ * The loader read both arrows from the board's order, so a rank never sends an
+ * arrow to a card that is no neighbour on the board.
  */
 function CardItem({
-  cards,
+  card,
   index,
   status,
   slug,
   move,
 }: {
-  cards: Card[];
+  card: Card;
   index: number;
   status: Status;
   slug: string;
   move: Drag;
 }) {
-  const card = cards[index];
   const post = useFetcher();
-
-  // Up lands above the card overhead. Down lands above the card after the
-  // next one, and an empty value names the bottom of the column.
-  const up = index === 0 ? null : cards[index - 1].id;
-  const down = index === cards.length - 1 ? null : (cards[index + 2]?.id ?? "");
+  const { up, down } = card;
 
   return (
     <li
@@ -394,7 +396,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               {column.tasks.map((card, index) => (
                 <CardItem
                   key={card.id}
-                  cards={column.tasks}
+                  card={card}
                   index={index}
                   status={column.status}
                   slug={org.slug}

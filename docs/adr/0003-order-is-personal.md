@@ -17,6 +17,13 @@ keeps its rank, shows a marker that says it differs from the board, and a
 per-column action resets it. The alternative, where a shared drag clears the
 rank, lets one member undo another's order without knowing.
 
+The personal order has a boundary, and the column is it. A rank orders the cards
+inside one column. The column a task sits in is the org's, because a status is a
+fact about the work, not a view of it. So a drag inside a column writes a rank,
+and a drag into another column writes the shared position. One gesture therefore
+moves the board for every member, and the person doing it can see the card cross
+a column edge as they do it.
+
 ## Consequences
 
 The cross-org list sorts unranked tasks by their fractional place inside their

@@ -82,7 +82,7 @@ takes the midpoint. Any member can change it.
 **Rank**:
 One person's own number for one task, in the same fraction space as position. A
 rank exists only for a task that person dragged, and for the rest of a column
-that ran out of fractions and had to be spread. The order a person sees is
+the code spread because it ran out of fractions. The order a person sees is
 `COALESCE(rank, position)`.
 _Avoid_: Personal priority
 

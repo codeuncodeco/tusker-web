@@ -30,7 +30,7 @@ export function between(before: number | null, after: number | null): number | n
 export type Ranked = { id: string; position: number; rank: number | null };
 
 /** The number a card takes in one person's order. */
-function seen(card: Ranked): number {
+export function seen(card: Ranked): number {
   return card.rank ?? card.position;
 }
 
@@ -56,11 +56,40 @@ export function seenBy<T extends Ranked>(column: T[]): T[] {
  */
 export function marked(column: Ranked[]): Set<string> {
   const board = new Map(column.map((card, at) => [card.id, at]));
-  const off = new Set<string>();
+  const markers = new Set<string>();
 
   for (const [at, card] of seenBy(column).entries()) {
-    if (card.rank !== null && board.get(card.id) !== at) off.add(card.id);
+    if (card.rank !== null && board.get(card.id) !== at) markers.add(card.id);
   }
 
-  return off;
+  return markers;
+}
+
+/**
+ * The card each of a card's two arrows names. `up` is the card above. `down`
+ * is the card after the next one, because the card slides past one place. An
+ * empty string names the bottom of the column, and null means the arrow has
+ * nowhere to go.
+ */
+export type Arrows = { up: string | null; down: string | null };
+
+/**
+ * What the arrows of every card in a column send, read from the column in the
+ * board's own order.
+ *
+ * The arrows write the board's order, so they must read it too. A ranked card
+ * sits somewhere else in the order its person sees. An arrow that took its
+ * neighbours from that view would move the card past cards that are not its
+ * neighbours on the board, which moves every other member's board.
+ */
+export function arrowsOn(column: { id: string }[]): Map<string, Arrows> {
+  return new Map(
+    column.map((card, at) => [
+      card.id,
+      {
+        up: at === 0 ? null : column[at - 1].id,
+        down: at === column.length - 1 ? null : (column[at + 2]?.id ?? ""),
+      },
+    ]),
+  );
 }

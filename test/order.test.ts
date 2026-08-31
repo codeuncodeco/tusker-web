@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { between, marked, seenBy } from "../app/order";
+import { arrowsOn, between, marked, seenBy } from "../app/order";
 
 describe("the position a drop takes", () => {
   it("takes the midpoint of its two neighbours", () => {
@@ -115,5 +115,26 @@ describe("the marker a card shows when it differs from the board", () => {
     ];
 
     expect(marked(column)).toEqual(new Set(["b"]));
+  });
+});
+
+describe("the card each arrow sends", () => {
+  const column = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+
+  it("sends the card above for up, and the card after the next one for down", () => {
+    expect(arrowsOn(column).get("b")).toEqual({ up: "a", down: "d" });
+  });
+
+  it("gives the top card no up, and the bottom card no down", () => {
+    expect(arrowsOn(column).get("a")!.up).toBeNull();
+    expect(arrowsOn(column).get("d")!.down).toBeNull();
+  });
+
+  it("names the bottom of the column for the card above the last one", () => {
+    expect(arrowsOn(column).get("c")!.down).toBe("");
+  });
+
+  it("gives the only card of a column no arrow to press", () => {
+    expect(arrowsOn([{ id: "a" }])).toEqual(new Map([["a", { up: null, down: null }]]));
   });
 });
