@@ -1,4 +1,4 @@
-import { Form, redirect } from "react-router";
+import { Form, Link, redirect } from "react-router";
 
 import { createAuth } from "../auth.server";
 import { cloudflareEnv } from "../context.server";
@@ -36,7 +36,10 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         <ul className="mt-2 list-disc pl-5">
           {orgs.map((org) => (
             <li key={org.id}>
-              {org.name} <span className="text-neutral-500">/{org.slug}</span>
+              <Link to={`/o/${org.slug}/board`} className="underline">
+                {org.name}
+              </Link>{" "}
+              <span className="text-neutral-500">/{org.slug}</span>
               {org.kind === "personal" ? (
                 <span className="ml-2 text-xs uppercase tracking-wide text-neutral-500">personal</span>
               ) : null}

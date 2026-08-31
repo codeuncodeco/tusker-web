@@ -22,6 +22,29 @@ export async function listOrgsForPerson(db: D1Database, personId: string): Promi
 }
 
 /**
+ * The org behind a slug, but only for a member of it. Membership is the only
+ * permission check, so every route under `/o/:slug` starts here.
+ *
+ * Answers null for an org that does not exist and for one the person is not a
+ * member of, so a stranger cannot tell the two apart.
+ */
+export async function orgForMember(
+  db: D1Database,
+  slug: string,
+  personId: string,
+): Promise<Org | null> {
+  return db
+    .prepare(
+      `SELECT o.id, o.slug, o.name, o.kind, o.created_at
+       FROM orgs o
+       JOIN memberships m ON m.org_id = o.id
+       WHERE o.slug = ? AND m.user_id = ?`,
+    )
+    .bind(slug, personId)
+    .first<Org>();
+}
+
+/**
  * Creates the org Tusker gives a person at signup, with that person as its only
  * member. The org row and the membership row go in one batch, because a person
  * with no org cannot make a task.

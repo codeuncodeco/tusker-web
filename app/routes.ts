@@ -6,6 +6,7 @@ export default [
   route("bootstrap", "routes/bootstrap.tsx"),
   route("reset-password", "routes/reset-password.tsx"),
   route("me", "routes/me.tsx"),
+  route("o/:slug/board", "routes/board.tsx"),
   route("api/auth/*", "routes/api.auth.ts"),
   route("api/invite", "routes/invite.ts"),
 ] satisfies RouteConfig;
