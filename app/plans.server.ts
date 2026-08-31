@@ -2,10 +2,13 @@
  * A plan is the tasks one person chose for one day, in the order they mean to
  * work them. The row holds that order as a JSON array.
  *
- * This module holds the reads and the two writes the unified view makes: put a
- * task in today's plan, and take it out again. Plan mode (#36) builds the
- * reorder and the commit on the same row.
+ * This module holds the reads and the writes both cross-org lists make: put a
+ * task in a day's plan, take it out again, and move one a place. Every write
+ * lands on the row, because a plan a person cannot close the tab on is no
+ * plan. See ADR-0004.
  */
+
+import { moveInPlan, type Step } from "./plan";
 
 /**
  * The ordered task ids one person planned for one day, or null when they
@@ -42,6 +45,26 @@ export async function addToPlan(
   const plan = (await readPlan(db, personId, day)) ?? [];
   if (plan.includes(taskId)) return;
   await writePlan(db, personId, day, [...plan, taskId]);
+}
+
+/**
+ * Moves one task a place up or down a day's plan.
+ *
+ * The order is what a plan says, so this is the whole of the reorder: the row
+ * carries the new order, and the next read gives it back.
+ */
+export async function movePlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskId: string,
+  step: Step,
+): Promise<void> {
+  const plan = await readPlan(db, personId, day);
+  if (!plan) return;
+  const moved = moveInPlan(plan, taskId, step);
+  if (moved === plan) return;
+  await writePlan(db, personId, day, moved);
 }
 
 /** Takes a task out of a day's plan, leaving the rest in order. */

@@ -13,8 +13,8 @@ export function finishFields(task: LiveTask) {
 }
 
 /**
- * One row of the unified view. Plan mode (#36) draws the same component with
- * selection turned on, so the two lists cannot drift apart.
+ * One row of the unified view, and of plan mode, so the two lists cannot drift
+ * apart.
  *
  * A card shows the title, the org, the org's `show_on_card` fields joined by
  * `·`, and the due date rightmost. The field strip truncates before the due
@@ -28,12 +28,19 @@ export function UnifiedRow({
   planned,
   selected,
   domId,
+  moves,
 }: {
   task: LiveTask;
-  /** True when today's plan holds the task, which turns Plan into Unplan. */
+  /** True when the day's plan holds the task, which turns Plan into Unplan. */
   planned: boolean;
   selected: boolean;
   domId: string;
+  /**
+   * Which way the row can step, in a list whose order a person owns. Nothing
+   * here leaves the arrows off, which is the unified view: that order is
+   * derived, and to say "this first" is to plan it. See ADR-0006.
+   */
+  moves?: { up: boolean; down: boolean };
 }) {
   const post = useFetcher();
   const plan = planFields(task, planned);
@@ -74,6 +81,28 @@ export function UnifiedRow({
       <post.Form method="post" className="flex shrink-0 gap-2">
         <input type="hidden" name="id" value={task.id} />
         <input type="hidden" name="slug" value={task.org.slug} />
+        {moves ? (
+          <>
+            <button
+              name="intent"
+              value="up"
+              disabled={!moves.up}
+              aria-label={`Move ${task.title} up`}
+              className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+            >
+              ↑
+            </button>
+            <button
+              name="intent"
+              value="down"
+              disabled={!moves.down}
+              aria-label={`Move ${task.title} down`}
+              className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+            >
+              ↓
+            </button>
+          </>
+        ) : null}
         <button
           name="intent"
           value={plan.intent}
