@@ -6,8 +6,8 @@
  * screen, the task editor and the board all state one rule once.
  */
 
-/** The types Tusker renders. A reference field comes later. */
-export const FIELD_TYPES = ["text", "select", "date"] as const;
+/** The types Tusker renders. */
+export const FIELD_TYPES = ["text", "select", "date", "reference"] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
 
@@ -16,15 +16,29 @@ export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
   text: "Text",
   select: "Select",
   date: "Date",
+  reference: "Reference",
 };
 
-/** One declaration, as every screen reads it. The row carries the org id. */
+/**
+ * One declaration, as every screen reads it. The row carries the org id.
+ *
+ * The refs key is missing on purpose. A loader hands this straight to the
+ * browser, and the key opens the org app's data, so no screen ever holds it.
+ * `has_refs_key` says whether the field carries one. `refs.server.ts` is the
+ * one reader of the key itself, and it sends it to the org app.
+ */
 export type OrgField = {
   key: string;
   label: string;
   type: FieldType;
   /** The choices a select offers. Empty for the other types. */
   options: string[];
+  /** Where a reference field reads its options from. Empty for the others. */
+  source_url: string;
+  /** True when a reference field holds the refs key it reads that URL with. */
+  has_refs_key: boolean;
+  /** When the options were last pulled, or null for a field never pulled. */
+  refs_pulled_at: string | null;
   show_on_card: boolean;
   filterable: boolean;
   position: number;
@@ -46,6 +60,20 @@ export function fieldKey(label: string): string {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 40);
+}
+
+/**
+ * True for a source URL Tusker can call: an absolute http or https URL. A
+ * relative one has no host to send the refs key to.
+ */
+export function isSourceUrl(text: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return false;
+  }
+  return url.protocol === "http:" || url.protocol === "https:";
 }
 
 /** The choices a select declares: one per line, each one once. */
@@ -79,6 +107,9 @@ export function readValue(field: OrgField, raw: unknown): Reading {
     return { error: `${field.label} takes a date, as 2026-08-31.` };
   }
 
+  // A reference takes any id the org app could hold. The cache is a cache, so
+  // an id newer than the last pull has to save, not fail.
+
   return { value: text };
 }
 
@@ -108,14 +139,37 @@ export function cardFields(fields: OrgField[]): OrgField[] {
 /** One custom field value, as a card shows it. */
 export type Shown = { key: string; label: string; value: string };
 
+/** The cached labels of the reference fields, as `field key → id → label`. */
+export type RefLabels = Record<string, Record<string, string>>;
+
+/**
+ * What a screen shows for one stored value. A reference field stores an
+ * external id, and the label is what a person reads.
+ *
+ * An id the cache does not hold shows raw. A blank would read as an empty
+ * field, and the id is at least something a person can act on.
+ */
+export function shownValue(field: OrgField, value: string, labels: RefLabels = {}): string {
+  if (field.type !== "reference") return value;
+  return labels[field.key]?.[value] ?? value;
+}
+
 /**
  * What one card shows of one task: the marked fields the task holds a value
  * for. A field the task left empty takes no room on the card.
  */
-export function shownOnCard(fields: OrgField[], data: Record<string, string>): Shown[] {
+export function shownOnCard(
+  fields: OrgField[],
+  data: Record<string, string>,
+  labels: RefLabels = {},
+): Shown[] {
   return cardFields(fields)
     .filter((field) => data[field.key] !== undefined)
-    .map((field) => ({ key: field.key, label: field.label, value: data[field.key] }));
+    .map((field) => ({
+      key: field.key,
+      label: field.label,
+      value: shownValue(field, data[field.key], labels),
+    }));
 }
 
 /** True for a date a calendar holds, so 2026-13-01 is not one. */

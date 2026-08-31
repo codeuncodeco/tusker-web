@@ -51,6 +51,10 @@ Four names, in three places. A name means the same thing everywhere.
 | `INVITE_TOKEN`       | The bearer token that `POST /api/invite` demands                                           | That endpoint answers 404, so no account can be made |
 | `MAIL_FROM`          | The `From` address, such as `Tusker <tusker@codeuncode.com>`. Resend must hold that domain | Resend refuses the message                           |
 
+The refs key an org app calls for is not on this list, and does not become one.
+It lives on the reference field that uses it, because a secret holds one value
+and two org apps need two keys. See [ADR-0005](./docs/adr/0005-the-side-that-verifies-mints-the-key.md).
+
 ### On your machine
 
 `.dev.vars`, which git ignores:
@@ -196,7 +200,7 @@ deploys. See [docs/deploy.md](./docs/deploy.md) for the dashboard settings
 | `app/`               | Routes, loaders and the server-only modules they call                   |
 | `app/auth.server.ts` | The better-auth options and the per-request instance                    |
 | `scripts/`           | Build-time scripts. `auth-schema.ts` writes the better-auth SQL         |
-| `workers/app.ts`     | The Worker entry. It puts the Cloudflare bindings on the router context |
+| `workers/app.ts`     | The Worker entry. It puts the bindings on the router context, and runs the cron |
 | `migrations/`        | Numbered SQL migrations for D1                                          |
 | `test/`              | Vitest tests, run inside the Workers runtime                            |
 | `wrangler.jsonc`     | The Worker and its bindings, per environment                            |

@@ -7,6 +7,9 @@ function field(one: Partial<OrgField> & Pick<OrgField, "key" | "type">): OrgFiel
   return {
     label: one.key,
     options: [],
+    source_url: "",
+    has_refs_key: false,
+    refs_pulled_at: null,
     show_on_card: false,
     filterable: false,
     position: 1,

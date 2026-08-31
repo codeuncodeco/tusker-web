@@ -13,6 +13,9 @@
       "vars": {
         "MAIL_FROM": "Tusker <tusker@codeuncode.com>"
       },
+      "triggers": {
+        "crons": ["17 * * * *"]
+      },
       "routes": [
         {
           "pattern": "tusker.codeuncode.com",

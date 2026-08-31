@@ -13,6 +13,7 @@ import {
 import { cloudflareEnv } from "../context.server";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
+import { refLabels } from "../refs.server";
 import { fieldClass } from "../forms";
 import { listOrgsForPerson } from "../orgs.server";
 import { OrgNav } from "../org-nav";
@@ -61,6 +62,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The org's declarations decide what a card shows, so the board needs no
   // code for any one org's fields.
   const declared = await listFields(env.DB, scope);
+  // A reference card shows the cached label. The board does no live lookup: a
+  // column of misses would be a column of calls to the org app.
+  const labels = await refLabels(env.DB, scope);
   const counts = countByStatus(tasks);
   const toggles = readToggles(new URL(request.url).searchParams);
   const columns = columnsToShow(counts, toggles).map((status) => ({
@@ -72,7 +76,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
         (task): Card => ({
           id: task.id,
           title: task.title,
-          fields: shownOnCard(declared, task.data),
+          fields: shownOnCard(declared, task.data, labels),
         }),
       ),
   }));

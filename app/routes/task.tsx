@@ -5,6 +5,7 @@ import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
 import { OrgNav } from "../org-nav";
+import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope } from "../scope.server";
 import { readTask, saveTask } from "../tasks.server";
 import type { Route } from "./+types/task";
@@ -20,10 +21,15 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const task = await readTask(env.DB, scope, params.taskId);
   if (!task) throw new Response("Not found", { status: 404 });
 
+  const fields = await listFields(env.DB, scope);
+
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
     task: { id: task.id, title: task.title, status: task.status, data: task.data },
-    fields: await listFields(env.DB, scope),
+    fields,
+    // The cached options each reference field draws. The refs key that filled
+    // that cache stays on the server: this payload goes to the browser.
+    refs: await refPickers(env.DB, scope, fields, task.data),
   };
 }
 
@@ -45,9 +51,71 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   return { ok: true };
 }
 
-/** One declared field, drawn by its type. Every type reads one box. */
-function FieldBox({ field, value }: { field: OrgField; value: string | undefined }) {
+/**
+ * A reference field: a picker over the cached options.
+ *
+ * A field that was never pulled draws a plain id box. An empty dropdown reads
+ * as "the org app has no trails", and the box at least takes an id.
+ *
+ * An id the options do not name keeps its place in the list, drawn raw, so a
+ * save of the rest of the task does not silently drop it.
+ */
+function RefBox({
+  field,
+  value,
+  picker,
+}: {
+  field: OrgField;
+  value: string | undefined;
+  picker: RefPicker | undefined;
+}) {
   const name = `field.${field.key}`;
+  const options = picker?.options ?? [];
+  const unnamed = value && !options.some((one) => one.id === value);
+
+  if (!picker?.pulled) {
+    return (
+      <label className="flex flex-col gap-1">
+        {field.label}
+        <span className="text-sm text-neutral-500">
+          No options pulled yet. Refresh this field on the fields screen, or type the id.
+        </span>
+        <input name={name} type="text" defaultValue={value ?? ""} className={fieldClass} />
+      </label>
+    );
+  }
+
+  return (
+    <label className="flex flex-col gap-1">
+      {field.label}
+      <select name={name} defaultValue={value ?? ""} className={fieldClass}>
+        <option value="">—</option>
+        {unnamed ? <option value={value}>{picker.label ?? value}</option> : null}
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** One declared field, drawn by its type. Every type reads one box. */
+function FieldBox({
+  field,
+  value,
+  picker,
+}: {
+  field: OrgField;
+  value: string | undefined;
+  picker: RefPicker | undefined;
+}) {
+  const name = `field.${field.key}`;
+
+  if (field.type === "reference") {
+    return <RefBox field={field} value={value} picker={picker} />;
+  }
 
   if (field.type === "select") {
     return (
@@ -79,7 +147,7 @@ function FieldBox({ field, value }: { field: OrgField; value: string | undefined
 }
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, fields } = loaderData;
+  const { org, task, fields, refs } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
@@ -96,7 +164,12 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
         </label>
 
         {fields.map((field) => (
-          <FieldBox key={field.key} field={field} value={task.data[field.key]} />
+          <FieldBox
+            key={field.key}
+            field={field}
+            value={task.data[field.key]}
+            picker={refs[field.key]}
+          />
         ))}
 
         {fields.length === 0 ? (
