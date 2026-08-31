@@ -1,0 +1,257 @@
+import type { OrgField, RefLabels } from "./fields";
+import { readRefOptions, type RefOption } from "./refs";
+import type { Scope } from "./scope.server";
+
+/**
+ * The option cache of the reference fields, and the pull that fills it.
+ *
+ * A picker reads the cache, so it never waits on the org app. The pull runs on
+ * a cron and from the manage screen, and one more time when a task holds an id
+ * the cache does not know.
+ *
+ * Every call to an org app carries that field's refs key. The org app minted
+ * it and can revoke it, and Tusker holds the plaintext beside the field rather
+ * than in a Worker secret, which holds one value and does not survive a second
+ * org app. See ADR-0005.
+ */
+
+/** Where one reference field reads from, and what it reads with. */
+type Source = { org_id: string; key: string; source_url: string; refs_key: string };
+
+/** What became of a pull: the options it cached, or why it cached none. */
+export type Pulled = { pulled: number } | { error: string };
+
+/** The cached options of one reference field, in label order. */
+export async function listRefOptions(
+  db: D1Database,
+  scope: Scope,
+  fieldKey: string,
+): Promise<RefOption[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ext_id AS id, label FROM org_ref_options
+       WHERE org_id = ? AND field_key = ? ORDER BY label, ext_id`,
+    )
+    .bind(scope.org.id, fieldKey)
+    .all<RefOption>();
+  return results;
+}
+
+/** How many options each reference field of the org has cached. */
+export async function countRefOptions(
+  db: D1Database,
+  scope: Scope,
+): Promise<Record<string, number>> {
+  const { results } = await db
+    .prepare(
+      "SELECT field_key, count(*) AS n FROM org_ref_options WHERE org_id = ? GROUP BY field_key",
+    )
+    .bind(scope.org.id)
+    .all<{ field_key: string; n: number }>();
+  return Object.fromEntries(results.map((row) => [row.field_key, row.n]));
+}
+
+/**
+ * The cached labels of every reference field of the org, as a card and an
+ * editor read them. One query covers the whole board, so a column of cards
+ * costs no more reads than a single one.
+ */
+export async function refLabels(db: D1Database, scope: Scope): Promise<RefLabels> {
+  const { results } = await db
+    .prepare("SELECT field_key, ext_id, label FROM org_ref_options WHERE org_id = ?")
+    .bind(scope.org.id)
+    .all<{ field_key: string; ext_id: string; label: string }>();
+
+  const labels: RefLabels = {};
+  for (const row of results) {
+    (labels[row.field_key] ??= {})[row.ext_id] = row.label;
+  }
+  return labels;
+}
+
+/**
+ * Pulls one field's options and writes them over the cache, from the manage
+ * screen's refresh button.
+ */
+export async function refreshField(db: D1Database, scope: Scope, field: OrgField): Promise<Pulled> {
+  const source = await sourceFor(db, scope.org.id, field.key);
+  if (!source) return { error: `${field.label} is not a reference field.` };
+  return pull(db, source);
+}
+
+/**
+ * The label for one id the cache does not hold: one live pull, and then the
+ * cache again.
+ *
+ * The refs endpoint answers with the whole list and nothing narrower, so the
+ * live lookup is a refresh. That also means the miss pays for itself: every
+ * other id added since the last cron run lands in the cache with it.
+ *
+ * Answers null when the org app does not know the id either, and the screen
+ * then shows the raw id.
+ */
+export async function lookUpRef(
+  db: D1Database,
+  scope: Scope,
+  field: OrgField,
+  extId: string,
+): Promise<string | null> {
+  const pulled = await refreshField(db, scope, field);
+  if ("error" in pulled) return null;
+
+  const row = await db
+    .prepare("SELECT label FROM org_ref_options WHERE org_id = ? AND field_key = ? AND ext_id = ?")
+    .bind(scope.org.id, field.key, extId)
+    .first<{ label: string }>();
+  return row?.label ?? null;
+}
+
+/** What the task editor needs to draw one reference field. */
+export type RefPicker = {
+  /** The cached options, in label order. */
+  options: RefOption[];
+  /**
+   * True once a pull has answered. A field that was never pulled draws an id
+   * box, because an empty dropdown reads as "the org app has no trails".
+   */
+  pulled: boolean;
+  /** The label for the id the task holds, or null when nothing names it. */
+  label: string | null;
+};
+
+/**
+ * What the editor draws every reference field of the org with.
+ *
+ * An id the cache does not hold costs one live lookup, which is the escape
+ * hatch for a record made since the last cron run. A field that was never
+ * pulled costs none: it has nothing configured to look up with, and the editor
+ * would then call the org app on every load.
+ */
+export async function refPickers(
+  db: D1Database,
+  scope: Scope,
+  fields: OrgField[],
+  data: Record<string, string>,
+): Promise<Record<string, RefPicker>> {
+  const pickers: Record<string, RefPicker> = {};
+
+  for (const field of fields) {
+    if (field.type !== "reference") continue;
+
+    let options = await listRefOptions(db, scope, field.key);
+    const held = data[field.key];
+    let label = held ? (options.find((one) => one.id === held)?.label ?? null) : null;
+
+    if (held && label === null && field.refs_pulled_at !== null) {
+      label = await lookUpRef(db, scope, field, held);
+      if (label !== null) options = await listRefOptions(db, scope, field.key);
+    }
+
+    pickers[field.key] = { options, pulled: field.refs_pulled_at !== null, label };
+  }
+
+  return pickers;
+}
+
+/** What one run of the cron refresh did. */
+export type Refreshed = { fields: number; failed: number };
+
+/**
+ * Pulls every reference field of every org, on the cron.
+ *
+ * This is the one read of field rows that takes no scope. A scope is proof
+ * that a signed-in person belongs to an org, and the cron has no person. It
+ * reads no task row, and each pull uses the key stored on the row it read, so
+ * no org's key touches another org's URL.
+ */
+export async function refreshEveryField(db: D1Database): Promise<Refreshed> {
+  const { results } = await db
+    .prepare(
+      `SELECT org_id, key, source_url, refs_key FROM org_fields
+       WHERE type = 'reference' AND source_url <> ''`,
+    )
+    .all<Source>();
+
+  let failed = 0;
+  for (const source of results) {
+    const pulled = await pull(db, source);
+    if ("error" in pulled) failed += 1;
+  }
+
+  return { fields: results.length, failed };
+}
+
+/** One field's source and key, or null when the org declares no such field. */
+async function sourceFor(db: D1Database, orgId: string, key: string): Promise<Source | null> {
+  const row = await db
+    .prepare(
+      `SELECT org_id, key, source_url, refs_key FROM org_fields
+       WHERE org_id = ? AND key = ? AND type = 'reference'`,
+    )
+    .bind(orgId, key)
+    .first<Source>();
+  return row;
+}
+
+/**
+ * Reads the org app and writes what it answered over the field's cache.
+ *
+ * The cache is replaced whole, so a record the org app dropped leaves the
+ * picker. A failed pull writes nothing, so the picker keeps the last good list
+ * rather than emptying itself the moment a key is revoked.
+ */
+async function pull(db: D1Database, source: Source): Promise<Pulled> {
+  if (!source.source_url) return { error: "This field names no source URL." };
+  if (!source.refs_key) return { error: "This field holds no refs key." };
+
+  const options = await read(source);
+  if ("error" in options) return options;
+
+  await db.batch([
+    db
+      .prepare("DELETE FROM org_ref_options WHERE org_id = ? AND field_key = ?")
+      .bind(source.org_id, source.key),
+    ...options.options.map((option) =>
+      db
+        .prepare(
+          `INSERT INTO org_ref_options (org_id, field_key, ext_id, label) VALUES (?, ?, ?, ?)`,
+        )
+        .bind(source.org_id, source.key, option.id, option.label),
+    ),
+    db
+      .prepare(
+        `UPDATE org_fields SET refs_pulled_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE org_id = ? AND key = ?`,
+      )
+      .bind(source.org_id, source.key),
+  ]);
+
+  return { pulled: options.options.length };
+}
+
+/** What the org app answered, or the reason Tusker could not read it. */
+async function read(source: Source): Promise<{ options: RefOption[] } | { error: string }> {
+  let response: Response;
+  try {
+    response = await fetch(source.source_url, {
+      headers: { authorization: `Bearer ${source.refs_key}` },
+    });
+  } catch {
+    return { error: "The org app did not answer." };
+  }
+
+  // A revoked key reads as a 401 here, and that is the failure a person needs
+  // to see spelled out rather than as an empty picker.
+  if (!response.ok) return { error: `The org app answered ${response.status}.` };
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return { error: "The org app answered something that is not JSON." };
+  }
+
+  const options = readRefOptions(body);
+  if (!options) return { error: "The org app answered rows that are not {id, label}." };
+  return { options };
+}

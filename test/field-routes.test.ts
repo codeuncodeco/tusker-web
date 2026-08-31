@@ -103,6 +103,9 @@ describe("declaring a field", () => {
         label: "Client name",
         type: "text",
         options: [],
+        source_url: "",
+        has_refs_key: false,
+        refs_pulled_at: null,
         show_on_card: false,
         filterable: false,
         position: 1,
@@ -147,7 +150,7 @@ describe("declaring a field", () => {
   it("refuses a type Tusker does not render", async () => {
     const { ada } = await twoOrgs();
 
-    const response = await caught(declare("codeuncode", ada.cookie, { label: "Trail", type: "reference" }));
+    const response = await caught(declare("codeuncode", ada.cookie, { label: "Shade", type: "colour" }));
 
     expect(response.status).toBe(400);
   });

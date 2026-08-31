@@ -7,12 +7,22 @@ type Row = {
   label: string;
   type: FieldType;
   options: string;
+  source_url: string;
+  refs_pulled_at: string | null;
+  has_refs_key: number;
   show_on_card: number;
   filterable: number;
   position: number;
 };
 
-const COLUMNS = "key, label, type, options, show_on_card, filterable, position";
+/**
+ * The columns a screen reads. `refs_key` is not one of them: it is read as the
+ * flag `has_refs_key` instead, so a loader that hands a field to the browser
+ * cannot carry the key with it. `refs.server.ts` reads the key itself, and
+ * sends it to the org app rather than to a screen.
+ */
+const COLUMNS = `key, label, type, options, source_url, refs_pulled_at,
+  refs_key <> '' AS has_refs_key, show_on_card, filterable, position`;
 
 /** The order every screen draws the fields in. */
 const IN_ORDER = "ORDER BY position, key";
@@ -23,6 +33,10 @@ export type Declaration = {
   label: string;
   type: FieldType;
   options: string[];
+  /** Where a reference field reads its options from. Empty for the others. */
+  source_url: string;
+  /** The key the org app minted for that URL. Empty for the other types. */
+  refs_key: string;
   show_on_card: boolean;
   filterable: boolean;
 };
@@ -62,8 +76,9 @@ export async function declareField(
   try {
     await db
       .prepare(
-        `INSERT INTO org_fields (org_id, key, label, type, options, show_on_card, filterable, position)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO org_fields
+           (org_id, key, label, type, options, source_url, refs_key, show_on_card, filterable, position)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         scope.org.id,
@@ -71,6 +86,8 @@ export async function declareField(
         field.label,
         field.type,
         JSON.stringify(field.options),
+        field.source_url,
+        field.refs_key,
         Number(field.show_on_card),
         Number(field.filterable),
         (last?.last ?? 0) + 1,
@@ -84,7 +101,12 @@ export async function declareField(
   return "declared";
 }
 
-/** What an edit can change. The key and the type stay as declared. */
+/**
+ * What an edit can change. The key and the type stay as declared.
+ *
+ * `refs_key` is write-only: an empty one keeps the key the field already
+ * holds, because no screen can show a person the value to type back.
+ */
 export type Change = Omit<Declaration, "key" | "type">;
 
 /** One declared field of the org, or null when the org declares no such key. */
@@ -114,14 +136,19 @@ export async function editField(
 ): Promise<void> {
   await db
     .prepare(
-      `UPDATE org_fields SET label = ?, options = ?, show_on_card = ?, filterable = ?
+      `UPDATE org_fields
+       SET label = ?, options = ?, source_url = ?, show_on_card = ?, filterable = ?,
+           refs_key = CASE WHEN ? = '' THEN refs_key ELSE ? END
        WHERE org_id = ? AND key = ?`,
     )
     .bind(
       change.label,
       JSON.stringify(change.options),
+      change.source_url,
       Number(change.show_on_card),
       Number(change.filterable),
+      change.refs_key,
+      change.refs_key,
       scope.org.id,
       field.key,
     )
@@ -138,6 +165,9 @@ export async function editField(
 export async function removeField(db: D1Database, scope: Scope, key: string): Promise<boolean> {
   const [dropped] = await db.batch([
     db.prepare("DELETE FROM org_fields WHERE org_id = ? AND key = ?").bind(scope.org.id, key),
+    db
+      .prepare("DELETE FROM org_ref_options WHERE org_id = ? AND field_key = ?")
+      .bind(scope.org.id, key),
     db
       .prepare("UPDATE tasks SET data = json_remove(data, '$.' || ?) WHERE org_id = ?")
       .bind(key, scope.org.id),
@@ -172,6 +202,9 @@ function asField(row: Row): OrgField {
     label: row.label,
     type: row.type,
     options: JSON.parse(row.options) as string[],
+    source_url: row.source_url,
+    has_refs_key: row.has_refs_key === 1,
+    refs_pulled_at: row.refs_pulled_at,
     show_on_card: row.show_on_card === 1,
     filterable: row.filterable === 1,
     position: row.position,
