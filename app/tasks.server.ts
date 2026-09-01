@@ -1,5 +1,6 @@
 import { isStatus, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
+import { tickBox } from "./description";
 import { listFields } from "./fields.server";
 import { between } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
@@ -14,6 +15,8 @@ export type Task = {
   archived: number;
   /** 1 when a person marked the task as one that holds a decision. */
   decides: number;
+  /** The raw markdown a person typed. The page renders it; the column holds text. */
+  description: string;
   /** The custom field values, keyed by the key the org declared. */
   data: Record<string, string>;
   created_at: string;
@@ -22,9 +25,15 @@ export type Task = {
 /** The row as the table holds it: `data` as the JSON text of the column. */
 type Row = Omit<Task, "data"> & { data: string };
 
-/** The columns a card and the task editor read. `description` waits. */
+/**
+ * The columns a card and the task editor read.
+ *
+ * The description is here for the task page. A card does not draw it: the board
+ * cuts each row down to a card before the payload leaves the server. The
+ * assignees are not here at all: they hold a table of their own.
+ */
 const CARD_FIELDS =
-  "id, org_id, title, status, position, due_date, archived, decides, data, created_at";
+  "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at";
 
 /** The order of a column, everywhere it is read. */
 const IN_ORDER = "ORDER BY position, created_at, id";
@@ -89,6 +98,46 @@ export async function saveTask(
       taskId,
       scope.org.id,
     )
+    .run();
+
+  return done.meta.changes > 0;
+}
+
+/**
+ * Flips the Nth checkbox of one task's description and writes the whole text
+ * back.
+ *
+ * The box carries a number, not the new text, so a tick can never overwrite a
+ * description a person edited in another tab with a stale copy of it: the read
+ * and the write sit in this one function, and the read goes through the scope
+ * as every other read does.
+ *
+ * Returns false when the number is no box at all, when the org holds no such
+ * task, or when the description holds no such box, so the route can answer 404.
+ * All three mean the same thing to the page: the box that was ticked is not
+ * there.
+ */
+export async function tickDescriptionBox(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+  box: number,
+): Promise<boolean> {
+  if (!Number.isInteger(box) || box < 0) return false;
+
+  const task = await readTask(db, scope, taskId);
+  if (!task) return false;
+
+  const ticked = tickBox(task.description, box);
+  if (ticked === null) return false;
+
+  const done = await db
+    .prepare(
+      `UPDATE tasks
+       SET description = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE id = ? AND org_id = ?`,
+    )
+    .bind(ticked, taskId, scope.org.id)
     .run();
 
   return done.meta.changes > 0;
@@ -288,10 +337,7 @@ async function renumber(db: D1Database, orgId: string, column: Positioned[]): Pr
  * A reference value stays the external id the task holds. The org app minted
  * that id, so it names the record better than Tusker's cached label does.
  */
-export type ApiTask = Omit<Task, "org_id" | "archived"> & {
-  description: string;
-  updated_at: string;
-};
+export type ApiTask = Omit<Task, "org_id" | "archived"> & { updated_at: string };
 
 /** The columns the read API answers with. */
 const API_COLUMNS =

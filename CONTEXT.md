@@ -82,6 +82,20 @@ _Avoid_: Customer, account
 **Task**:
 One piece of work in one org. A task never belongs to two orgs.
 
+**Description**:
+The raw markdown a task carries, in `tasks.description`. The column holds text,
+and the page renders it. Tusker draws a small subset: code spans, links, bare
+URLs, emails, checkbox lines and fenced blocks. Bold and italic were dropped on
+purpose.
+_Avoid_: Body, notes, details
+
+**Checkbox line**:
+A `- [ ]` or `- [x]` line of a description, drawn as a live box. Ticking one
+flips that line in the raw text and saves the whole description. A
+checkbox-looking line inside a fenced block is text, and no box counts it, so
+the Nth box on screen is always the Nth toggleable line.
+_Avoid_: Subtask, task list item, todo
+
 **Assignee**:
 A member who holds a task. A task can have several, and a task with none is
 unassigned. An assignee says who does the work and nothing about who may read

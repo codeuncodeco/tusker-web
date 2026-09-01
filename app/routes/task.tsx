@@ -8,6 +8,7 @@ import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, finishTask, moveAndAsk } from "../decisions.server";
+import { DescriptionView } from "../description-view";
 import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
@@ -15,7 +16,7 @@ import { fieldClass } from "../forms";
 import { listMembers } from "../orgs.server";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
-import { readDueDate, readTask, saveTask } from "../tasks.server";
+import { readDueDate, readTask, saveTask, tickDescriptionBox } from "../tasks.server";
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -45,6 +46,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       data: task.data,
       // A task made before the thought landed is marked here instead.
       decides: task.decides === 1,
+      // The raw markdown. The page renders it, so what the browser holds is
+      // what a person typed.
+      description: task.description,
     },
     fields,
     /**
@@ -99,6 +103,15 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const finished = await finishTask(env.DB, scope, request, params.taskId);
     if (!finished.moved) throw new Response("Not found", { status: 404 });
     return finished.prompt ?? { ok: true };
+  }
+
+  // One checkbox of the description, flipped where the raw text holds it. It
+  // posts on its own, so it reads no other box of the page.
+  if (intent === "tick") {
+    const box = Number(form.get("box"));
+    const ticked = await tickDescriptionBox(env.DB, scope, params.taskId, box);
+    if (!ticked) throw new Response("Not found", { status: 404 });
+    return { ok: true };
   }
 
   const task = await readTask(env.DB, scope, params.taskId);
@@ -387,6 +400,13 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           assignees={assignees}
         />
       </Form>
+
+      {/* Its own section, because a form cannot hold another one, and every
+          box of the description posts on its own. */}
+      <section className="flex flex-col gap-2">
+        <h2 className="font-medium">Description</h2>
+        <DescriptionView text={task.description} />
+      </section>
 
       {/* Its own form, because finishing is one act and saving is another. */}
       {task.status === "done" || task.status === "cancelled" ? null : (
