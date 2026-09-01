@@ -8,12 +8,18 @@
  */
 
 import { readCookie } from "./cookies";
+import type { Org } from "./orgs.server";
 
 /** The cookie every visit to an org page rewrites. */
 export const ORG_COOKIE = "org";
 
 /** What the header needs of one org. It never carries an id. */
-export type OrgHeld = { slug: string; name: string; kind: "personal" | "team" };
+export type OrgHeld = Pick<Org, "slug" | "name" | "kind">;
+
+/** One org, cut down to what the header draws. */
+export function held(org: Org): OrgHeld {
+  return { slug: org.slug, name: org.name, kind: org.kind };
+}
 
 /** The org the cookie names, or null before the person has visited one. */
 export function slugOfCurrentOrg(request: Request): string | null {
@@ -21,12 +27,12 @@ export function slugOfCurrentOrg(request: Request): string | null {
 }
 
 /**
- * The `Set-Cookie` that remembers this visit. It is read on the server alone,
- * so no script may read it, and it outlives the session cookie by design: a
- * person who signs in again lands in the org they left.
+ * The `Set-Cookie` that remembers this visit. It is a session cookie, because
+ * the current org is a session's worth of state, and no script reads it: the
+ * header is drawn on the server. See ADR-0011.
  */
 export function rememberOrg(slug: string): string {
-  return `${ORG_COOKIE}=${encodeURIComponent(slug)}; path=/; max-age=31536000; samesite=lax; httponly`;
+  return `${ORG_COOKIE}=${encodeURIComponent(slug)}; path=/; samesite=lax; httponly`;
 }
 
 /**

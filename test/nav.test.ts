@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { RouterContextProvider } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createAccount } from "../app/accounts.server";
@@ -9,6 +10,7 @@ import * as personLayout from "../app/layouts/person";
 import type { Org } from "../app/orgs.server";
 import * as loginRoute from "../app/routes/login";
 import * as newOrgRoute from "../app/routes/orgs.new";
+import { orgScope, requireScope } from "../app/scope.server";
 import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -146,5 +148,39 @@ describe("the person layout", () => {
     const answer = await personLayout.loader(routeArgs(get("/me", ada.cookie)));
 
     expect(answer.org?.slug).toBe(ada.personal);
+  });
+});
+
+describe("the scope of a page under the org layout", () => {
+  it("is the one the layout proved, so one visit is one membership check", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const acme = await team(ada.cookie, "acme");
+
+    const context = new RouterContextProvider();
+    const proved = await requireScope(get(`/o/${acme}/board`, ada.cookie), env, acme);
+    context.set(orgScope, proved);
+
+    // The request carries no session cookie at all, so an answer here can only
+    // come from the scope the layout left behind.
+    const read = await requireScope(get(`/o/${acme}/board`), env, acme, context);
+
+    expect(read).toBe(proved);
+  });
+
+  it("is proved again when the context holds another org", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const acme = await team(ada.cookie, "acme");
+
+    const context = new RouterContextProvider();
+    context.set(orgScope, await requireScope(get(`/o/${acme}/board`, ada.cookie), env, acme));
+
+    const read = await requireScope(
+      get(`/o/${ada.personal}/board`, ada.cookie),
+      env,
+      ada.personal,
+      context,
+    );
+
+    expect(read.org.slug).toBe(ada.personal);
   });
 });

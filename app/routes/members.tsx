@@ -18,7 +18,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
   return {
     org: { slug: scope.org.slug, name: scope.org.name, kind: scope.org.kind },
     members: await listMembers(env.DB, scope.org.id),
@@ -27,7 +27,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   if (scope.org.kind === "personal") return { error: PERSONAL_ORG };
 

@@ -10,7 +10,7 @@
 import { Outlet } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
-import { currentOrg, slugOfCurrentOrg } from "../current-org";
+import { currentOrg, held, slugOfCurrentOrg } from "../current-org";
 import { Header } from "../header";
 import { requireOrgSet } from "../scope.server";
 import type { Route } from "./+types/person";
@@ -19,7 +19,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const set = await requireOrgSet(request, env);
 
-  const orgs = set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind }));
+  const orgs = set.orgs.map(held);
   return { orgs, org: currentOrg(orgs, slugOfCurrentOrg(request)) };
 }
 

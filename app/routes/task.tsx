@@ -20,7 +20,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const task = await readTask(env.DB, scope, params.taskId);
   if (!task) throw new Response("Not found", { status: 404 });
@@ -65,7 +65,7 @@ async function heldColors(
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const form = await request.formData();
 

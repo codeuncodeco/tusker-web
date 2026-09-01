@@ -65,7 +65,7 @@ function readStatus(form: FormData): Status {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const tasks = await listTasks(env.DB, scope);
   // The org's declarations decide what a card shows, so the board needs no
@@ -124,7 +124,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -346,7 +346,9 @@ function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean }) {
   return (
     <Link
       to={hasPlan ? flipped(params, "today", today) : "/me/plan"}
-      aria-pressed={today}
+      // With no plan the chip is a way to plan mode and not a filter, so it
+      // announces no pressed state it does not hold.
+      aria-pressed={hasPlan ? today : undefined}
       className={`rounded-full border px-2 py-0.5 text-xs ${
         today
           ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"

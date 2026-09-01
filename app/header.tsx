@@ -16,8 +16,8 @@ import { Link, useLocation } from "react-router";
 
 import type { OrgHeld } from "./current-org";
 
-/** The pages of one org, in the order every header lists them. */
-const BOARD = [
+/** The pages of one org the header lists inline, in that order. */
+const INLINE = [
   { to: "board", label: "Board" },
   { to: "decisions", label: "Decisions" },
 ] as const;
@@ -35,6 +35,11 @@ const PERSON = [
   { to: "/me/plan", label: "Plan", exact: false },
   { to: "/me/focus", label: "Focus", exact: false },
 ] as const;
+
+/** The address of one page of one org. Every link in the org half is one. */
+function pageOf(slug: string, page: string): string {
+  return `/o/${slug}/${page}`;
+}
 
 /**
  * A link, or the plain word when the person already stands on the page. The
@@ -100,6 +105,8 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
   const inOrg = pathname.startsWith("/o/");
   const half = (mine: boolean) =>
     `flex flex-wrap items-baseline gap-3 text-sm ${mine ? "" : "opacity-70"}`;
+  /** True while the person stands on this page of the current org. */
+  const here = (page: string) => inOrg && org !== null && pathname === pageOf(org.slug, page);
 
   return (
     <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-neutral-200 px-8 py-3 dark:border-neutral-800">
@@ -120,10 +127,10 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
       </nav>
 
       <nav aria-label="Org" className={half(inOrg)}>
-        <Menu label={org ? org.name : "Orgs"}>
+        <Menu label={org ? org.name : "Orgs"} here={inOrg}>
           {orgs.map((one) => (
             <li key={one.slug}>
-              <Link to={`/o/${one.slug}/board`} className="hover:underline">
+              <Link to={pageOf(one.slug, "board")} className="hover:underline">
                 {one.name}
               </Link>
               {one.kind === "personal" ? (
@@ -142,25 +149,15 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
 
         {org ? (
           <>
-            {BOARD.map((page) => (
-              <Here
-                key={page.to}
-                to={`/o/${org.slug}/${page.to}`}
-                here={inOrg && pathname === `/o/${org.slug}/${page.to}`}
-              >
+            {INLINE.map((page) => (
+              <Here key={page.to} to={pageOf(org.slug, page.to)} here={here(page.to)}>
                 {page.label}
               </Here>
             ))}
-            <Menu
-              label="Manage"
-              here={MANAGE.some((page) => pathname === `/o/${org.slug}/${page.to}`)}
-            >
+            <Menu label="Manage" here={MANAGE.some((page) => here(page.to))}>
               {MANAGE.map((page) => (
                 <li key={page.to}>
-                  <Here
-                    to={`/o/${org.slug}/${page.to}`}
-                    here={pathname === `/o/${org.slug}/${page.to}`}
-                  >
+                  <Here to={pageOf(org.slug, page.to)} here={here(page.to)}>
                     {page.label}
                   </Here>
                 </li>

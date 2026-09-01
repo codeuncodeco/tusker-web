@@ -101,7 +101,7 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
         </>
       ) : planEmpty ? (
         <p className="text-neutral-600 dark:text-neutral-400">
-          Your plan for today is empty. Plan mode is where you fill it.
+          Your plan for today is empty.
         </p>
       ) : planned ? (
         <p className="text-neutral-600 dark:text-neutral-400">That is the plan done.</p>
