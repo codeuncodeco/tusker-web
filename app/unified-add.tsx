@@ -14,6 +14,7 @@ import { useFetcher } from "react-router";
 import { useAddingTo } from "./adding";
 import { fieldClass } from "./forms";
 import { isPagePress } from "./keys";
+import { QuickAddBox } from "./quick-add";
 import type { SwitchTo } from "./org-switcher";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -92,39 +93,32 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
 
   return (
     <section className="flex flex-col gap-2">
-      <add.Form
-        method="post"
-        className="flex flex-col gap-2"
+      <QuickAddBox
+        form={add.Form}
+        label="Add a task"
+        title={title}
+        onTitle={setTitle}
+        decides={decides}
+        onDecides={setDecides}
+        error={error}
+        titleRef={box}
         // Escape leaves the box, and the list gets `j`, `k` and the rest back.
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
           (event.target as HTMLElement).blur();
         }}
-      >
-        <input type="hidden" name="intent" value="create" />
-
-        {/* The chip that names a team org, because a task filed in one is on
-            every member's board. The personal org stays quiet. */}
-        {filing.kind === "team" ? (
-          <p className="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-500">
-            Adding to {filing.name}
-          </p>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2">
-          <input
-            ref={box}
-            name="title"
-            required
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Add a task"
-            aria-label="Add a task"
-            className={`grow ${fieldClass}`}
-          />
-
-          {/* A person with only their personal org has no choice to make. */}
-          {orgs.length > 1 ? (
+        above={
+          /* The chip that names a team org, because a task filed in one is on
+             every member's board. The personal org stays quiet. */
+          filing.kind === "team" ? (
+            <p className="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-500">
+              Adding to {filing.name}
+            </p>
+          ) : null
+        }
+        beside={
+          /* A person with only their personal org has no choice to make. */
+          orgs.length > 1 ? (
             <select
               ref={picker}
               name="slug"
@@ -141,30 +135,9 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
             </select>
           ) : (
             <input type="hidden" name="slug" value={personal.slug} />
-          )}
-        </div>
-
-        {/* Off by default. Most tasks decide nothing, and a prompt people
-            learn to dismiss is how a log goes empty. See ADR-0010. */}
-        <label className="flex items-center gap-2 text-xs text-neutral-500">
-          <input
-            type="checkbox"
-            name="decides"
-            value="1"
-            checked={decides}
-            onChange={(event) => setDecides(event.target.checked)}
-          />
-          Holds a decision
-        </label>
-
-        <button className="sr-only">Add</button>
-
-        {error ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
-            {error}
-          </p>
-        ) : null}
-      </add.Form>
+          )
+        }
+      />
 
       {last ? (
         <UndoLine
