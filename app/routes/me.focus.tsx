@@ -11,8 +11,6 @@
  * See ADR-0009.
  */
 
-import { Link } from "react-router";
-
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
@@ -20,7 +18,6 @@ import { askedAcross } from "../decisions.server";
 import { FocusList, TakeMore } from "../focus-list";
 import { holdBatch, readFocus, takeMore } from "../focus.server";
 import { useLocalDay } from "../local-day";
-import { OrgSwitcher } from "../org-switcher";
 import { pushDownPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { actOnTask, taskFrom } from "../unified-actions.server";
@@ -37,7 +34,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const day = dayOf(request);
 
   return {
-    orgs: set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind })),
     day,
     focus: await readFocus(env.DB, set, set.personId, day),
     // The prompt a finished task raised, if the query string still holds one.
@@ -81,18 +77,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Focus({ loaderData }: Route.ComponentProps) {
-  const { orgs, focus, day, ask } = loaderData;
+  const { focus, day, ask } = loaderData;
   const { batch, planned, planEmpty, more } = focus;
   useLocalDay(day);
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-2xl flex-col gap-6 p-8">
+    <main className="mx-auto flex flex-1 w-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Focus</h1>
         {batch.number > 0 ? (
           <span className="text-sm text-neutral-500">Batch {batch.number}</span>
         ) : null}
-        <OrgSwitcher orgs={orgs} />
       </header>
 
       {batch.tasks.length > 0 ? (
@@ -106,11 +101,7 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
         </>
       ) : planEmpty ? (
         <p className="text-neutral-600 dark:text-neutral-400">
-          Your plan for today is empty.{" "}
-          <Link to="/me/plan" className="underline">
-            Plan your day
-          </Link>
-          .
+          Your plan for today is empty.
         </p>
       ) : planned ? (
         <p className="text-neutral-600 dark:text-neutral-400">That is the plan done.</p>
@@ -121,10 +112,6 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
       )}
 
       {batch.tasks.length === 0 && more > 0 ? <TakeMore /> : null}
-
-      <Link to="/me" className="text-sm underline">
-        Your tasks
-      </Link>
 
       <DecisionPrompt ask={ask} />
     </main>

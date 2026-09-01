@@ -12,7 +12,6 @@ import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
-import { OrgNav } from "../org-nav";
 import { listMembers } from "../orgs.server";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
@@ -25,7 +24,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const task = await readTask(env.DB, scope, params.taskId);
   if (!task) throw new Response("Not found", { status: 404 });
@@ -87,7 +86,7 @@ async function heldColors(
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const form = await request.formData();
 
@@ -328,11 +327,10 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
-    <main className="mx-auto flex min-h-full max-w-4xl flex-col gap-6 p-8">
-      <header className="flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <OrgNav slug={org.slug} />
-      </header>
+    // Wider than the other pages under the org layout: the aside sits beside
+    // the task, so the two columns need the room.
+    <main className="mx-auto flex max-w-4xl flex-1 flex-col gap-6 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">{task.title}</h1>
 
       <Form method="post" key={task.id} className="flex flex-col gap-6 sm:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-3">

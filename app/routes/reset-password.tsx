@@ -39,7 +39,7 @@ export default function ResetPassword({ actionData }: Route.ComponentProps) {
   const error = actionData?.error ?? stale;
 
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-6 p-8">
+    <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-6 p-8">
       <h1 className="text-3xl font-semibold tracking-tight">Set a new password</h1>
 
       {error ? (

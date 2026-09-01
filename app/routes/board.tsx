@@ -24,10 +24,7 @@ import { refLabels } from "../refs.server";
 import { fieldClass } from "../forms";
 import { Initials } from "../initials";
 import { useLocalDay } from "../local-day";
-import { listOrgsForPerson } from "../orgs.server";
 import { readPlan } from "../plans.server";
-import { OrgNav } from "../org-nav";
-import { OrgSwitcher } from "../org-switcher";
 import { requireScope } from "../scope.server";
 import { createTask, listTasks, moveTask, newTaskFrom, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
@@ -64,7 +61,7 @@ function countByStatus(tasks: Task[]): Record<Status, number> {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const tasks = await listTasks(env.DB, scope);
   // The org's declarations decide what a card shows, so the board needs no
@@ -113,7 +110,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
-    orgs: await listOrgsForPerson(env.DB, scope.personId),
     columns,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedOn(env.DB, scope, request),
@@ -130,7 +126,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -334,14 +330,22 @@ function flipped(params: URLSearchParams, which: string, on: boolean): string {
   return query ? `?${query}` : "?";
 }
 
-/** The chip that narrows the board to today's plan, and gives it back. */
-function TodayChip({ today }: { today: boolean }) {
+/**
+ * The chip that narrows the board to today's plan, and gives it back.
+ *
+ * It is drawn on every board, planned or not. A day with no plan holds nothing
+ * to narrow to, so the chip then leads to plan mode: a control that comes and
+ * goes teaches nobody that plans exist.
+ */
+function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean }) {
   const [params] = useSearchParams();
 
   return (
     <Link
-      to={flipped(params, "today", today)}
-      aria-pressed={today}
+      to={hasPlan ? flipped(params, "today", today) : "/me/plan"}
+      // With no plan the chip is a way to plan mode and not a filter, so it
+      // announces no pressed state it does not hold.
+      aria-pressed={hasPlan ? today : undefined}
       className={`rounded-full border px-2 py-0.5 text-xs ${
         today
           ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
@@ -365,7 +369,7 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, orgs, columns, toggles, today, hasPlan, day, ask } = loaderData;
+  const { org, columns, toggles, today, hasPlan, day, ask } = loaderData;
   const mover = useFetcher();
 
   // The chip speaks for today, so the board must know which day that is where
@@ -389,19 +393,14 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   }
 
   return (
-    <main className="flex min-h-full flex-col gap-6 p-8">
+    <main className="flex flex-1 flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <OrgSwitcher orgs={orgs} here={org.slug} />
         <nav className="flex items-baseline gap-4 text-sm">
-          {hasPlan ? <TodayChip today={today} /> : null}
+          <TodayChip today={today} hasPlan={hasPlan} />
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
-          <Link to="/me" className="underline">
-            Your tasks
-          </Link>
         </nav>
-        <OrgNav slug={org.slug} here="board" />
       </header>
 
       <div className="flex flex-1 gap-4 overflow-x-auto">

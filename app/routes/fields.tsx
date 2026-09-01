@@ -22,7 +22,6 @@ import {
   removeField,
 } from "../fields.server";
 import { fieldClass } from "../forms";
-import { OrgNav } from "../org-nav";
 import { readOrgApp } from "../orgs.server";
 import { isLinked, isRefsPath } from "../refs";
 import { refOptionsOfOrg, refreshField } from "../refs.server";
@@ -35,7 +34,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const fields = await listFields(env.DB, scope);
   const references = fields.filter((field) => field.type === "reference").map((field) => field.key);
@@ -92,7 +91,7 @@ function readColors(
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -402,11 +401,8 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
   const pulled = actionData && "pulled" in actionData ? actionData.pulled : null;
 
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
-      <header className="flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <OrgNav slug={org.slug} here="fields" />
-      </header>
+    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">Fields</h1>
 
       <p className="text-neutral-600 dark:text-neutral-400">
         A field this org declares shows on every task of this org, and on no task of another one.
