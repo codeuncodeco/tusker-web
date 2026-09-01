@@ -6,10 +6,12 @@ import {
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
-  isStatus,
+  readStatus,
   type Status,
   type Toggles,
 } from "../board";
+import { drawsAssignees, type Holder } from "../assignees";
+import { holdersByTask } from "../assignees.server";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
@@ -20,6 +22,7 @@ import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { refLabels } from "../refs.server";
 import { fieldClass } from "../forms";
+import { Initials } from "../initials";
 import { useLocalDay } from "../local-day";
 import { listOrgsForPerson } from "../orgs.server";
 import { readPlan } from "../plans.server";
@@ -34,7 +37,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /** What one card shows. The task page reads the rest of the row. */
-type Card = { id: string; title: string; fields: Shown[] };
+type Card = { id: string; title: string; fields: Shown[]; holders: Holder[] };
 
 /** True while the board is narrowed to today's plan. */
 function readToday(params: URLSearchParams): boolean {
@@ -59,13 +62,6 @@ function countByStatus(tasks: Task[]): Record<Status, number> {
   return counts;
 }
 
-/** The status the form names, or a 400. */
-function readStatus(form: FormData): Status {
-  const status = form.get("status");
-  if (!isStatus(status)) throw new Response("That is not a column.", { status: 400 });
-  return status;
-}
-
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug);
@@ -80,6 +76,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The colour one value carries, so a card tells one client from another at a
   // glance. One query covers every card. See ADR-0006.
   const colors = await listColors(env.DB, scope);
+  // Who holds each task, for the whole org in one read. A personal org holds
+  // one member, so it draws none. See ADR-0013.
+  const holders = drawsAssignees(scope.org)
+    ? await holdersByTask(env.DB, scope)
+    : new Map<string, Holder[]>();
   // The chip narrows the board to the tasks today's plan holds. A null plan is
   // a day the person has not planned, and then the board offers no chip.
   const day = dayOf(request);
@@ -105,6 +106,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
           id: task.id,
           title: task.title,
           fields: shownOnCard(declared, task.data, labels, colors),
+          holders: holders.get(task.id) ?? [],
         }),
       ),
   }));
@@ -255,11 +257,12 @@ function CardItem({
       }}
       className="flex cursor-grab flex-col gap-2 rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
     >
-      <span className="flex gap-2">
+      <span className="flex items-baseline gap-2">
         <span className="tabular-nums text-neutral-400">{index + 1}</span>
-        <Link to={`/o/${slug}/t/${card.id}`} className="underline-offset-2 hover:underline">
+        <Link to={`/o/${slug}/t/${card.id}`} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
+        <Initials holders={card.holders} />
       </span>
 
       {card.fields.length > 0 ? (

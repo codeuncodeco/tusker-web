@@ -10,6 +10,7 @@ export async function wipe() {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM plans"),
     env.DB.prepare("DELETE FROM decisions"),
+    env.DB.prepare("DELETE FROM task_assignees"),
     env.DB.prepare("DELETE FROM tasks"),
     env.DB.prepare("DELETE FROM org_ref_options"),
     env.DB.prepare("DELETE FROM org_field_colors"),
