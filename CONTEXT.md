@@ -18,6 +18,13 @@ The org that Tusker creates for a person at signup, with that person as the only
 member. It is an org like any other. Only the label in the org switcher differs.
 _Avoid_: Personal space, private tasks
 
+**Current org**:
+The org a person visited last, and the one the header names while they stand on
+a person page. A session cookie holds it, and every visit to an org page
+rewrites it. A person who has visited none yet has their personal org.
+See ADR-0011.
+_Avoid_: Active org, selected org, org context
+
 **Member**:
 A person with access to an org. Membership is the only permission check.
 _Avoid_: Seat, collaborator
@@ -227,6 +234,14 @@ _Avoid_: Chunk, sprint, session
 Taking a task out of a batch without finishing it. The task moves to the end of
 today's plan, so it comes back last. See ADR-0009.
 _Avoid_: Skip, snooze, defer
+
+**Header**:
+The one bar every signed-in page draws. It has a person half, for Tasks, Plan
+and Focus, and an org half, for the current org and its pages. Both halves are
+always drawn, and the half a person stands in is marked. A control that comes
+and goes teaches nothing, so nothing in the header is drawn by rule.
+See ADR-0011.
+_Avoid_: Chrome, nav bar, top bar
 
 **Unified view**:
 One person's tasks across every org they belong to, in percentile order.
