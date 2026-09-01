@@ -23,6 +23,17 @@ export function isStatus(value: unknown): value is Status {
 }
 
 /**
+ * The status a form names, or a 400. A column select and the aside's status
+ * box both post one, and neither is a value a person types, so a name that is
+ * not a status is a broken form rather than a message to show.
+ */
+export function readStatus(form: FormData): Status {
+  const status = form.get("status");
+  if (!isStatus(status)) throw new Response("That is not a column.", { status: 400 });
+  return status;
+}
+
+/**
  * The columns to draw, in board order.
  *
  * Backlog shows only when there is no work in hand — To do and In progress are
