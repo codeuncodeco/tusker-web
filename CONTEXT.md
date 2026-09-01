@@ -75,6 +75,19 @@ _Avoid_: Customer, account
 **Task**:
 One piece of work in one org. A task never belongs to two orgs.
 
+**Assignee**:
+A member who holds a task. A task can have several, and a task with none is
+unassigned. An assignee says who does the work and nothing about who may read
+it: membership is still the only permission check. Removing a member from an org
+takes their assignments with them. See ADR-0013.
+_Avoid_: Owner, task owner, responsible
+
+**Unassigned**:
+A task no member holds. It is a state to look at, not a gap to hide: the
+assignee filter names it, so the queue of work nobody has taken is one control
+away.
+_Avoid_: Unowned, orphan, inbox
+
 **Decision**:
 A record of what was decided, kept by the org. A decision outlives the task that
 produced it, so a deleted task leaves the decision in place.
@@ -243,6 +256,15 @@ and goes teaches nothing, so nothing in the header is drawn by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 
+**Assignee filter**:
+The control on a board and on the unified view that narrows by who holds a
+task: mine, unassigned, or everyone. It is everyone by default, it lives in the
+address, and on a board it narrows what the Today chip already left. An org of
+one member carries no filter. See ADR-0013.
+_Avoid_: My tasks toggle, owner filter
+
 **Unified view**:
-One person's tasks across every org they belong to, in percentile order.
+Every live task of every org one person belongs to, in percentile order. It is
+not narrowed to the tasks they hold: the assignee filter does that, and the plan
+is where a person's own list lives.
 _Avoid_: My tasks page, global board
