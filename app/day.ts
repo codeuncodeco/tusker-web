@@ -8,6 +8,8 @@
  * here calls it.
  */
 
+import { readCookie } from "./cookies";
+
 /** The shape a day takes, as SQLite and the browser both read it. */
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,12 +49,4 @@ export function dayName(day: string): string {
 export function dayOf(request: Request, now: Date = new Date()): string {
   const said = readCookie(request, DAY_COOKIE);
   return said && isDay(said) ? said : localDay(now);
-}
-
-function readCookie(request: Request, name: string): string | null {
-  for (const pair of (request.headers.get("cookie") ?? "").split(";")) {
-    const [key, ...value] = pair.trim().split("=");
-    if (key === name) return decodeURIComponent(value.join("="));
-  }
-  return null;
 }

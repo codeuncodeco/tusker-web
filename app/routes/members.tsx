@@ -5,7 +5,6 @@ import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
 import { inviteToOrg } from "../invites.server";
 import { createMailer } from "../mail.server";
-import { OrgNav } from "../org-nav";
 import { listMembers } from "../orgs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/members";
@@ -19,7 +18,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
   return {
     org: { slug: scope.org.slug, name: scope.org.name, kind: scope.org.kind },
     members: await listMembers(env.DB, scope.org.id),
@@ -28,7 +27,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   if (scope.org.kind === "personal") return { error: PERSONAL_ORG };
 
@@ -55,11 +54,8 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
   const { org, members } = loaderData;
 
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
-      <header className="flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <OrgNav slug={org.slug} here="members" />
-      </header>
+    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
 
       <ul className="flex flex-col gap-1">
         {members.map((member) => (

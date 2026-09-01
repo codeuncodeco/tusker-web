@@ -99,7 +99,7 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
   const email = actionData?.email ?? "";
 
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-8 p-8">
+    <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-8 p-8">
       <h1 className="text-3xl font-semibold tracking-tight">Sign in to Tusker</h1>
 
       {actionData?.error ? (

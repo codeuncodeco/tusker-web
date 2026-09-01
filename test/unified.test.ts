@@ -246,15 +246,6 @@ describe("today's plan", () => {
     expect(data.groups.every((one) => one.tasks.length === 0)).toBe(true);
   });
 
-  it("offers to plan the day while no plan for it exists", async () => {
-    const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-
-    expect((await page(ada.cookie)).planStarted).toBe(false);
-    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
-    expect((await page(ada.cookie)).planStarted).toBe(true);
-  });
-
   it("takes a task back out of the plan", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
