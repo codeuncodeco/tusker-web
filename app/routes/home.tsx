@@ -1,7 +1,8 @@
-import { Link } from "react-router";
+import { Link, redirect } from "react-router";
 
 import { noAccountYet } from "../accounts.server";
 import { cloudflareEnv } from "../context.server";
+import { getSession } from "../session.server";
 import type { Route } from "./+types/home";
 
 export function meta(_: Route.MetaArgs) {
@@ -11,8 +12,11 @@ export function meta(_: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
-  return { empty: await noAccountYet(context.get(cloudflareEnv).DB) };
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const env = context.get(cloudflareEnv);
+  // A signed-in person has no use for this page. Their tasks are the answer.
+  if (await getSession(request, env)) throw redirect("/me");
+  return { empty: await noAccountYet(env.DB) };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {

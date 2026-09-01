@@ -1,9 +1,12 @@
-import { Form, redirect, useSearchParams } from "react-router";
+import { Form, Link, redirect, useSearchParams } from "react-router";
 
 import { createAuth } from "../auth.server";
 import { cloudflareEnv } from "../context.server";
 import { MIN_PASSWORD, fieldClass } from "../forms";
 import type { Route } from "./+types/reset-password";
+
+/** The one message a dead link earns, from the action and from `?error=`. */
+const STALE = "That link is wrong or too old.";
 
 export function meta(_: Route.MetaArgs) {
   return [{ title: "Set a new password — Tusker" }];
@@ -14,7 +17,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const token = String(form.get("token") ?? "");
   const password = String(form.get("password") ?? "");
 
-  if (!token) return { error: "That link carries no token. Ask for a new one." };
+  if (!token) return { error: "That link carries no token." };
   if (password.length < MIN_PASSWORD) {
     return { error: `The password needs ${MIN_PASSWORD} characters or more.` };
   }
@@ -24,7 +27,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     .resetPassword({ body: { token, newPassword: password }, headers: request.headers })
     .catch(() => null);
 
-  if (!done) return { error: "That link is wrong or too old. Ask for a new one." };
+  if (!done) return { error: STALE };
   throw redirect("/login");
 }
 
@@ -32,7 +35,7 @@ export default function ResetPassword({ actionData }: Route.ComponentProps) {
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
   // better-auth sends a wrong or old link here with `?error=`, and no token.
-  const stale = params.get("error") ? "That link is wrong or too old. Ask for a new one." : null;
+  const stale = params.get("error") ? STALE : null;
   const error = actionData?.error ?? stale;
 
   return (
@@ -41,7 +44,13 @@ export default function ResetPassword({ actionData }: Route.ComponentProps) {
 
       {error ? (
         <p role="alert" className="rounded border border-red-300 p-3 text-red-700 dark:border-red-800 dark:text-red-400">
-          {error}
+          {error}{" "}
+          {/* A dead token answers the same way every time, so the message
+              carries the way out, not only the bad news. */}
+          <Link to="/login" className="underline">
+            Ask for a new one
+          </Link>
+          .
         </p>
       ) : null}
 
