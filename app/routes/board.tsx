@@ -10,8 +10,8 @@ import {
   type Status,
   type Toggles,
 } from "../board";
-import { drawsAssignees, type Holder } from "../assignees";
-import { holdersByTask } from "../assignees.server";
+import { drawsAssignees, type Assignee } from "../assignees";
+import { assigneesByTask } from "../assignees.server";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
@@ -37,7 +37,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /** What one card shows. The task page reads the rest of the row. */
-type Card = { id: string; title: string; fields: Shown[]; holders: Holder[] };
+type Card = { id: string; title: string; fields: Shown[]; assignees: Assignee[] };
 
 /** True while the board is narrowed to today's plan. */
 function readToday(params: URLSearchParams): boolean {
@@ -78,9 +78,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const colors = await listColors(env.DB, scope);
   // Who holds each task, for the whole org in one read. A personal org holds
   // one member, so it draws none. See ADR-0013.
-  const holders = drawsAssignees(scope.org)
-    ? await holdersByTask(env.DB, scope)
-    : new Map<string, Holder[]>();
+  const assignees = drawsAssignees(scope.org)
+    ? await assigneesByTask(env.DB, scope)
+    : new Map<string, Assignee[]>();
   // The chip narrows the board to the tasks today's plan holds. A null plan is
   // a day the person has not planned, and then the board offers no chip.
   const day = dayOf(request);
@@ -106,7 +106,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
           id: task.id,
           title: task.title,
           fields: shownOnCard(declared, task.data, labels, colors),
-          holders: holders.get(task.id) ?? [],
+          assignees: assignees.get(task.id) ?? [],
         }),
       ),
   }));
@@ -262,7 +262,7 @@ function CardItem({
         <Link to={`/o/${slug}/t/${card.id}`} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
-        <Initials holders={card.holders} />
+        <Initials assignees={card.assignees} />
       </span>
 
       {card.fields.length > 0 ? (

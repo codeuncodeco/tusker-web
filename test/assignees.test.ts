@@ -113,7 +113,7 @@ describe("initials", () => {
     expect(initialsOf({ name: "Ada", email: "ada@tusker.test" })).toBe("A");
   });
 
-  it("falls back to the email for an account with no name", () => {
+  it("uses the email when the account has no name", () => {
     expect(initialsOf({ name: "", email: "grace@tusker.test" })).toBe("G");
   });
 });
@@ -135,7 +135,7 @@ describe("the metadata aside", () => {
     const page = await taskPage(ada.cookie, org.slug, id);
     expect(page.task.status).toBe("in_progress");
     expect(page.task.due_date).toBe("2026-09-20");
-    expect(page.holders.map((one) => one.name)).toEqual(["Ada Lovelace", "Grace Hopper"]);
+    expect(page.assignees.map((one) => one.name)).toEqual(["Ada Lovelace", "Grace Hopper"]);
   });
 
   it("names only the members the form asks for", async () => {
@@ -226,6 +226,23 @@ describe("the metadata aside", () => {
     });
   });
 
+  it("is a row the database refuses when the two orgs disagree", async () => {
+    const ada = await member("ada@tusker.test", "Ada Lovelace");
+    const grace = await member("grace@tusker.test", "Grace Hopper");
+    const hikes = await team("hikes", [ada.person]);
+    const boats = await team("boats", [grace.person]);
+    const id = await task(hikes.id, "walk");
+
+    // The route never writes this row. The keys say so anyway, so the rule
+    // does not rest on every caller remembering it. See ADR-0013.
+    await expect(
+      db
+        .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
+        .bind(id, boats.id, grace.person.id)
+        .run(),
+    ).rejects.toThrow();
+  });
+
   it("drops an assignee who is no longer a member, and errors on nothing", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const grace = await member("grace@tusker.test", "Grace Hopper");
@@ -241,7 +258,7 @@ describe("the metadata aside", () => {
 
     expect(await heldBy(id)).toEqual([ada.person.id]);
     const page = await taskPage(ada.cookie, org.slug, id);
-    expect(page.holders.map((one) => one.name)).toEqual(["Ada Lovelace"]);
+    expect(page.assignees.map((one) => one.name)).toEqual(["Ada Lovelace"]);
   });
 
   it("draws no picker in a personal org", async () => {
@@ -251,7 +268,7 @@ describe("the metadata aside", () => {
 
     const page = await taskPage(ada.cookie, org.slug, id);
     expect(page.members).toEqual([]);
-    expect(page.holders).toEqual([]);
+    expect(page.assignees).toEqual([]);
   });
 });
 
@@ -266,7 +283,7 @@ describe("a card", () => {
 
     const page = await board(ada.cookie, org.slug);
     const todo = page.columns.find((column) => column.status === "todo")!;
-    expect(todo.tasks[0].holders.map((one) => one.initials)).toEqual(["AL", "GH"]);
+    expect(todo.tasks[0].assignees.map((one) => one.initials)).toEqual(["AL", "GH"]);
   });
 
   it("draws none in a personal org", async () => {
@@ -276,7 +293,7 @@ describe("a card", () => {
 
     const page = await board(ada.cookie, org.slug);
     const todo = page.columns.find((column) => column.status === "todo")!;
-    expect(todo.tasks[0].holders).toEqual([]);
+    expect(todo.tasks[0].assignees).toEqual([]);
   });
 });
 

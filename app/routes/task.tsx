@@ -1,13 +1,13 @@
 import { Form, Link } from "react-router";
 
-import { drawsAssignees, holderOf, type Holder } from "../assignees";
-import { holdersOf, readAssignees, setAssignees } from "../assignees.server";
+import { assigneeOf, drawsAssignees, inNameOrder, type Assignee } from "../assignees";
+import { assigneesOf, readAssignees, setAssignees } from "../assignees.server";
 import { STATUSES, STATUS_LABEL, readStatus, type Status } from "../board";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { DecisionPrompt } from "../decision-prompt";
-import { askedOn, decide, finishTask, promptFor } from "../decisions.server";
+import { askedOn, decide, finishTask, moveAndAsk } from "../decisions.server";
 import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
@@ -16,7 +16,7 @@ import { OrgNav } from "../org-nav";
 import { listMembers } from "../orgs.server";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
-import { moveTask, readDueDate, readTask, saveTask } from "../tasks.server";
+import { readDueDate, readTask, saveTask } from "../tasks.server";
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -48,13 +48,18 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       decides: task.decides === 1,
     },
     fields,
-    /** The org's members, as the picker offers them. Empty for a personal org. */
-    members: assignable ? (await listMembers(env.DB, scope.org.id)).map(holderOf) : [],
+    /**
+     * The org's members, as the picker offers them, in the order a card draws
+     * them. Empty for a personal org.
+     */
+    members: assignable
+      ? (await listMembers(env.DB, scope.org.id)).map(assigneeOf).sort(inNameOrder)
+      : [],
     /**
      * Who holds the task now. A member the org has lost is gone from this
      * list already: the membership took the assignment with it.
      */
-    holders: assignable ? await holdersOf(env.DB, scope, task.id) : [],
+    assignees: assignable ? await assigneesOf(env.DB, scope, task.id) : [],
     // The cached options each reference field draws. The refs key that filled
     // that cache stays on the server: this payload goes to the browser.
     refs: await refPickers(env.DB, scope, fields, task.data),
@@ -108,9 +113,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const read = readData(await listFields(env.DB, scope), form);
   if ("error" in read) return read;
 
-  // A control the form does not carry changes nothing. The aside posts all
-  // three, so this covers a post from anywhere else — the box a card opens
-  // once it exists, and every test of one field of this form.
+  // A control the form does not carry changes nothing. The aside posts the
+  // box, so an absent one is a post from another form and not a cleared date.
   const due = form.has("due_date") ? readDueDate(form) : { dueDate: task.due_date };
   if ("error" in due) return due;
 
@@ -142,11 +146,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // unchanged status moves nothing, so a save does not send the card to the
   // bottom of its own column. See ADR-0010.
   if (status !== task.status) {
-    const moved = await moveTask(env.DB, scope, { taskId: params.taskId, status, before: null });
-    if (moved.finished) {
-      const prompt = await promptFor(env.DB, scope, request, params.taskId);
-      if (prompt) return prompt;
-    }
+    const moved = await moveAndAsk(env.DB, scope, request, params.taskId, status);
+    if (!moved.moved) throw new Response("Not found", { status: 404 });
+    if (moved.prompt) return moved.prompt;
   }
 
   return { ok: true };
@@ -268,15 +270,15 @@ function MetadataAside({
   status,
   dueDate,
   members,
-  holders,
+  assignees,
 }: {
   status: Status;
   dueDate: string | null;
   /** The org's members. Empty for a personal org, which draws no picker. */
-  members: Holder[];
-  holders: Holder[];
+  members: Assignee[];
+  assignees: Assignee[];
 }) {
-  const held = new Set(holders.map((one) => one.id));
+  const held = new Set(assignees.map((one) => one.id));
 
   return (
     <aside className="flex w-full shrink-0 flex-col gap-3 rounded-lg border border-neutral-200 p-4 text-sm sm:w-64 dark:border-neutral-800">
@@ -322,7 +324,7 @@ function MetadataAside({
 }
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, fields, refs, colors, members, holders, ask } = loaderData;
+  const { org, task, fields, refs, colors, members, assignees, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
@@ -384,7 +386,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           status={task.status}
           dueDate={task.due_date}
           members={members}
-          holders={holders}
+          assignees={assignees}
         />
       </Form>
 

@@ -11,66 +11,69 @@
  * fences a task row.
  */
 
-import { holderOf, type Holder } from "./assignees";
+import { assigneeOf, inNameOrder, type Assignee } from "./assignees";
 import type { Scope } from "./scope.server";
 
-/** The account columns a holder is drawn from. */
+/** The account columns an assignee is drawn from. */
 type MemberRow = { id: string; name: string; email: string };
 
 /** The same, with the task the row hangs on, for a whole board in one read. */
 type HeldRow = MemberRow & { task_id: string };
 
-/**
- * The members who hold one task, in the order a card draws them.
- *
- * The name orders the list, so a card's initials do not shuffle between two
- * draws of the same task.
- */
-const HOLDER_COLUMNS = `u.id, u.name, u.email`;
-const IN_NAME_ORDER = "ORDER BY u.name, u.email, u.id";
+/** The account columns every read here answers with. */
+const ACCOUNT_COLUMNS = "u.id, u.name, u.email";
 
-/** The members who hold one task of the org. */
-export async function holdersOf(db: D1Database, scope: Scope, taskId: string): Promise<Holder[]> {
+/**
+ * The members who hold one task of the org.
+ *
+ * The name orders the list, in the code and not in the SQL, because the name a
+ * screen reads is the email when the account carries none. Sorting the raw
+ * column would put those two rules out of step with each other.
+ */
+export async function assigneesOf(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+): Promise<Assignee[]> {
   const { results } = await db
     .prepare(
-      `SELECT ${HOLDER_COLUMNS}
+      `SELECT ${ACCOUNT_COLUMNS}
        FROM task_assignees a
        JOIN "user" u ON u.id = a.user_id
-       WHERE a.task_id = ? AND a.org_id = ?
-       ${IN_NAME_ORDER}`,
+       WHERE a.task_id = ? AND a.org_id = ?`,
     )
     .bind(taskId, scope.org.id)
     .all<MemberRow>();
-  return results.map(holderOf);
+  return results.map(assigneeOf).sort(inNameOrder);
 }
 
 /**
- * The holders of every task of the org, keyed by task id.
+ * The assignees of every task of the org, keyed by task id.
  *
  * A board draws a column of cards, so it reads the whole org at once. A task
  * nobody holds is absent from the map, which is what unassigned means.
  */
-export async function holdersByTask(
+export async function assigneesByTask(
   db: D1Database,
   scope: Scope,
-): Promise<Map<string, Holder[]>> {
+): Promise<Map<string, Assignee[]>> {
   const { results } = await db
     .prepare(
-      `SELECT a.task_id, ${HOLDER_COLUMNS}
+      `SELECT a.task_id, ${ACCOUNT_COLUMNS}
        FROM task_assignees a
        JOIN "user" u ON u.id = a.user_id
-       WHERE a.org_id = ?
-       ${IN_NAME_ORDER}`,
+       WHERE a.org_id = ?`,
     )
     .bind(scope.org.id)
     .all<HeldRow>();
 
-  const held = new Map<string, Holder[]>();
+  const held = new Map<string, Assignee[]>();
   for (const row of results) {
-    const holders = held.get(row.task_id) ?? [];
-    holders.push(holderOf(row));
-    held.set(row.task_id, holders);
+    const assignees = held.get(row.task_id) ?? [];
+    assignees.push(assigneeOf(row));
+    held.set(row.task_id, assignees);
   }
+  for (const assignees of held.values()) assignees.sort(inNameOrder);
   return held;
 }
 
@@ -111,7 +114,7 @@ export async function readAssignees(
  * else.
  *
  * The old rows go and the new ones land in one batch, because a task that
- * loses its holders and does not gain the new ones is a task the board draws
+ * loses its assignees and does not gain the new ones is a task the board draws
  * as unassigned. The caller checked the ids with `readAssignees`, and the
  * foreign key checks them again.
  */

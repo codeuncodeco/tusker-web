@@ -8,7 +8,7 @@
  */
 
 /** One assignee, as a card and a picker draw them. */
-export type Holder = { id: string; name: string; initials: string };
+export type Assignee = { id: string; name: string; initials: string };
 
 /** The name a picker shows, which is the email when the account has no name. */
 export function nameOf(member: { name: string; email: string }): string {
@@ -30,8 +30,20 @@ export function initialsOf(member: { name: string; email: string }): string {
 }
 
 /** One member, as both a card and a picker read them. */
-export function holderOf(member: { id: string; name: string; email: string }): Holder {
+export function assigneeOf(member: { id: string; name: string; email: string }): Assignee {
   return { id: member.id, name: nameOf(member), initials: initialsOf(member) };
+}
+
+/**
+ * The order a name reads in. The picker and the card both take it, so the
+ * boxes a person ticks and the initials the card draws sit in one sequence.
+ */
+export function inNameOrder(a: Assignee, b: Assignee): number {
+  return a.name < b.name ? -1 : a.name > b.name ? 1 : compare(a.id, b.id);
+}
+
+function compare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
