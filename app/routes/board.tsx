@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useFetcher, useSearchParams } from "react-router";
 
 import {
@@ -18,7 +18,7 @@ import { askedOn, decide, promptFor } from "../decisions.server";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
-import { QuickAddBox } from "../quick-add";
+import { QuickAddBox, useQuickAddDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { listOrgsForPerson } from "../orgs.server";
@@ -175,26 +175,22 @@ export async function action({ request, context, params }: Route.ActionArgs) {
  */
 function QuickAdd({ status, label }: { status: Status; label: string }) {
   const add = useFetcher<typeof action>();
-  const [title, setTitle] = useState("");
-  const [decides, setDecides] = useState(false);
+  const draft = useQuickAddDraft();
   const error = add.data && "error" in add.data ? add.data.error : null;
+  const { clear } = draft;
 
   useEffect(() => {
     if (add.state !== "idle" || !add.data || !("ok" in add.data)) return;
-    setTitle("");
-    setDecides(false);
-  }, [add.state, add.data]);
+    clear();
+  }, [add.state, add.data, clear]);
 
   return (
     <QuickAddBox
       form={add.Form}
       label={`Add to ${label}`}
-      title={title}
-      onTitle={setTitle}
-      decides={decides}
-      onDecides={setDecides}
+      draft={draft}
       error={error}
-      above={<input type="hidden" name="status" value={status} />}
+      fields={<input type="hidden" name="status" value={status} />}
     />
   );
 }

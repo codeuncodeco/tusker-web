@@ -14,7 +14,7 @@ import { useFetcher } from "react-router";
 import { useAddingTo } from "./adding";
 import { fieldClass } from "./forms";
 import { isPagePress } from "./keys";
-import { QuickAddBox } from "./quick-add";
+import { QuickAddBox, useQuickAddDraft } from "./quick-add";
 import type { SwitchTo } from "./org-switcher";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -34,8 +34,7 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
   const [picked, pick] = useAddingTo();
 
   // The box keeps the words, so an undo can give them back.
-  const [title, setTitle] = useState("");
-  const [decides, setDecides] = useState(false);
+  const draft = useQuickAddDraft();
   // The last add, until the next one, the dismiss or the end of the page.
   const [last, setLast] = useState<Added | null>(null);
   // Counts the undos, so each one puts the person back on the picker.
@@ -56,9 +55,8 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
   useEffect(() => {
     if (add.state !== "idle" || !answer || !("added" in answer)) return;
     setLast(answer.added);
-    setTitle("");
-    setDecides(false);
-  }, [add.state, answer]);
+    draft.clear();
+  }, [add.state, answer, draft.clear]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -84,8 +82,8 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
   function refile(one: Added) {
     undo.submit({ intent: "undo", id: one.id, slug: one.slug }, { method: "post" });
     setLast(null);
-    setTitle(one.title);
-    setDecides(one.decides);
+    draft.setTitle(one.title);
+    draft.setDecides(one.decides);
     // A person undoes when the org was wrong, so the picker starts over.
     pick(null);
     setUndone((count) => count + 1);
@@ -96,10 +94,7 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
       <QuickAddBox
         form={add.Form}
         label="Add a task"
-        title={title}
-        onTitle={setTitle}
-        decides={decides}
-        onDecides={setDecides}
+        draft={draft}
         error={error}
         titleRef={box}
         // Escape leaves the box, and the list gets `j`, `k` and the rest back.
@@ -107,7 +102,12 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
           if (event.key !== "Escape") return;
           (event.target as HTMLElement).blur();
         }}
-        above={
+        fields={
+          /* A person with only their personal org has no choice to make, so
+             the org is a hidden field rather than a picker. */
+          orgs.length > 1 ? null : <input type="hidden" name="slug" value={personal.slug} />
+        }
+        chip={
           /* The chip that names a team org, because a task filed in one is on
              every member's board. The personal org stays quiet. */
           filing.kind === "team" ? (
@@ -116,8 +116,7 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
             </p>
           ) : null
         }
-        beside={
-          /* A person with only their personal org has no choice to make. */
+        picker={
           orgs.length > 1 ? (
             <select
               ref={picker}
@@ -133,9 +132,7 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
                 </option>
               ))}
             </select>
-          ) : (
-            <input type="hidden" name="slug" value={personal.slug} />
-          )
+          ) : null
         }
       />
 
