@@ -51,9 +51,13 @@ export function isRefsBaseUrl(text: string): boolean {
  *
  * A path carries no scheme, no `//` prefix and no `..` segment. This is what
  * stops a field sending the org app's key to another host.
+ *
+ * A per cent sign is refused with the rest. A segment needs no escape, and the
+ * URL parser reads `%2e%2e` as `..`, so allowing the escape would let a path
+ * climb out of the base by spelling the same segment another way.
  */
 export function isRefsPath(text: string): boolean {
-  if (!/^[A-Za-z0-9._~%-]+(?:\/[A-Za-z0-9._~%-]+)*$/.test(text)) return false;
+  if (!/^[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/.test(text)) return false;
   return !text.split("/").includes("..");
 }
 
@@ -70,4 +74,21 @@ export function refsUrl(base: string, path: string): string | null {
   const origin = new URL(base).origin;
   const joined = new URL(`${base.replace(/\/+$/, "")}/${path}`);
   return joined.origin === origin ? joined.toString() : null;
+}
+
+/**
+ * The org app one org names, as a screen reads it.
+ *
+ * The key is missing on purpose: this goes to the browser, and the key opens
+ * the org app's data. `has_refs_key` is the only question a screen asks of it,
+ * and `refs.server.ts` is the one reader of the key itself.
+ */
+export type OrgApp = { refs_base_url: string; has_refs_key: boolean };
+
+/**
+ * True when the org names both halves of an org app. A reference field reads
+ * under an address with a key, so one half is as good as none.
+ */
+export function isLinked(app: OrgApp): boolean {
+  return app.refs_base_url !== "" && app.has_refs_key;
 }

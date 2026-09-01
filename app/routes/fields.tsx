@@ -24,7 +24,7 @@ import {
 import { fieldClass } from "../forms";
 import { OrgNav } from "../org-nav";
 import { readOrgApp } from "../orgs.server";
-import { isRefsPath } from "../refs";
+import { isLinked, isRefsPath } from "../refs";
 import { refOptionsOfOrg, refreshField } from "../refs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/fields";
@@ -158,11 +158,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
     // A reference field reads under the org app the org names. Declaring one
     // before that pair is set would make a field that can never pull.
-    if (type === "reference") {
-      const app = await readOrgApp(env.DB, scope);
-      if (!app.refs_base_url || !app.has_refs_key) {
-        return { error: "This org names no org app yet. Set its base URL and key in settings." };
-      }
+    if (type === "reference" && !isLinked(await readOrgApp(env.DB, scope))) {
+      return { error: "This org names no org app yet. Set its base URL and key in settings." };
     }
 
     const wrong = check(type, { options, refs_path });
@@ -400,7 +397,7 @@ function DeclaredField({
 
 export default function Fields({ loaderData, actionData }: Route.ComponentProps) {
   const { org, fields, cached, colors, app } = loaderData;
-  const linked = app.refs_base_url !== "" && app.has_refs_key;
+  const linked = isLinked(app);
   const error = actionData && "error" in actionData ? actionData.error : null;
   const pulled = actionData && "pulled" in actionData ? actionData.pulled : null;
 

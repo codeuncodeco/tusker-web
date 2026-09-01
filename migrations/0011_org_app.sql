@@ -15,25 +15,32 @@
 ALTER TABLE orgs ADD COLUMN refs_base_url TEXT NOT NULL DEFAULT '';
 ALTER TABLE orgs ADD COLUMN refs_key TEXT NOT NULL DEFAULT '';
 
--- The backfill reads the first reference field of each org: the origin and the
--- shared prefix become the org's base URL, and the key becomes the org's key.
+-- The backfill reads the first keyed reference field of each org: the origin
+-- and the shared prefix become the org's base URL, and the key becomes the
+-- org's key. Both halves come from that one row, so the org never ends with one
+-- field's address and another field's key.
+--
 -- One org, one app, two fields today, so this is exact. A wrong backfill shows
 -- as a failed pull with a readable reason, and one paste fixes it.
 --
 -- `rtrim(url, replace(url, '/', ''))` cuts the last segment off a URL: it
 -- strips every trailing character that is not a slash, and stops at the last
--- slash. A second rtrim drops that slash.
+-- slash. The outer rtrim drops that slash, and the inner one drops a trailing
+-- slash the URL already carried, which would otherwise leave the field with an
+-- empty path.
 UPDATE orgs SET
   refs_base_url = coalesce((
-    SELECT rtrim(rtrim(f.source_url, replace(f.source_url, '/', '')), '/')
+    SELECT rtrim(rtrim(rtrim(f.source_url, '/'), replace(f.source_url, '/', '')), '/')
     FROM org_fields f
-    WHERE f.org_id = orgs.id AND f.type = 'reference' AND f.source_url <> ''
+    WHERE f.org_id = orgs.id AND f.type = 'reference'
+      AND f.source_url <> '' AND f.refs_key <> ''
     ORDER BY f.position, f.key LIMIT 1
   ), ''),
   refs_key = coalesce((
     SELECT f.refs_key
     FROM org_fields f
-    WHERE f.org_id = orgs.id AND f.type = 'reference' AND f.source_url <> ''
+    WHERE f.org_id = orgs.id AND f.type = 'reference'
+      AND f.source_url <> '' AND f.refs_key <> ''
     ORDER BY f.position, f.key LIMIT 1
   ), '');
 
@@ -41,7 +48,10 @@ UPDATE orgs SET
 ALTER TABLE org_fields RENAME COLUMN source_url TO refs_path;
 
 UPDATE org_fields
-SET refs_path = substr(refs_path, length(rtrim(refs_path, replace(refs_path, '/', ''))) + 1)
+SET refs_path = substr(
+  rtrim(refs_path, '/'),
+  length(rtrim(rtrim(refs_path, '/'), replace(refs_path, '/', ''))) + 1
+)
 WHERE type = 'reference' AND refs_path <> '';
 
 ALTER TABLE org_fields DROP COLUMN refs_key;

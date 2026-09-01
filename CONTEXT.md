@@ -139,6 +139,12 @@ The read-only endpoint an org app exposes for one list. It sits at the org's
 refs base URL plus the field's refs path, and it returns `{id, label}` rows and
 nothing else.
 
+**Refs path**:
+The list one reference field reads, under its org's refs base URL, as `trails`.
+It carries no scheme, no `//` prefix and no `..`, so it cannot move the host the
+refs key is sent to.
+_Avoid_: Source URL, endpoint path, field URL
+
 **Refs base URL**:
 The address of an org's org app, as far as the part every refs endpoint of it
 shares. The org holds it, a reference field adds its refs path, and the joined

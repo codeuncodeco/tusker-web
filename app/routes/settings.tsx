@@ -55,8 +55,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
     await setOrgApp(env.DB, scope, { refs_base_url: base, refs_key: key });
 
-    // Rotation is the reason this pair sits in one place, so a paste says what
-    // it did. A silent save is the failure it has to remove.
+    // The save says what it did, because a paste that reached no field is
+    // otherwise silent until a picker stops filling.
     return { app: await refreshOrgFields(env.DB, scope) };
   }
 

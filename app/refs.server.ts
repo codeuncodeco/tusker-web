@@ -31,7 +31,6 @@ type Source = {
 const SOURCE_SELECT = `SELECT f.org_id, f.key, f.refs_path, o.refs_base_url, o.refs_key
   FROM org_fields f JOIN orgs o ON o.id = f.org_id`;
 
-
 /** What became of a pull: the options it cached, or why it cached none. */
 export type Pulled = { pulled: number } | { error: string };
 
@@ -249,9 +248,9 @@ export async function refreshEveryField(db: D1Database): Promise<Refreshed> {
  * Pulls every reference field of one org, right after a person saved the org
  * app's base URL and key.
  *
- * Rotation is what this issue is about, so a paste that answers nothing is the
- * failure to remove. A field that names no path is counted as a failure here,
- * because the person is looking at the answer and can go and fix it.
+ * A rotation that only half worked must not be silent, so the save reports
+ * what answered. A field that names no path counts as a failure here, because
+ * the person is looking at the answer and can go and fix it.
  */
 export async function refreshOrgFields(db: D1Database, scope: Scope): Promise<Refreshed> {
   const { results } = await db

@@ -1,3 +1,4 @@
+import type { OrgApp } from "./refs";
 import type { ReadScope, Scope } from "./scope.server";
 
 export type Org = {
@@ -200,15 +201,6 @@ export async function addMemberById(
   return done.meta.changes > 0 ? "added" : "already";
 }
 
-
-/**
- * The org app one org names, as a screen reads it.
- *
- * The key is missing on purpose: this goes to the browser, and the key opens
- * the org app's data. `has_refs_key` is the only question the screen answers,
- * and `refs.server.ts` is the one reader of the key itself.
- */
-export type OrgApp = { refs_base_url: string; has_refs_key: boolean };
 
 /** The org app of one org. An org that names none reads as empty and unkeyed. */
 export async function readOrgApp(db: D1Database, scope: ReadScope): Promise<OrgApp> {

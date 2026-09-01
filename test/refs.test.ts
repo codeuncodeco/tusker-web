@@ -183,6 +183,8 @@ describe("the refs path and the base URL", () => {
     expect(isRefsPath("/trails")).toBe(false);
     expect(isRefsPath("../../trails")).toBe(false);
     expect(isRefsPath("a/../../trails")).toBe(false);
+    // The URL parser reads this as `..`, so the escape goes with the rest.
+    expect(isRefsPath("%2e%2e/trails")).toBe(false);
   });
 
   it("joins the base and the path, and answers null when the pair makes no URL", () => {
@@ -192,6 +194,7 @@ describe("the refs path and the base URL", () => {
     expect(refsUrl("", "trails")).toBeNull();
     expect(refsUrl("blrhikes.test/refs", "trails")).toBeNull();
     expect(refsUrl(BASE, "../../../evil")).toBeNull();
+    expect(refsUrl(BASE, "%2e%2e/%2e%2e/evil")).toBeNull();
     expect(refsUrl(BASE, "https://elsewhere.test/trails")).toBeNull();
   });
 });

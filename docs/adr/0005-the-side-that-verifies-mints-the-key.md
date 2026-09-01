@@ -11,14 +11,14 @@ carries its own key.
 One rule covers both: the side that verifies a key is the side that mints it.
 Tusker mints the org key and stores it hashed, because Tusker verifies the task
 reads. The org app mints the refs key and stores it hashed, because the org app
-verifies the refs reads. Tusker holds the plaintext refs key on the org, beside
-the org app's base URL.
+verifies the refs reads.
 
-Where Tusker parks that plaintext changed once. It first sat on each reference
-field. But the org app hashes the bearer and never reads which list was asked
-for, so one key already opened every list that app serves: the field was the
-wrong owner, and rotation was one edit per field. The org holds it now, and a
-reference field names only the list. Who mints is unchanged.
+Tusker holds the plaintext refs key on the org, beside the org app's base URL,
+because the key opens the org app and not one list of it: the org app hashes the
+bearer and never reads which list was asked for. A reference field names only
+the list. Holding one key per field would scale the credential with the number
+of fields rather than with the number of apps, and make rotation one edit per
+field, where a missed paste stops one picker and says nothing.
 
 The alternative was for Tusker to mint both keys. That is one screen instead of
 N, but it gives Tusker a credential to data it does not own, and it takes
