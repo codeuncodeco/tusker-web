@@ -95,3 +95,9 @@ function byDueDate(a: string | null, b: string | null): number {
 function compare(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
+
+/**
+ * What a quick add left behind, so the box can offer to undo it and then give
+ * the person their words back. See ADR-0012.
+ */
+export type Added = { id: string; slug: string; title: string; decides: boolean };

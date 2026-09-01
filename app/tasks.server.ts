@@ -82,6 +82,19 @@ function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: R
 }
 
 /**
+ * The title and the mark a quick-add box posts, or the reason it makes no
+ * task. Both boxes read a form the same way, so the two say the same thing to
+ * a person who presses Enter on an empty one.
+ */
+export function newTaskFrom(form: FormData): { title: string; decides: boolean } | { error: string } {
+  const title = String(form.get("title") ?? "").trim();
+  if (!title) return { error: "A task needs a title." };
+  // The mark goes on when the task is made, while the thought is there. It is
+  // off by default, so an unticked box is a task that decides nothing.
+  return { title, decides: form.get("decides") === "1" };
+}
+
+/**
  * Adds a task at the top of its column, where a person looks for the one they
  * just typed. The scope carries the org id, so the membership check is already
  * done: `org_id` is the only fence.
@@ -106,6 +119,30 @@ export async function createTask(
   const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Row>();
   if (!made) throw new Error("The task disappeared right after the insert.");
   return asTask(made);
+}
+
+/**
+ * Deletes one task of the org, row and all.
+ *
+ * It is the only delete Tusker has: the undo of a quick add, on a row made
+ * seconds ago. Archiving instead would leave a real row in a team org that
+ * never wanted it, which is the failure ADR-0012 sets out to prevent.
+ *
+ * A decision the task produced stays, with its link cleared, because a
+ * decision outlives the task.
+ *
+ * Returns false when no row matched, so the route can answer 404.
+ */
+export async function deleteTask(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+): Promise<boolean> {
+  const done = await db
+    .prepare("DELETE FROM tasks WHERE id = ? AND org_id = ?")
+    .bind(taskId, scope.org.id)
+    .run();
+  return done.meta.changes > 0;
 }
 
 /** What a move did: whether a row moved, and whether the move finished it. */

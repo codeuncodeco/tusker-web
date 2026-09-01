@@ -17,6 +17,7 @@ import { OrgSwitcher } from "../org-switcher";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
+import { UnifiedAdd } from "../unified-add";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
 import { UnifiedList } from "../unified-list";
@@ -69,6 +70,10 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
         <OrgSwitcher orgs={orgs} />
       </header>
+
+      {/* The box files into the org the picker names, and plans nothing: on
+          this page an add is an add. See ADR-0012. */}
+      <UnifiedAdd orgs={orgs} />
 
       {planStarted ? null : (
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
