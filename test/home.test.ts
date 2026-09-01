@@ -10,22 +10,32 @@ import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 const EMAIL = "ada@example.test";
 const PASSWORD = "correct horse battery";
 
-beforeEach(async () => {
-  await wipe();
-});
+beforeEach(wipe);
+
+/** The first account, which the landing rule reads as "the instance is in use". */
+async function takeTheSeat() {
+  const auth = createAuth(env, get("/"));
+  return createAccount(auth, { email: EMAIL, name: "Ada", password: PASSWORD });
+}
 
 /** An account and the cookie that signs it in. */
 async function signedIn() {
-  const auth = createAuth(env, get("/"));
-  await createAccount(auth, { email: EMAIL, name: "Ada", password: PASSWORD });
+  await takeTheSeat();
   const response = (await loginRoute.action(
     routeArgs(post("/login", { intent: "password", email: EMAIL, password: PASSWORD })),
   )) as Response;
   return cookieFrom(response);
 }
 
-describe("the home page", () => {
-  it("sends a signed-in person to their tasks", async () => {
+describe("the landing route", () => {
+  it("sends the person to bootstrap while the instance holds no account", async () => {
+    const response = await caught(homeRoute.loader(routeArgs(get("/"))));
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("/bootstrap");
+  });
+
+  it("sends a signed-in person to the unified view", async () => {
     const cookie = await signedIn();
 
     const response = await caught(homeRoute.loader(routeArgs(get("/", cookie))));
@@ -34,18 +44,9 @@ describe("the home page", () => {
     expect(response.headers.get("location")).toBe("/me");
   });
 
-  it("offers a signed-out person the first account when no account exists", async () => {
-    const said = await homeRoute.loader(routeArgs(get("/")));
+  it("shows the landing page to a signed-out person", async () => {
+    await takeTheSeat();
 
-    expect(said).toEqual({ empty: true });
-  });
-
-  it("offers a signed-out person sign-in once an account exists", async () => {
-    const auth = createAuth(env, get("/"));
-    await createAccount(auth, { email: EMAIL, name: "Ada", password: PASSWORD });
-
-    const said = await homeRoute.loader(routeArgs(get("/")));
-
-    expect(said).toEqual({ empty: false });
+    expect(await homeRoute.loader(routeArgs(get("/")))).toBeNull();
   });
 });
