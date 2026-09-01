@@ -16,9 +16,10 @@ import { fieldClass } from "./forms";
 import { isPagePress } from "./keys";
 import type { SwitchTo } from "./org-switcher";
 import type { Added } from "./unified";
+import type { Acted } from "./unified-actions.server";
 
-/** What an act of this box answers with, as the browser reads it. */
-type Answer = { added: Added } | { error: string } | { ok: true };
+/** What an act of this box answers with. A redirect never reaches the browser. */
+type Answer = Exclude<Acted, Response>;
 
 /**
  * The box, or nothing for a person who belongs to no org at all.
@@ -36,13 +37,15 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
   const [decides, setDecides] = useState(false);
   // The last add, until the next one, the dismiss or the end of the page.
   const [last, setLast] = useState<Added | null>(null);
-  // Bumped by an undo, which puts the person back on the picker.
-  const [refiled, setRefiled] = useState(0);
+  // Counts the undos, so each one puts the person back on the picker.
+  const [undone, setUndone] = useState(0);
 
   const box = useRef<HTMLInputElement>(null);
   const picker = useRef<HTMLSelectElement>(null);
 
-  const personal = orgs.find((org) => org.kind === "personal") ?? orgs[0];
+  // Every person has a personal org, and it is first in the set. A person who
+  // belongs to nothing at all has no box to draw.
+  const personal = orgs[0];
   const filing = orgs.find((org) => org.slug === picked) ?? personal;
   const answer = add.data;
   const error = answer && "error" in answer ? answer.error : null;
@@ -70,9 +73,9 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
   // The picker takes the focus a re-file needs, and the title where a person
   // has only their personal org and so has no picker.
   useEffect(() => {
-    if (refiled === 0) return;
+    if (undone === 0) return;
     (picker.current ?? box.current)?.focus();
-  }, [refiled]);
+  }, [undone]);
 
   if (!personal) return null;
 
@@ -84,7 +87,7 @@ export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
     setDecides(one.decides);
     // A person undoes when the org was wrong, so the picker starts over.
     pick(null);
-    setRefiled((count) => count + 1);
+    setUndone((count) => count + 1);
   }
 
   return (

@@ -82,6 +82,19 @@ function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: R
 }
 
 /**
+ * The title and the mark a quick-add box posts, or the reason it makes no
+ * task. Both boxes read a form the same way, so the two say the same thing to
+ * a person who presses Enter on an empty one.
+ */
+export function newTaskFrom(form: FormData): { title: string; decides: boolean } | { error: string } {
+  const title = String(form.get("title") ?? "").trim();
+  if (!title) return { error: "A task needs a title." };
+  // The mark goes on when the task is made, while the thought is there. It is
+  // off by default, so an unticked box is a task that decides nothing.
+  return { title, decides: form.get("decides") === "1" };
+}
+
+/**
  * Adds a task at the top of its column, where a person looks for the one they
  * just typed. The scope carries the org id, so the membership check is already
  * done: `org_id` is the only fence.

@@ -13,21 +13,21 @@
 
 import { createContext, useContext, useState } from "react";
 
-/** The slug the box files into and the way to change it. Null is personal. */
-type Adding = [string | null, (slug: string | null) => void];
+/** The slug the box files into, and the way to change it. Null is personal. */
+type AddingTo = [string | null, (slug: string | null) => void];
 
-const Picked = createContext<Adding>([null, () => {}]);
+const AddingToOrg = createContext<AddingTo>([null, () => {}]);
 
 /** Holds the pick for as long as the person stays in the app. */
-export function AddingTo({ children }: { children: React.ReactNode }) {
+export function AddingProvider({ children }: { children: React.ReactNode }) {
   const [slug, pick] = useState<string | null>(null);
-  return <Picked.Provider value={[slug, pick]}>{children}</Picked.Provider>;
+  return <AddingToOrg.Provider value={[slug, pick]}>{children}</AddingToOrg.Provider>;
 }
 
 /**
- * The slug the box is filing into, or null for the personal org. The box
- * names the personal org itself, because only the page knows which one it is.
+ * The slug the box is filing into, or null for the personal org. The box names
+ * the personal org itself, because only the page knows which one it is.
  */
-export function useAddingTo(): Adding {
-  return useContext(Picked);
+export function useAddingTo(): AddingTo {
+  return useContext(AddingToOrg);
 }

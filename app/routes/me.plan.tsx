@@ -47,6 +47,15 @@ function dayFor(request: Request, named: string | undefined): string {
   return named;
 }
 
+/**
+ * True where the box may add to this day. A plan is never rewritten after its
+ * day, so only the day the person is in takes an add. The loader draws the box
+ * by this, and the action refuses by it. See ADR-0012.
+ */
+function canAddTo(request: Request, day: string): boolean {
+  return day === dayOf(request);
+}
+
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const set = await requireOrgSet(request, env);
@@ -71,12 +80,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     day,
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
-    /**
-     * True where the box may add to this day. A plan is never rewritten after
-     * its day, so a day other than the one the person is in carries no box.
-     * See ADR-0012.
-     */
-    canAdd: day === dayOf(request),
+    /** True where the box may add to this day, and so is drawn at all. */
+    canAdd: canAddTo(request, day),
     /** What the last plan leaves over, or null when there is nothing to offer. */
     leftovers,
     groups,
@@ -113,13 +118,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   }
 
   // An add here is a pick as well, so the task goes to the end of the day.
-  // The day must be the one the person is in: a plan is never rewritten after
-  // its day, and the page draws no box on one it cannot add to.
-  if (intent === "create" && day !== dayOf(request)) {
+  // The page draws no box on a day it cannot add to, and the write says so too.
+  if (intent === "create" && !canAddTo(request, day)) {
     throw new Response("A plan is never rewritten after its day.", { status: 400 });
   }
 
-  const acted = await actOnTask(env, request, set, day, form, { intoPlan: true });
+  const acted = await actOnTask(env, request, set, day, form, true);
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
 
   return acted;

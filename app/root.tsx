@@ -7,7 +7,7 @@ import {
   isRouteErrorResponse,
 } from "react-router";
 
-import { AddingTo } from "./adding";
+import { AddingProvider } from "./adding";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -33,9 +33,9 @@ export default function App() {
   // The org the cross-org quick-add box files into lives here, so the pick
   // holds across a move between pages and dies on a reload. See ADR-0012.
   return (
-    <AddingTo>
+    <AddingProvider>
       <Outlet />
-    </AddingTo>
+    </AddingProvider>
   );
 }
 
