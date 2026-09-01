@@ -47,6 +47,13 @@ The page that makes the first account, at `/bootstrap`. It is open while the
 instance holds no account, and it is a 404 after that.
 _Avoid_: Setup wizard, first-run signup
 
+**Landing**:
+The page at `/` for a person with no session: the product line, the note that
+Tusker is invitation only, and the way in. A signed-in person never sees it,
+because `/` sends that person to the unified view. While the instance holds
+no account, `/` sends the person to Bootstrap.
+_Avoid_: Home page, marketing page, splash
+
 **Scope**:
 Proof that the signed-in person is a member of one org. Every query that reads
 or writes task rows takes a scope, not a bare org id, and one function makes

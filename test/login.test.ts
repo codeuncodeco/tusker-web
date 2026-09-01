@@ -62,14 +62,26 @@ describe("a new account", () => {
 });
 
 describe("sign in", () => {
-  it("takes a password", async () => {
+  it("takes a password and lands on the unified view", async () => {
     await invite();
 
     const response = await signInWithPassword();
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/account");
+    expect(response.headers.get("location")).toBe("/me");
     expect(cookieFrom(response)).toContain("better-auth");
+  });
+
+  it("honours the page the person asked for", async () => {
+    await invite();
+
+    const response = (await loginRoute.action(
+      routeArgs(
+        post("/login", { intent: "password", email: EMAIL, password: PASSWORD, next: "/acme" }),
+      ),
+    )) as Response;
+
+    expect(response.headers.get("location")).toBe("/acme");
   });
 
   it("refuses a wrong password", async () => {

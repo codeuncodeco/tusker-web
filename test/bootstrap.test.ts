@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
 import * as bootstrapRoute from "../app/routes/bootstrap";
-import * as homeRoute from "../app/routes/home";
 import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -26,7 +25,7 @@ describe("the bootstrap route", () => {
     const response = (await setUp()) as Response;
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/account");
+    expect(response.headers.get("location")).toBe("/me");
     expect(cookieFrom(response)).toContain("better-auth");
 
     const org = await db.prepare("SELECT slug, kind FROM orgs").first<{ slug: string; kind: string }>();
@@ -58,17 +57,5 @@ describe("the bootstrap route", () => {
 
   it("opens while no account exists", async () => {
     expect(await bootstrapRoute.loader(routeArgs(get("/bootstrap")))).toBeNull();
-  });
-});
-
-describe("the home page", () => {
-  it("points at the bootstrap route while the instance is empty", async () => {
-    expect(await homeRoute.loader(routeArgs(get("/")))).toEqual({ empty: true });
-  });
-
-  it("stops pointing at it once an account exists", async () => {
-    await takeTheSeat();
-
-    expect(await homeRoute.loader(routeArgs(get("/")))).toEqual({ empty: false });
   });
 });
