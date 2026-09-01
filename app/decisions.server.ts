@@ -13,6 +13,7 @@
 
 import { redirect } from "react-router";
 
+import type { Status } from "./board";
 import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
@@ -60,25 +61,36 @@ export async function promptFor(
 }
 
 /**
- * Finishes a task, and answers with the prompt when the task is marked as one
- * that holds a decision. Finishing is the move the board makes, so one act has
- * one meaning wherever a page offers it.
+ * Moves a task to one status, and answers with the prompt when the move
+ * finished a marked task. Every screen that moves a task by naming a status
+ * calls this, so one act has one meaning wherever a page offers it.
  *
- * Null is a task finished with nothing to ask: an unmarked task, or one that
- * already holds a decision. `moved` is false when the org holds no such row,
- * so the route can answer 404.
+ * Null is a move that asks nothing: one that did not finish the task, an
+ * unmarked task, or one that already holds a decision. `moved` is false when
+ * the org holds no such row, so the route can answer 404.
  */
-export async function finishTask(
+export async function moveAndAsk(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+  taskId: string,
+  status: Status,
+): Promise<{ moved: boolean; prompt: Response | null }> {
+  const moved = await moveTask(db, scope, { taskId, status, before: null });
+  return {
+    moved: moved.moved,
+    prompt: moved.finished ? await promptFor(db, scope, request, taskId) : null,
+  };
+}
+
+/** The same, for the Finish button: the one move that names no status. */
+export function finishTask(
   db: D1Database,
   scope: Scope,
   request: Request,
   taskId: string,
 ): Promise<{ moved: boolean; prompt: Response | null }> {
-  const moved = await moveTask(db, scope, { taskId, status: "done", before: null });
-  return {
-    moved: moved.moved,
-    prompt: moved.finished ? await promptFor(db, scope, request, taskId) : null,
-  };
+  return moveAndAsk(db, scope, request, taskId, "done");
 }
 
 /**

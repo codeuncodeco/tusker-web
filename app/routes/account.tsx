@@ -34,7 +34,7 @@ export default function Account({ loaderData }: Route.ComponentProps) {
   const { person, orgs } = loaderData;
 
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col justify-center gap-6 p-8">
+    <main className="mx-auto flex flex-1 max-w-2xl flex-col justify-center gap-6 p-8">
       <h1 className="text-3xl font-semibold tracking-tight">{person.name || person.email}</h1>
       <p className="text-neutral-600 dark:text-neutral-400">{person.email}</p>
 
@@ -60,10 +60,6 @@ export default function Account({ loaderData }: Route.ComponentProps) {
           New org
         </Link>
       </section>
-
-      <Link to="/me" className="text-sm underline">
-        Your tasks
-      </Link>
 
       <Form method="post">
         <button className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">Sign out</button>

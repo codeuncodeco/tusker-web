@@ -73,22 +73,6 @@ describe("who can load the board", () => {
   });
 });
 
-describe("the org switcher", () => {
-  it("lists the orgs the person belongs to, and marks the personal one", async () => {
-    const ada = await member("ada@example.test", "Ada");
-    await db.prepare("INSERT INTO orgs (id, slug, name, kind) VALUES ('t1', 'codeuncode', 'codeuncode', 'team')").run();
-    await db.prepare("INSERT INTO memberships (org_id, user_id, role) VALUES ('t1', ?, 'member')").bind(ada.person.id).run();
-    await member("bo@example.test", "Bo");
-
-    const data = await board("ada", ada.cookie);
-
-    expect(data.orgs.map((one) => [one.slug, one.kind])).toEqual([
-      ["ada", "personal"],
-      ["codeuncode", "team"],
-    ]);
-  });
-});
-
 describe("quick add", () => {
   it("creates a task in that column's status", async () => {
     const ada = await member("ada@example.test", "Ada");

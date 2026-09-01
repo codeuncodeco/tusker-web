@@ -28,7 +28,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col justify-center gap-6 p-8">
+    <main className="mx-auto flex flex-1 max-w-2xl flex-col justify-center gap-6 p-8">
       <h1 className="text-3xl font-semibold tracking-tight">Tusker</h1>
       <p className="text-neutral-600 dark:text-neutral-400">
         A keyboard-first task board for several orgs at once.
