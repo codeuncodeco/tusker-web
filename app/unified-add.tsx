@@ -12,9 +12,10 @@ import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { useAddingTo } from "./adding";
+import type { OrgHeld } from "./current-org";
 import { fieldClass } from "./forms";
 import { isPagePress } from "./keys";
-import type { OrgHeld } from "./current-org";
+import { QuickAddBox, useQuickAddDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
 
@@ -33,8 +34,7 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
   const [picked, pick] = useAddingTo();
 
   // The box keeps the words, so an undo can give them back.
-  const [title, setTitle] = useState("");
-  const [decides, setDecides] = useState(false);
+  const draft = useQuickAddDraft();
   // The last add, until the next one, the dismiss or the end of the page.
   const [last, setLast] = useState<Added | null>(null);
   // Counts the undos, so each one puts the person back on the picker.
@@ -55,9 +55,8 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
   useEffect(() => {
     if (add.state !== "idle" || !answer || !("added" in answer)) return;
     setLast(answer.added);
-    setTitle("");
-    setDecides(false);
-  }, [add.state, answer]);
+    draft.clear();
+  }, [add.state, answer, draft.clear]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -83,8 +82,8 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
   function refile(one: Added) {
     undo.submit({ intent: "undo", id: one.id, slug: one.slug }, { method: "post" });
     setLast(null);
-    setTitle(one.title);
-    setDecides(one.decides);
+    draft.setTitle(one.title);
+    draft.setDecides(one.decides);
     // A person undoes when the org was wrong, so the picker starts over.
     pick(null);
     setUndone((count) => count + 1);
@@ -92,39 +91,33 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
 
   return (
     <section className="flex flex-col gap-2">
-      <add.Form
-        method="post"
-        className="flex flex-col gap-2"
+      <QuickAddBox
+        form={add.Form}
+        label="Add a task"
+        draft={draft}
+        error={error}
+        titleRef={box}
         // Escape leaves the box, and the list gets `j`, `k` and the rest back.
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
           (event.target as HTMLElement).blur();
         }}
-      >
-        <input type="hidden" name="intent" value="create" />
-
-        {/* The chip that names a team org, because a task filed in one is on
-            every member's board. The personal org stays quiet. */}
-        {filing.kind === "team" ? (
-          <p className="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-500">
-            Adding to {filing.name}
-          </p>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2">
-          <input
-            ref={box}
-            name="title"
-            required
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Add a task"
-            aria-label="Add a task"
-            className={`grow ${fieldClass}`}
-          />
-
-          {/* A person with only their personal org has no choice to make. */}
-          {orgs.length > 1 ? (
+        fields={
+          /* A person with only their personal org has no choice to make, so
+             the org is a hidden field rather than a picker. */
+          orgs.length > 1 ? null : <input type="hidden" name="slug" value={personal.slug} />
+        }
+        chip={
+          /* The chip that names a team org, because a task filed in one is on
+             every member's board. The personal org stays quiet. */
+          filing.kind === "team" ? (
+            <p className="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-500">
+              Adding to {filing.name}
+            </p>
+          ) : null
+        }
+        picker={
+          orgs.length > 1 ? (
             <select
               ref={picker}
               name="slug"
@@ -139,32 +132,9 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
                 </option>
               ))}
             </select>
-          ) : (
-            <input type="hidden" name="slug" value={personal.slug} />
-          )}
-        </div>
-
-        {/* Off by default. Most tasks decide nothing, and a prompt people
-            learn to dismiss is how a log goes empty. See ADR-0010. */}
-        <label className="flex items-center gap-2 text-xs text-neutral-500">
-          <input
-            type="checkbox"
-            name="decides"
-            value="1"
-            checked={decides}
-            onChange={(event) => setDecides(event.target.checked)}
-          />
-          Holds a decision
-        </label>
-
-        <button className="sr-only">Add</button>
-
-        {error ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
-            {error}
-          </p>
-        ) : null}
-      </add.Form>
+          ) : null
+        }
+      />
 
       {last ? (
         <UndoLine

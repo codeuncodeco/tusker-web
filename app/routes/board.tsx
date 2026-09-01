@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Link, useFetcher, useSearchParams } from "react-router";
 
 import {
@@ -20,9 +20,9 @@ import { askedOn, decide, promptFor } from "../decisions.server";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
-import { refLabels } from "../refs.server";
-import { fieldClass } from "../forms";
 import { Initials } from "../initials";
+import { QuickAddBox, useQuickAddDraft } from "../quick-add";
+import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
 import { requireScope } from "../scope.server";
@@ -168,41 +168,28 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
 /**
  * The box at the top of a column. It posts on Enter and empties itself once
- * the task lands, so a person can type the next one at once.
+ * the task lands, so a person can type the next one at once. The column names
+ * the status, so the only extra this placement needs is a hidden field.
  */
 function QuickAdd({ status, label }: { status: Status; label: string }) {
   const add = useFetcher<typeof action>();
-  const form = useRef<HTMLFormElement>(null);
+  const draft = useQuickAddDraft();
   const error = add.data && "error" in add.data ? add.data.error : null;
+  const { clear } = draft;
 
   useEffect(() => {
-    if (add.state === "idle" && add.data && "ok" in add.data) form.current?.reset();
-  }, [add.state, add.data]);
+    if (add.state !== "idle" || !add.data || !("ok" in add.data)) return;
+    clear();
+  }, [add.state, add.data, clear]);
 
   return (
-    <add.Form method="post" ref={form} className="flex flex-col gap-2">
-      <input type="hidden" name="intent" value="create" />
-      <input type="hidden" name="status" value={status} />
-      <input
-        name="title"
-        required
-        placeholder={`Add to ${label}`}
-        aria-label={`Add to ${label}`}
-        className={fieldClass}
-      />
-      {/* Off by default. Most tasks decide nothing, and a prompt people
-          learn to dismiss is how a log goes empty. See ADR-0010. */}
-      <label className="flex items-center gap-2 text-xs text-neutral-500">
-        <input type="checkbox" name="decides" value="1" />
-        Holds a decision
-      </label>
-      <button className="sr-only">Add</button>
-      {error ? (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
-          {error}
-        </p>
-      ) : null}
-    </add.Form>
+    <QuickAddBox
+      form={add.Form}
+      label={`Add to ${label}`}
+      draft={draft}
+      error={error}
+      fields={<input type="hidden" name="status" value={status} />}
+    />
   );
 }
 
