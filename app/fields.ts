@@ -25,10 +25,9 @@ export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
 /**
  * One declaration, as every screen reads it. The row carries the org id.
  *
- * The refs key is missing on purpose. A loader hands this straight to the
- * browser, and the key opens the org app's data, so no screen ever holds it.
- * `has_refs_key` says whether the field carries one. `refs.server.ts` is the
- * one reader of the key itself, and it sends it to the org app.
+ * A reference field names the list and nothing else. The address of the org
+ * app and the key that opens it sit on the org, because the org app hashes the
+ * bearer and never reads which list was asked for.
  */
 export type OrgField = {
   key: string;
@@ -36,10 +35,8 @@ export type OrgField = {
   type: FieldType;
   /** The choices a select offers. Empty for the other types. */
   options: string[];
-  /** Where a reference field reads its options from. Empty for the others. */
-  source_url: string;
-  /** True when a reference field holds the refs key it reads that URL with. */
-  has_refs_key: boolean;
+  /** The list a reference field reads, under the org's base URL, as `trails`. */
+  refs_path: string;
   /** When the options were last pulled, or null for a field never pulled. */
   refs_pulled_at: string | null;
   show_on_card: boolean;
@@ -63,20 +60,6 @@ export function fieldKey(label: string): string {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 40);
-}
-
-/**
- * True for a source URL Tusker can call: an absolute http or https URL. A
- * relative one has no host to send the refs key to.
- */
-export function isSourceUrl(text: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(text);
-  } catch {
-    return false;
-  }
-  return url.protocol === "http:" || url.protocol === "https:";
 }
 
 /** The choices a select declares: one per line, each one once. */

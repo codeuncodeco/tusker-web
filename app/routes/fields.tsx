@@ -1,4 +1,4 @@
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 
 import { colorRows, PALETTE_NAMES, readColor, type ColorRow } from "../colors";
 import { listColors, setColors } from "../colors.server";
@@ -9,7 +9,6 @@ import {
   FIELD_TYPE_LABEL,
   fieldKey,
   isFieldType,
-  isSourceUrl,
   readOptions,
   type FieldType,
   type OrgField,
@@ -24,6 +23,8 @@ import {
 } from "../fields.server";
 import { fieldClass } from "../forms";
 import { OrgNav } from "../org-nav";
+import { readOrgApp } from "../orgs.server";
+import { isLinked, isRefsPath } from "../refs";
 import { refOptionsOfOrg, refreshField } from "../refs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/fields";
@@ -38,10 +39,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   const fields = await listFields(env.DB, scope);
   const references = fields.filter((field) => field.type === "reference").map((field) => field.key);
-  const [colors, options, held] = await Promise.all([
+  const [colors, options, held, app] = await Promise.all([
     listColors(env.DB, scope),
     refOptionsOfOrg(env.DB, scope),
     heldValues(env.DB, scope, references),
+    readOrgApp(env.DB, scope),
   ]);
 
   // The lines the colour form draws for each reference field: the cached
@@ -59,6 +61,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // the server: this payload goes to the browser.
     cached: Object.fromEntries(Object.entries(options).map(([key, one]) => [key, one.length])),
     colors: rows,
+    // The address of the org app, and whether a key is set. A reference field
+    // reads under both, so this screen says so before it takes a path.
+    app,
   };
 }
 
@@ -127,29 +132,20 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const filterable = form.get("filterable") === "1";
   if (!label) return { error: "A field needs a label with a letter or a number." };
 
-  // Only a reference reads these two boxes. The declare form draws them for
-  // every type, so a URL typed under Text would otherwise be stored. An edit
-  // draws them for a reference alone, so it can read them as they come.
-  const noSource = intent === "declare" && form.get("type") !== "reference";
-  const source_url = noSource ? "" : String(form.get("source_url") ?? "").trim();
-  const refs_key = noSource ? "" : String(form.get("refs_key") ?? "").trim();
+  // Only a reference reads this box. The declare form draws it for every type,
+  // so a path typed under Text would otherwise be stored. An edit draws it for
+  // a reference alone, so it can read it as it comes.
+  const noPath = intent === "declare" && form.get("type") !== "reference";
+  const refs_path = noPath ? "" : String(form.get("refs_path") ?? "").trim();
 
   if (intent === "edit") {
     const field = await readField(env.DB, scope, String(form.get("key") ?? ""));
     if (!field) throw new Response("Not found", { status: 404 });
 
-    // The check reads the shape the field ends in, not the boxes. An edit that
-    // leaves the key box empty keeps the key the field holds, so a field that
-    // already carries one needs nothing typed back — and one that carries none
-    // cannot be saved without a key.
-    const wrong = check(field.type, {
-      options,
-      source_url,
-      keyed: refs_key !== "" || field.has_refs_key,
-    });
+    const wrong = check(field.type, { options, refs_path });
     if (wrong) return { error: wrong };
 
-    await editField(env.DB, scope, field, { label, options, source_url, refs_key, show_on_card, filterable });
+    await editField(env.DB, scope, field, { label, options, refs_path, show_on_card, filterable });
     return { ok: true };
   }
 
@@ -160,7 +156,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const key = fieldKey(label);
     if (!key) return { error: "A field needs a label with a letter or a number." };
 
-    const wrong = check(type, { options, source_url, keyed: refs_key !== "" });
+    // A reference field reads under the org app the org names. Declaring one
+    // before that pair is set would make a field that can never pull.
+    if (type === "reference" && !isLinked(await readOrgApp(env.DB, scope))) {
+      return { error: "This org names no org app yet. Set its base URL and key in settings." };
+    }
+
+    const wrong = check(type, { options, refs_path });
     if (wrong) return { error: wrong };
 
     const declared = await declareField(env.DB, scope, {
@@ -168,8 +170,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       label,
       type,
       options,
-      source_url,
-      refs_key,
+      refs_path,
       show_on_card,
       filterable,
     });
@@ -188,16 +189,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
  */
 function check(
   type: FieldType,
-  after: { options: string[]; source_url: string; keyed: boolean },
+  after: { options: string[]; refs_path: string },
 ): string | null {
   if (type === "select" && after.options.length === 0) {
     return "A select needs at least one option.";
   }
-  if (type === "reference" && !isSourceUrl(after.source_url)) {
-    return "A reference needs a source URL, as https://blrhikes.example/api.";
-  }
-  if (type === "reference" && !after.keyed) {
-    return "A reference needs the refs key the org app minted for it.";
+  if (type === "reference" && !isRefsPath(after.refs_path)) {
+    return "A reference needs a refs path, as trails. It sits under the org app's base URL.";
   }
   return null;
 }
@@ -219,41 +217,26 @@ function Flags({ field }: { field?: OrgField }) {
 }
 
 /**
- * Where a reference field reads from, and what it reads with.
+ * The list a reference field reads, under the org app's base URL.
  *
- * The key box is empty every time. Tusker holds the plaintext, but no screen
- * shows it: the org app minted it and it opens the org app's data. Leaving the
- * box empty keeps the key the field already holds.
+ * The address and the key are not here. They belong to the org app, not to one
+ * list of it, and settings holds them.
  */
-function RefSource({ field }: { field?: OrgField }) {
+function RefPath({ base, field }: { base: string; field?: OrgField }) {
   return (
-    <>
-      <label className="flex flex-col gap-1">
-        Source URL
-        <span className="text-sm text-neutral-500">
-          The refs endpoint of the org app, which answers with {"{id, label}"} rows.
-        </span>
-        <input
-          name="source_url"
-          type="url"
-          defaultValue={field?.source_url ?? ""}
-          placeholder="https://blrhikes.example/api/tusker/refs/trails"
-          className={fieldClass}
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        Refs key
-        <span className="text-sm text-neutral-500">
-          {field
-            ? field.has_refs_key
-              ? "This field holds a key. Paste a new one to replace it, or leave this empty to keep it."
-              : "This field holds no key. Paste the one the org app minted."
-            : "Mint it in the org app. It is shown there once."}
-        </span>
-        <input name="refs_key" type="password" autoComplete="off" className={fieldClass} />
-      </label>
-    </>
+    <label className="flex flex-col gap-1">
+      Refs path
+      <span className="text-sm text-neutral-500">
+        The list this field reads, under {base || "the org app's base URL"}. It answers with{" "}
+        {"{id, label}"} rows.
+      </span>
+      <input
+        name="refs_path"
+        defaultValue={field?.refs_path ?? ""}
+        placeholder="trails"
+        className={fieldClass}
+      />
+    </label>
   );
 }
 
@@ -343,10 +326,12 @@ function RefColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
  */
 function DeclaredField({
   field,
+  base,
   cached,
   colors,
 }: {
   field: OrgField;
+  base: string;
   cached: number;
   colors: ColorRow[];
 }) {
@@ -381,7 +366,7 @@ function DeclaredField({
           </label>
         ) : null}
 
-        {field.type === "reference" ? <RefSource field={field} /> : null}
+        {field.type === "reference" ? <RefPath base={base} field={field} /> : null}
 
         <Flags field={field} />
 
@@ -411,7 +396,8 @@ function DeclaredField({
 }
 
 export default function Fields({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, fields, cached, colors } = loaderData;
+  const { org, fields, cached, colors, app } = loaderData;
+  const linked = isLinked(app);
   const error = actionData && "error" in actionData ? actionData.error : null;
   const pulled = actionData && "pulled" in actionData ? actionData.pulled : null;
 
@@ -431,6 +417,7 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
           <DeclaredField
             key={field.key}
             field={field}
+            base={app.refs_base_url}
             cached={cached[field.key] ?? 0}
             colors={colors[field.key] ?? []}
           />
@@ -463,7 +450,17 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
           <textarea name="options" rows={3} className={fieldClass} />
         </label>
 
-        <RefSource />
+        {linked ? (
+          <RefPath base={app.refs_base_url} />
+        ) : (
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            A reference field reads from this org's org app. Name its base URL and key in{" "}
+            <Link to={`/o/${org.slug}/settings`} className="underline">
+              settings
+            </Link>{" "}
+            first.
+          </p>
+        )}
 
         <Flags />
 

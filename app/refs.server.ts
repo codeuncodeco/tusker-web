@@ -1,5 +1,5 @@
 import type { OrgField, RefLabels } from "./fields";
-import { readRefOptions, type RefOption } from "./refs";
+import { readRefOptions, refsUrl, type RefOption } from "./refs";
 import type { Scope } from "./scope.server";
 
 /**
@@ -9,18 +9,27 @@ import type { Scope } from "./scope.server";
  * a cron and from the manage screen, and one more time when a task holds an id
  * the cache does not know.
  *
- * Every call to an org app carries that field's refs key. The org app minted
- * it and can revoke it, and Tusker holds the plaintext beside the field rather
- * than in a Worker secret, which holds one value and does not survive a second
- * org app. See ADR-0005.
+ * Every call to an org app carries the org's refs key. The org app minted it
+ * and can revoke it, and Tusker holds the plaintext on the org rather than in
+ * a Worker secret, which holds one value and does not survive a second org
+ * app. See ADR-0005.
  */
 
 /** Where one reference field reads from, and what it reads with. */
-type Source = { org_id: string; key: string; source_url: string; refs_key: string };
+type Source = {
+  org_id: string;
+  key: string;
+  refs_path: string;
+  refs_base_url: string;
+  refs_key: string;
+};
 
-/** The columns a source reads. `refs_key` is here and in no other read. */
-const SOURCE_COLUMNS = "org_id, key, source_url, refs_key";
-
+/**
+ * The columns a source reads. The org's key is here and in no other read: a
+ * field row carries only the list it names.
+ */
+const SOURCE_SELECT = `SELECT f.org_id, f.key, f.refs_path, o.refs_base_url, o.refs_key
+  FROM org_fields f JOIN orgs o ON o.id = f.org_id`;
 
 /** What became of a pull: the options it cached, or why it cached none. */
 export type Pulled = { pulled: number } | { error: string };
@@ -217,19 +226,44 @@ export type Refreshed = { fields: number; failed: number };
  *
  * This is the one read of field rows that takes no scope. A scope is proof
  * that a signed-in person belongs to an org, and the cron has no person. It
- * reads no task row, and each pull uses the key stored on the row it read, so
- * no org's key touches another org's URL.
+ * reads no task row, and each pull joins the field to its own org, so no org's
+ * key touches another org's base URL.
+ *
+ * An org that names no org app is skipped whole. It has nothing to pull with,
+ * and counting it as a failure every run would say nothing a person can act
+ * on.
  */
 export async function refreshEveryField(db: D1Database): Promise<Refreshed> {
   const { results } = await db
     .prepare(
-      `SELECT ${SOURCE_COLUMNS} FROM org_fields
-       WHERE type = 'reference' AND source_url <> ''`,
+      `${SOURCE_SELECT}
+       WHERE f.type = 'reference' AND f.refs_path <> '' AND o.refs_base_url <> ''
+       ORDER BY f.org_id, f.position, f.key`,
     )
     .all<Source>();
+  return pullEach(db, results);
+}
 
+/**
+ * Pulls every reference field of one org, right after a person saved the org
+ * app's base URL and key.
+ *
+ * A rotation that only half worked must not be silent, so the save reports
+ * what answered. A field that names no path counts as a failure here, because
+ * the person is looking at the answer and can go and fix it.
+ */
+export async function refreshOrgFields(db: D1Database, scope: Scope): Promise<Refreshed> {
+  const { results } = await db
+    .prepare(`${SOURCE_SELECT} WHERE f.org_id = ? AND f.type = 'reference' ORDER BY f.position, f.key`)
+    .bind(scope.org.id)
+    .all<Source>();
+  return pullEach(db, results);
+}
+
+/** Pulls a list of sources, counting the ones that answered nothing usable. */
+async function pullEach(db: D1Database, sources: Source[]): Promise<Refreshed> {
   let failed = 0;
-  for (const source of results) {
+  for (const source of sources) {
     // One org app must not end the run for the rest. A throw here is a bad
     // write, not a bad answer: `pull` already reports a bad answer.
     try {
@@ -240,16 +274,13 @@ export async function refreshEveryField(db: D1Database): Promise<Refreshed> {
     }
   }
 
-  return { fields: results.length, failed };
+  return { fields: sources.length, failed };
 }
 
-/** One field's source and key, or null when the org declares no such field. */
+/** One field's path, with its org's base URL and key, or null when it is gone. */
 async function sourceFor(db: D1Database, orgId: string, key: string): Promise<Source | null> {
   const row = await db
-    .prepare(
-      `SELECT ${SOURCE_COLUMNS} FROM org_fields
-       WHERE org_id = ? AND key = ? AND type = 'reference'`,
-    )
+    .prepare(`${SOURCE_SELECT} WHERE f.org_id = ? AND f.key = ? AND f.type = 'reference'`)
     .bind(orgId, key)
     .first<Source>();
   return row;
@@ -263,10 +294,16 @@ async function sourceFor(db: D1Database, orgId: string, key: string): Promise<So
  * rather than emptying itself the moment a key is revoked.
  */
 async function pull(db: D1Database, source: Source): Promise<Pulled> {
-  if (!source.source_url) return { error: "This field names no source URL." };
-  if (!source.refs_key) return { error: "This field holds no refs key." };
+  if (!source.refs_base_url) return { error: "This org names no org app. Set one in settings." };
+  if (!source.refs_key) return { error: "This org holds no refs key. Set one in settings." };
+  if (!source.refs_path) return { error: "This field names no refs path." };
 
-  const options = await read(source);
+  // The org's key goes only to the org's own base URL. A path that moved the
+  // origin never gets a URL to send it to.
+  const url = refsUrl(source.refs_base_url, source.refs_path);
+  if (!url) return { error: "That refs path does not sit under the org app's base URL." };
+
+  const options = await read(url, source.refs_key);
   if ("error" in options) return options;
 
   await db.batch([
@@ -292,11 +329,14 @@ async function pull(db: D1Database, source: Source): Promise<Pulled> {
 }
 
 /** What the org app answered, or the reason Tusker could not read it. */
-async function read(source: Source): Promise<{ options: RefOption[] } | { error: string }> {
+async function read(
+  url: string,
+  key: string,
+): Promise<{ options: RefOption[] } | { error: string }> {
   let response: Response;
   try {
-    response = await fetch(source.source_url, {
-      headers: { authorization: `Bearer ${source.refs_key}` },
+    response = await fetch(url, {
+      headers: { authorization: `Bearer ${key}` },
       // An org app that never answers would otherwise hold the cron run, or a
       // person's task page, for as long as the platform allows.
       signal: AbortSignal.timeout(10_000),

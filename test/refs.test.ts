@@ -3,18 +3,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
-import { readRefOptions } from "../app/refs";
+import { isRefsPath, readRefOptions, refsUrl } from "../app/refs";
 import { refreshEveryField } from "../app/refs.server";
 import * as boardRoute from "../app/routes/board";
 import * as fieldsRoute from "../app/routes/fields";
 import * as loginRoute from "../app/routes/login";
 import * as newOrgRoute from "../app/routes/orgs.new";
+import * as settingsRoute from "../app/routes/settings";
 import * as taskRoute from "../app/routes/task";
 import { cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
 const PASSWORD = "correct horse battery";
-const TRAILS = "https://blrhikes.test/api/tusker/refs/trails";
+const BASE = "https://blrhikes.test/api/tusker/refs";
+const TRAILS = `${BASE}/trails`;
 
 beforeEach(wipe);
 afterEach(() => vi.unstubAllGlobals());
@@ -64,17 +66,43 @@ function send(
   return Promise.resolve(route.action(routeArgs(request, params)));
 }
 
-/** Ada, with an org at /codeuncode. */
-async function anOrg() {
+/** Ada, with an org at /codeuncode that names the blrhikes org app. */
+async function anOrg({ app = true }: { app?: boolean } = {}) {
   const ada = await member("ada@example.test", "Ada");
   await send(newOrgRoute, "/orgs/new", ada.cookie, { name: "codeuncode", slug: "codeuncode" });
+  if (app) await setOrgApp(ada.cookie);
   return ada;
 }
 
-/** Declares a reference field named Trail, pointing at the blrhikes endpoint. */
+/** The org app form on the settings screen. */
+function setOrgApp(
+  cookie: string,
+  over: { refs_base_url?: string; refs_key?: string } = {},
+) {
+  return send(
+    settingsRoute,
+    "/o/codeuncode/settings",
+    cookie,
+    {
+      intent: "org-app",
+      refs_base_url: over.refs_base_url ?? BASE,
+      refs_key: over.refs_key ?? "minted-by-blrhikes",
+    },
+    { slug: "codeuncode" },
+  );
+}
+
+/** The settings screen. */
+function settingsOf(cookie: string) {
+  return settingsRoute.loader(
+    routeArgs(get("/o/codeuncode/settings", cookie), { slug: "codeuncode" }),
+  );
+}
+
+/** Declares a reference field named Trail, naming the trails list. */
 function declareTrail(
   cookie: string,
-  over: { label?: string; source_url?: string; refs_key?: string; show_on_card?: string } = {},
+  over: { label?: string; refs_path?: string; show_on_card?: string } = {},
 ) {
   return send(
     fieldsRoute,
@@ -84,8 +112,7 @@ function declareTrail(
       intent: "declare",
       label: over.label ?? "Trail",
       type: "reference",
-      source_url: over.source_url ?? TRAILS,
-      refs_key: over.refs_key ?? "minted-by-blrhikes",
+      refs_path: over.refs_path ?? "trails",
       ...(over.show_on_card ? { show_on_card: over.show_on_card } : {}),
     },
     { slug: "codeuncode" },
@@ -145,134 +172,172 @@ describe("what an org app answers with", () => {
   });
 });
 
-describe("declaring a reference field", () => {
-  it("stores the source URL and the key the org app minted", async () => {
-    const ada = await anOrg();
+describe("the refs path and the base URL", () => {
+  it("takes a bare segment, and refuses anything that could move the host", () => {
+    expect(isRefsPath("trails")).toBe(true);
+    expect(isRefsPath("v2/trails")).toBe(true);
 
-    await declareTrail(ada.cookie);
-
-    const row = await db
-      .prepare("SELECT type, source_url, refs_key FROM org_fields WHERE key = 'trail'")
-      .first<{ type: string; source_url: string; refs_key: string }>();
-    expect(row).toEqual({ type: "reference", source_url: TRAILS, refs_key: "minted-by-blrhikes" });
+    expect(isRefsPath("")).toBe(false);
+    expect(isRefsPath("https://elsewhere.test/trails")).toBe(false);
+    expect(isRefsPath("//elsewhere.test/trails")).toBe(false);
+    expect(isRefsPath("/trails")).toBe(false);
+    expect(isRefsPath("../../trails")).toBe(false);
+    expect(isRefsPath("a/../../trails")).toBe(false);
+    // The URL parser reads this as `..`, so the escape goes with the rest.
+    expect(isRefsPath("%2e%2e/trails")).toBe(false);
   });
 
-  it("refuses a source URL that is not an absolute http URL", async () => {
+  it("joins the base and the path, and answers null when the pair makes no URL", () => {
+    expect(refsUrl(BASE, "trails")).toBe(TRAILS);
+    expect(refsUrl(`${BASE}/`, "trails")).toBe(TRAILS);
+
+    expect(refsUrl("", "trails")).toBeNull();
+    expect(refsUrl("blrhikes.test/refs", "trails")).toBeNull();
+    expect(refsUrl(BASE, "../../../evil")).toBeNull();
+    expect(refsUrl(BASE, "%2e%2e/%2e%2e/evil")).toBeNull();
+    expect(refsUrl(BASE, "https://elsewhere.test/trails")).toBeNull();
+  });
+});
+
+describe("the org app", () => {
+  it("holds the base URL and the key, and the key never reaches a screen", async () => {
     const ada = await anOrg();
 
-    const answer = await declareTrail(ada.cookie, { source_url: "/api/tusker/refs/trails" });
+    const screen = await settingsOf(ada.cookie);
+
+    expect(screen.app).toEqual({ refs_base_url: BASE, has_refs_key: true });
+    expect(JSON.stringify(screen)).not.toContain("minted-by-blrhikes");
+  });
+
+  it("refuses a base URL that is not an absolute http URL", async () => {
+    const ada = await anOrg({ app: false });
+
+    const answer = await setOrgApp(ada.cookie, { refs_base_url: "/api/tusker/refs" });
 
     expect(answer).toEqual({
-      error: "A reference needs a source URL, as https://blrhikes.example/api.",
+      appError: "An org app needs a base URL, as https://blrhikes.example/api/tusker/refs.",
     });
   });
 
-  it("stores no source URL or key on a type that reads neither", async () => {
-    const ada = await anOrg();
+  it("refuses a first save that pastes no key", async () => {
+    const ada = await anOrg({ app: false });
 
-    await send(
-      fieldsRoute,
-      "/o/codeuncode/fields",
-      ada.cookie,
-      {
-        intent: "declare",
-        label: "Client",
-        type: "text",
-        options: "",
-        source_url: TRAILS,
-        refs_key: "typed-in-the-wrong-box",
-      },
-      { slug: "codeuncode" },
-    );
+    const answer = await setOrgApp(ada.cookie, { refs_key: "" });
 
-    const row = await db
-      .prepare("SELECT source_url, refs_key FROM org_fields WHERE key = 'client'")
-      .first<{ source_url: string; refs_key: string }>();
-    expect(row).toEqual({ source_url: "", refs_key: "" });
+    expect(answer).toEqual({ appError: "Paste the refs key the org app minted for this org." });
   });
 
-  it("refuses a reference that carries no refs key", async () => {
+  it("keeps the key when a later save leaves the box empty, and replaces it when it does not", async () => {
     const ada = await anOrg();
+    orgApp({ options: KUMARA });
 
-    const answer = await declareTrail(ada.cookie, { refs_key: "" });
+    await setOrgApp(ada.cookie, { refs_key: "" });
+    expect(await orgKey()).toBe("minted-by-blrhikes");
 
-    expect(answer).toEqual({
-      error: "A reference needs the refs key the org app minted for it.",
+    await setOrgApp(ada.cookie, { refs_key: "minted-again" });
+    expect(await orgKey()).toBe("minted-again");
+  });
+
+  it("rotates every reference field with one paste, and says how many pulled", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    await declareTrail(ada.cookie, { label: "Event", refs_path: "events" });
+    const calls = orgApp({ options: KUMARA });
+
+    const answer = await setOrgApp(ada.cookie, { refs_key: "minted-again" });
+
+    expect(answer).toEqual({ app: { fields: 2, failed: 0 } });
+    expect(calls).toEqual([
+      { url: TRAILS, key: "minted-again" },
+      { url: `${BASE}/events`, key: "minted-again" },
+    ]);
+  });
+
+  it("counts the field the org app refused, so half a rotation is not silent", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    orgApp({ status: 401 });
+
+    expect(await setOrgApp(ada.cookie, { refs_key: "wrong" })).toEqual({
+      app: { fields: 1, failed: 1 },
     });
   });
 });
 
 describe("the refs key", () => {
-  it("never reaches a screen, on the fields loader or the task editor", async () => {
+  it("never reaches a screen, on settings, on the fields loader or on the task editor", async () => {
     const ada = await anOrg();
     await declareTrail(ada.cookie);
     orgApp({ options: KUMARA });
     await refresh(ada.cookie);
     const task = await addTask(ada.cookie, "Walk Kumara");
 
-    const screen = await fieldsOf(ada.cookie);
-    const edit = await editor(ada.cookie, task);
+    const screens = [await settingsOf(ada.cookie), await fieldsOf(ada.cookie), await editor(ada.cookie, task)];
 
-    expect(JSON.stringify(screen)).not.toContain("minted-by-blrhikes");
-    expect(JSON.stringify(edit)).not.toContain("minted-by-blrhikes");
-    // The screen says a key is there, without saying what it is.
-    expect(screen.fields[0].has_refs_key).toBe(true);
-  });
-
-  it("cannot be edited away from a field that holds none", async () => {
-    const ada = await anOrg();
-    await declareTrail(ada.cookie);
-    // A field left keyless, as a row written before this screen demanded one.
-    await db.prepare("UPDATE org_fields SET refs_key = '' WHERE key = 'trail'").run();
-
-    const answer = await send(
-      fieldsRoute,
-      "/o/codeuncode/fields",
-      ada.cookie,
-      { intent: "edit", key: "trail", label: "Hike", source_url: TRAILS, refs_key: "" },
-      { slug: "codeuncode" },
-    );
-
-    expect(answer).toEqual({
-      error: "A reference needs the refs key the org app minted for it.",
-    });
-  });
-
-  it("is kept when an edit leaves the box empty, and replaced when it does not", async () => {
-    const ada = await anOrg();
-    await declareTrail(ada.cookie);
-
-    await send(
-      fieldsRoute,
-      "/o/codeuncode/fields",
-      ada.cookie,
-      { intent: "edit", key: "trail", label: "Hike", source_url: TRAILS, refs_key: "" },
-      { slug: "codeuncode" },
-    );
-    expect(await keyOf("trail")).toBe("minted-by-blrhikes");
-
-    await send(
-      fieldsRoute,
-      "/o/codeuncode/fields",
-      ada.cookie,
-      { intent: "edit", key: "trail", label: "Hike", source_url: TRAILS, refs_key: "minted-again" },
-      { slug: "codeuncode" },
-    );
-    expect(await keyOf("trail")).toBe("minted-again");
+    for (const screen of screens) expect(JSON.stringify(screen)).not.toContain("minted-by-blrhikes");
   });
 });
 
-/** The key the row holds, read straight from the table. */
-async function keyOf(key: string): Promise<string> {
+/** The key the org row holds, read straight from the table. */
+async function orgKey(): Promise<string> {
   const row = await db
-    .prepare("SELECT refs_key FROM org_fields WHERE key = ?")
-    .bind(key)
+    .prepare("SELECT refs_key FROM orgs WHERE slug = 'codeuncode'")
     .first<{ refs_key: string }>();
   return row!.refs_key;
 }
 
+describe("declaring a reference field", () => {
+  it("stores the path, and nothing about where the org app lives", async () => {
+    const ada = await anOrg();
+
+    await declareTrail(ada.cookie);
+
+    const row = await db
+      .prepare("SELECT type, refs_path FROM org_fields WHERE key = 'trail'")
+      .first<{ type: string; refs_path: string }>();
+    expect(row).toEqual({ type: "reference", refs_path: "trails" });
+  });
+
+  it("refuses a path that carries a host of its own", async () => {
+    const ada = await anOrg();
+
+    const answer = await declareTrail(ada.cookie, { refs_path: "https://elsewhere.test/trails" });
+
+    expect(answer).toEqual({
+      error: "A reference needs a refs path, as trails. It sits under the org app's base URL.",
+    });
+  });
+
+  it("refuses a reference while the org names no org app", async () => {
+    const ada = await anOrg({ app: false });
+
+    const answer = await declareTrail(ada.cookie);
+
+    expect(answer).toEqual({
+      error: "This org names no org app yet. Set its base URL and key in settings.",
+    });
+  });
+
+  it("stores no path on a type that reads none", async () => {
+    const ada = await anOrg();
+
+    await send(
+      fieldsRoute,
+      "/o/codeuncode/fields",
+      ada.cookie,
+      { intent: "declare", label: "Client", type: "text", options: "", refs_path: "trails" },
+      { slug: "codeuncode" },
+    );
+
+    const row = await db
+      .prepare("SELECT refs_path FROM org_fields WHERE key = 'client'")
+      .first<{ refs_path: string }>();
+    expect(row).toEqual({ refs_path: "" });
+  });
+});
+
 describe("the manual refresh", () => {
-  it("sends the field's own refs key, and caches what came back", async () => {
+  it("sends the org's refs key to the joined URL, and caches what came back", async () => {
     const ada = await anOrg();
     await declareTrail(ada.cookie);
     const calls = orgApp({ options: KUMARA });
@@ -326,14 +391,10 @@ describe("the manual refresh", () => {
 });
 
 describe("the scheduled refresh", () => {
-  it("sends each field its own key, and no key to another field's URL", async () => {
+  it("sends each org's key to each of its lists, and to no other host", async () => {
     const ada = await anOrg();
     await declareTrail(ada.cookie);
-    await declareTrail(ada.cookie, {
-      label: "Event",
-      source_url: "https://blrhikes.test/api/tusker/refs/events",
-      refs_key: "minted-for-events",
-    });
+    await declareTrail(ada.cookie, { label: "Event", refs_path: "events" });
     const calls = orgApp({ options: KUMARA });
 
     const refreshed = await refreshEveryField(db);
@@ -341,7 +402,7 @@ describe("the scheduled refresh", () => {
     expect(refreshed).toEqual({ fields: 2, failed: 0 });
     expect(calls).toEqual([
       { url: TRAILS, key: "minted-by-blrhikes" },
-      { url: "https://blrhikes.test/api/tusker/refs/events", key: "minted-for-events" },
+      { url: `${BASE}/events`, key: "minted-by-blrhikes" },
     ]);
   });
 
@@ -351,6 +412,28 @@ describe("the scheduled refresh", () => {
     orgApp({ status: 401 });
 
     expect(await refreshEveryField(db)).toEqual({ fields: 1, failed: 1 });
+  });
+
+  it("skips an org that names no org app, rather than failing it every run", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    await db.prepare("UPDATE orgs SET refs_base_url = '' WHERE slug = 'codeuncode'").run();
+    const calls = orgApp({ options: KUMARA });
+
+    expect(await refreshEveryField(db)).toEqual({ fields: 0, failed: 0 });
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("a pull with no org app", () => {
+  it("says which screen fixes it", async () => {
+    const ada = await anOrg();
+    await declareTrail(ada.cookie);
+    await db.prepare("UPDATE orgs SET refs_base_url = '' WHERE slug = 'codeuncode'").run();
+
+    expect(await refresh(ada.cookie)).toEqual({
+      error: "Trail: This org names no org app. Set one in settings.",
+    });
   });
 });
 

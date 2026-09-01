@@ -1,3 +1,6 @@
+import type { OrgApp } from "./refs";
+import type { ReadScope, Scope } from "./scope.server";
+
 export type Org = {
   id: string;
   slug: string;
@@ -198,6 +201,40 @@ export async function addMemberById(
   return done.meta.changes > 0 ? "added" : "already";
 }
 
+
+/** The org app of one org. An org that names none reads as empty and unkeyed. */
+export async function readOrgApp(db: D1Database, scope: ReadScope): Promise<OrgApp> {
+  const row = await db
+    .prepare("SELECT refs_base_url, refs_key <> '' AS has_refs_key FROM orgs WHERE id = ?")
+    .bind(scope.org.id)
+    .first<{ refs_base_url: string; has_refs_key: number }>();
+  return {
+    refs_base_url: row?.refs_base_url ?? "",
+    has_refs_key: row?.has_refs_key === 1,
+  };
+}
+
+/**
+ * Points an org at its org app.
+ *
+ * The key is write-only: an empty one keeps the key the org holds, because no
+ * screen can show a person the value to type back. Saving a base URL alone is
+ * therefore how a person moves the app without minting a new key.
+ */
+export async function setOrgApp(
+  db: D1Database,
+  scope: Scope,
+  app: { refs_base_url: string; refs_key: string },
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE orgs
+       SET refs_base_url = ?, refs_key = CASE WHEN ? = '' THEN refs_key ELSE ? END
+       WHERE id = ?`,
+    )
+    .bind(app.refs_base_url, app.refs_key, app.refs_key, scope.org.id)
+    .run();
+}
 
 /** True when another org took the slug between the read and the insert. */
 function tookTheSlug(failure: unknown): boolean {

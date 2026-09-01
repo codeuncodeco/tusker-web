@@ -13,7 +13,7 @@ import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
 const PASSWORD = "correct horse battery";
-const TRAILS = "https://blrhikes.test/api/tusker/refs/trails";
+const BASE = "https://blrhikes.test/api/tusker/refs";
 const KUMARA = [{ id: "t1", label: "Kumara Parvatha" }];
 
 beforeEach(wipe);
@@ -56,6 +56,11 @@ function send(
 async function anOrg(over: { show_on_card?: string } = {}) {
   const ada = await member("ada@example.test", "Ada");
   await send(newOrgRoute, "/orgs/new", ada.cookie, { name: "codeuncode", slug: "codeuncode" });
+  // The org app the reference field reads under. A reference field needs one.
+  await db
+    .prepare("UPDATE orgs SET refs_base_url = ?, refs_key = 'minted-by-blrhikes' WHERE slug = 'codeuncode'")
+    .bind(BASE)
+    .run();
   await send(
     fieldsRoute,
     "/o/codeuncode/fields",
@@ -64,8 +69,7 @@ async function anOrg(over: { show_on_card?: string } = {}) {
       intent: "declare",
       label: "Trail",
       type: "reference",
-      source_url: TRAILS,
-      refs_key: "minted-by-blrhikes",
+      refs_path: "trails",
       ...(over.show_on_card ? { show_on_card: over.show_on_card } : {}),
     },
     { slug: "codeuncode" },
