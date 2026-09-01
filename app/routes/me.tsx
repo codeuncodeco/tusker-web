@@ -7,13 +7,10 @@
  * it". See ADR-0006, "One order per column".
  */
 
-import { Link } from "react-router";
-
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
-import { OrgSwitcher } from "../org-switcher";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
@@ -38,11 +35,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const groups = groupsFor(tasks, plan ?? []);
 
   return {
-    orgs: set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind })),
     day,
     groups,
     planned: plan ?? [],
-    planStarted: plan !== null,
     // The prompt a finished row raised, if the query string still holds one.
     ask: await askedAcross(env.DB, set, request),
   };
@@ -60,24 +55,16 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, planStarted, day, ask } = loaderData;
+  const { groups, planned, day, ask } = loaderData;
   const empty = groups.every((group) => group.tasks.length === 0);
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
-      <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
-        <OrgSwitcher orgs={orgs} />
-      </header>
+    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
 
-      {planStarted ? null : (
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          <Link to="/me/plan" className="underline">
-            Plan your day
-          </Link>
-          , or press <kbd>p</kbd> on a task to put it in today's plan.
-        </p>
-      )}
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        Press <kbd>p</kbd> on a task to put it in today's plan.
+      </p>
 
       {empty ? (
         <p className="text-neutral-600 dark:text-neutral-400">
@@ -86,15 +73,6 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       ) : (
         <UnifiedList groups={groups} planned={new Set(planned)} day={day} />
       )}
-
-      <div className="flex gap-4 text-sm">
-        <Link to="/me/focus" className="underline">
-          Focus on three
-        </Link>
-        <Link to="/account" className="underline">
-          Your account
-        </Link>
-      </div>
 
       <DecisionPrompt ask={ask} />
     </main>

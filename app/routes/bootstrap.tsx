@@ -58,7 +58,7 @@ async function onlyWhileEmpty(db: D1Database) {
 
 export default function Bootstrap({ actionData }: Route.ComponentProps) {
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-6 p-8">
+    <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-6 p-8">
       <h1 className="text-3xl font-semibold tracking-tight">Set up Tusker</h1>
       <p className="text-neutral-600 dark:text-neutral-400">
         This instance holds no account yet. The one you make here is the first, and this page

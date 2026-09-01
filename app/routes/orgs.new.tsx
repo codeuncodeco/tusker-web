@@ -1,4 +1,4 @@
-import { Form, Link, redirect } from "react-router";
+import { Form, redirect } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
@@ -38,7 +38,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function NewOrg({ actionData }: Route.ComponentProps) {
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-6 p-8">
+    <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-6 p-8">
       <h1 className="text-3xl font-semibold tracking-tight">New org</h1>
       <p className="text-neutral-600 dark:text-neutral-400">
         You become its owner. Add the rest of the people from the org's Members page.
@@ -64,10 +64,6 @@ export default function NewOrg({ actionData }: Route.ComponentProps) {
           Make the org
         </button>
       </Form>
-
-      <Link to="/account" className="text-sm underline">
-        Back to you
-      </Link>
     </main>
   );
 }

@@ -15,7 +15,7 @@
  * ADR-0008, "A plan commits as it is made".
  */
 
-import { Form, Link } from "react-router";
+import { Form } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { dayName, dayOf, isDay } from "../day";
@@ -23,7 +23,6 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import type { Leftovers } from "../leftovers";
 import { leftoversFor } from "../leftovers.server";
-import { OrgSwitcher } from "../org-switcher";
 import { movePlan, readPlan, startPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
@@ -66,7 +65,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const inPlan = groups.find((group) => group.key === "today")!;
 
   return {
-    orgs: set.orgs.map((org) => ({ slug: org.slug, name: org.name, kind: org.kind })),
     day,
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
@@ -112,14 +110,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, day, named, leftovers, ask } = loaderData;
+  const { groups, planned, day, named, leftovers, ask } = loaderData;
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
+    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Your plan</h1>
         <span className="tabular-nums text-sm text-neutral-500">{day}</span>
-        <OrgSwitcher orgs={orgs} />
       </header>
 
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -139,15 +136,6 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         ordered="today"
         label={(group) => (group.key === "today" ? "Plan" : group.label)}
       />
-
-      <div className="flex gap-4 text-sm">
-        <Link to="/me" className="underline">
-          Your tasks
-        </Link>
-        <Link to="/me/focus" className="underline">
-          Focus on three
-        </Link>
-      </div>
 
       <DecisionPrompt ask={ask} />
     </main>

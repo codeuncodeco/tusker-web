@@ -9,7 +9,6 @@ import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { listDecisions } from "../decisions.server";
-import { OrgNav } from "../org-nav";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/decisions";
 
@@ -31,12 +30,8 @@ export default function Decisions({ loaderData }: Route.ComponentProps) {
   const { org, decisions } = loaderData;
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
-      <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Decisions</h1>
-        <span className="text-sm uppercase tracking-wide text-neutral-500">{org.name}</span>
-        <OrgNav slug={org.slug} here="decisions" />
-      </header>
+    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">Decisions</h1>
 
       {decisions.length === 0 ? (
         <p className="text-neutral-600 dark:text-neutral-400">

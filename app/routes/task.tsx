@@ -9,7 +9,6 @@ import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
-import { OrgNav } from "../org-nav";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
 import { readTask, saveTask } from "../tasks.server";
@@ -210,11 +209,8 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
-      <header className="flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <OrgNav slug={org.slug} />
-      </header>
+    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">{task.title}</h1>
 
       <Form method="post" key={task.id} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">

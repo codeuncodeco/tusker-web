@@ -3,7 +3,6 @@ import { Form, redirect } from "react-router";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
 import { createOrgKey, listOrgKeys, revokeOrgKey } from "../org-keys.server";
-import { OrgNav } from "../org-nav";
 import { readOrgApp, renameOrg, setOrgApp, slugify } from "../orgs.server";
 import { isRefsBaseUrl } from "../refs";
 import { refreshOrgFields } from "../refs.server";
@@ -83,11 +82,8 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
   const { org, keys, app } = loaderData;
 
   return (
-    <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
-      <header className="flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <OrgNav slug={org.slug} here="settings" />
-      </header>
+    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
+      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
       <Form method="post" className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
