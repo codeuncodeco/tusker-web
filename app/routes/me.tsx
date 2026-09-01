@@ -8,12 +8,14 @@
  */
 
 import { cloudflareEnv } from "../context.server";
+import { held } from "../current-org";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
+import { UnifiedAdd } from "../unified-add";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
 import { UnifiedList } from "../unified-list";
@@ -35,6 +37,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const groups = groupsFor(tasks, plan ?? []);
 
   return {
+    orgs: set.orgs.map(held),
     day,
     groups,
     planned: plan ?? [],
@@ -55,13 +58,19 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { groups, planned, day, ask } = loaderData;
+  const { orgs, groups, planned, day, ask } = loaderData;
   const empty = groups.every((group) => group.tasks.length === 0);
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
 
+      {/* The box files into the org the picker names, and plans nothing: on
+          this page an add is an add. See ADR-0012. */}
+      <UnifiedAdd orgs={orgs} />
+
+      {/* The header carries Plan on every page, so this line teaches the
+          keystroke and links nothing. See ADR-0011. */}
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Press <kbd>p</kbd> on a task to put it in today's plan.
       </p>

@@ -48,7 +48,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     .catch(() => null);
 
   if (!response?.ok) throw redirect("/login");
-  return withCookies(response, redirect("/account"));
+  return withCookies(response, redirect("/me"));
 }
 
 /** The route exists only while no account does. After that it is a 404. */

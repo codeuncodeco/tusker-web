@@ -47,6 +47,13 @@ The page that makes the first account, at `/bootstrap`. It is open while the
 instance holds no account, and it is a 404 after that.
 _Avoid_: Setup wizard, first-run signup
 
+**Landing**:
+The page at `/` for a person with no session: the product line, the note that
+Tusker is invitation only, and the way in. A signed-in person never sees it,
+because `/` sends that person to the unified view. While the instance holds
+no account, `/` sends the person to Bootstrap.
+_Avoid_: Home page, marketing page, splash
+
 **Scope**:
 Proof that the signed-in person is a member of one org. Every query that reads
 or writes task rows takes a scope, not a bare org id, and one function makes
@@ -75,6 +82,19 @@ _Avoid_: Customer, account
 **Task**:
 One piece of work in one org. A task never belongs to two orgs.
 
+**Assignee**:
+A member who holds a task. A task can have several, and a task with none is
+unassigned. An assignee says who does the work and nothing about who may read
+it: membership is still the only permission check. Removing a member from an org
+takes their assignments with them. See ADR-0013.
+_Avoid_: Owner, task owner, responsible
+
+**Unassigned**:
+A task no member holds. It is a state to look at, not a gap to hide: the
+assignee filter names it, so the queue of work nobody has taken is one control
+away.
+_Avoid_: Unowned, orphan, inbox
+
 **Decision**:
 A record of what was decided, kept by the org. A decision outlives the task that
 produced it, so a deleted task leaves the decision in place.
@@ -82,7 +102,7 @@ produced it, so a deleted task leaves the decision in place.
 **Decision mark**:
 The flag that says a task holds a decision, in `tasks.decides`. It is off by
 default, and only a marked task raises the decision prompt. A person sets it in
-the board's quick-add box when the task is made, and on the task page after.
+the quick-add box when the task is made, and on the task page after.
 See ADR-0010.
 _Avoid_: Decision flag, needs-decision
 
@@ -195,6 +215,21 @@ _Avoid_: Tasks endpoint, public API
 The To do, In progress and Done columns for one org, with Backlog and Cancelled
 shown by rule.
 
+**Quick-add box**:
+The box that makes a task from a typed title. On a board it sits at the top of a
+column, and the column names the status. On the unified view and in plan mode it
+carries an org picker instead, which starts at the personal org every time a
+person opens Tusker. A team org draws a chip that names it while the box holds
+it. The decision mark is set here. See ADR-0012.
+_Avoid_: Composer, capture box, new task form
+
+**Undo an add**:
+The line the quick-add box shows after it makes a task. It deletes the row and
+gives the box back the title and the mark, with the picker reset to the personal
+org, so a task typed into the wrong org is filed again rather than typed again.
+It is the only delete Tusker has. See ADR-0012.
+_Avoid_: Trash, revert
+
 **Plan**:
 The tasks one person chose for one day, in the order they mean to work them. A
 plan belongs to the person and can hold tasks from several orgs.
@@ -243,6 +278,15 @@ and goes teaches nothing, so nothing in the header is drawn by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 
+**Assignee filter**:
+The control on a board and on the unified view that narrows by who holds a
+task: mine, unassigned, or everyone. It is everyone by default, it lives in the
+address, and on a board it narrows what the Today chip already left. An org of
+one member carries no filter. See ADR-0013.
+_Avoid_: My tasks toggle, owner filter
+
 **Unified view**:
-One person's tasks across every org they belong to, in percentile order.
+Every live task of every org one person belongs to, in percentile order. It is
+not narrowed to the tasks they hold: the assignee filter does that, and the plan
+is where a person's own list lives.
 _Avoid_: My tasks page, global board

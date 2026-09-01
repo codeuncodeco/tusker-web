@@ -23,7 +23,7 @@ import { fieldClass } from "../forms";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
 import { requireScope } from "../scope.server";
-import { createTask, listTasks, moveTask, type Task } from "../tasks.server";
+import { createTask, listTasks, moveTask, newTaskFrom, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -130,16 +130,10 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const intent = String(form.get("intent") ?? "");
 
   if (intent === "create") {
-    const title = String(form.get("title") ?? "").trim();
     const status = readStatus(form);
-    if (!title) return { error: "A task needs a title." };
-    // The mark goes on when the task is made, while the thought is there. It
-    // is off by default, so an unticked box is a task that decides nothing.
-    const made = await createTask(env.DB, scope, {
-      title,
-      status,
-      decides: form.get("decides") === "1",
-    });
+    const typed = newTaskFrom(form);
+    if ("error" in typed) return typed;
+    const made = await createTask(env.DB, scope, { ...typed, status });
     // The box sits on every column, Done included. A marked task typed
     // straight into Done is finished the moment it is made, so it is asked
     // now: no later move would ask it.
