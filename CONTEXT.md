@@ -82,7 +82,7 @@ produced it, so a deleted task leaves the decision in place.
 **Decision mark**:
 The flag that says a task holds a decision, in `tasks.decides`. It is off by
 default, and only a marked task raises the decision prompt. A person sets it in
-the board's quick-add box when the task is made, and on the task page after.
+the quick-add box when the task is made, and on the task page after.
 See ADR-0010.
 _Avoid_: Decision flag, needs-decision
 
@@ -194,6 +194,21 @@ _Avoid_: Tasks endpoint, public API
 **Board**:
 The To do, In progress and Done columns for one org, with Backlog and Cancelled
 shown by rule.
+
+**Quick-add box**:
+The box that makes a task from a typed title. On a board it sits at the top of a
+column, and the column names the status. On the unified view and in plan mode it
+carries an org picker instead, which starts at the personal org every time a
+person opens Tusker. A team org draws a chip that names it while the box holds
+it. The decision mark is set here. See ADR-0012.
+_Avoid_: Composer, capture box, new task form
+
+**Undo an add**:
+The line the quick-add box shows after it makes a task. It deletes the row and
+gives the box back the title and the mark, with the picker reset to the personal
+org, so a task typed into the wrong org is filed again rather than typed again.
+It is the only delete Tusker has. See ADR-0012.
+_Avoid_: Trash, revert
 
 **Plan**:
 The tasks one person chose for one day, in the order they mean to work them. A
