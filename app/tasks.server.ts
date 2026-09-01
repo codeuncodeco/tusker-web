@@ -108,6 +108,30 @@ export async function createTask(
   return asTask(made);
 }
 
+/**
+ * Deletes one task of the org, row and all.
+ *
+ * It is the only delete Tusker has: the undo of a quick add, on a row made
+ * seconds ago. Archiving instead would leave a real row in a team org that
+ * never wanted it, which is the failure ADR-0012 sets out to prevent.
+ *
+ * A decision the task produced stays, with its link cleared, because a
+ * decision outlives the task.
+ *
+ * Returns false when no row matched, so the route can answer 404.
+ */
+export async function deleteTask(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+): Promise<boolean> {
+  const done = await db
+    .prepare("DELETE FROM tasks WHERE id = ? AND org_id = ?")
+    .bind(taskId, scope.org.id)
+    .run();
+  return done.meta.changes > 0;
+}
+
 /** What a move did: whether a row moved, and whether the move finished it. */
 export type Moved = {
   moved: boolean;

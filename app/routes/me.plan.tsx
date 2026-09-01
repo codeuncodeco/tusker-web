@@ -27,6 +27,7 @@ import { OrgSwitcher } from "../org-switcher";
 import { movePlan, readPlan, startPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
+import { UnifiedAdd } from "../unified-add";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
 import { UnifiedList } from "../unified-list";
@@ -70,6 +71,12 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     day,
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
+    /**
+     * True where the box may add to this day. A plan is never rewritten after
+     * its day, so a day other than the one the person is in carries no box.
+     * See ADR-0012.
+     */
+    canAdd: day === dayOf(request),
     /** What the last plan leaves over, or null when there is nothing to offer. */
     leftovers,
     groups,
@@ -105,14 +112,21 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
-  const acted = await actOnTask(env, request, set, day, form);
+  // An add here is a pick as well, so the task goes to the end of the day.
+  // The day must be the one the person is in: a plan is never rewritten after
+  // its day, and the page draws no box on one it cannot add to.
+  if (intent === "create" && day !== dayOf(request)) {
+    throw new Response("A plan is never rewritten after its day.", { status: 400 });
+  }
+
+  const acted = await actOnTask(env, request, set, day, form, { intoPlan: true });
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
 
   return acted;
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, day, named, leftovers, ask } = loaderData;
+  const { orgs, groups, planned, day, named, canAdd, leftovers, ask } = loaderData;
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 p-8">
@@ -121,6 +135,10 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         <span className="tabular-nums text-sm text-neutral-500">{day}</span>
         <OrgSwitcher orgs={orgs} />
       </header>
+
+      {/* An add here is a pick: the task lands in the day, at the end, like
+          any other. A named day carries no box. See ADR-0012. */}
+      {canAdd ? <UnifiedAdd orgs={orgs} /> : null}
 
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Press <kbd>p</kbd> to plan a task, and <kbd>J</kbd> and <kbd>K</kbd> to say in what

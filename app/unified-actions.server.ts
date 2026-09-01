@@ -1,6 +1,6 @@
 /**
- * The acts both cross-org lists make on one task: put it in a day's plan, take
- * it out again, and finish it.
+ * The acts both cross-org lists make: make a task, put it in a day's plan, take
+ * it out again, finish it, and take an add back.
  *
  * The unified view and plan mode are one list, so they are one set of acts as
  * well. A key and a button post the same fields to either route.
@@ -9,7 +9,8 @@
 import { decide, finishTask } from "./decisions.server";
 import { appendToPlan, unplanTask } from "./plans.server";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
-import { readTask, type Task } from "./tasks.server";
+import { createTask, deleteTask, readTask, type Task } from "./tasks.server";
+import type { Added } from "./unified";
 
 /**
  * The task a form names, read back through the one-org scope, and the scope
@@ -30,14 +31,61 @@ export async function taskFrom(
   return { scope, task };
 }
 
+/**
+ * The org a form named, or a 404. `create` is the one act with no task to read
+ * back, so it proves the org on its own.
+ */
+function scopeFrom(set: OrgSet, form: FormData): Scope {
+  const scope = scopeForSlug(set, String(form.get("slug") ?? ""));
+  if (!scope) throw new Response("Not found", { status: 404 });
+  return scope;
+}
+
+/**
+ * Makes a task from a typed title, in the org the picker named.
+ *
+ * The task lands in To do, at the top of the column, where a person looks for
+ * the one they just typed. Plan mode also puts it at the end of the day's
+ * plan, because there an add is a pick.
+ *
+ * The mark goes on when the task is made, while the thought is there, and it
+ * is off by default. See ADR-0010.
+ */
+async function addTask(
+  env: Env,
+  set: OrgSet,
+  day: string,
+  form: FormData,
+  intoPlan: boolean,
+): Promise<Acted> {
+  const scope = scopeFrom(set, form);
+
+  const title = String(form.get("title") ?? "").trim();
+  if (!title) return { error: "A task needs a title." };
+
+  const decides = form.get("decides") === "1";
+  const made = await createTask(env.DB, scope, { title, status: "todo", decides });
+  if (intoPlan) await appendToPlan(env.DB, set.personId, day, [made.id]);
+
+  // The box keeps the words, so an add into the wrong org is filed again
+  // rather than typed again. See ADR-0012.
+  return { added: { id: made.id, slug: scope.org.slug, title, decides } };
+}
+
 /** The acts this module answers for. Any other form is the route's own. */
-const ACTS = ["plan", "unplan", "finish", "decide"] as const;
+const ACTS = ["plan", "unplan", "finish", "decide", "undo"] as const;
 
 /**
  * What one act answers with: the page again when it raised or answered the
  * prompt, and otherwise a word for the fetcher that posted it.
  */
-export type Acted = Response | { ok: true } | { error: string };
+export type Acted = Response | { ok: true } | { added: Added } | { error: string };
+
+/** What one page asks of an act that the form itself does not say. */
+export type ActOn = {
+  /** True where an add is also a pick: plan mode puts the task in the day. */
+  intoPlan?: boolean;
+};
 
 /**
  * What one of these acts left behind, or null for a form that named something
@@ -50,8 +98,11 @@ export async function actOnTask(
   set: OrgSet,
   day: string,
   form: FormData,
+  on: ActOn = {},
 ): Promise<Acted | null> {
   const intent = String(form.get("intent") ?? "");
+  // An add names an org and no task, so it proves its scope and stops here.
+  if (intent === "create") return addTask(env, set, day, form, on.intoPlan === true);
   if (!ACTS.some((act) => act === intent)) return null;
 
   // Every act names the org the task belongs to, and the row is read back
@@ -69,6 +120,13 @@ export async function actOnTask(
   }
 
   if (intent === "unplan") await unplanTask(env.DB, set.personId, day, taskId);
+
+  // Taking an add back is the one delete Tusker has. The task leaves the day
+  // as well, so an undo in plan mode leaves no hole in the plan. See ADR-0012.
+  if (intent === "undo") {
+    await unplanTask(env.DB, set.personId, day, taskId);
+    await deleteTask(env.DB, scope, taskId);
+  }
 
   // The prompt one of these pages raised, answered. It writes the decision and
   // gives the page back with the prompt gone.

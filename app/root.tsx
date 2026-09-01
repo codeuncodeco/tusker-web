@@ -7,6 +7,7 @@ import {
   isRouteErrorResponse,
 } from "react-router";
 
+import { AddingTo } from "./adding";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -29,7 +30,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  // The org the cross-org quick-add box files into lives here, so the pick
+  // holds across a move between pages and dies on a reload. See ADR-0012.
+  return (
+    <AddingTo>
+      <Outlet />
+    </AddingTo>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
