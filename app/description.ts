@@ -61,8 +61,11 @@ export function descriptionBlocks(text: string): DescriptionBlock[] {
   if (!text.trim()) return [];
 
   const lines = text.split("\n");
+  // One walk numbers the boxes, and the tick reads the same walk. Numbering
+  // them again in the loop below would rest the "Nth box is the Nth toggleable
+  // line" rule on two loops agreeing.
+  const boxAt = new Map(checkboxLines(lines).map((line, box) => [line, box]));
   const blocks: DescriptionBlock[] = [];
-  let box = 0;
   let at = 0;
 
   while (at < lines.length) {
@@ -77,12 +80,13 @@ export function descriptionBlocks(text: string): DescriptionBlock[] {
       continue;
     }
 
+    const index = at;
     const line = lines[at++];
     const check = line.match(CHECKBOX_RE);
     if (check) {
       blocks.push({
         kind: "check",
-        box: box++,
+        box: boxAt.get(index)!,
         checked: check[3].toLowerCase() === "x",
         indent: indentOf(check[1]),
         html: renderInline(check[4]),

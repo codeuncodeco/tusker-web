@@ -92,6 +92,15 @@ it("a box the description does not hold answers 404", async () => {
   expect(response.status).toBe(404);
 });
 
+it("a box that is no number answers 404 and writes nothing", async () => {
+  const one = await member("junk@example.test", "Junk");
+  await task(one.org.id, "t1", "- [ ] one");
+
+  const response = await caught(tick(one.cookie, one.org.slug, "t1", "half"));
+  expect(response.status).toBe(404);
+  expect(await described("t1")).toBe("- [ ] one");
+});
+
 it("a tick on another org's task answers 404, because the read is scoped", async () => {
   const one = await member("mine@example.test", "Mine");
   const other = await member("theirs@example.test", "Theirs");

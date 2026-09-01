@@ -55,18 +55,23 @@ function Block({ block }: { block: DescriptionBlock }) {
  * One live checkbox.
  *
  * The post names the box by its number, and the server flips that line of the
- * raw text. While the post is in flight the box draws the state it is going to
- * hold, because a checkbox that snaps back for half a second reads as one that
- * did not work.
+ * raw text: the number is what stops a tick from writing a stale copy of a
+ * description over a newer one.
+ *
+ * `ticked` says what the person just drew. The server ignores it, and the box
+ * reads it while the post is in flight, because a checkbox that snaps back for
+ * half a second reads as one that did not work.
  */
 function CheckLine({ block }: { block: Extract<DescriptionBlock, { kind: "check" }> }) {
   const tick = useFetcher();
-  const checked = tick.state === "idle" ? block.checked : !block.checked;
+  const sent = tick.formData?.get("ticked");
+  const checked = sent === undefined || sent === null ? block.checked : sent === "1";
 
   return (
     <tick.Form method="post" style={nested(block.indent)}>
       <input type="hidden" name="intent" value="tick" />
       <input type="hidden" name="box" value={block.box} />
+      <input type="hidden" name="ticked" value={block.checked ? "0" : "1"} />
       <label className="flex items-baseline gap-2">
         <input
           type="checkbox"
@@ -85,7 +90,7 @@ function CheckLine({ block }: { block: Extract<DescriptionBlock, { kind: "check"
   );
 }
 
-/** How far one nested line sits from the left. */
+/** How far one nested line sits from the left, in the text's own size. */
 function nested(indent: number) {
-  return indent ? { marginLeft: `${indent * 1.5}rem` } : undefined;
+  return indent ? { marginLeft: `${indent * 1.5}em` } : undefined;
 }

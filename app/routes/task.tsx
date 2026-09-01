@@ -88,9 +88,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // One checkbox of the description, flipped where the raw text holds it.
   if (intent === "tick") {
     const box = Number(form.get("box"));
-    const ticked =
-      Number.isInteger(box) && box >= 0 &&
-      (await tickDescriptionBox(env.DB, scope, params.taskId, box));
+    const ticked = await tickDescriptionBox(env.DB, scope, params.taskId, box);
     if (!ticked) throw new Response("Not found", { status: 404 });
     return { ok: true };
   }

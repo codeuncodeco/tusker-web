@@ -24,7 +24,12 @@ export type Task = {
 /** The row as the table holds it: `data` as the JSON text of the column. */
 type Row = Omit<Task, "data"> & { data: string };
 
-/** The columns a card and the task editor read. `assignees` waits. */
+/**
+ * The columns a card and the task editor read. `assignees` waits.
+ *
+ * The description is here for the task page. A card does not draw it: the board
+ * cuts each row down to a card before the payload leaves the server.
+ */
 const CARD_FIELDS =
   "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at";
 
@@ -88,9 +93,10 @@ export async function saveTask(
  * and the write sit in this one function, and the read goes through the scope
  * as every other read does.
  *
- * Returns false when the org holds no such task, or the description holds no
- * such box, so the route can answer 404. Both mean the same thing to the page:
- * the box that was ticked is not there.
+ * Returns false when the number is no box at all, when the org holds no such
+ * task, or when the description holds no such box, so the route can answer 404.
+ * All three mean the same thing to the page: the box that was ticked is not
+ * there.
  */
 export async function tickDescriptionBox(
   db: D1Database,
@@ -98,6 +104,8 @@ export async function tickDescriptionBox(
   taskId: string,
   box: number,
 ): Promise<boolean> {
+  if (!Number.isInteger(box) || box < 0) return false;
+
   const task = await readTask(db, scope, taskId);
   if (!task) return false;
 
