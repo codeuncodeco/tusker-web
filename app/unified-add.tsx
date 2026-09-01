@@ -12,10 +12,10 @@ import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { useAddingTo } from "./adding";
+import type { OrgHeld } from "./current-org";
 import { fieldClass } from "./forms";
 import { isPagePress } from "./keys";
 import { QuickAddBox, useQuickAddDraft } from "./quick-add";
-import type { SwitchTo } from "./org-switcher";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
 
@@ -28,7 +28,7 @@ type Answer = Exclude<Acted, Response>;
  * `n` focuses the title and Escape gives the list its keys back, so the page
  * stays keyboard first with a text box on it.
  */
-export function UnifiedAdd({ orgs }: { orgs: SwitchTo[] }) {
+export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
   const add = useFetcher<Answer>();
   const undo = useFetcher();
   const [picked, pick] = useAddingTo();

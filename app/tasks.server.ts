@@ -1,4 +1,5 @@
 import { isStatus, STATUSES, type Status } from "./board";
+import { isDay } from "./day";
 import { listFields } from "./fields.server";
 import { between } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
@@ -21,7 +22,7 @@ export type Task = {
 /** The row as the table holds it: `data` as the JSON text of the column. */
 type Row = Omit<Task, "data"> & { data: string };
 
-/** The columns a card and the task editor read. `description` and `assignees` wait. */
+/** The columns a card and the task editor read. `description` waits. */
 const CARD_FIELDS =
   "id, org_id, title, status, position, due_date, archived, decides, data, created_at";
 
@@ -50,10 +51,14 @@ export async function readTask(db: D1Database, scope: Scope, taskId: string): Pr
 }
 
 /**
- * Writes a task the editor changed: the title, the mark that says the task
- * holds a decision, and the whole custom field data. The caller built `data`
- * from the org's declarations, so a key another org declared never reaches the
- * column.
+ * Writes a task the editor changed: the title, the due date, the mark that
+ * says the task holds a decision, and the whole custom field data. The caller
+ * built `data` from the org's declarations, so a key another org declared
+ * never reaches the column.
+ *
+ * The status is not here. Moving a task is one act with its own rules — a
+ * place in a column, and the decision prompt a finish raises — so the editor
+ * calls `moveTask` for it. See ADR-0010.
  *
  * Returns false when no row matched, so the route can answer 404.
  */
@@ -61,19 +66,44 @@ export async function saveTask(
   db: D1Database,
   scope: Scope,
   taskId: string,
-  save: { title: string; data: Record<string, string>; decides: boolean },
+  save: {
+    title: string;
+    data: Record<string, string>;
+    decides: boolean;
+    /** The day the work is due, or null for a task with no date. */
+    dueDate: string | null;
+  },
 ): Promise<boolean> {
   const done = await db
     .prepare(
       `UPDATE tasks
-       SET title = ?, data = ?, decides = ?,
+       SET title = ?, data = ?, decides = ?, due_date = ?,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND org_id = ?`,
     )
-    .bind(save.title, JSON.stringify(save.data), save.decides ? 1 : 0, taskId, scope.org.id)
+    .bind(
+      save.title,
+      JSON.stringify(save.data),
+      save.decides ? 1 : 0,
+      save.dueDate,
+      taskId,
+      scope.org.id,
+    )
     .run();
 
   return done.meta.changes > 0;
+}
+
+/**
+ * The due date a form names, or the reason it names none: an empty box is a
+ * task with no date, and a date no calendar holds is an error rather than a
+ * silent null.
+ */
+export function readDueDate(form: FormData): { dueDate: string | null } | { error: string } {
+  const text = String(form.get("due_date") ?? "").trim();
+  if (!text) return { dueDate: null };
+  if (!isDay(text)) return { error: "A due date is a date, as 2026-08-31." };
+  return { dueDate: text };
 }
 
 /** The row as every screen reads it, with the JSON column parsed. */

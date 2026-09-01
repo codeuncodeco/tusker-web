@@ -6,10 +6,12 @@ import {
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
-  isStatus,
+  readStatus,
   type Status,
   type Toggles,
 } from "../board";
+import { drawsAssignees, type Assignee } from "../assignees";
+import { assigneesByTask } from "../assignees.server";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
@@ -18,13 +20,11 @@ import { askedOn, decide, promptFor } from "../decisions.server";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
+import { Initials } from "../initials";
 import { QuickAddBox, useQuickAddDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
-import { listOrgsForPerson } from "../orgs.server";
 import { readPlan } from "../plans.server";
-import { OrgNav } from "../org-nav";
-import { OrgSwitcher } from "../org-switcher";
 import { requireScope } from "../scope.server";
 import { createTask, listTasks, moveTask, newTaskFrom, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
@@ -34,7 +34,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /** What one card shows. The task page reads the rest of the row. */
-type Card = { id: string; title: string; fields: Shown[] };
+type Card = { id: string; title: string; fields: Shown[]; assignees: Assignee[] };
 
 /** True while the board is narrowed to today's plan. */
 function readToday(params: URLSearchParams): boolean {
@@ -59,16 +59,9 @@ function countByStatus(tasks: Task[]): Record<Status, number> {
   return counts;
 }
 
-/** The status the form names, or a 400. */
-function readStatus(form: FormData): Status {
-  const status = form.get("status");
-  if (!isStatus(status)) throw new Response("That is not a column.", { status: 400 });
-  return status;
-}
-
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const tasks = await listTasks(env.DB, scope);
   // The org's declarations decide what a card shows, so the board needs no
@@ -80,6 +73,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The colour one value carries, so a card tells one client from another at a
   // glance. One query covers every card. See ADR-0006.
   const colors = await listColors(env.DB, scope);
+  // Who holds each task, for the whole org in one read. A personal org holds
+  // one member, so it draws none. See ADR-0013.
+  const assignees = drawsAssignees(scope.org)
+    ? await assigneesByTask(env.DB, scope)
+    : new Map<string, Assignee[]>();
   // The chip narrows the board to the tasks today's plan holds. A null plan is
   // a day the person has not planned, and then the board offers no chip.
   const day = dayOf(request);
@@ -105,13 +103,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
           id: task.id,
           title: task.title,
           fields: shownOnCard(declared, task.data, labels, colors),
+          assignees: assignees.get(task.id) ?? [],
         }),
       ),
   }));
 
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
-    orgs: await listOrgsForPerson(env.DB, scope.personId),
     columns,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedOn(env.DB, scope, request),
@@ -128,7 +126,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug);
+  const scope = await requireScope(request, env, params.slug, context);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -242,11 +240,12 @@ function CardItem({
       }}
       className="flex cursor-grab flex-col gap-2 rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
     >
-      <span className="flex gap-2">
+      <span className="flex items-baseline gap-2">
         <span className="tabular-nums text-neutral-400">{index + 1}</span>
-        <Link to={`/o/${slug}/t/${card.id}`} className="underline-offset-2 hover:underline">
+        <Link to={`/o/${slug}/t/${card.id}`} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
+        <Initials assignees={card.assignees} />
       </span>
 
       {card.fields.length > 0 ? (
@@ -318,14 +317,22 @@ function flipped(params: URLSearchParams, which: string, on: boolean): string {
   return query ? `?${query}` : "?";
 }
 
-/** The chip that narrows the board to today's plan, and gives it back. */
-function TodayChip({ today }: { today: boolean }) {
+/**
+ * The chip that narrows the board to today's plan, and gives it back.
+ *
+ * It is drawn on every board, planned or not. A day with no plan holds nothing
+ * to narrow to, so the chip then leads to plan mode: a control that comes and
+ * goes teaches nobody that plans exist.
+ */
+function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean }) {
   const [params] = useSearchParams();
 
   return (
     <Link
-      to={flipped(params, "today", today)}
-      aria-pressed={today}
+      to={hasPlan ? flipped(params, "today", today) : "/me/plan"}
+      // With no plan the chip is a way to plan mode and not a filter, so it
+      // announces no pressed state it does not hold.
+      aria-pressed={hasPlan ? today : undefined}
       className={`rounded-full border px-2 py-0.5 text-xs ${
         today
           ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
@@ -349,7 +356,7 @@ function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: T
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, orgs, columns, toggles, today, hasPlan, day, ask } = loaderData;
+  const { org, columns, toggles, today, hasPlan, day, ask } = loaderData;
   const mover = useFetcher();
 
   // The chip speaks for today, so the board must know which day that is where
@@ -373,19 +380,14 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   }
 
   return (
-    <main className="flex min-h-full flex-col gap-6 p-8">
+    <main className="flex flex-1 flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <OrgSwitcher orgs={orgs} here={org.slug} />
         <nav className="flex items-baseline gap-4 text-sm">
-          {hasPlan ? <TodayChip today={today} /> : null}
+          <TodayChip today={today} hasPlan={hasPlan} />
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
-          <Link to="/me" className="underline">
-            Your tasks
-          </Link>
         </nav>
-        <OrgNav slug={org.slug} here="board" />
       </header>
 
       <div className="flex flex-1 gap-4 overflow-x-auto">

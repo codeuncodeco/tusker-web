@@ -1,3 +1,5 @@
+import { createContext, type RouterContextProvider } from "react-router";
+
 import { bearerKey } from "./org-keys";
 import { orgForKey } from "./org-keys.server";
 import { listOrgsForPerson, orgForMember, type Org } from "./orgs.server";
@@ -23,14 +25,36 @@ export type Scope = ReadScope & { personId: string };
 export type ReadScope = { org: Org };
 
 /**
+ * The scope the org layout made for this request, for the pages under it.
+ *
+ * Loaders run at once, parent and child alike, so the layout's loader cannot
+ * hand its scope down. Middleware runs before all of them, and this is where
+ * it leaves the answer.
+ */
+export const orgScope = createContext<Scope | null>(null);
+
+/**
  * The scope for a request under `/o/:slug`, or a throw that ends the request:
  * a redirect to sign-in for a signed-out person, and a 404 for everybody else
  * the org does not hold.
  *
  * A person outside the org reads the same answer as one who named an org that
  * does not exist, so a slug does not leak.
+ *
+ * The context is the request's own, and a page under the org layout passes it
+ * so the check is made once. Without one the check is made here.
  */
-export async function requireScope(request: Request, env: Env, slug: string): Promise<Scope> {
+export async function requireScope(
+  request: Request,
+  env: Env,
+  slug: string,
+  context?: Readonly<RouterContextProvider>,
+): Promise<Scope> {
+  // The org layout proved this org already. A page that asks again inside the
+  // same request reads that answer, so one visit is one membership check.
+  const held = context?.get(orgScope);
+  if (held && held.org.slug === slug) return held;
+
   const person = await requirePerson(request, env);
   const org = await orgForMember(env.DB, slug, person.id);
   if (!org) throw new Response("Not found", { status: 404 });
