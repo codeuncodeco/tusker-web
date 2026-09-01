@@ -4,7 +4,9 @@ import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
 import { createOrgKey, listOrgKeys, revokeOrgKey } from "../org-keys.server";
 import { OrgNav } from "../org-nav";
-import { renameOrg, slugify } from "../orgs.server";
+import { readOrgApp, renameOrg, setOrgApp, slugify } from "../orgs.server";
+import { isRefsBaseUrl } from "../refs";
+import { refreshOrgFields } from "../refs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/settings";
 
@@ -19,6 +21,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     org: { slug: scope.org.slug, name: scope.org.name },
     // The keys carry no plaintext, so this payload is safe in the browser.
     keys: await listOrgKeys(env.DB, scope),
+    // The base URL is an address. The key is not here, only whether it is set.
+    app: await readOrgApp(env.DB, scope),
   };
 }
 
@@ -35,6 +39,25 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // The one time the key is readable. It is not in the loader, and no row
     // holds it, so a person who misses it mints another.
     return { key: await createOrgKey(env.DB, scope, name) };
+  }
+
+  if (intent === "org-app") {
+    const base = String(form.get("refs_base_url") ?? "").trim();
+    const key = String(form.get("refs_key") ?? "").trim();
+    if (!isRefsBaseUrl(base)) {
+      return { appError: "An org app needs a base URL, as https://blrhikes.example/api/tusker/refs." };
+    }
+
+    const app = await readOrgApp(env.DB, scope);
+    if (!key && !app.has_refs_key) {
+      return { appError: "Paste the refs key the org app minted for this org." };
+    }
+
+    await setOrgApp(env.DB, scope, { refs_base_url: base, refs_key: key });
+
+    // Rotation is the reason this pair sits in one place, so a paste says what
+    // it did. A silent save is the failure it has to remove.
+    return { app: await refreshOrgFields(env.DB, scope) };
   }
 
   if (intent === "revoke-key") {
@@ -57,7 +80,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, keys } = loaderData;
+  const { org, keys, app } = loaderData;
 
   return (
     <main className="mx-auto flex min-h-full max-w-2xl flex-col gap-6 p-8">
@@ -91,6 +114,8 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           Save
         </button>
       </Form>
+
+      <OrgAppForm app={app} actionData={actionData} />
 
       <Keys slug={org.slug} keys={keys} actionData={actionData} />
     </main>
@@ -171,6 +196,83 @@ function Keys({
           {actionData.keyError}
         </p>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * The org app this org reads its reference options from: one address and one
+ * key, for every reference field of the org.
+ *
+ * The key box is empty every time. Tusker holds the plaintext, but no screen
+ * shows it: the org app minted it and it opens the org app's data. Leaving the
+ * box empty keeps the key the org already holds.
+ *
+ * Saving pulls every reference field and says how many answered, so a rotation
+ * that only half worked is visible here rather than in a picker that quietly
+ * stopped filling.
+ */
+function OrgAppForm({
+  app,
+  actionData,
+}: {
+  app: Route.ComponentProps["loaderData"]["app"];
+  actionData: Route.ComponentProps["actionData"];
+}) {
+  const pulled = actionData && "app" in actionData ? actionData.app : null;
+
+  return (
+    <section className="flex flex-col gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
+      <h2 className="text-lg font-semibold tracking-tight">Org app</h2>
+      <p className="text-sm text-neutral-500">
+        Where this org reads its reference options from. Every reference field of this org reads
+        under this address, with this key, and names only the list it wants.
+      </p>
+
+      <Form method="post" className="flex flex-col gap-3">
+        <input type="hidden" name="intent" value="org-app" />
+
+        <label className="flex flex-col gap-1">
+          Base URL
+          <span className="text-sm text-neutral-500">
+            The part every refs endpoint of the org app shares, with no trailing slash.
+          </span>
+          <input
+            name="refs_base_url"
+            type="url"
+            defaultValue={app.refs_base_url}
+            placeholder="https://blrhikes.example/api/tusker/refs"
+            className={fieldClass}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          Refs key
+          <span className="text-sm text-neutral-500">
+            {app.has_refs_key
+              ? "This org holds a key. Paste a new one to replace it, or leave this empty to keep it."
+              : "Mint it in the org app. It is shown there once."}
+          </span>
+          <input name="refs_key" type="password" autoComplete="off" className={fieldClass} />
+        </label>
+
+        {pulled ? (
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Saved. {pulled.fields - pulled.failed} of {pulled.fields} reference field
+            {pulled.fields === 1 ? "" : "s"} pulled.
+          </p>
+        ) : null}
+
+        {actionData && "appError" in actionData && actionData.appError ? (
+          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+            {actionData.appError}
+          </p>
+        ) : null}
+
+        <button className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+          Save the org app
+        </button>
+      </Form>
     </section>
   );
 }

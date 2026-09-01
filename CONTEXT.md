@@ -127,15 +127,23 @@ own.
 
 **Reference field**:
 A custom field that points at a record in an org app, such as a trail or an
-event. The task stores the external id. The board shows the label.
+event. It names the refs path and nothing else: the address and the key belong
+to the org. The task stores the external id. The board shows the label.
 
 **Ref option**:
 One cached `{id, label}` pair for a reference field. Tusker pulls the list from
 the org app and reads the cache when a person opens a picker.
 
 **Refs endpoint**:
-The read-only endpoint an org app exposes for one reference field. It returns
-`{id, label}` rows and nothing else.
+The read-only endpoint an org app exposes for one list. It sits at the org's
+refs base URL plus the field's refs path, and it returns `{id, label}` rows and
+nothing else.
+
+**Refs base URL**:
+The address of an org's org app, as far as the part every refs endpoint of it
+shares. The org holds it, a reference field adds its refs path, and the joined
+URL must keep the base's origin before the refs key is sent.
+_Avoid_: Source URL, endpoint root
 
 **Option colour**:
 A colour one value of a reference field carries, so a card tells one client from
@@ -151,9 +159,10 @@ _Avoid_: Theme, swatch set
 
 **Refs key**:
 The key Tusker sends to an org app to read a refs endpoint. The org app mints
-it, stores it hashed and can revoke it. Tusker holds the plaintext beside the
-reference field. See ADR-0005.
-_Avoid_: Source key, endpoint secret
+it, stores it hashed and can revoke it. Tusker holds the plaintext on the org,
+because the key opens the org app and not one list of it. One org names one org
+app. See ADR-0005.
+_Avoid_: Source key, endpoint secret, field key
 
 **Org key**:
 The key an org app sends to Tusker to read tasks. Tusker mints it, stores it

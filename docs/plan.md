@@ -58,13 +58,13 @@ Tables that carry the design. Field lists are indicative, not final.
 | Table | Holds |
 | --- | --- |
 | `user`, `session`, `account`, `verification` | better-auth |
-| `orgs` | `id`, `slug`, `name`, `kind` (`personal` or `team`) |
+| `orgs` | `id`, `slug`, `name`, `kind` (`personal` or `team`), `refs_base_url`, `refs_key` |
 | `memberships` | `org_id`, `user_id`, `role` |
 | `tasks` | `org_id`, `title`, `description`, `status`, `position`, `due_date`, `archived`, `assignees`, `data` (JSON) |
 | `task_comments` | `task_id`, `author_id`, `body` |
 | `decisions` | `org_id`, `title`, `rationale`, `task_id` (nullable), `decided_by` |
 | `plans` | `user_id`, `day` (local `YYYY-MM-DD`), ordered task ids |
-| `org_fields` | `org_id`, `key`, `label`, `type`, `options`, `source_url`, `refs_key`, `refs_pulled_at`, `show_on_card`, `filterable`, `position`, `derives_from` |
+| `org_fields` | `org_id`, `key`, `label`, `type`, `options`, `refs_path`, `refs_pulled_at`, `show_on_card`, `filterable`, `position`, `derives_from` |
 | `org_ref_options` | `org_id`, `field_key`, `ext_id`, `label` (null for a miss), `fetched_at` |
 | `org_field_colors` | `org_id`, `field_key`, `value`, `color` |
 | `org_api_keys` | `org_id`, hashed org key, `last_used_at` |
@@ -86,6 +86,6 @@ Notes that the table does not show:
   palette name or `#rgb` or `#rrggbb`, in one column, told apart by the leading
   `#`. A pull writes `org_ref_options` whole, so the colour sits in its own table
   and survives one. A colour outlives the option that is gone. See ADR-0006.
-- The two keys point opposite ways. `org_fields.refs_key` is the refs key an org
+- The two keys point opposite ways. `orgs.refs_key` is the refs key an org
   app minted, held as plaintext because Tusker sends it. `org_api_keys` holds
   the org key Tusker minted, hashed because Tusker verifies it. See ADR-0005.

@@ -20,7 +20,8 @@ export default {
    * so this run is what keeps the cache close to what the org apps hold.
    *
    * The cron has no signed-in person, so it takes no scope. It reads no task
-   * row, and each pull uses the refs key stored on the field row it read.
+   * row, and each pull joins a field to its own org, so an org's refs key goes
+   * only to that org's base URL. An org that names no org app is skipped.
    */
   async scheduled(_event, env) {
     const refreshed = await refreshEveryField(env.DB);

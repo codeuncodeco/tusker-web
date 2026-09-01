@@ -310,8 +310,8 @@ describe("what a row carries", () => {
     await db.batch([
       db
         .prepare(
-          `INSERT INTO org_fields (org_id, key, label, type, source_url, show_on_card, position)
-           VALUES (?, 'trail', 'Trail', 'reference', 'https://blrhikes.test/trails', 1, 1)`,
+          `INSERT INTO org_fields (org_id, key, label, type, refs_path, show_on_card, position)
+           VALUES (?, 'trail', 'Trail', 'reference', 'trails', 1, 1)`,
         )
         .bind(ada.org.id),
       db
@@ -340,8 +340,8 @@ describe("the option colour", () => {
     await db.batch([
       db
         .prepare(
-          `INSERT INTO org_fields (org_id, key, label, type, source_url, show_on_card, position)
-           VALUES (?, 'client', 'Client', 'reference', 'https://blrhikes.test/clients', 1, 1)`,
+          `INSERT INTO org_fields (org_id, key, label, type, refs_path, show_on_card, position)
+           VALUES (?, 'client', 'Client', 'reference', 'clients', 1, 1)`,
         )
         .bind(ada.org.id),
       db

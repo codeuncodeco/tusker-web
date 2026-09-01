@@ -1,7 +1,8 @@
 /**
  * A reference field points at a record in an org app. This module holds the
- * shape of what the org app answers with, so the reader and the tests state
- * the same contract once.
+ * shape of what the org app answers with, and the rule that joins the org's
+ * base URL to the field's path, so the reader and the tests state the same
+ * contract once.
  */
 
 /** One `{id, label}` pair, as a refs endpoint returns it and the cache holds it. */
@@ -27,4 +28,46 @@ export function readRefOptions(body: unknown): RefOption[] | null {
   }
 
   return options;
+}
+
+/**
+ * True for a base URL Tusker can call: an absolute http or https URL. The org
+ * holds one, and it carries the origin and the prefix every refs endpoint of
+ * that org app shares.
+ */
+export function isRefsBaseUrl(text: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return false;
+  }
+  return url.protocol === "http:" || url.protocol === "https:";
+}
+
+/**
+ * True for a path a reference field can name: one or more bare segments, such
+ * as `trails`.
+ *
+ * A path carries no scheme, no `//` prefix and no `..` segment. This is what
+ * stops a field sending the org app's key to another host.
+ */
+export function isRefsPath(text: string): boolean {
+  if (!/^[A-Za-z0-9._~%-]+(?:\/[A-Za-z0-9._~%-]+)*$/.test(text)) return false;
+  return !text.split("/").includes("..");
+}
+
+/**
+ * The URL one reference field reads, or null when the pair does not make one.
+ *
+ * The joined URL's origin must equal the base's origin. The path rule already
+ * refuses everything that could move it, and this is the second reading of the
+ * same rule, taken on the URL the key would actually be sent to.
+ */
+export function refsUrl(base: string, path: string): string | null {
+  if (!isRefsBaseUrl(base) || !isRefsPath(path)) return null;
+
+  const origin = new URL(base).origin;
+  const joined = new URL(`${base.replace(/\/+$/, "")}/${path}`);
+  return joined.origin === origin ? joined.toString() : null;
 }
