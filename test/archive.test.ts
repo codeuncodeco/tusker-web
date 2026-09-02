@@ -324,11 +324,11 @@ describe("an archived task", () => {
     const id = await made(ada.org.slug, ada.cookie, "done", "Ship it");
 
     const before = (await meRoute.loader(
-      routeArgs(signed(get("/me?done=1"), ada.cookie), {}),
+      routeArgs(signed(get("/me"), ada.cookie), {}),
     )) as { columns: { status: string; tasks: { id: string }[] }[] };
     await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
     const after = (await meRoute.loader(
-      routeArgs(signed(get("/me?done=1"), ada.cookie), {}),
+      routeArgs(signed(get("/me"), ada.cookie), {}),
     )) as { columns: { status: string; tasks: { id: string }[] }[] };
 
     const done = (board: typeof before) =>

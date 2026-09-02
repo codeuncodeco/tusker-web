@@ -8,7 +8,7 @@
  */
 
 import type { Assignee } from "./assignees";
-import { STATUS_LABEL, type Status, type Toggles } from "./board";
+import { ALWAYS_SHOWN, STATUS_LABEL, type Status, type Toggles } from "./board";
 import type { Shown } from "./fields";
 
 /** The org a card names. It carries no id, because a screen reads this. */
@@ -182,22 +182,14 @@ export function isPlannable(task: LiveTask): boolean {
  */
 
 /**
- * The three columns the unified board always draws.
- *
- * Done is one of them. The board draws work in hand and where it ended, and
- * where work ended is never a request, so the column comes on every load and
- * it comes empty on a week with no finished work. See ADR-0018.
+ * The columns to draw, in board order. The switches are `BOARD_TOGGLES`, the
+ * same two the org board offers, and the rest is `ALWAYS_SHOWN`: this board
+ * and the org board draw one list, not two that must stay equal.
  *
  * Backlog is a switch here and it is a rule on the org board. There the column
  * appears on its own when To do and In progress are both empty. Across every
  * org that reads "this person holds no live task anywhere", which is near
  * enough never, so the rule is dead and the switch is all there is.
- */
-const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
-
-/**
- * The columns to draw, in board order. The switches are `BOARD_TOGGLES`, the
- * same two the org board offers.
  */
 export function unifiedColumns(toggles: Toggles): Status[] {
   return [

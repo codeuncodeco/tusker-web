@@ -178,7 +178,7 @@ describe("the columns of the unified board", () => {
     expect(unifiedColumns({ ...off, backlog: true })).toContain("backlog");
   });
 
-  it("takes no switch over Done, so a done toggle changes nothing", () => {
+  it("takes no switch over Done, so a `done` in the address changes nothing", () => {
     expect(unifiedColumns({ ...off, done: true })).toEqual(unifiedColumns(off));
   });
 

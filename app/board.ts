@@ -65,8 +65,11 @@ export function stepInColumn(
   return at === ids.length - 1 ? null : { before: ids[at + 2] ?? null };
 }
 
-/** The three columns the board always shows. */
-const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
+/**
+ * The three columns every board draws, on every load. Two of them are work in
+ * hand, and Done is where work ended. See ADR-0018.
+ */
+export const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
 
 /**
  * Which of the hidden columns a query string asks for. Each board offers its
@@ -77,11 +80,7 @@ export type Toggles = Partial<Record<Status, boolean>>;
 /**
  * The columns a board hides until a person asks for them. Both boards offer
  * this list and no other, so the two read one list rather than two that must
- * stay equal.
- *
- * The board draws work in hand and where it ended. Backlog is neither, so it
- * comes by rule or by request; Cancelled is off the run, so it comes by
- * request. Done is where work ended, and that is never a request. See ADR-0018.
+ * stay equal. See ADR-0018.
  */
 export const BOARD_TOGGLES: Status[] = ["backlog", "cancelled"];
 
