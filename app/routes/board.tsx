@@ -27,8 +27,9 @@ import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { AssigneeFilter, ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { ANYONE, keeps, readAssignee } from "../assignee-filter";
-import { assigneeOf, drawsAssignees, inNameOrder, type Assignee } from "../assignees";
-import { assigneesByTask } from "../assignees.server";
+import { drawsAssignees, type Assignee } from "../assignees";
+import { assigneesByTask, membersOf, readAssignees } from "../assignees.server";
+import { AssigneePicker } from "../assignee-picker";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
@@ -39,7 +40,6 @@ import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
 import { QuickAddBox, useAddKey, useQuickAddDraft } from "../quick-add";
-import { listMembers } from "../orgs.server";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
@@ -54,6 +54,7 @@ import {
   newTasksFrom,
   stepTask,
 } from "../tasks.server";
+import { useToast, type Toast } from "../toast";
 import type { Route } from "./+types/board";
 
 /** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
@@ -84,17 +85,16 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The colour one value carries, so a card tells one client from another at a
   // glance. One query covers every card. See ADR-0006.
   const colors = await listColors(env.DB, scope);
-  // Who holds each task, for the whole org in one read. A personal org holds
-  // one member, so it draws none. See ADR-0013.
-  // The members the select offers ride along, in the order a name reads: the
-  // same order the assignee list on a task uses. The two reads go together,
-  // because neither waits on the other. A personal org draws no assignee, so
-  // it draws no select and holds no filter either, whatever the address says.
+  // Who holds each task, for the whole org in one read, and the org's members
+  // beside it: one list for the picker every quick-add box carries and for the
+  // filter select in the header. The two reads go together, because neither
+  // waits on the other. A personal org draws no assignee, so it draws neither
+  // control, and it holds no filter either, whatever the address says.
+  // See ADR-0013 and ADR-0017.
   const draws = drawsAssignees(scope.org);
-  const [assignees, roll] = draws
-    ? await Promise.all([assigneesByTask(env.DB, scope), listMembers(env.DB, scope.org.id)])
-    : [new Map<string, Assignee[]>(), []];
-  const members = roll.map(assigneeOf).sort(inNameOrder);
+  const [assignees, members] = draws
+    ? await Promise.all([assigneesByTask(env.DB, scope), membersOf(env.DB, scope)])
+    : [new Map<string, Assignee[]>(), [] as Assignee[]];
   const assignee = draws ? readAssignee(query) : ANYONE;
   // The chip narrows the board to the tasks today's plan holds. A null plan is
   // a day the person has not planned, and then the board offers no chip.
@@ -109,14 +109,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // is the honest board for a member who left: their assignments left with
   // them.
   const shown = tasks.filter(
-    (task) =>
-      (!today || held.has(task.id)) && keeps(assignee, assignees.get(task.id) ?? []),
+    (task) => (!today || held.has(task.id)) && keeps(assignee, assignees.get(task.id) ?? []),
   );
-  // True while something narrows the board. The sweep is offered only then:
-  // a sweep of a whole unnarrowed column is not what archive is for. The chip,
-  // the search box and the assignee filter are the three narrowings, and the
-  // sweep asks no question about which one made the column what it is.
-  const narrowed = today || search !== "" || assignee !== ANYONE;
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip or the box gives the board back as
@@ -141,6 +135,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
     columns,
+    /**
+     * The org's members, in name order: the picker on every box offers them,
+     * and so does the filter select. Empty draws neither.
+     */
+    members,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedOn(env.DB, scope, request),
     toggles,
@@ -149,13 +148,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     search,
     /** The value the select holds, so a reload draws the filter it ran. */
     assignee,
-    /** The org's members, in name order. A personal org hands back none. */
-    members,
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
-    /** Something narrows the board, so a sweep archives a chosen set. */
-    narrowed,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
@@ -173,7 +168,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const status = readStatus(form);
     const typed = newTasksFrom(form);
     if ("error" in typed) return typed;
-    const made = await createTasks(env.DB, scope, { ...typed, status });
+    // The ids are checked before anything is written, so an add naming a
+    // member who left the org while the box sat open makes no task at all. The
+    // box keeps the words, so nothing typed is lost. See ADR-0013.
+    const assigned = await readAssignees(env.DB, scope, form);
+    if ("error" in assigned) return assigned;
+    const made = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
     // The box sits on every column, Done included. A marked task typed
     // straight into Done is finished the moment it is made, so it is asked
     // now: no later move would ask it. One box is one prompt, so a pasted list
@@ -235,10 +235,25 @@ export async function action({ request, context, params }: Route.ActionArgs) {
  * the tasks land, so a person can type the next one at once. The column names
  * the status, so the only extra this placement needs is a hidden field.
  *
+ * The picker names who holds the task. It keeps its set across an add, so a
+ * person filing three tasks to one member names them once. A personal org
+ * hands it no member and it draws nothing. See ADR-0013.
+ *
  * `n` focuses the box on the To do column and Escape gives the board its keys
  * back, as they do on the unified board. One key names one box.
  */
-function QuickAdd({ status, label, addKey }: { status: Status; label: string; addKey: boolean }) {
+function QuickAdd({
+  status,
+  label,
+  addKey,
+  members,
+}: {
+  status: Status;
+  label: string;
+  addKey: boolean;
+  /** The org's members. Empty for a personal org, which draws no picker. */
+  members: Assignee[];
+}) {
   const add = useFetcher<typeof action>();
   const draft = useQuickAddDraft();
   const error = add.data && "error" in add.data ? add.data.error : null;
@@ -264,57 +279,73 @@ function QuickAdd({ status, label, addKey }: { status: Status; label: string; ad
         (event.target as HTMLElement).blur();
       }}
       fields={<input type="hidden" name="status" value={status} />}
+      picker={
+        <AssigneePicker
+          members={members}
+          picked={draft.assignees}
+          onPick={draft.setAssignees}
+        />
+      }
     />
   );
 }
 
 /**
- * The sweep of one column, and the one undo that puts the batch back.
+ * The sweep of one column.
  *
  * The form carries the id of every card the column draws, so the sweep
  * archives exactly what is on screen: whatever narrowed the column is the
- * whole rule, and the server adds nothing to it.
+ * whole rule, and the server adds nothing to it. Narrowing decides the set and
+ * never the button: a finished column that holds a card carries the sweep.
  *
- * The board draws it only while it is narrowed, and only on a finished
- * column. A sweep of a whole unnarrowed column is a sweep of everything, and
- * archive keeps finished work a person chose to file.
+ * It sits in the column head, beside the name and the count, and a column
+ * holding nothing draws none.
  *
- * The undo names the ids the sweep changed, and not the ids it was given, so a
- * task somebody archived earlier is not restored by an undo of this sweep. One
+ * The batch reports itself in a toast, which holds the one undo. The undo
+ * names the ids the sweep changed, and not the ids it was given, so a task
+ * somebody archived earlier is not restored by an undo of this sweep. One
  * sweep is one act, so its undo is one act.
  */
-function ColumnSweep({ label, cards }: { label: string; cards: Card[] }) {
+/** What one sweep says once it is done: the count, and the one undo. */
+export function sweptToast(label: string, slug: string, archived: string[]): Toast {
+  return {
+    text: `Archived ${archived.length} from ${label}.`,
+    act: {
+      label: "Undo",
+      // The toast is drawn above every route, so it names the board it posts
+      // to. The ids are the ones the sweep changed, and not the ones it was
+      // given.
+      action: `/o/${slug}/board`,
+      post: { intent: "restore", id: archived },
+    },
+  };
+}
+
+function ColumnSweep({ label, cards, slug }: { label: string; cards: Card[]; slug: string }) {
   const sweep = useFetcher<typeof action>();
+  const raise = useToast();
   const archived = sweep.data && "archived" in sweep.data ? sweep.data.archived : null;
 
-  return (
-    <div className="flex flex-col gap-1 text-xs">
-      {cards.length > 0 ? (
-        <sweep.Form method="post">
-          <input type="hidden" name="intent" value="archive" />
-          {cards.map((card) => (
-            <input key={card.id} type="hidden" name="id" value={card.id} />
-          ))}
-          <button
-            aria-label={`Archive ${cards.length} from ${label}`}
-            className="rounded border border-border px-2 py-0.5"
-          >
-            Archive {cards.length}
-          </button>
-        </sweep.Form>
-      ) : null}
+  useEffect(() => {
+    if (sweep.state !== "idle" || !archived || archived.length === 0) return;
+    raise(sweptToast(label, slug, archived));
+  }, [sweep.state, archived, raise, label, slug]);
 
-      {archived && archived.length > 0 ? (
-        <sweep.Form method="post" className="flex items-baseline gap-2 text-muted">
-          <input type="hidden" name="intent" value="restore" />
-          {archived.map((id) => (
-            <input key={id} type="hidden" name="id" value={id} />
-          ))}
-          <span>Archived {archived.length}.</span>
-          <button className="underline">Undo</button>
-        </sweep.Form>
-      ) : null}
-    </div>
+  if (cards.length === 0) return null;
+
+  return (
+    <sweep.Form method="post">
+      <input type="hidden" name="intent" value="archive" />
+      {cards.map((card) => (
+        <input key={card.id} type="hidden" name="id" value={card.id} />
+      ))}
+      <button
+        aria-label={`Archive ${cards.length} from ${label}`}
+        className="rounded border border-border px-2 py-0.5 text-xs"
+      >
+        Archive {cards.length}
+      </button>
+    </sweep.Form>
   );
 }
 
@@ -476,8 +507,8 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, narrowed, day, ask } = loaderData;
-  const { search, assignee, members } = loaderData;
+  const { org, columns, members, toggles, today, hasPlan, day, ask, search } = loaderData;
+  const { assignee } = loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -564,22 +595,27 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             // width it always had. Past that the row scrolls sideways.
             className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
           >
-            <h2 className="uppercase tracking-wide text-muted">
-              {column.label} <span className="text-dim">{column.tasks.length}</span>
-            </h2>
+            <div className="flex items-baseline gap-3">
+              <h2 className="uppercase tracking-wide text-muted">
+                {column.label} <span className="text-dim">{column.tasks.length}</span>
+              </h2>
+              {/* The sweep acts on the whole column, so it is column chrome.
+                  It sits with the name and the count, the way the extension
+                  drew it, so the act on the column is where the column says
+                  what it holds. The head is pinned, so the sweep stays in
+                  sight while the cards scroll. */}
+              {isFinished(column.status) ? (
+                <ColumnSweep label={column.label} cards={column.tasks} slug={org.slug} />
+              ) : null}
+            </div>
 
             {/* One key names one box, and To do is where an add goes by hand. */}
             <QuickAdd
               status={column.status}
               label={column.label}
               addKey={column.status === "todo"}
+              members={members}
             />
-
-            {/* The sweep acts on the whole column, so it is column chrome and
-                stays pinned with the heading and the box. */}
-            {narrowed && isFinished(column.status) ? (
-              <ColumnSweep label={column.label} cards={column.tasks} />
-            ) : null}
 
             {/* The heading, the box and the sweep stay pinned, and only this
                 scrolls. The gutter is reserved, so a full column is as wide as

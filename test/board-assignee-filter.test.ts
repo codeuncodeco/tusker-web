@@ -165,7 +165,6 @@ describe("what the header needs to draw the select", () => {
     expect(data.members).toEqual([]);
     // A filter in the address narrows nothing where no filter is drawn.
     expect(titles(data)).toEqual(["Ada's"]);
-    expect(data.narrowed).toBe(false);
   });
 
   it("draws the select on a team org of one member", async () => {
@@ -224,16 +223,9 @@ describe("the filter beside the other narrowings", () => {
 });
 
 describe("the sweep under the filter", () => {
-  it("is offered while the filter alone narrows the board", async () => {
-    const ada = await member("ada@example.test", "Ada");
-    const org = await team("blrhikes", [ada]);
-    await task(org.id, "Ada's, done", [ada], "done");
-
-    expect((await board(org.slug, ada.cookie)).narrowed).toBe(false);
-    expect((await board(org.slug, ada.cookie, `?assignee=${ada.id}`)).narrowed).toBe(true);
-    expect((await board(org.slug, ada.cookie, `?assignee=${UNASSIGNED}`)).narrowed).toBe(true);
-  });
-
+  // "Narrowing decides the set and never the button": the sweep sits on every
+  // finished column that holds a card. `test/column-sweep.test.tsx` holds the
+  // button's own rule, and this holds the set the filter hands it.
   it("archives exactly the cards the filter left on screen", async () => {
     const ada = await member("ada@example.test", "Ada");
     const bo = await member("bo@example.test", "Bo");

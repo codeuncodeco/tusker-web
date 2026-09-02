@@ -8,6 +8,7 @@
  * and it says so with `Picks`.
  */
 
+import { readAssignees } from "./assignees.server";
 import { readStatus, type Status } from "./board";
 import { decide, finishTask, moveAndAsk, promptFor } from "./decisions.server";
 import type { Picks } from "./picks";
@@ -56,8 +57,8 @@ function statusFor(form: FormData, picked: boolean): Status {
 }
 
 /**
- * Makes a task of every line typed, in the org the picker named and the column
- * the box sits on.
+ * Makes a task of every line typed, in the org the picker named, the column
+ * the box sits on, and held by the members the box named.
  *
  * The tasks land at the top of the column and in list order, where a person
  * looks for the ones they just typed. A page that picks also puts every one of
@@ -75,8 +76,14 @@ async function addTasks(
   const typed = newTasksFrom(form);
   if ("error" in typed) return typed;
 
+  // The ids are checked before anything is written, so an add naming a member
+  // who left the org while the box sat open makes no task at all. The box
+  // keeps the words, so nothing typed is lost. See ADR-0013.
+  const assigned = await readAssignees(env.DB, scope, form);
+  if ("error" in assigned) return assigned;
+
   const status = statusFor(form, picks.onAdd);
-  const ids = await createTasks(env.DB, scope, { ...typed, status });
+  const ids = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
   if (picks.onAdd) await picks.add(ids);
 
   // A marked task typed straight into Done is finished the moment it is made,

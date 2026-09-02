@@ -16,6 +16,8 @@ import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { useAddingTo } from "./adding";
+import { AssigneePicker } from "./assignee-picker";
+import type { Assignee } from "./assignees";
 import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
 import { smallFieldClass } from "./forms";
@@ -35,11 +37,18 @@ type Answer = Exclude<Acted, Response>;
  */
 export function UnifiedAdd({
   orgs,
+  members,
   status,
   label = "Add a task",
   addKey = true,
 }: {
   orgs: OrgHeld[];
+  /**
+   * The members of every team org, keyed by slug. The page reads them with the
+   * orgs, so the picker draws the moment the org pick changes and no fetcher
+   * runs between. A personal org is not keyed and draws no picker.
+   */
+  members: Record<string, Assignee[]>;
   /** The column the box files into, where the page draws one per column. */
   status?: Status;
   /** What the empty box says, and what a screen reader reads. */
@@ -77,6 +86,20 @@ export function UnifiedAdd({
   }, [add.state, answer, draft.clear]);
 
   useAddKey(box, addKey);
+
+  // An assignee id belongs to one org's membership, so a set carried across a
+  // pick would name people the new org does not hold. The undo resets the pick
+  // to the personal org, and the set goes with it by this same rule.
+  //
+  // The set is emptied while the render that changed the org is still running,
+  // not in an effect after it, so no frame ever draws one org's picker holding
+  // another org's ids.
+  const filingSlug = filing?.slug ?? null;
+  const [pickedFor, setPickedFor] = useState(filingSlug);
+  if (pickedFor !== filingSlug) {
+    setPickedFor(filingSlug);
+    draft.setAssignees([]);
+  }
 
   // The picker takes the focus a re-file needs, and the title where a person
   // has only their personal org and so has no picker.
@@ -137,22 +160,32 @@ export function UnifiedAdd({
           ) : null
         }
         picker={
-          orgs.length > 1 ? (
-            <select
-              ref={picker}
-              name="slug"
-              value={filing.slug}
-              onChange={(event) => pick(event.target.value)}
-              aria-label="Add to org"
-              className={smallFieldClass}
-            >
-              {orgs.map((org) => (
-                <option key={org.slug} value={org.slug}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          ) : null
+          <>
+            {orgs.length > 1 ? (
+              <select
+                ref={picker}
+                name="slug"
+                value={filing.slug}
+                onChange={(event) => pick(event.target.value)}
+                aria-label="Add to org"
+                className={smallFieldClass}
+              >
+                {orgs.map((org) => (
+                  <option key={org.slug} value={org.slug}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+
+            {/* The members of the org the pick holds. A personal org is not
+                keyed, so it draws no picker and the task is unassigned. */}
+            <AssigneePicker
+              members={members[filing.slug] ?? []}
+              picked={draft.assignees}
+              onPick={draft.setAssignees}
+            />
+          </>
         }
       />
 

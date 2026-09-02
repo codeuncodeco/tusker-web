@@ -43,26 +43,36 @@ export function useAddKey(box: RefObject<HTMLTextAreaElement | null>, bound: boo
 /** The form a fetcher draws. It is the same shape whatever the fetcher answers. */
 type FetcherForm = FetcherWithComponents<unknown>["Form"];
 
-/** The two values the box holds while a person types, and the way to empty it. */
+/** The values the box holds while a person types, and the way to empty it. */
 export type Draft = {
   title: string;
   setTitle: (title: string) => void;
   decides: boolean;
   setDecides: (decides: boolean) => void;
-  /** What an add does to the box it came from. */
+  /** The members every task of the next add is held by. */
+  assignees: string[];
+  setAssignees: (ids: string[]) => void;
+  /** What an add empties: the words and the mark, and not the members. */
   clear: () => void;
 };
 
-/** The words and the mark, held for as long as the box is on screen. */
+/**
+ * The words, the mark and the picked members, held for as long as the box is
+ * on screen.
+ *
+ * An add empties the words and the mark. It leaves the members: a person
+ * filing three tasks to one member names them once, as they name the org once.
+ */
 export function useQuickAddDraft(): Draft {
   const [title, setTitle] = useState("");
   const [decides, setDecides] = useState(false);
+  const [assignees, setAssignees] = useState<string[]>([]);
   // Stable, so an effect that empties the box on an add runs once.
   const clear = useCallback(() => {
     setTitle("");
     setDecides(false);
   }, []);
-  return { title, setTitle, decides, setDecides, clear };
+  return { title, setTitle, decides, setDecides, assignees, setAssignees, clear };
 }
 
 export function QuickAddBox({
@@ -89,7 +99,10 @@ export function QuickAddBox({
   fields?: ReactNode;
   /** The line over the box that names where the task lands. */
   chip?: ReactNode;
-  /** The control beside the title that picks the target. */
+  /**
+   * The controls beside the title: the org a cross-org box files into, and the
+   * members who hold what it makes.
+   */
   picker?: ReactNode;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);

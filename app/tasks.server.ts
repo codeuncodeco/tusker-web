@@ -304,6 +304,12 @@ export function newTasksFrom(
  * top: adding the lines one at a time would reverse them. One typed title is a
  * block of one, and lands where it always did.
  *
+ * The members the box named hold every task the block makes, and their rows go
+ * in the same batch as the task rows. A pasted list is one act, so an add that
+ * left some tasks held and some not must not be possible, and thirty tasks
+ * must not cost thirty round trips. The caller checked the ids with
+ * `readAssignees`, and the foreign key checks them again. See ADR-0013.
+ *
  * The scope carries the org id, so the membership check is already done:
  * `org_id` is the only fence. The rows are not read back, because a hundred
  * ids in one `IN` clause is more bound values than D1 takes, and the caller
@@ -312,7 +318,13 @@ export function newTasksFrom(
 export async function createTasks(
   db: D1Database,
   scope: Scope,
-  tasks: { titles: string[]; status: Status; decides: boolean },
+  tasks: {
+    titles: string[];
+    status: Status;
+    decides: boolean;
+    /** The members who hold every task of the block. Empty is unassigned. */
+    assignees: string[];
+  },
 ): Promise<string[]> {
   const orgId = scope.org.id;
   const column = await columnPlaces(db, orgId, tasks.status);
@@ -329,8 +341,8 @@ export async function createTasks(
   // one for it.
   const finished = isFinished(tasks.status) ? NOW : "NULL";
 
-  await db.batch(
-    rows.map((row) =>
+  await db.batch([
+    ...rows.map((row) =>
       db
         .prepare(
           `INSERT INTO tasks (id, org_id, title, status, position, decides, finished_at)
@@ -338,7 +350,14 @@ export async function createTasks(
         )
         .bind(row.id, orgId, row.title, tasks.status, row.position, tasks.decides ? 1 : 0),
     ),
-  );
+    ...rows.flatMap((row) =>
+      tasks.assignees.map((userId) =>
+        db
+          .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
+          .bind(row.id, orgId, userId),
+      ),
+    ),
+  ]);
 
   return rows.map((row) => row.id);
 }

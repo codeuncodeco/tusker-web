@@ -1,8 +1,8 @@
 import { Form, Link } from "react-router";
 
 import { archiveTasks, restoreTasks } from "../archive.server";
-import { assigneeOf, drawsAssignees, inNameOrder, type Assignee } from "../assignees";
-import { assigneesOf, readAssignees, setAssignees } from "../assignees.server";
+import { drawsAssignees, type Assignee } from "../assignees";
+import { assigneesOf, membersOf, readAssignees, setAssignees } from "../assignees.server";
 import { STATUSES, STATUS_LABEL, isFinished, readStatus, type Status } from "../board";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
@@ -14,7 +14,6 @@ import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
-import { listMembers } from "../orgs.server";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
 import {
@@ -68,9 +67,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
      * The org's members, as the picker offers them, in the order a card draws
      * them. Empty for a personal org.
      */
-    members: assignable
-      ? (await listMembers(env.DB, scope.org.id)).map(assigneeOf).sort(inNameOrder)
-      : [],
+    members: assignable ? await membersOf(env.DB, scope) : [],
     /**
      * Who holds the task now. A member the org has lost is gone from this
      * list already: the membership took the assignment with it.
