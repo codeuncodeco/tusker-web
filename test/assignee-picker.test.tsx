@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AssigneePicker } from "../app/assignee-picker";
+import { AssigneePicker, popoverSide } from "../app/assignee-picker";
 import type { Assignee } from "../app/assignees";
 
 const ADA: Assignee = { id: "u-ada", name: "Ada Byron", initials: "AB" };
@@ -46,4 +46,21 @@ describe("what the box posts", () => {
 
 it("draws nothing for an org with no member list, as a personal org has none", () => {
   expect(drawn([])).toBe("");
+});
+
+describe("the side the popover hangs from", () => {
+  const WIDTH = 224;
+  const VIEWPORT = 1000;
+
+  it("hangs from the right edge where the room is there", () => {
+    expect(popoverSide({ left: 700, right: 760 }, WIDTH, VIEWPORT)).toBe("right");
+  });
+
+  it("hangs from the left edge in the leftmost column, where a right hang runs off", () => {
+    expect(popoverSide({ left: 40, right: 100 }, WIDTH, VIEWPORT)).toBe("left");
+  });
+
+  it("hangs from the right edge where neither side fits, so one rule decides", () => {
+    expect(popoverSide({ left: 10, right: 60 }, WIDTH, 200)).toBe("right");
+  });
 });

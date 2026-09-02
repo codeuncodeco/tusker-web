@@ -1,6 +1,6 @@
 /**
- * The controls a board carries in its header: the search box, the Today chip
- * and the switches that draw a hidden column.
+ * The controls a board carries in its header: the search box, the Today and
+ * Week chips and the switches that draw a hidden column.
  *
  * The org board and the unified board draw the same five columns, so they draw
  * the same switches over them. Which columns each offers is the board's own
@@ -14,7 +14,14 @@ import { Form, Link, useSearchParams } from "react-router";
 
 import { ANYONE, ASSIGNEE_NAME, UNASSIGNED } from "./assignee-filter";
 import type { Assignee } from "./assignees";
-import { flipped, STATUS_LABEL, type Status, type Toggles } from "./board";
+import {
+  flipped,
+  narrowedTo,
+  STATUS_LABEL,
+  type Narrowing,
+  type Status,
+  type Toggles,
+} from "./board";
 import { fieldClass, smallFieldClass } from "./forms";
 import { Square, SquareCheck } from "./icons";
 import { without } from "./query";
@@ -121,21 +128,55 @@ export function AssigneeFilter({ assignee, members }: { assignee: string; member
  * A board that would rather draw no chip at all leaves this out.
  */
 export function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean }) {
+  return <Chip label="Today" which="today" on={today} narrows={hasPlan} away="/me/plan" />;
+}
+
+/**
+ * The chip that narrows a board to this week's set, and gives it back.
+ *
+ * It sits beside the Today chip and reads the same way. A week with no set
+ * holds nothing to narrow to, so the chip then leads to the week page.
+ * See ADR-0014.
+ */
+export function WeekChip({ week, hasSet }: { week: boolean; hasSet: boolean }) {
+  return <Chip label="Week" which="week" on={week} narrows={hasSet} away="/me/week" />;
+}
+
+/**
+ * One narrowing chip.
+ *
+ * The two narrowings are exclusive, so pressing one drops the other: a board
+ * is narrowed by Today, by Week, or by neither. The narrowing lives in the
+ * address, so a narrowed board is a link and Back works.
+ */
+function Chip({
+  label,
+  which,
+  on,
+  narrows,
+  away,
+}: {
+  label: string;
+  which: Narrowing;
+  on: boolean;
+  /** True where the chip has something to narrow to. */
+  narrows: boolean;
+  /** Where the chip leads while it narrows nothing. */
+  away: string;
+}) {
   const [params] = useSearchParams();
 
   return (
     <Link
-      to={hasPlan ? flipped(params, "today", today) : "/me/plan"}
-      // With no plan the chip is a way to plan mode and not a filter, so it
-      // announces no pressed state it does not hold.
-      aria-pressed={hasPlan ? today : undefined}
+      to={narrows ? narrowedTo(params, which, on) : away}
+      // With nothing to narrow to the chip is a way to a page and not a
+      // filter, so it announces no pressed state it does not hold.
+      aria-pressed={narrows ? on : undefined}
       className={`rounded-full border px-2 py-0.5 text-xs ${
-        today
-          ? "border-fg bg-fg text-bg"
-          : "border-border"
+        on ? "border-fg bg-fg text-bg" : "border-border"
       }`}
     >
-      Today
+      {label}
     </Link>
   );
 }
