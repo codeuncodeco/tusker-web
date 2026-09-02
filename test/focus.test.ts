@@ -232,12 +232,34 @@ describe("the batch with no plan but a week set", () => {
     expect(batch(await focus(ada.cookie))).toEqual(["a", "b"]);
   });
 
-  it("draws from the unified view where the set holds nothing to work", async () => {
+  it("draws nothing where the set is started and holds no work", async () => {
     const ada = await member("ada@example.test", "Ada");
     await column(ada.org.id, "a", "b");
     await weekSet(ada.person.id, []);
 
-    expect(batch(await focus(ada.cookie))).toEqual(["a", "b"]);
+    const data = await focus(ada.cookie);
+
+    // An empty set is not the same as no set, so the live set does not step
+    // in for it. See ADR-0014.
+    expect(data.focus.batch.tasks).toEqual([]);
+    expect(data.focus.weekEmpty).toBe(true);
+    expect(data.focus.more).toBe(2);
+  });
+
+  it("draws nothing where every member of the set is finished", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b");
+    await weekSet(ada.person.id, ["a"]);
+    await act(ada.cookie, { intent: "finish", id: "a", slug: ada.org.slug });
+
+    const data = await focus(ada.cookie);
+
+    // The finish wrote the batch as the day's plan, so the plan answers from
+    // here on and the page says the plan is done, not the set.
+    expect(data.focus.planned).toBe(true);
+    expect(data.focus.weekEmpty).toBe(false);
+    expect(data.focus.planEmpty).toBe(false);
+    expect(data.focus.batch.tasks).toEqual([]);
   });
 
   it("reads the set of the week the day sits in, and no other", async () => {
@@ -267,6 +289,27 @@ describe("the batch with no plan but a week set", () => {
 
     await act(ada.cookie, { intent: "more" });
 
+    expect(await stored(ada.person.id)).toBe(null);
+  });
+
+  it("takes the first three of the live set once the set is done", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b", "c", "d");
+    await weekSet(ada.person.id, []);
+
+    await act(ada.cookie, { intent: "more" });
+
+    expect(await stored(ada.person.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("takes nothing more while the live set itself draws the batch", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b", "c", "d");
+
+    await act(ada.cookie, { intent: "more" });
+
+    // The button is drawn only under a batch that is done, and the guard says
+    // the same, whichever list drew that batch.
     expect(await stored(ada.person.id)).toBe(null);
   });
 });

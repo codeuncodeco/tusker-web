@@ -5,7 +5,8 @@
  * a day with no plan gets one from the first act a person takes. See ADR-0009.
  *
  * The three lists it reads, in order: today's plan, this week's set, and the
- * live set. See ADR-0014.
+ * live set. Each is read only where the one before it is not there at all: an
+ * empty set is not the same as no set. See ADR-0014.
  */
 
 import { batchOf, BATCH, type Batch } from "./focus";
@@ -24,6 +25,8 @@ export type Focus = {
   planned: boolean;
   /** True for a plan row that holds no task the person can still work. */
   planEmpty: boolean;
+  /** True for a week set that holds no task the person can still work. */
+  weekEmpty: boolean;
   /** How many tasks focus could take three of, once this batch is done. */
   more: number;
 };
@@ -32,8 +35,8 @@ export type Focus = {
  * The batch a person is on, and what surrounds it.
  *
  * The batch draws from today's plan when a plan exists, in plan order. With no
- * plan it draws from this week's set, and with no work in that set it draws
- * from the live set, both in the order `/me` sorts them.
+ * plan it draws from this week's set, and with no set either from the live
+ * set, both in the order `/me` sorts them.
  */
 export async function readFocus(
   db: D1Database,
@@ -41,12 +44,13 @@ export async function readFocus(
   personId: string,
   day: string,
 ): Promise<Focus> {
-  const { plan, source, rest, inPlan } = await lists(db, set, personId, day);
+  const { planned, source, rest, empty } = await focusSource(db, set, personId, day);
 
   return {
     batch: batchOf(source),
-    planned: plan !== null,
-    planEmpty: plan !== null && inPlan.length === 0,
+    planned,
+    planEmpty: planned && empty,
+    weekEmpty: !planned && empty,
     more: rest.length,
   };
 }
@@ -78,40 +82,52 @@ export async function takeMore(
   personId: string,
   day: string,
 ): Promise<void> {
-  const { plan, source, rest } = await lists(db, set, personId, day);
+  const { planned, source, rest } = await focusSource(db, set, personId, day);
   // The batch on the screen is what the guard reads, whichever list drew it.
   if (batchOf(source).tasks.length > 0) return;
 
   const next = rest.slice(0, BATCH).map((one) => one.id);
-  if (plan === null) await startDay(db, personId, day, next);
-  else await planPicks(db, personId, day, false).add(next);
+  if (planned) await planPicks(db, personId, day, false).add(next);
+  else await startDay(db, personId, day, next);
 }
 
 /**
- * The list the batch is cut from, and the live set behind it.
+ * The list the batch is cut from, the live set behind it, and whether that
+ * list holds any work left.
  *
  * Three lists, in the order focus asks for them: today's plan, then the live
- * members of this week's set, then the whole live set. A week the person
- * started but left empty is no source at all — the set is a shelf and not a
- * fence, so it holds work back from nobody. See ADR-0014.
+ * members of this week's set, then the whole live set. An empty set is not the
+ * same as no set (ADR-0014), so a week the person started and left empty draws
+ * an empty batch, as an emptied plan does. The live set is what a person with
+ * no set at all gets, and what "take three more" reaches for either way.
  */
-async function lists(
+async function focusSource(
   db: D1Database,
   set: OrgSet,
   personId: string,
   day: string,
-): Promise<{ plan: string[] | null; source: LiveTask[]; rest: LiveTask[]; inPlan: LiveTask[] }> {
+): Promise<{
+  /** True for a day the person has a plan for. */
+  planned: boolean;
+  source: LiveTask[];
+  rest: LiveTask[];
+  /** True where the source is a plan or a set that holds no work left. */
+  empty: boolean;
+}> {
   const plan = await readPlan(db, personId, day);
   const { inPlan, rest } = await bothLists(db, set, plan);
-  if (plan !== null) return { plan, source: inPlan, rest, inPlan };
+  if (plan !== null) return { planned: true, source: inPlan, rest, empty: inPlan.length === 0 };
 
   // The set carries no order, so its members draw in the order `/me` sorts
   // them, which is the order `rest` already holds. A member no live task
   // answers for — finished, archived, or back in the backlog — is not work,
   // so it is not in the list either.
-  const members = new Set((await readWeekSet(db, personId, weekOf(day))) ?? []);
-  const inWeek = rest.filter((one) => members.has(one.id));
-  return { plan, source: inWeek.length > 0 ? inWeek : rest, rest, inPlan };
+  const members = await readWeekSet(db, personId, weekOf(day));
+  if (members === null) return { planned: false, source: rest, rest, empty: false };
+
+  const held = new Set(members);
+  const inWeek = rest.filter((one) => held.has(one.id));
+  return { planned: false, source: inWeek, rest, empty: inWeek.length === 0 };
 }
 
 /** The plan in plan order, and every other live task in percentile order. */

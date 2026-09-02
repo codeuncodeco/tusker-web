@@ -13,7 +13,7 @@
  * ADR-0015.
  */
 
-import { readNarrowing, readToggles } from "../board";
+import { narrowingFor, readToggles } from "../board";
 import { ColumnSwitch, TodayChip, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
@@ -58,17 +58,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // tasks this week's set holds. A null plan is a day the person has not
   // planned, and an emptied one holds nothing to narrow to, so neither draws a
   // chip. The week set reads the same way.
-  const planned = (await readPlan(env.DB, set.personId, day)) ?? [];
+  const [plan, members] = await Promise.all([
+    readPlan(env.DB, set.personId, day),
+    readWeekSet(env.DB, set.personId, weekOf(day)),
+  ]);
+  const planned = plan ?? [];
   const inPlan = new Set(planned);
-  const inWeek = new Set((await readWeekSet(env.DB, set.personId, weekOf(day))) ?? []);
-  const hasPlan = inPlan.size > 0;
-  const hasSet = inWeek.size > 0;
+  const inWeek = new Set(members ?? []);
   // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
-  const narrowing = readNarrowing(query);
-  const today = narrowing === "today" && hasPlan;
-  const week = narrowing === "week" && hasSet;
-  const narrowed = today ? inPlan : week ? inWeek : null;
-  const drawn = narrowed ? tasks.filter((task) => narrowed.has(task.id)) : tasks;
+  const { today, week, ids } = narrowingFor(query, inPlan, inWeek);
+  const drawn = ids ? tasks.filter((task) => ids.has(task.id)) : tasks;
 
   return {
     orgs: set.orgs.map(held),
@@ -81,9 +80,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     today,
     week,
     /** Today's plan holds a task, so the chip has something to narrow to. */
-    hasPlan,
+    hasPlan: inPlan.size > 0,
     /** This week's set holds a task, so its chip has something to narrow to. */
-    hasSet,
+    hasSet: inWeek.size > 0,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedAcross(env.DB, set, request),
   };

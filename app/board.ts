@@ -138,6 +138,25 @@ export function readNarrowing(params: URLSearchParams): Narrowing | null {
 }
 
 /**
+ * The narrowing one board holds, and the ids it keeps.
+ *
+ * A chip that has nothing to narrow to is a way to a page and not a filter, so
+ * a plan or a set that holds no task leaves the board whole. Every board reads
+ * this one function, so the two chips cannot come to mean different things on
+ * two pages. A page that draws no Week chip hands an empty set.
+ */
+export function narrowingFor(
+  params: URLSearchParams,
+  plan: Set<string>,
+  week: Set<string>,
+): { today: boolean; week: boolean; ids: Set<string> | null } {
+  const which = readNarrowing(params);
+  const today = which === "today" && plan.size > 0;
+  const byWeek = which === "week" && week.size > 0;
+  return { today, week: byWeek, ids: today ? plan : byWeek ? week : null };
+}
+
+/**
  * The query string with one narrowing pressed, or given back, and the other
  * one dropped. It is `flipped` and the exclusivity in one call, so a chip
  * cannot write an address that holds both.

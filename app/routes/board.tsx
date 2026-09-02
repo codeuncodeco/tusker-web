@@ -19,7 +19,7 @@ import {
   columnsToShow,
   isFinished,
   readStatus,
-  readNarrowing,
+  narrowingFor,
   readToggles,
   type Status,
 } from "../board";
@@ -99,16 +99,15 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // plan mode instead. An emptied plan holds nothing to narrow to, so it reads
   // the same way, and the week set beside it reads the same way again.
   const day = dayOf(request);
-  const held = new Set((await readPlan(env.DB, scope.personId, day)) ?? []);
-  const inWeek = new Set((await readWeekSet(env.DB, scope.personId, weekOf(day))) ?? []);
-  const hasPlan = held.size > 0;
-  const hasSet = inWeek.size > 0;
+  const [plan, weekSet] = await Promise.all([
+    readPlan(env.DB, scope.personId, day),
+    readWeekSet(env.DB, scope.personId, weekOf(day)),
+  ]);
+  const held = new Set(plan ?? []);
+  const inWeek = new Set(weekSet ?? []);
   // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
-  const narrowing = readNarrowing(query);
-  const today = narrowing === "today" && hasPlan;
-  const week = narrowing === "week" && hasSet;
-  const narrowed = today ? held : week ? inWeek : null;
-  const shown = narrowed ? tasks.filter((task) => narrowed.has(task.id)) : tasks;
+  const { today, week, ids } = narrowingFor(query, held, inWeek);
+  const shown = ids ? tasks.filter((task) => ids.has(task.id)) : tasks;
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip or the box gives the board back as
@@ -144,9 +143,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     search,
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
-    hasPlan,
+    hasPlan: held.size > 0,
     /** This week's set holds a task, so its chip narrows rather than leads. */
-    hasSet,
+    hasSet: inWeek.size > 0,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),

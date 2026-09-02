@@ -15,7 +15,7 @@ import { useFetcher, Link } from "react-router";
 import { listArchived, readTaskIds, restoreTasks } from "../archive.server";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
-import { readNarrowing, STATUS_LABEL } from "../board";
+import { narrowingFor, STATUS_LABEL } from "../board";
 import { TodayChip } from "../board-chrome";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
@@ -65,8 +65,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const plan = await readPlan(env.DB, scope.personId, day);
   const held = new Set(plan ?? []);
   const hasPlan = held.size > 0;
-  const today = readNarrowing(new URL(request.url).searchParams) === "today" && hasPlan;
-  const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
+  // The archive draws no Week chip, so it hands the narrowing an empty set and
+  // takes the Today half of the answer.
+  const { today, ids } = narrowingFor(new URL(request.url).searchParams, held, new Set());
+  const shown = ids ? tasks.filter((task) => ids.has(task.id)) : tasks;
 
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
