@@ -105,14 +105,6 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         </nav>
       </header>
 
-      {/* The order in a column is derived, so the plan is where a person says
-          what to work first. The keys are on the controls now, so this line
-          says what the page is for and nothing about a press. See ADR-0011. */}
-      <p className="text-muted">
-        Each column is in the order your boards give it. The plan is where you say what to
-        work first.
-      </p>
-
       <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />
 
       <DecisionPrompt ask={ask} />
