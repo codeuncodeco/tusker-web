@@ -1,6 +1,6 @@
 /**
- * The remembered narrowing: the search a board was left with, and the filters
- * beside it once they land.
+ * The remembered narrowing: the search and the assignee filter a board was
+ * left with.
  *
  * It belongs to the person and not to the org, so the browser holds it, one
  * entry per org. The current org takes a cookie instead, because the header is
@@ -12,6 +12,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
+import { ANYONE, ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
 import { readSearch, SEARCH_NAME } from "./search";
 
 /** Where one board keeps the narrowing it was left with. */
@@ -22,14 +23,19 @@ export function memoryKey(slug: string): string {
 /**
  * The narrowing part of an address, as the query string to remember. A column
  * toggle stays out: it says what a person wants to see, and the address is
- * read for it every time. The filters join this when they land.
+ * read for it every time. The search and the assignee filter are the two that
+ * join it.
  *
  * An empty answer is a board a person cleared by hand, and it is remembered as
  * cleared.
  */
 export function narrowingOf(params: URLSearchParams): string {
+  const narrowing = new URLSearchParams();
   const search = readSearch(params);
-  return search ? new URLSearchParams({ [SEARCH_NAME]: search }).toString() : "";
+  if (search) narrowing.set(SEARCH_NAME, search);
+  const assignee = readAssignee(params);
+  if (assignee !== ANYONE) narrowing.set(ASSIGNEE_NAME, assignee);
+  return narrowing.toString();
 }
 
 /** Reads one board's remembered narrowing. A browser that refuses holds none. */

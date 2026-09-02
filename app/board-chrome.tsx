@@ -4,13 +4,16 @@
  *
  * The org board and the unified board draw the same five columns, so they draw
  * the same switches over them. Which columns each offers is the board's own
- * business, and so is which controls it draws: the search box is the org
- * board's alone, because a search is one org's rows.
+ * business, and so is which controls it draws: the search box and the assignee
+ * filter are the org board's alone, because a search is one org's rows and a
+ * member select across every org would name strangers. See ADR-0017.
  */
 
 import { useEffect, useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 
+import { ANYONE, ASSIGNEE_NAME, UNASSIGNED } from "./assignee-filter";
+import type { Assignee } from "./assignees";
 import {
   flipped,
   narrowedTo,
@@ -19,9 +22,30 @@ import {
   type Status,
   type Toggles,
 } from "./board";
-import { fieldClass } from "./forms";
+import { fieldClass, smallFieldClass } from "./forms";
 import { Square, SquareCheck } from "./icons";
-import { SEARCH_NAME, withoutSearch } from "./search";
+import { without } from "./query";
+import { SEARCH_NAME } from "./search";
+
+/**
+ * The rest of the address, as hidden fields, for a GET form that owns one name
+ * of it.
+ *
+ * Each narrowing is its own form, and each carries the whole of the other's
+ * address, so a search keeps the filter and the columns a person turned on,
+ * and a filter keeps the search.
+ */
+function RestOfQuery({ except }: { except: string }) {
+  const [params] = useSearchParams();
+
+  return (
+    <>
+      {without(params, except).map(([name, value], at) => (
+        <input key={`${name}:${at}`} type="hidden" name={name} value={value} />
+      ))}
+    </>
+  );
+}
 
 /**
  * The box that narrows a board to the tasks holding the text.
@@ -31,7 +55,6 @@ import { SEARCH_NAME, withoutSearch } from "./search";
  * fields, so a search keeps the columns a person turned on.
  */
 export function SearchBox({ search }: { search: string }) {
-  const [params] = useSearchParams();
   // The box is the person's while they type, and the address is the truth
   // after they submit or move.
   const [text, setText] = useState(search);
@@ -39,9 +62,7 @@ export function SearchBox({ search }: { search: string }) {
 
   return (
     <Form method="get" role="search" className="flex items-baseline gap-2">
-      {withoutSearch(params).map(([name, value], at) => (
-        <input key={`${name}:${at}`} type="hidden" name={name} value={value} />
-      ))}
+      <RestOfQuery except={SEARCH_NAME} />
       <input
         type="search"
         name={SEARCH_NAME}
@@ -53,6 +74,48 @@ export function SearchBox({ search }: { search: string }) {
       />
       {/* Enter in the box submits. This is the press for everybody else. */}
       <button className="sr-only">Search</button>
+    </Form>
+  );
+}
+
+/**
+ * The select that narrows the board to the tasks one member holds, or to the
+ * tasks nobody holds.
+ *
+ * It is a GET form, as the search box is, so a narrowed board is a place: the
+ * address carries it, Back works and the link is shareable. The rest of the
+ * query rides along as hidden fields, so picking a member keeps the search,
+ * the chip and the columns a person turned on.
+ *
+ * A board that draws no assignee draws no select, and says so by handing back
+ * no members.
+ */
+export function AssigneeFilter({ assignee, members }: { assignee: string; members: Assignee[] }) {
+  if (members.length === 0) return null;
+
+  return (
+    <Form method="get" className="flex items-baseline">
+      <RestOfQuery except={ASSIGNEE_NAME} />
+      <select
+        name={ASSIGNEE_NAME}
+        aria-label="Filter by assignee"
+        // A value naming somebody who left matches no option, and the board
+        // behind it is empty. That is the honest pair: their assignments went
+        // with them.
+        value={assignee}
+        onChange={(event) => event.currentTarget.form?.requestSubmit()}
+        className={smallFieldClass}
+      >
+        <option value={ANYONE}>Anyone</option>
+        <option value={UNASSIGNED}>Unassigned</option>
+        {members.map((one) => (
+          <option key={one.id} value={one.id}>
+            {one.name}
+          </option>
+        ))}
+      </select>
+      {/* The submit the select needs when no script runs. */}
+      <button className="sr-only">Filter</button>
     </Form>
   );
 }

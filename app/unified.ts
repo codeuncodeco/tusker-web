@@ -8,7 +8,7 @@
  */
 
 import type { Assignee } from "./assignees";
-import { STATUS_LABEL, type Status, type Toggles } from "./board";
+import { ALWAYS_SHOWN, STATUS_LABEL, type Status, type Toggles } from "./board";
 import type { Shown } from "./fields";
 
 /** The org a card names. It carries no id, because a screen reads this. */
@@ -181,25 +181,20 @@ export function isPlannable(task: LiveTask): boolean {
  * all of them.
  */
 
-/** The two columns the unified board always draws. */
-const ALWAYS_SHOWN: Status[] = ["todo", "in_progress"];
-
 /**
- * The three columns a person turns on.
+ * The columns to draw, in board order. The switches are `BOARD_TOGGLES`, the
+ * same two the org board offers, and the rest is `ALWAYS_SHOWN`: this board
+ * and the org board draw one list, not two that must stay equal.
  *
- * Backlog is one of them here and it is not on the org board. There the column
+ * Backlog is a switch here and it is a rule on the org board. There the column
  * appears on its own when To do and In progress are both empty. Across every
  * org that reads "this person holds no live task anywhere", which is near
- * enough never, so the rule is dead and the toggle is all there is.
+ * enough never, so the rule is dead and the switch is all there is.
  */
-export const UNIFIED_TOGGLES: Status[] = ["backlog", "done", "cancelled"];
-
-/** The columns to draw, in board order. */
 export function unifiedColumns(toggles: Toggles): Status[] {
   return [
     ...(toggles.backlog ? (["backlog"] as Status[]) : []),
     ...ALWAYS_SHOWN,
-    ...(toggles.done ? (["done"] as Status[]) : []),
     ...(toggles.cancelled ? (["cancelled"] as Status[]) : []),
   ];
 }

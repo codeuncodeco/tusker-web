@@ -24,8 +24,9 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { ColumnSwitch, SearchBox, TodayChip, WeekChip } from "../board-chrome";
+import { AssigneeFilter, ColumnSwitch, SearchBox, TodayChip, WeekChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
+import { ANYONE, keeps, readAssignee } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask, membersOf, readAssignees } from "../assignees.server";
 import { AssigneePicker } from "../assignee-picker";
@@ -86,14 +87,17 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The colour one value carries, so a card tells one client from another at a
   // glance. One query covers every card. See ADR-0006.
   const colors = await listColors(env.DB, scope);
-  // Who holds each task, for the whole org in one read. A personal org holds
-  // one member, so it draws none. See ADR-0013.
-  const assignees = drawsAssignees(scope.org)
-    ? await assigneesByTask(env.DB, scope)
-    : new Map<string, Assignee[]>();
-  // The org's members, for the picker every quick-add box carries. A personal
-  // org holds one, so it draws no picker and this list is empty.
-  const members = drawsAssignees(scope.org) ? await membersOf(env.DB, scope) : [];
+  // Who holds each task, for the whole org in one read, and the org's members
+  // beside it: one list for the picker every quick-add box carries and for the
+  // filter select in the header. The two reads go together, because neither
+  // waits on the other. A personal org draws no assignee, so it draws neither
+  // control, and it holds no filter either, whatever the address says.
+  // See ADR-0013 and ADR-0017.
+  const draws = drawsAssignees(scope.org);
+  const [assignees, members] = draws
+    ? await Promise.all([assigneesByTask(env.DB, scope), membersOf(env.DB, scope)])
+    : [new Map<string, Assignee[]>(), [] as Assignee[]];
+  const assignee = draws ? readAssignee(query) : ANYONE;
   // The two chips narrow the board to today's plan, or to this week's set. A
   // null plan is a day the person has not planned, and then the chip leads to
   // plan mode instead. An emptied plan holds nothing to narrow to, so it reads
@@ -107,7 +111,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const inWeek = new Set(weekSet ?? []);
   // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
   const { today, week, ids } = narrowingFor(query, held, inWeek);
-  const shown = ids ? tasks.filter((task) => ids.has(task.id)) : tasks;
+  // Every narrowing is AND, and the filter narrows what the chip left, in
+  // memory over the map the initials already needed. A name no member answers
+  // to keeps nothing, which is the honest board for a member who left: their
+  // assignments left with them.
+  const shown = tasks.filter(
+    (task) => (!ids || ids.has(task.id)) && keeps(assignee, assignees.get(task.id) ?? []),
+  );
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip or the box gives the board back as
@@ -132,7 +142,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
     columns,
-    /** The org's members, for the picker on every box. Empty draws none. */
+    /**
+     * The org's members, in name order: the picker on every box offers them,
+     * and so does the filter select. Empty draws neither.
+     */
     members,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedOn(env.DB, scope, request),
@@ -141,6 +154,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     week,
     /** The text the box holds, so a reload draws the search it ran. */
     search,
+    /** The value the select holds, so a reload draws the filter it ran. */
+    assignee,
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan: held.size > 0,
@@ -504,6 +519,7 @@ function CardItem({
 export default function Board({ loaderData }: Route.ComponentProps) {
   const { org, columns, members, toggles, today, hasPlan, week, hasSet, day, ask, search } =
     loaderData;
+  const { assignee } = loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -572,6 +588,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         <h1 className="text-2xl tracking-tight">{org.name}</h1>
         <nav className="flex items-baseline gap-4">
           <SearchBox search={search} />
+          <AssigneeFilter assignee={assignee} members={members} />
           <TodayChip today={today} hasPlan={hasPlan} />
           <WeekChip week={week} hasSet={hasSet} />
           {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}

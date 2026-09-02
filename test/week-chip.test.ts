@@ -40,6 +40,22 @@ async function task(orgId: string, id: string, some: { status?: Status; position
   return id;
 }
 
+/** A team org, with everybody named as a member of it. */
+async function team(slug: string, people: { id: string }[]) {
+  const id = `org-${slug}`;
+  await db.batch([
+    db
+      .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'team')")
+      .bind(id, slug, slug),
+    ...people.map((person) =>
+      db
+        .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
+        .bind(id, person.id),
+    ),
+  ]);
+  return { id, slug };
+}
+
 /** A week one person planned, written as that week left it. */
 async function weekSet(personId: string, taskIds: string[], week = WEEK) {
   await db.batch([
@@ -144,6 +160,32 @@ describe("the Week chip on the org board", () => {
     expect(narrowed.columns.map((one) => one.status)).toEqual(
       (await board(ada.cookie, ada.org.slug, "?backlog=1")).columns.map((one) => one.status),
     );
+  });
+});
+
+describe("the Week chip and the assignee filter", () => {
+  it("lets the filter narrow what the chip left", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const bo = await member("bo@example.test", "Bo");
+    const acme = await team("acme", [ada.person, bo.person]);
+    await task(acme.id, "mine", { position: 1 });
+    await task(acme.id, "theirs", { position: 2 });
+    await task(acme.id, "loose", { position: 3 });
+    await db.batch([
+      db
+        .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
+        .bind("mine", acme.id, ada.person.id),
+      db
+        .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
+        .bind("theirs", acme.id, bo.person.id),
+    ]);
+    await weekSet(ada.person.id, ["mine", "theirs"]);
+
+    // Every narrowing is AND: the week set leaves two, and Ada keeps one.
+    const data = await board(ada.cookie, acme.slug, `?week=1&assignee=${ada.person.id}`);
+
+    expect(data.week).toBe(true);
+    expect(drawn(data)).toEqual(["mine"]);
   });
 });
 

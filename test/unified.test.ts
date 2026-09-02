@@ -140,16 +140,32 @@ describe("the org set", () => {
 });
 
 describe("the columns", () => {
-  it("draws To do and In progress, and nothing else, by default", async () => {
+  it("draws To do, In progress and Done, and nothing else, by default", async () => {
     const ada = await member("ada@example.test", "Ada");
 
-    expect(columns(await page(ada.cookie))).toEqual(["todo", "in_progress"]);
+    expect(columns(await page(ada.cookie))).toEqual(["todo", "in_progress", "done"]);
+  });
+
+  it("draws Done on a day the person finished nothing", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "next");
+
+    expect(columns(await page(ada.cookie))).toContain("done");
+    expect(ids(await page(ada.cookie), "done")).toEqual([]);
+  });
+
+  it("reads an address still carrying done=1 as the board itself", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "over", { status: "done" });
+
+    expect(columns(await page(ada.cookie, "?done=1"))).toEqual(columns(await page(ada.cookie)));
+    expect(ids(await page(ada.cookie, "?done=1"), "done")).toEqual(["over"]);
   });
 
   it("draws Backlog, To do, In progress, Done and Cancelled, in that order", async () => {
     const ada = await member("ada@example.test", "Ada");
 
-    const data = await page(ada.cookie, "?backlog=1&done=1&cancelled=1");
+    const data = await page(ada.cookie, "?backlog=1&cancelled=1");
 
     expect(columns(data)).toEqual(["backlog", "todo", "in_progress", "done", "cancelled"]);
   });
@@ -159,7 +175,7 @@ describe("the columns", () => {
     await task(ada.org.id, "later", { status: "backlog" });
 
     // The org board would show Backlog here, because no live task is left.
-    expect(columns(await page(ada.cookie))).toEqual(["todo", "in_progress"]);
+    expect(columns(await page(ada.cookie))).toEqual(["todo", "in_progress", "done"]);
     expect(ids(await page(ada.cookie, "?backlog=1"), "backlog")).toEqual(["later"]);
   });
 
@@ -171,7 +187,7 @@ describe("the columns", () => {
     await task(ada.org.id, "dropped", { status: "cancelled" });
     await task(ada.org.id, "next");
 
-    const data = await page(ada.cookie, "?backlog=1&done=1&cancelled=1");
+    const data = await page(ada.cookie, "?backlog=1&cancelled=1");
 
     expect(ids(data, "backlog")).toEqual(["later"]);
     expect(ids(data, "todo")).toEqual(["next"]);
@@ -186,7 +202,7 @@ describe("the seven-day cap", () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "recent", { status: "done", finished: "2026-08-27T00:00:00.000Z" });
 
-    expect(ids(await page(ada.cookie, "?done=1"), "done")).toEqual(["recent"]);
+    expect(ids(await page(ada.cookie), "done")).toEqual(["recent"]);
   });
 
   it("drops a task finished more than seven days ago", async () => {
@@ -194,7 +210,7 @@ describe("the seven-day cap", () => {
     await task(ada.org.id, "old", { status: "done", finished: "2026-08-20T00:00:00.000Z" });
     await task(ada.org.id, "gone", { status: "cancelled", finished: "2026-08-20T00:00:00.000Z" });
 
-    const data = await page(ada.cookie, "?done=1&cancelled=1");
+    const data = await page(ada.cookie, "?cancelled=1");
 
     expect(ids(data, "done")).toEqual([]);
     expect(ids(data, "cancelled")).toEqual([]);
@@ -208,7 +224,7 @@ describe("the seven-day cap", () => {
       updated: `${DAY}T08:00:00.000Z`,
     });
 
-    expect(ids(await page(ada.cookie, "?done=1"), "done")).toEqual([]);
+    expect(ids(await page(ada.cookie), "done")).toEqual([]);
   });
 
   it("holds a task finished this week and untouched since", async () => {
@@ -219,7 +235,7 @@ describe("the seven-day cap", () => {
       updated: "2026-08-30T00:00:00.000Z",
     });
 
-    expect(ids(await page(ada.cookie, "?done=1"), "done")).toEqual(["clean"]);
+    expect(ids(await page(ada.cookie), "done")).toEqual(["clean"]);
   });
 
   it("caps no live column, so an old To do task still shows", async () => {
@@ -256,7 +272,7 @@ describe("the order inside a column", () => {
     await task(ada.org.id, "over-1", { status: "done", position: 1 });
     await task(ada.org.id, "over-2", { status: "done", position: 2 });
 
-    const done = (await page(ada.cookie, "?done=1")).columns.find((one) => one.status === "done")!;
+    const done = (await page(ada.cookie)).columns.find((one) => one.status === "done")!;
 
     expect(done.tasks.map((one) => one.percentile)).toEqual([0.5, 1]);
   });
@@ -553,7 +569,7 @@ describe("the Today chip", () => {
     await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
     const data = await page(ada.cookie);
 
-    expect(columns(data)).toEqual(["todo", "in_progress"]);
+    expect(columns(data)).toEqual(["todo", "in_progress", "done"]);
     expect(ids(data, "todo")).toEqual(["a"]);
     expect(data.planned).toEqual(["a"]);
   });

@@ -13,7 +13,7 @@
  * ADR-0015.
  */
 
-import { narrowingFor, readToggles } from "../board";
+import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
 import { ColumnSwitch, TodayChip, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
@@ -23,7 +23,7 @@ import { askedAcross } from "../decisions.server";
 import { planPicks } from "../picks.server";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
-import { columnsFor, finishedSince, unifiedColumns, UNIFIED_TOGGLES } from "../unified";
+import { columnsFor, finishedSince, unifiedColumns } from "../unified";
 import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
@@ -44,7 +44,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   const day = dayOf(request);
   const query = new URL(request.url).searchParams;
-  const toggles = readToggles(query, UNIFIED_TOGGLES);
+  const toggles = readToggles(query, BOARD_TOGGLES);
   const shown = unifiedColumns(toggles);
 
   // Done and Cancelled cap to the last seven days. Across every org they would
@@ -115,7 +115,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
               week set reads the same way, and the header carries Week. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
           {hasSet ? <WeekChip week={week} hasSet /> : null}
-          {UNIFIED_TOGGLES.map((which) => (
+          {BOARD_TOGGLES.map((which) => (
             <ColumnSwitch key={which} which={which} toggles={toggles} />
           ))}
         </nav>

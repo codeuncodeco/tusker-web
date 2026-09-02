@@ -53,9 +53,14 @@ The value rides the query string, as the search and the chip do, so a narrowed
 board is a link and Back works. It joins the remembered narrowing beside the
 search: a board opened bare comes back as the person left it.
 
-It sets `narrowed`, so a finished column offers the sweep while the filter holds
-a value. The sweep archives what is on screen and asks no question about which
-control put it there. Sweeping one member's finished work is a real act.
+The sweep takes it as it takes the other two. This ADR was written while a
+finished column carried the sweep only under a narrowing, and it said the filter
+would set that gate. The gate then went, for parity with the extension the
+sweep came from: a finished column that holds a card carries the sweep, narrowed
+or not. Narrowing decides the set and never the button. The point survives the
+change — sweeping one member's finished work is a real act — because the sweep
+archives what is on screen, and asks no question about which control put it
+there.
 
 ## The silence stays keyed to the kind
 

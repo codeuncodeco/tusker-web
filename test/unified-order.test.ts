@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readToggles } from "../app/board";
+import { BOARD_TOGGLES, readToggles } from "../app/board";
 import {
   columnsFor,
   finishedSince,
@@ -9,7 +9,6 @@ import {
   inOrder,
   isPlannable,
   unifiedColumns,
-  UNIFIED_TOGGLES,
   type LiveTask,
 } from "../app/unified";
 
@@ -158,14 +157,14 @@ describe("the groups plan mode draws", () => {
 });
 
 describe("the columns of the unified board", () => {
-  const off = { backlog: false, done: false, cancelled: false };
+  const off = { backlog: false, cancelled: false };
 
-  it("always draws To do and In progress", () => {
-    expect(unifiedColumns(off)).toEqual(["todo", "in_progress"]);
+  it("always draws To do, In progress and Done", () => {
+    expect(unifiedColumns(off)).toEqual(["todo", "in_progress", "done"]);
   });
 
-  it("draws all five in board order when every toggle is on", () => {
-    expect(unifiedColumns({ backlog: true, done: true, cancelled: true })).toEqual([
+  it("draws all five in board order when both switches are on", () => {
+    expect(unifiedColumns({ backlog: true, cancelled: true })).toEqual([
       "backlog",
       "todo",
       "in_progress",
@@ -174,15 +173,22 @@ describe("the columns of the unified board", () => {
     ]);
   });
 
-  it("draws Backlog on the toggle alone, and by no rule of its own", () => {
+  it("draws Backlog on the switch alone, and by no rule of its own", () => {
     expect(unifiedColumns(off)).not.toContain("backlog");
     expect(unifiedColumns({ ...off, backlog: true })).toContain("backlog");
   });
 
-  it("reads each toggle out of the query string", () => {
-    expect(readToggles(new URLSearchParams("?backlog=1&cancelled=1"), UNIFIED_TOGGLES)).toEqual({
+  it("takes no switch over Done, so a `done` in the address changes nothing", () => {
+    expect(unifiedColumns({ ...off, done: true })).toEqual(unifiedColumns(off));
+  });
+
+  it("offers the two switches both boards offer", () => {
+    expect(BOARD_TOGGLES).toEqual(["backlog", "cancelled"]);
+  });
+
+  it("reads each switch out of the query string", () => {
+    expect(readToggles(new URLSearchParams("?backlog=1&cancelled=1"), BOARD_TOGGLES)).toEqual({
       backlog: true,
-      done: false,
       cancelled: true,
     });
   });
