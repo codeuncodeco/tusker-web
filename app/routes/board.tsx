@@ -24,7 +24,7 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { SearchBox, Toggle, TodayChip } from "../board-chrome";
+import { ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
@@ -53,6 +53,9 @@ import {
   stepTask,
 } from "../tasks.server";
 import type { Route } from "./+types/board";
+
+/** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
+export const handle = { frame: true };
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData.org.name} — Tusker` }];
@@ -517,24 +520,27 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   }, [cursor]);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-8">
+    <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl tracking-tight">{org.name}</h1>
         <nav className="flex items-baseline gap-4">
           <SearchBox search={search} />
           <TodayChip today={today} hasPlan={hasPlan} />
-          {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
-          <Toggle which="cancelled" toggles={toggles} />
+          {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
+          <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>
       </header>
 
-      <div ref={board} className="flex flex-1 gap-4 overflow-x-auto">
+      {/* The row holds still, and each column scrolls inside itself. */}
+      <div ref={board} className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0">
         {columns.map((column) => (
           <section
             key={column.status}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => onDrop(column.status, event)}
-            className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-border p-3"
+            // Every column takes an equal share of the width, down to the
+            // width it always had. Past that the row scrolls sideways.
+            className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
           >
             <h2 className="uppercase tracking-wide text-muted">
               {column.label} <span className="text-dim">{column.tasks.length}</span>
@@ -547,11 +553,16 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               addKey={column.status === "todo"}
             />
 
+            {/* The sweep acts on the whole column, so it is column chrome and
+                stays pinned with the heading and the box. */}
             {narrowed && isFinished(column.status) ? (
               <ColumnSweep label={column.label} cards={column.tasks} />
             ) : null}
 
-            <ul className="flex flex-col gap-2">
+            {/* The heading, the box and the sweep stay pinned, and only this
+                scrolls. The gutter is reserved, so a full column is as wide as
+                an empty one, which is the point of the equal split. */}
+            <ul className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
               {column.tasks.map((card, index) => (
                 <CardItem
                   key={card.id}

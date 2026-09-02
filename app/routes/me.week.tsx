@@ -154,11 +154,6 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       {/* An add here is a pick: the task joins the week, like any other. */}
       <UnifiedAdd orgs={orgs} />
 
-      <p className="text-muted">
-        The week says what you mean to finish. The day says when. Every act is kept, so
-        nothing waits on this tab.
-      </p>
-
       {leftovers && <LeftoverPrompt leftovers={leftovers} />}
 
       <UnifiedList

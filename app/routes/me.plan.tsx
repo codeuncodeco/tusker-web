@@ -136,8 +136,6 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
           any other. A named day carries no box. See ADR-0012. */}
       {canAdd ? <UnifiedAdd orgs={orgs} /> : null}
 
-      <p className="text-muted">Every act is kept, so nothing waits on this tab.</p>
-
       <UnifiedList
         groups={groups}
         planned={new Set(planned)}
