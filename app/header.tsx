@@ -2,8 +2,8 @@
  * The one header every signed-in page draws.
  *
  * The person axis and the org axis are peers, so the bar has two halves and
- * draws both at once: Tasks, Plan and Focus on the left, the current org and
- * its pages on the right. The half a person stands in is marked. See ADR-0011.
+ * draws both at once: Tasks, Week, Plan and Focus on the left, the current org
+ * and its pages on the right. The half a person stands in is marked. See ADR-0011.
  *
  * Nothing here is drawn by rule. A control that comes and goes teaches
  * nothing, which is the defect this header replaces.
@@ -32,6 +32,7 @@ const MANAGE = [
 /** The pages of the person axis. Tasks is `/me` itself, so it matches exactly. */
 const PERSON = [
   { to: "/me", label: "Tasks", exact: true },
+  { to: "/me/week", label: "Week", exact: false },
   { to: "/me/plan", label: "Plan", exact: false },
   { to: "/me/focus", label: "Focus", exact: false },
 ] as const;

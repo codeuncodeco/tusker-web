@@ -9,6 +9,7 @@
  */
 
 import type { Leftovers } from "./leftovers";
+import type { Picks } from "./picks";
 import { moveInPlan, type Step } from "./plan";
 
 /**
@@ -168,4 +169,18 @@ async function writePlan(
     )
     .bind(personId, day, JSON.stringify(taskIds))
     .run();
+}
+
+/** The picks of one day: what plan mode's acts, and a board's, write. */
+export function planPicks(
+  db: D1Database,
+  personId: string,
+  day: string,
+  onAdd: boolean,
+): Picks {
+  return {
+    onAdd,
+    add: (taskIds) => appendToPlan(db, personId, day, taskIds),
+    remove: (taskIds) => unplanTasks(db, personId, day, taskIds),
+  };
 }

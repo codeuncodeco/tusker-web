@@ -13,7 +13,7 @@ import { useFetcher } from "react-router";
 import { useLocalDay } from "./local-day";
 import type { Group, GroupKey } from "./unified";
 import { useTaskKeys } from "./unified-keys";
-import { UnifiedRow } from "./unified-row";
+import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
 
 export function UnifiedList({
   groups,
@@ -22,9 +22,10 @@ export function UnifiedList({
   namedDay = false,
   ordered = null,
   label = (group) => group.label,
+  verbs = PLAN_VERBS,
 }: {
   groups: Group[];
-  /** The task ids the day's plan holds, which turn Plan into Unplan. */
+  /** The task ids the page's list holds, which turn the pick verb over. */
   planned: Set<string>;
   day: string;
   /** True for a day the path named, which the browser must not talk out of. */
@@ -33,6 +34,8 @@ export function UnifiedList({
   ordered?: GroupKey | null;
   /** The heading one group carries, where a route names it its own way. */
   label?: (group: Group) => string;
+  /** What the pick button reads, where a page picks into a list of its own. */
+  verbs?: Verbs;
 }) {
   const post = useFetcher();
   const [on, setOn] = useState<string | null>(null);
@@ -67,6 +70,7 @@ export function UnifiedList({
                 key={task.id}
                 task={task}
                 planned={planned.has(task.id)}
+                verbs={verbs}
                 selected={cursor === task.id}
                 domId={`row-${task.id}`}
                 moves={

@@ -8,6 +8,8 @@ export const SITE = "https://tusker.test";
 /** Empties every table, so one test cannot see what another one wrote. */
 export async function wipe() {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM week_plan_tasks"),
+    env.DB.prepare("DELETE FROM week_plans"),
     env.DB.prepare("DELETE FROM plans"),
     env.DB.prepare("DELETE FROM decisions"),
     env.DB.prepare("DELETE FROM task_assignees"),

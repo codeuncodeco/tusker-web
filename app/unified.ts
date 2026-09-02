@@ -36,14 +36,21 @@ export type LiveTask = {
   finished: boolean;
 };
 
-/** The three groups, in the order the page draws them. */
+/**
+ * The group the picked tasks fill, which is the page's own: plan mode picks
+ * into a day, and the week page into a week.
+ */
+export type Head = "today" | "week";
+
+/** The three groups, in the order the page draws them. The head comes first. */
 export const GROUPS = ["today", "in_progress", "todo"] as const;
 
-export type GroupKey = (typeof GROUPS)[number];
+export type GroupKey = (typeof GROUPS)[number] | Head;
 
 /** The heading each group carries. */
 export const GROUP_LABEL: Record<GroupKey, string> = {
   today: "Today",
+  week: "This week",
   in_progress: "In progress",
   todo: "To do",
 };
@@ -70,21 +77,27 @@ export function inOrder(a: LiveTask, b: LiveTask): number {
 /**
  * The list a person reads, in group order.
  *
- * A task the plan holds is drawn in Today and nowhere else, so no task is
- * drawn twice. A planned id no org answers for is left out: a task that was
- * archived or deleted drops out of the plan rather than raising an error.
+ * A task the head group holds is drawn there and nowhere else, so no task is
+ * drawn twice. A picked id no org answers for is left out: a task that was
+ * archived or deleted drops out of the list rather than raising an error.
+ *
+ * A plan keeps the order it was given, because that order is the whole value
+ * of a plan. A week set has none, so it is drawn in the sort every other
+ * cross-org list uses.
  */
-export function groupsFor(tasks: LiveTask[], plan: string[]): Group[] {
+export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "today"): Group[] {
   const byId = new Map(tasks.map((one) => [one.id, one]));
-  const planned = new Set(plan);
+  const inHead = new Set(picked);
 
-  const today = plan.map((id) => byId.get(id)).filter((one) => one !== undefined);
-  const rest = tasks.filter((one) => !planned.has(one.id)).sort(inOrder);
+  const held = picked.map((id) => byId.get(id)).filter((one) => one !== undefined);
+  const first = head === "today" ? held : held.sort(inOrder);
+  const rest = tasks.filter((one) => !inHead.has(one.id)).sort(inOrder);
+  const keys: GroupKey[] = [head, ...GROUPS.slice(1)];
 
-  return GROUPS.map((key) => ({
+  return keys.map((key) => ({
     key,
     label: GROUP_LABEL[key],
-    tasks: key === "today" ? today : rest.filter((one) => one.status === key),
+    tasks: key === head ? first : rest.filter((one) => one.status === key),
   }));
 }
 

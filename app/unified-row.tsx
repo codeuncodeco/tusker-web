@@ -3,10 +3,18 @@ import { Link, useFetcher } from "react-router";
 import { Dot } from "./dot";
 import type { LiveTask } from "./unified";
 
-/** The fields a plan or a finish posts, so a key and a button send the same thing. */
+/** The fields a pick or a finish posts, so a key and a button send the same thing. */
 export function planFields(task: LiveTask, planned: boolean) {
   return { intent: planned ? "unplan" : "plan", id: task.id, slug: task.org.slug };
 }
+
+/**
+ * What the two sides of the pick button read. The act is one act, and each
+ * page names its own list: a day is planned, and a week is picked.
+ */
+export type Verbs = { pick: string; drop: string };
+
+export const PLAN_VERBS: Verbs = { pick: "Plan", drop: "Unplan" };
 
 export function finishFields(task: LiveTask) {
   return { intent: "finish", id: task.id, slug: task.org.slug };
@@ -36,9 +44,10 @@ export function UnifiedRow({
   moves,
   plannable = true,
   droppable = false,
+  verbs = PLAN_VERBS,
 }: {
   task: LiveTask;
-  /** True when the day's plan holds the task, which turns Plan into Unplan. */
+  /** True when the page's list holds the task, which turns the verb over. */
   planned: boolean;
   selected: boolean;
   domId: string;
@@ -53,6 +62,8 @@ export function UnifiedRow({
   plannable?: boolean;
   /** True where a task can leave the screen unfinished, which is focus mode. */
   droppable?: boolean;
+  /** What the pick button reads, where a page picks into a list of its own. */
+  verbs?: Verbs;
 }) {
   const post = useFetcher();
   const plan = planFields(task, planned);
@@ -121,7 +132,7 @@ export function UnifiedRow({
             value={plan.intent}
             className="rounded border border-neutral-300 px-1.5 text-xs dark:border-neutral-700"
           >
-            {planned ? "Unplan" : "Plan"}
+            {planned ? verbs.drop : verbs.pick}
           </button>
         ) : null}
         {droppable ? (

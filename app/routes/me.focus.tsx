@@ -18,7 +18,7 @@ import { askedAcross } from "../decisions.server";
 import { FocusList, TakeMore } from "../focus-list";
 import { holdBatch, readFocus, takeMore } from "../focus.server";
 import { useLocalDay } from "../local-day";
-import { pushDownPlan } from "../plans.server";
+import { planPicks, pushDownPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { actOnTask, taskFrom } from "../unified-actions.server";
 import type { Route } from "./+types/me.focus";
@@ -70,7 +70,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   // Finishing here is the act the board makes, so a marked task raises the
   // prompt from focus mode as it does from every other screen.
-  const acted = await actOnTask(env, request, set, day, form);
+  const acted = await actOnTask(env, request, set, planPicks(env.DB, set.personId, day, false), form);
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
 
   return acted;
