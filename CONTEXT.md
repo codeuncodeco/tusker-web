@@ -404,6 +404,13 @@ board's chip then leads to the week page. The two narrowings are exclusive, so
 a board is narrowed by one, or by neither.
 _Avoid_: Week filter, this-week toggle
 
+**Column switch**:
+The control on a board that draws a column the board hides by default. It names
+the column and holds no verb: the box says whether the column is drawn. Backlog
+and Cancelled on the org board; Backlog, Done and Cancelled on the unified
+board.
+_Avoid_: Show link, column filter, toggle
+
 **Focus**:
 A mode that shows one batch of tasks and hides the rest until that batch is
 done, at `/me/focus`. It draws from the plan when a plan exists, from the week
@@ -418,10 +425,12 @@ task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
 
 **Header**:
-The one bar every signed-in page draws. It has a person half, for Tasks, Week,
-Plan and Focus, and an org half, for the current org and its pages. Both halves are
-always drawn, and the half a person stands in is marked. A control that comes
-and goes teaches nothing, so nothing in the header is drawn by rule.
+The one bar every signed-in page draws, in two rows. Row 1 names who and
+where: the wordmark, the current org and the account. Row 2 is every page as a
+button, in a person half for Tasks, Week, Plan and Focus and an org half for
+the current org's pages. Both halves are always drawn, and the page a person
+stands on is marked. `/account` stands in neither half, so it marks neither. A control
+that comes and goes teaches nothing, so nothing in the header is drawn by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 

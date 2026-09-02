@@ -14,7 +14,7 @@
  */
 
 import { readToday, readToggles } from "../board";
-import { TodayChip, Toggle } from "../board-chrome";
+import { ColumnSwitch, TodayChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { dayOf } from "../day";
@@ -100,7 +100,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
               to narrow to, and the header carries Plan on every page. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
           {UNIFIED_TOGGLES.map((which) => (
-            <Toggle key={which} which={which} toggles={toggles} />
+            <ColumnSwitch key={which} which={which} toggles={toggles} />
           ))}
         </nav>
       </header>

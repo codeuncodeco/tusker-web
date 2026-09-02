@@ -24,7 +24,7 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { SearchBox, Toggle, TodayChip } from "../board-chrome";
+import { ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
@@ -526,8 +526,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         <nav className="flex items-baseline gap-4">
           <SearchBox search={search} />
           <TodayChip today={today} hasPlan={hasPlan} />
-          {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
-          <Toggle which="cancelled" toggles={toggles} />
+          {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
+          <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>
       </header>
 
