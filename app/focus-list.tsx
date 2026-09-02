@@ -102,7 +102,7 @@ export function TakeMore() {
       <button
         name="intent"
         value="more"
-        className="rounded border border-neutral-300 px-2 py-1 text-sm dark:border-neutral-700"
+        className="rounded border border-border px-2 py-1"
       >
         Take three more <kbd>n</kbd>
       </button>

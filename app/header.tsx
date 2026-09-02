@@ -57,7 +57,7 @@ function Here({ to, here, children }: { to: string; here: boolean; children: Rea
     );
   }
   return (
-    <Link to={to} className="text-neutral-600 hover:underline dark:text-neutral-400">
+    <Link to={to} className="text-muted hover:underline">
       {children}
     </Link>
   );
@@ -81,12 +81,12 @@ function Menu({
     <details className="relative">
       <summary
         className={`cursor-pointer list-none marker:content-none hover:underline ${
-          here ? "font-medium" : "text-neutral-600 dark:text-neutral-400"
+          here ? "font-medium" : "text-muted"
         }`}
       >
         {label} <span aria-hidden="true">▾</span>
       </summary>
-      <ul className="absolute right-0 z-10 mt-1 flex min-w-40 flex-col gap-1 rounded border border-neutral-200 bg-white p-2 text-sm shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
+      <ul className="absolute right-0 z-10 mt-1 flex min-w-40 flex-col gap-1 rounded border border-border bg-surface p-2 shadow-lg">
         {children}
       </ul>
     </details>
@@ -106,12 +106,12 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
   // half like every other org page.
   const inOrg = pathname.startsWith("/o/");
   const half = (mine: boolean) =>
-    `flex flex-wrap items-baseline gap-3 text-sm ${mine ? "" : "opacity-70"}`;
+    `flex flex-wrap items-baseline gap-3 ${mine ? "" : "opacity-70"}`;
   /** True while the person stands on this page of the current org. */
   const here = (page: string) => inOrg && org !== null && pathname === pageOf(org.slug, page);
 
   return (
-    <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-neutral-200 px-8 py-3 dark:border-neutral-800">
+    <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-border px-8 py-3">
       <Link to="/me" className="text-lg font-semibold tracking-tight">
         Tusker
       </Link>
@@ -136,13 +136,13 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
                 {one.name}
               </Link>
               {one.kind === "personal" ? (
-                <span className="ml-2 text-xs uppercase tracking-wide text-neutral-500">
+                <span className="ml-2 text-xs uppercase tracking-wide text-muted">
                   personal
                 </span>
               ) : null}
             </li>
           ))}
-          <li className="border-t border-neutral-200 pt-1 dark:border-neutral-800">
+          <li className="border-t border-border pt-1">
             <Link to="/orgs/new" className="hover:underline">
               New org
             </Link>
@@ -169,7 +169,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
         ) : null}
       </nav>
 
-      <span className="ml-auto text-sm">
+      <span className="ml-auto">
         <Here to="/account" here={pathname === "/account"}>
           Account
         </Here>

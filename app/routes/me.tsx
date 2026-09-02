@@ -2,9 +2,15 @@
  * The unified board: one person's tasks across every org they belong to, in
  * the five columns the org board draws.
  *
- * The order inside a column is derived, not draggable. #34 dropped the
- * personal rank, so this page answers "what is next" and the plan answers "in
- * what order I will do it". See ADR-0006, "One order per column".
+ * The order inside a column is derived, so no card is dragged into a place.
+ * #34 dropped the personal rank, so this page answers "what is next" and the
+ * plan answers "in what order I will do it". See ADR-0006, "One order per
+ * column".
+ *
+ * A card does move between columns, because a column is a status: a drag names
+ * the column and never a place in it. The board posts the `move` intent the
+ * card's select always posted, so this route needs nothing new for it. See
+ * ADR-0015.
  */
 
 import { readToday, readToggles } from "../board";
@@ -85,8 +91,8 @@ export default function Me({ loaderData }: Route.ComponentProps) {
   return (
     <main className="flex flex-1 flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
-        <nav className="flex items-baseline gap-4 text-sm">
+        <h1 className="text-2xl tracking-tight">Your tasks</h1>
+        <nav className="flex items-baseline gap-4">
           {/* A person with no plan for today gets no chip: there is nothing
               to narrow to, and the header carries Plan on every page. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
@@ -99,9 +105,10 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       {/* The order in a column is derived, so the plan is where a person says
           what to work first. The header carries Plan on every page, so this
           line teaches the keystroke and links nothing. See ADR-0011. */}
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+      <p className="text-muted">
         Each column is in the order your boards give it. Press <kbd>p</kbd> on a task to put
-        it in today's plan, which is where you say what to work first.
+        it in today's plan, which is where you say what to work first. Drag a card to another
+        column, or press <kbd>&gt;</kbd> and <kbd>&lt;</kbd> to walk it along.
       </p>
 
       <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />

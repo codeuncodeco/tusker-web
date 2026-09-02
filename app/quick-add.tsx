@@ -117,7 +117,7 @@ export function QuickAddBox({
 
       {/* Off by default. Most tasks decide nothing, and a prompt people
           learn to dismiss is how a log goes empty. See ADR-0010. */}
-      <label className="flex items-center gap-2 text-xs text-neutral-500">
+      <label className="flex items-center gap-2 text-xs text-muted">
         <input
           type="checkbox"
           name="decides"
@@ -131,7 +131,7 @@ export function QuickAddBox({
       <button className="sr-only">Add</button>
 
       {error ? (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <p role="alert" className="text-danger">
           {error}
         </p>
       ) : null}

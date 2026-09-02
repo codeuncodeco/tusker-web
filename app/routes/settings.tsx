@@ -83,7 +83,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
 
   return (
     <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+      <h1 className="text-2xl tracking-tight">Settings</h1>
 
       <Form method="post" className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
@@ -93,7 +93,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
 
         <label className="flex flex-col gap-1">
           Slug
-          <span className="text-sm text-neutral-500">
+          <span className="text-muted">
             The URL of every page of this org, as in /o/{org.slug}/board. An old link stops working
             once you change it.
           </span>
@@ -101,12 +101,12 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
         </label>
 
         {actionData && "error" in actionData && actionData.error ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+          <p role="alert" className="text-danger">
             {actionData.error}
           </p>
         ) : null}
 
-        <button className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+        <button className="self-start rounded border border-border px-3 py-2">
           Save
         </button>
       </Form>
@@ -137,17 +137,17 @@ function Keys({
   const minted = actionData && "key" in actionData ? actionData.key : null;
 
   return (
-    <section className="flex flex-col gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
-      <h2 className="text-lg font-semibold tracking-tight">Keys for org apps</h2>
-      <p className="text-sm text-neutral-500">
+    <section className="flex flex-col gap-3 border-t border-border pt-6">
+      <h2 className="text-lg tracking-tight">Keys for org apps</h2>
+      <p className="text-muted">
         An app of this org reads its tasks at /api/tasks with one of these keys. The key stands for
         the org, not for you, so nobody using that app needs a Tusker account.
       </p>
 
       {minted ? (
-        <div className="flex flex-col gap-1 rounded border border-green-600 p-3 dark:border-green-700">
-          <span className="text-sm">Copy this key now. Tusker cannot show it again.</span>
-          <code className="break-all font-mono text-sm">{minted}</code>
+        <div className="flex flex-col gap-1 rounded border border-green-600 p-3">
+          <span>Copy this key now. Tusker cannot show it again.</span>
+          <code className="break-all font-mono">{minted}</code>
         </div>
       ) : null}
 
@@ -155,15 +155,15 @@ function Keys({
         <ul className="flex flex-col gap-2">
           {keys.map((one) => (
             <li key={one.id} className="flex items-baseline gap-3">
-              <span className={one.revoked_at ? "text-neutral-500 line-through" : ""}>{one.name}</span>
-              <code className="font-mono text-sm text-neutral-500">{one.preview}…</code>
+              <span className={one.revoked_at ? "text-muted line-through" : ""}>{one.name}</span>
+              <code className="font-mono text-muted">{one.preview}…</code>
               {one.revoked_at ? (
-                <span className="text-sm text-neutral-500">Revoked</span>
+                <span className="text-muted">Revoked</span>
               ) : (
                 <Form method="post">
                   <input type="hidden" name="intent" value="revoke-key" />
                   <input type="hidden" name="id" value={one.id} />
-                  <button className="text-sm text-red-700 underline dark:text-red-400">Revoke</button>
+                  <button className="text-danger underline">Revoke</button>
                 </Form>
               )}
             </li>
@@ -182,13 +182,13 @@ function Keys({
             className={fieldClass}
           />
         </label>
-        <button className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+        <button className="rounded border border-border px-3 py-2">
           Mint a key
         </button>
       </Form>
 
       {actionData && "keyError" in actionData && actionData.keyError ? (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <p role="alert" className="text-danger">
           {actionData.keyError}
         </p>
       ) : null}
@@ -218,9 +218,9 @@ function OrgAppForm({
   const pulled = actionData && "app" in actionData ? actionData.app : null;
 
   return (
-    <section className="flex flex-col gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
-      <h2 className="text-lg font-semibold tracking-tight">Org app</h2>
-      <p className="text-sm text-neutral-500">
+    <section className="flex flex-col gap-3 border-t border-border pt-6">
+      <h2 className="text-lg tracking-tight">Org app</h2>
+      <p className="text-muted">
         Where this org reads its reference options from. Every reference field of this org reads
         under this address, with this key, and names only the list it wants.
       </p>
@@ -230,7 +230,7 @@ function OrgAppForm({
 
         <label className="flex flex-col gap-1">
           Base URL
-          <span className="text-sm text-neutral-500">
+          <span className="text-muted">
             The part every refs endpoint of the org app shares, with no trailing slash.
           </span>
           <input
@@ -244,7 +244,7 @@ function OrgAppForm({
 
         <label className="flex flex-col gap-1">
           Refs key
-          <span className="text-sm text-neutral-500">
+          <span className="text-muted">
             {app.has_refs_key
               ? "This org holds a key. Paste a new one to replace it, or leave this empty to keep it."
               : "Mint it in the org app. It is shown there once."}
@@ -253,19 +253,19 @@ function OrgAppForm({
         </label>
 
         {pulled ? (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-muted">
             Saved. {pulled.fields - pulled.failed} of {pulled.fields} reference field
             {pulled.fields === 1 ? "" : "s"} pulled.
           </p>
         ) : null}
 
         {actionData && "appError" in actionData && actionData.appError ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+          <p role="alert" className="text-danger">
             {actionData.appError}
           </p>
         ) : null}
 
-        <button className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+        <button className="self-start rounded border border-border px-3 py-2">
           Save the org app
         </button>
       </Form>

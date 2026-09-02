@@ -11,26 +11,27 @@ import type { RefOption } from "./refs";
  */
 
 /**
- * The closed set of names an option colour can name, and the value each one
- * draws with on the light theme and on the dark one. One name, two values, one
- * place: a name and its values cannot drift apart.
+ * The closed set of names an option colour can name, in the order a screen
+ * offers them. A name carries no hex here. Each one has a `--color-opt-<name>`
+ * token in `app/app.css` that holds its light value and its dark one, so the
+ * dot flips with the theme and one file owns every colour.
  */
-export const PALETTE = {
-  grey: { light: "#4b5563", dark: "#9ca3af" },
-  red: { light: "#dc2626", dark: "#f87171" },
-  orange: { light: "#ea580c", dark: "#fb923c" },
-  amber: { light: "#d97706", dark: "#fbbf24" },
-  green: { light: "#16a34a", dark: "#4ade80" },
-  teal: { light: "#0d9488", dark: "#2dd4bf" },
-  blue: { light: "#2563eb", dark: "#60a5fa" },
-  purple: { light: "#9333ea", dark: "#c084fc" },
-  pink: { light: "#db2777", dark: "#f472b6" },
-} as const;
+export const PALETTE = [
+  "grey",
+  "red",
+  "orange",
+  "amber",
+  "green",
+  "teal",
+  "blue",
+  "purple",
+  "pink",
+] as const;
 
-export type PaletteName = keyof typeof PALETTE;
+export type PaletteName = (typeof PALETTE)[number];
 
-/** The palette names, in the order a screen offers them. */
-export const PALETTE_NAMES = Object.keys(PALETTE) as PaletteName[];
+/** The name a colour falls back to when the palette no longer holds its own. */
+const FALLBACK: PaletteName = "grey";
 
 /**
  * The exact colours Tusker takes: `#rgb` and `#rrggbb`. A Worker has no CSS
@@ -41,7 +42,7 @@ const EXACT_COLOR = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 /** True when the value names a palette colour. */
 function isPaletteName(text: string): text is PaletteName {
-  return Object.hasOwn(PALETTE, text);
+  return (PALETTE as readonly string[]).includes(text);
 }
 
 /**
@@ -73,14 +74,19 @@ export function readColor(raw: unknown): ColorReading {
 }
 
 /**
- * What a dot is painted with. A palette name resolves to its two values, and
- * the browser takes the one the theme asks for. An exact colour draws as the
- * person typed it, in both themes. That is the deal an exact colour makes.
+ * What a dot is painted with. A palette name resolves to its token, and the
+ * token holds both values, so the browser takes the one the theme asks for. An
+ * exact colour draws as the person typed it, in both themes. That is the deal
+ * an exact colour makes.
+ *
+ * A colour outlives the palette that named it. A row in `org_field_colors` can
+ * name a colour a later palette dropped, and such a name draws grey rather
+ * than throwing the page away.
  */
 export function colorCss(color: string): string {
   if (color.startsWith("#")) return color;
-  const { light, dark } = PALETTE[color as PaletteName];
-  return `light-dark(${light}, ${dark})`;
+  const name = isPaletteName(color) ? color : FALLBACK;
+  return `var(--color-opt-${name})`;
 }
 
 /** The option colours of one org, as `field key → stored value → colour`. */

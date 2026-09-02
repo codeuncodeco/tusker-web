@@ -231,7 +231,7 @@ function RefBox({
     return (
       <label className="flex flex-col gap-1">
         {field.label}
-        <span className="text-sm text-neutral-500">
+        <span className="text-muted">
           No options pulled yet. Refresh this field on the fields screen, or type the id.
         </span>
         <span className="flex items-center gap-2">
@@ -330,7 +330,7 @@ function MetadataAside({
   const held = new Set(assignees.map((one) => one.id));
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-3 rounded-lg border border-neutral-200 p-4 text-sm sm:w-64 dark:border-neutral-800">
+    <aside className="flex w-full shrink-0 flex-col gap-3 rounded-lg border border-border p-4 sm:w-64">
       <label className="flex flex-col gap-1">
         Status
         {/* Moving to Done here is the same act as the Finish button, so a
@@ -380,7 +380,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
     // Wider than the other pages under the org layout: the aside sits beside
     // the task, so the two columns need the room.
     <main className="mx-auto flex max-w-4xl flex-1 flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">{task.title}</h1>
+      <h1 className="text-2xl tracking-tight">{task.title}</h1>
 
       <Form method="post" key={task.id} className="flex flex-col gap-6 sm:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -391,7 +391,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
 
           {/* Off by default, and only a marked task raises the prompt when it is
               finished. See ADR-0010. */}
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2">
             <input type="checkbox" name="decides" value="1" defaultChecked={task.decides} />
             Holds a decision
           </label>
@@ -407,7 +407,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           ))}
 
           {fields.length === 0 ? (
-            <p className="text-neutral-600 dark:text-neutral-400">
+            <p className="text-muted">
               This org declares no field yet.{" "}
               <Link to={`/o/${org.slug}/fields`} className="underline">
                 Declare one
@@ -417,15 +417,15 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           ) : null}
 
           {error ? (
-            <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+            <p role="alert" className="text-danger">
               {error}
             </p>
           ) : null}
           {actionData && "ok" in actionData ? (
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">Saved.</p>
+            <p className="text-muted">Saved.</p>
           ) : null}
 
-          <button className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+          <button className="self-start rounded border border-border px-3 py-2">
             Save
           </button>
         </div>
@@ -441,7 +441,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
       {/* Its own section, because a form cannot hold another one, and every
           box of the description posts on its own. */}
       <section className="flex flex-col gap-2">
-        <h2 className="font-medium">Description</h2>
+        <h2>Description</h2>
         <DescriptionBox text={task.description} />
       </section>
 
@@ -454,7 +454,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           <button
             name="intent"
             value={task.archived ? "restore" : "archive"}
-            className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+            className="self-start rounded border border-border px-3 py-2"
           >
             {task.archived ? "Restore" : "Archive"}
           </button>
@@ -467,7 +467,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           <button
             name="intent"
             value="finish"
-            className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+            className="self-start rounded border border-border px-3 py-2"
           >
             Finish
           </button>

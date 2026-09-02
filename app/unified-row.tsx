@@ -1,5 +1,6 @@
 import { Link, useFetcher } from "react-router";
 
+import type { Status } from "./board";
 import { Dot } from "./dot";
 import type { LiveTask } from "./unified";
 
@@ -15,6 +16,16 @@ export function planFields(task: LiveTask, planned: boolean) {
 export type Verbs = { pick: string; drop: string };
 
 export const PLAN_VERBS: Verbs = { pick: "Plan", drop: "Unplan" };
+
+/**
+ * What a move posts: the column the card lands in, and no place inside it. The
+ * `>` and `<` keys send this, and so does a drop on a unified column. The
+ * card's select posts the same four fields as a form, so it needs no script.
+ * See ADR-0015.
+ */
+export function moveFields(task: LiveTask, status: Status) {
+  return { intent: "move", id: task.id, slug: task.org.slug, status };
+}
 
 export function finishFields(task: LiveTask) {
   return { intent: "finish", id: task.id, slug: task.org.slug };
@@ -41,6 +52,7 @@ export function UnifiedRow({
   planned,
   selected,
   domId,
+  place,
   moves,
   plannable = true,
   droppable = false,
@@ -51,6 +63,12 @@ export function UnifiedRow({
   planned: boolean;
   selected: boolean;
   domId: string;
+  /**
+   * Puts the keyboard cursor on this row. A page with keys that act on the
+   * cursor gives one, so a long list is reachable by pointer as well as by
+   * `j`. Focus mode gives none: a batch is three rows.
+   */
+  place?: () => void;
   /**
    * Which way the row can step, in a list whose order a person owns. Nothing
    * here leaves the arrows off, which is every list but the plan: that order is
@@ -72,26 +90,27 @@ export function UnifiedRow({
     <li
       id={domId}
       aria-current={selected ? "true" : undefined}
-      className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border p-3 text-sm ${
+      onClick={place}
+      className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border p-3 ${
         selected
-          ? "border-neutral-900 bg-neutral-50 dark:border-neutral-200 dark:bg-neutral-900"
-          : "border-neutral-200 dark:border-neutral-800"
+          ? "border-fg bg-surface-2"
+          : "border-border"
       }`}
     >
       <Link
         to={`/o/${task.org.slug}/t/${task.id}`}
         className={`underline-offset-2 hover:underline ${
-          task.finished ? "text-neutral-500 line-through" : ""
+          task.finished ? "text-muted line-through" : ""
         }`}
       >
         {task.title}
       </Link>
 
-      <span className="shrink-0 text-xs uppercase tracking-wide text-neutral-500">
+      <span className="shrink-0 text-xs uppercase tracking-wide text-muted">
         {task.org.name}
       </span>
 
-      <span className="flex min-w-0 flex-1 gap-1 truncate text-xs text-neutral-500">
+      <span className="flex min-w-0 flex-1 gap-1 truncate text-xs text-muted">
         {task.fields.map((field, at) => (
           <span key={field.key} className="flex items-center gap-1 truncate">
             {at > 0 ? <span aria-hidden="true">·</span> : null}
@@ -111,7 +130,7 @@ export function UnifiedRow({
               value="up"
               disabled={!moves.up}
               aria-label={`Move ${task.title} up`}
-              className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+              className="rounded border border-border px-1 text-xs disabled:opacity-30"
             >
               ↑
             </button>
@@ -120,7 +139,7 @@ export function UnifiedRow({
               value="down"
               disabled={!moves.down}
               aria-label={`Move ${task.title} down`}
-              className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+              className="rounded border border-border px-1 text-xs disabled:opacity-30"
             >
               ↓
             </button>
@@ -130,7 +149,7 @@ export function UnifiedRow({
           <button
             name="intent"
             value={plan.intent}
-            className="rounded border border-neutral-300 px-1.5 text-xs dark:border-neutral-700"
+            className="rounded border border-border px-1.5 text-xs"
           >
             {planned ? verbs.drop : verbs.pick}
           </button>
@@ -141,7 +160,7 @@ export function UnifiedRow({
             value="drop"
             disabled={task.finished}
             aria-label={`Drop ${task.title} to the end of the plan`}
-            className="rounded border border-neutral-300 px-1.5 text-xs disabled:opacity-30 dark:border-neutral-700"
+            className="rounded border border-border px-1.5 text-xs disabled:opacity-30"
           >
             Drop
           </button>
@@ -150,7 +169,7 @@ export function UnifiedRow({
           name="intent"
           value="finish"
           disabled={task.finished}
-          className="rounded border border-neutral-300 px-1.5 text-xs disabled:opacity-30 dark:border-neutral-700"
+          className="rounded border border-border px-1.5 text-xs disabled:opacity-30"
         >
           Finish
         </button>
@@ -159,7 +178,7 @@ export function UnifiedRow({
       {/* Rightmost, and it never truncates: the due date is the one signal
           that reads the same in every org. */}
       {task.due_date ? (
-        <span className="shrink-0 tabular-nums text-xs text-neutral-500">{task.due_date}</span>
+        <span className="shrink-0 tabular-nums text-xs text-muted">{task.due_date}</span>
       ) : null}
     </li>
   );

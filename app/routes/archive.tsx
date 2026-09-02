@@ -110,7 +110,7 @@ function Restore({ id, title }: { id: string; title: string }) {
       <input type="hidden" name="id" value={id} />
       <button
         aria-label={`Restore ${title}`}
-        className="rounded border border-neutral-300 px-2 py-0.5 text-xs dark:border-neutral-700"
+        className="rounded border border-border px-2 py-0.5 text-xs"
       >
         Restore
       </button>
@@ -126,14 +126,14 @@ export default function Archive({ loaderData }: Route.ComponentProps) {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Archive</h1>
-        <nav className="flex items-baseline gap-4 text-sm">
+        <h1 className="text-2xl tracking-tight">Archive</h1>
+        <nav className="flex items-baseline gap-4">
           <TodayChip today={today} hasPlan={hasPlan} />
         </nav>
       </header>
 
       {lines.length === 0 ? (
-        <p className="text-neutral-600 dark:text-neutral-400">
+        <p className="text-muted">
           Nothing archived yet. Finish some work, then sweep the Done column on the{" "}
           <Link to={`/o/${org.slug}/board`} className="underline">
             board
@@ -145,7 +145,7 @@ export default function Archive({ loaderData }: Route.ComponentProps) {
           {lines.map((line) => (
             <li
               key={line.id}
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border border-neutral-200 p-3 text-sm dark:border-neutral-800"
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border border-border p-3"
             >
               <Link
                 to={`/o/${org.slug}/t/${line.id}`}
@@ -157,18 +157,18 @@ export default function Archive({ loaderData }: Route.ComponentProps) {
               {line.fields.map((field) => (
                 <span
                   key={field.key}
-                  className="flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-xs dark:bg-neutral-800"
+                  className="flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-xs"
                 >
                   <Dot color={field.color} />
-                  <span className="text-neutral-400">{field.label}</span> {field.value}
+                  <span className="text-dim">{field.label}</span> {field.value}
                 </span>
               ))}
 
               <Initials assignees={line.assignees} />
-              <span className="text-xs uppercase tracking-wide text-neutral-500">
+              <span className="text-xs uppercase tracking-wide text-muted">
                 {line.status}
               </span>
-              <span className="text-xs tabular-nums text-neutral-500">
+              <span className="text-xs tabular-nums text-muted">
                 {line.archivedAt?.slice(0, 10) ?? "—"}
               </span>
               <Restore id={line.id} title={line.title} />

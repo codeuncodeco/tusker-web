@@ -97,13 +97,13 @@ export default function Week({ loaderData }: Route.ComponentProps) {
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Your week</h1>
-        <span className="tabular-nums text-sm text-neutral-500">{week}</span>
+        <h1 className="text-2xl tracking-tight">Your week</h1>
+        <span className="tabular-nums text-muted">{week}</span>
         {/* Monday to Friday. Five days is a fact about the page: the set holds
             no day at all. */}
-        <span className="text-sm text-neutral-500">{span}</span>
+        <span className="text-muted">{span}</span>
         {picked.length > 0 ? (
-          <span className="tabular-nums text-sm text-neutral-500">
+          <span className="tabular-nums text-muted">
             {done} of {picked.length} done
           </span>
         ) : null}
@@ -112,9 +112,10 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       {/* An add here is a pick: the task joins the week, like any other. */}
       <UnifiedAdd orgs={orgs} />
 
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Press <kbd>p</kbd> to pick a task for this week. The week says what you mean
-        to finish. The day says when. Every act is kept, so nothing waits on this tab.
+      <p className="text-muted">
+        Press <kbd>p</kbd> to pick a task for this week, and <kbd>&gt;</kbd> and
+        <kbd>&lt;</kbd> to walk one between columns. The week says what you mean to
+        finish. The day says when. Every act is kept, so nothing waits on this tab.
       </p>
 
       <UnifiedList
