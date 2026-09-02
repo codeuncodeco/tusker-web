@@ -22,7 +22,7 @@ import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { actOnTask } from "../unified-actions.server";
-import { listUnified } from "../unified.server";
+import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import { isWeek, weekIn, weekSpan } from "../week";
 import { readWeekSet, weekPicks } from "../weeks.server";
@@ -50,16 +50,18 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const week = weekFor(request, params.week);
-  const members = (await readWeekSet(env.DB, set.personId, week)) ?? [];
-  // The members are read alongside the live set, so a task finished this week
+  const weekSet = (await readWeekSet(env.DB, set.personId, week)) ?? [];
+  // The set is read alongside the live tasks, so a task finished this week
   // keeps its membership and is drawn struck through. A member no org answers
   // for — archived, or in an org the person left — is left out of both.
-  const tasks = await listUnified(env.DB, set, members);
-  const groups = groupsFor(tasks, members, "week");
+  const tasks = await listUnified(env.DB, set, weekSet);
+  const groups = groupsFor(tasks, weekSet, "week");
   const inWeek = groups.find((group) => group.key === "week")!;
 
   return {
     orgs: set.orgs.map(held),
+    /** The members of every team org, for the picker on the box. */
+    members: await membersBySlug(env.DB, set),
     week,
     /** The Monday and the Friday the page draws between. */
     span: weekSpan(week),
@@ -92,7 +94,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Week({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, picked, week, span, day, done, ask } = loaderData;
+  const { orgs, members, groups, picked, week, span, day, done, ask } = loaderData;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -110,7 +112,7 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       </header>
 
       {/* An add here is a pick: the task joins the week, like any other. */}
-      <UnifiedAdd orgs={orgs} />
+      <UnifiedAdd orgs={orgs} members={members} />
 
       <p className="text-muted">
         The week says what you mean to finish. The day says when. Every act is kept, so

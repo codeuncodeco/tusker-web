@@ -8,7 +8,7 @@
  */
 
 import { drawsAssignees, type Assignee } from "./assignees";
-import { assigneesByTask } from "./assignees.server";
+import { assigneesByTask, membersInOrgs } from "./assignees.server";
 import { FINISHED_STATUSES, type Status } from "./board";
 import { listColors } from "./colors.server";
 import { shownOnCard, type Shown } from "./fields";
@@ -197,4 +197,25 @@ async function heldByTask(db: D1Database, set: OrgSet): Promise<Map<string, Assi
 /** The `?, ?, ?` a bound list needs. */
 function holes(count: number): string {
   return new Array(count).fill("?").join(", ");
+}
+
+/**
+ * The members of every team org in the set, keyed by slug.
+ *
+ * A cross-org quick-add box draws the picker of whatever org the org picker
+ * holds, so the lists come back with the page and no fetcher runs between a
+ * pick and the picker it draws. One read answers every org, as one read
+ * answers the whole board's assignees.
+ *
+ * The key is the slug, because a form names an org by its slug and no screen
+ * carries an org id. A personal org holds one member and draws no picker, so
+ * it is not read and not keyed. See ADR-0013.
+ */
+export async function membersBySlug(
+  db: D1Database,
+  set: OrgSet,
+): Promise<Record<string, Assignee[]>> {
+  const teams = set.orgs.filter(drawsAssignees);
+  const members = await membersInOrgs(db, teams.map((org) => org.id));
+  return Object.fromEntries(teams.map((org) => [org.slug, members.get(org.id) ?? []]));
 }

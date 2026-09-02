@@ -327,27 +327,31 @@ The box that makes a task from a typed title. On a board it sits at the top of a
 column, and the column names the status. On the unified board and in plan mode
 it carries an org picker, which starts at the personal org every time a
 person opens Tusker. A team org draws a chip that names it while the box holds
-it. The decision mark is set here. The title is a textarea one line high: Enter
+it. The decision mark is set here. The box also names the assignees, out of the
+members of the org it files into: the set starts empty, it stays across an add,
+and a change of org empties it. A personal org holds one member, so no box
+filing there draws the picker. The title is a textarea one line high: Enter
 posts and Shift+Enter makes a line, so a pasted list keeps its line breaks.
-See ADR-0012.
+See ADR-0012 and ADR-0013.
 _Avoid_: Composer, capture box, new task form
 
 **Pasted list**:
 Several lines posted from one quick-add box. Each non-empty line, trimmed, is
 one task, in the order the lines appear, and the block lands at the top of the
-column with the first line topmost. The mark goes on all of them or on none,
-because one box holds one tick. A list of more than 100 lines is refused and
-writes nothing. One box raises one decision prompt, so a marked list typed
-straight into Done is asked about the task on top of it.
+column with the first line topmost. The mark and the picked members go on all
+of them or on none, because one box holds one tick and one set. A list of more
+than 100 lines is refused and writes nothing. One box raises one decision
+prompt, so a marked list typed straight into Done is asked about the task on
+top of it.
 _Avoid_: Bulk add, batch, import
 
 **Undo an add**:
 The line the quick-add box shows after it makes a task. It counts what the add
 made, deletes every row that add wrote, drops them all from the day's plan, and
 gives the box back the whole text as it was typed and the mark, with the picker
-reset to the personal org, so a task typed into the wrong org is filed again
-rather than typed again. One add is one act, so its undo is one act. It is the
-only delete Tusker has. See ADR-0012.
+reset to the personal org and the assignee set emptied with it, so a task typed
+into the wrong org is filed again rather than typed again. One add is one act,
+so its undo is one act. It is the only delete Tusker has. See ADR-0012.
 _Avoid_: Trash, revert
 
 **Week set**:

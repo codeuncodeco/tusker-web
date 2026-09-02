@@ -30,7 +30,7 @@ import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { actOnTask } from "../unified-actions.server";
-import { listUnified } from "../unified.server";
+import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import type { Route } from "./+types/me.plan";
 
@@ -78,6 +78,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   return {
     orgs: set.orgs.map(held),
+    /** The members of every team org, for the picker on the box. */
+    members: await membersBySlug(env.DB, set),
     day,
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
@@ -133,7 +135,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, day, named, canAdd, leftovers, ask } = loaderData;
+  const { orgs, members, groups, planned, day, named, canAdd, leftovers, ask } = loaderData;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -144,7 +146,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
 
       {/* An add here is a pick: the task lands in the day, at the end, like
           any other. A named day carries no box. See ADR-0012. */}
-      {canAdd ? <UnifiedAdd orgs={orgs} /> : null}
+      {canAdd ? <UnifiedAdd orgs={orgs} members={members} /> : null}
 
       <p className="text-muted">Every act is kept, so nothing waits on this tab.</p>
 
