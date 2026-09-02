@@ -26,7 +26,7 @@ import { requireOrgSet } from "../scope.server";
 import { columnsFor, finishedSince, unifiedColumns, UNIFIED_TOGGLES } from "../unified";
 import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
-import { listUnified } from "../unified.server";
+import { listUnified, membersBySlug } from "../unified.server";
 import type { Route } from "./+types/me";
 
 /** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
@@ -64,6 +64,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return {
     orgs: set.orgs.map(held),
+    /** The members of every team org, for the picker on the box. */
+    members: await membersBySlug(env.DB, set),
     day,
     columns: columnsFor(drawn, shown),
     planned,
@@ -90,7 +92,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { orgs, columns, planned, toggles, today, hasPlan, day, ask } = loaderData;
+  const { orgs, members, columns, planned, toggles, today, hasPlan, day, ask } = loaderData;
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
@@ -106,7 +108,13 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         </nav>
       </header>
 
-      <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />
+      <UnifiedBoard
+        columns={columns}
+        orgs={orgs}
+        members={members}
+        planned={new Set(planned)}
+        day={day}
+      />
 
       <DecisionPrompt ask={ask} />
     </main>

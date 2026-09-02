@@ -31,7 +31,7 @@ import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { actOnTask } from "../unified-actions.server";
-import { listUnified } from "../unified.server";
+import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import { isWeek, weekIn, weekSpan } from "../week";
 import { readWeekSet, startWeek } from "../weeks.server";
@@ -72,20 +72,24 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   const week = weekFor(request, params.week);
   const started = await readWeekSet(env.DB, set.personId, week);
-  const members = started ?? [];
+  // The week's own set is named for the week and not for the org members the
+  // box picks from, which the page also reads.
+  const weekSet = started ?? [];
   // A week already started raises no prompt, emptied set included: the parent
   // row says the person planned this week, and a set is theirs to empty.
   const leftovers =
     started === null && canStart(request, week) ? await leftoversFor(env.DB, set, week) : null;
-  // The members are read alongside the live set, so a task finished this week
+  // The set is read alongside the live tasks, so a task finished this week
   // keeps its membership and is drawn struck through. A member no org answers
   // for — archived, or in an org the person left — is left out of both.
-  const tasks = await listUnified(env.DB, set, members);
-  const groups = groupsFor(tasks, members, "week");
+  const tasks = await listUnified(env.DB, set, weekSet);
+  const groups = groupsFor(tasks, weekSet, "week");
   const inWeek = groups.find((group) => group.key === "week")!;
 
   return {
     orgs: set.orgs.map(held),
+    /** The members of every team org, for the picker on the box. */
+    members: await membersBySlug(env.DB, set),
     week,
     /** The Monday and the Friday the page draws between. */
     span: weekSpan(week),
@@ -134,7 +138,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Week({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, picked, week, span, day, done, leftovers, ask } = loaderData;
+  const { orgs, members, groups, picked, week, span, day, done, leftovers, ask } = loaderData;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -152,7 +156,7 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       </header>
 
       {/* An add here is a pick: the task joins the week, like any other. */}
-      <UnifiedAdd orgs={orgs} />
+      <UnifiedAdd orgs={orgs} members={members} />
 
       {leftovers && <LeftoverPrompt leftovers={leftovers} />}
 

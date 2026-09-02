@@ -17,6 +17,7 @@ import { useFetcher } from "react-router";
 
 import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
+import type { Assignee } from "./assignees";
 import { useLocalDay } from "./local-day";
 import type { Column } from "./unified";
 import { UnifiedAdd } from "./unified-add";
@@ -27,12 +28,15 @@ import { moveFields } from "./unified-row";
 export function UnifiedBoard({
   columns,
   orgs,
+  members,
   planned,
   day,
 }: {
   columns: Column[];
   /** Every org the person belongs to, for the org picker on every box. */
   orgs: OrgHeld[];
+  /** The members of every team org, for the assignee picker on every box. */
+  members: Record<string, Assignee[]>;
   /** The task ids the day's plan holds, which turn Plan into Unplan. */
   planned: Set<string>;
   day: string;
@@ -122,6 +126,7 @@ export function UnifiedBoard({
               starts at the personal org every time. See ADR-0012. */}
           <UnifiedAdd
             orgs={orgs}
+            members={members}
             status={column.status}
             label={`Add to ${column.label}`}
             // One key names one box, and To do is where an add goes by hand.

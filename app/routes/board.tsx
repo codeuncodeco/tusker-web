@@ -27,7 +27,8 @@ import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
-import { assigneesByTask } from "../assignees.server";
+import { assigneesByTask, membersOf, readAssignees } from "../assignees.server";
+import { AssigneePicker } from "../assignee-picker";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
@@ -88,6 +89,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const assignees = drawsAssignees(scope.org)
     ? await assigneesByTask(env.DB, scope)
     : new Map<string, Assignee[]>();
+  // The org's members, for the picker every quick-add box carries. A personal
+  // org holds one, so it draws no picker and this list is empty.
+  const members = drawsAssignees(scope.org) ? await membersOf(env.DB, scope) : [];
   // The chip narrows the board to the tasks today's plan holds. A null plan is
   // a day the person has not planned, and then the board offers no chip.
   const day = dayOf(request);
@@ -121,6 +125,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
     columns,
+    /** The org's members, for the picker on every box. Empty draws none. */
+    members,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedOn(env.DB, scope, request),
     toggles,
@@ -147,7 +153,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const status = readStatus(form);
     const typed = newTasksFrom(form);
     if ("error" in typed) return typed;
-    const made = await createTasks(env.DB, scope, { ...typed, status });
+    // The ids are checked before anything is written, so an add naming a
+    // member who left the org while the box sat open makes no task at all. The
+    // box keeps the words, so nothing typed is lost. See ADR-0013.
+    const assigned = await readAssignees(env.DB, scope, form);
+    if ("error" in assigned) return assigned;
+    const made = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
     // The box sits on every column, Done included. A marked task typed
     // straight into Done is finished the moment it is made, so it is asked
     // now: no later move would ask it. One box is one prompt, so a pasted list
@@ -209,10 +220,25 @@ export async function action({ request, context, params }: Route.ActionArgs) {
  * the tasks land, so a person can type the next one at once. The column names
  * the status, so the only extra this placement needs is a hidden field.
  *
+ * The picker names who holds the task. It keeps its set across an add, so a
+ * person filing three tasks to one member names them once. A personal org
+ * hands it no member and it draws nothing. See ADR-0013.
+ *
  * `n` focuses the box on the To do column and Escape gives the board its keys
  * back, as they do on the unified board. One key names one box.
  */
-function QuickAdd({ status, label, addKey }: { status: Status; label: string; addKey: boolean }) {
+function QuickAdd({
+  status,
+  label,
+  addKey,
+  members,
+}: {
+  status: Status;
+  label: string;
+  addKey: boolean;
+  /** The org's members. Empty for a personal org, which draws no picker. */
+  members: Assignee[];
+}) {
   const add = useFetcher<typeof action>();
   const draft = useQuickAddDraft();
   const error = add.data && "error" in add.data ? add.data.error : null;
@@ -238,6 +264,13 @@ function QuickAdd({ status, label, addKey }: { status: Status; label: string; ad
         (event.target as HTMLElement).blur();
       }}
       fields={<input type="hidden" name="status" value={status} />}
+      picker={
+        <AssigneePicker
+          members={members}
+          picked={draft.assignees}
+          onPick={draft.setAssignees}
+        />
+      }
     />
   );
 }
@@ -459,7 +492,7 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, day, ask, search } = loaderData;
+  const { org, columns, members, toggles, today, hasPlan, day, ask, search } = loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -564,6 +597,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               status={column.status}
               label={column.label}
               addKey={column.status === "todo"}
+              members={members}
             />
 
             {/* The heading, the box and the sweep stay pinned, and only this

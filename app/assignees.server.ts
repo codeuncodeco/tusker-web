@@ -12,13 +12,16 @@
  */
 
 import { assigneeOf, inNameOrder, type Assignee } from "./assignees";
-import type { Scope } from "./scope.server";
+import type { ReadScope, Scope } from "./scope.server";
 
 /** The account columns an assignee is drawn from. */
 type MemberRow = { id: string; name: string; email: string };
 
 /** The same, with the task the row hangs on, for a whole board in one read. */
 type HeldRow = MemberRow & { task_id: string };
+
+/** The same, with the org the membership names, for several orgs in one read. */
+type OrgMemberRow = MemberRow & { org_id: string };
 
 /** The account columns every read here answers with. */
 const ACCOUNT_COLUMNS = "u.id, u.name, u.email";
@@ -136,4 +139,56 @@ export async function setAssignees(
         .bind(taskId, orgId, id),
     ),
   ]);
+}
+
+/**
+ * Every member of one org, as a picker offers them.
+ *
+ * The task page and the quick-add box both draw this list, and a card draws
+ * the same letters for the members who hold a task, so the read and the order
+ * sit here rather than in each page.
+ */
+export async function membersOf(db: D1Database, scope: ReadScope): Promise<Assignee[]> {
+  const rows = await memberRows(db, [scope.org.id]);
+  return rows.map(assigneeOf).sort(inNameOrder);
+}
+
+/**
+ * The same, for several orgs at once, keyed by org id.
+ *
+ * A cross-org page draws a box that files into whatever org its picker holds,
+ * so it needs every list before the person picks. One read answers them all,
+ * as one read answers the whole board's assignees.
+ *
+ * The caller names the orgs, and it holds the proof that the person belongs to
+ * each of them: an `OrgSet` is that proof, and it is the only way these ids
+ * are reached.
+ */
+export async function membersInOrgs(
+  db: D1Database,
+  orgIds: string[],
+): Promise<Map<string, Assignee[]>> {
+  const rows = await memberRows(db, orgIds);
+
+  const members = new Map<string, Assignee[]>();
+  for (const orgId of orgIds) members.set(orgId, []);
+  for (const row of rows) members.get(row.org_id)?.push(assigneeOf(row));
+  for (const list of members.values()) list.sort(inNameOrder);
+  return members;
+}
+
+/** The accounts the named orgs hold, each row carrying the org it belongs to. */
+async function memberRows(db: D1Database, orgIds: string[]): Promise<OrgMemberRow[]> {
+  if (orgIds.length === 0) return [];
+
+  const { results } = await db
+    .prepare(
+      `SELECT m.org_id, ${ACCOUNT_COLUMNS}
+       FROM memberships m
+       JOIN "user" u ON u.id = m.user_id
+       WHERE m.org_id IN (${orgIds.map(() => "?").join(", ")})`,
+    )
+    .bind(...orgIds)
+    .all<OrgMemberRow>();
+  return results;
 }

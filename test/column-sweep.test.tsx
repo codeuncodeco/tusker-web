@@ -27,6 +27,9 @@ function board(columns: ReturnType<typeof column>[]): string {
   const loaderData = {
     org: { slug: "acme", name: "Acme" },
     columns,
+    // A team org's members, for the picker on every quick-add box. This board
+    // draws none, and the picker is not what these tests read.
+    members: [],
     ask: null,
     toggles: { backlog: false, cancelled: true },
     today: false,
