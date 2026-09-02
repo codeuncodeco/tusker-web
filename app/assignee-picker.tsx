@@ -18,6 +18,33 @@ import { useEffect, useRef, useState } from "react";
 import type { Assignee } from "./assignees";
 import { smallFieldClass } from "./forms";
 
+/**
+ * The popover's width, in px. The side it hangs from is decided before it
+ * draws, so the width is a number here and not a class.
+ */
+const POPOVER_WIDTH = 224;
+
+/** The gap the popover keeps from the edge of the window, in px. */
+const EDGE_GAP = 8;
+
+/**
+ * The edge of the button the popover hangs from.
+ *
+ * It hangs from the right edge by default, because the button sits at the
+ * right of the quick-add row and a popover that grows left stays over the
+ * box. In the leftmost column there is no room to the left, so the popover
+ * hangs from the left edge instead. Where neither side fits, the right edge
+ * wins: one rule, and the wider window is the fix.
+ */
+export function popoverSide(
+  button: { left: number; right: number },
+  width: number,
+  viewport: number,
+): "right" | "left" {
+  if (button.right - width >= EDGE_GAP) return "right";
+  return button.left + width <= viewport - EDGE_GAP ? "left" : "right";
+}
+
 export function AssigneePicker({
   members,
   picked,
@@ -30,6 +57,7 @@ export function AssigneePicker({
   onPick: (ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [side, setSide] = useState<"right" | "left">("right");
   const button = useRef<HTMLButtonElement>(null);
   const popover = useRef<HTMLDivElement>(null);
 
@@ -91,7 +119,13 @@ export function AssigneePicker({
             ? "Assign to a member"
             : `Assigned to ${holders.map((one) => one.name).join(", ")}`
         }
-        onClick={() => setOpen((was) => !was)}
+        onClick={() => {
+          // The side is read while the button is on screen and the popover is
+          // not: it draws once, on the side that fits.
+          const at = open ? null : button.current?.getBoundingClientRect();
+          if (at) setSide(popoverSide(at, POPOVER_WIDTH, document.documentElement.clientWidth));
+          setOpen((was) => !was);
+        }}
         className={`flex items-center gap-1 uppercase tracking-wide ${smallFieldClass}`}
       >
         {holders.length === 0 ? (
@@ -118,7 +152,8 @@ export function AssigneePicker({
             const on = event.target as HTMLElement;
             if (on instanceof HTMLInputElement && on.type === "checkbox") toggle(on.value);
           }}
-          className="absolute right-0 z-10 mt-1 flex max-h-56 w-56 flex-col gap-1 overflow-y-auto rounded border border-border bg-surface p-2"
+          style={{ width: POPOVER_WIDTH }}
+          className={`absolute ${side === "right" ? "right-0" : "left-0"} z-10 mt-1 flex max-h-56 flex-col gap-1 overflow-y-auto rounded border border-border bg-surface p-2`}
         >
           {members.map((member) => (
             <label key={member.id} className="flex items-center gap-2">
