@@ -4,6 +4,7 @@ import { tickBox } from "./description";
 import { listFields } from "./fields.server";
 import { between, placesAbove } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
+import { LIKE_ESCAPE, likeAnywhere } from "./search";
 import { MAX_TITLES, titlesIn } from "./titles";
 
 export type Task = {
@@ -61,13 +62,64 @@ const finishedAtSql = (status: Status) =>
 /** A card in a column, cut down to what the order maths reads. */
 type Positioned = { id: string; position: number };
 
-/** One org's live tasks, in column order. */
-export async function listTasks(db: D1Database, scope: Scope): Promise<Task[]> {
+/** What a read of the board narrows to, past the org and the archive. */
+export type Narrowing = {
+  /** The text a card must hold in its title or description. Empty narrows nothing. */
+  search?: string;
+};
+
+/**
+ * One org's live tasks, in column order, narrowed by what the board asks for.
+ *
+ * The search runs here rather than over the answer, because the rows are D1's
+ * and the query is the place to cut them. A `LIKE` over the two columns is
+ * enough for one org's tasks. FTS5 is the answer when a board is big enough to
+ * feel it, and no board is yet.
+ *
+ * The match reads the title and the description as one text, so it finds what
+ * the extension found. It is case-insensitive for ASCII, which is what `LIKE`
+ * gives without ICU.
+ */
+export async function listTasks(
+  db: D1Database,
+  scope: Scope,
+  narrowing: Narrowing = {},
+): Promise<Task[]> {
+  const where = ["org_id = ?", "archived = 0"];
+  const values: unknown[] = [scope.org.id];
+
+  const search = narrowing.search?.trim();
+  if (search) {
+    where.push(`(title || ' ' || description) LIKE ? ESCAPE '${LIKE_ESCAPE}'`);
+    values.push(likeAnywhere(search));
+  }
+
   const { results } = await db
-    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE org_id = ? AND archived = 0 ${IN_ORDER}`)
-    .bind(scope.org.id)
+    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE ${where.join(" AND ")} ${IN_ORDER}`)
+    .bind(...values)
     .all<Row>();
   return results.map(asTask);
+}
+
+/**
+ * How many live tasks each status holds, across the whole board.
+ *
+ * The Backlog rule reads this and not the narrowed list: a search that leaves
+ * To do empty is not a board with no work in hand, and clearing the box must
+ * give the board back as it was.
+ */
+export async function countByStatus(
+  db: D1Database,
+  scope: Scope,
+): Promise<Record<Status, number>> {
+  const { results } = await db
+    .prepare("SELECT status, COUNT(*) AS held FROM tasks WHERE org_id = ? AND archived = 0 GROUP BY status")
+    .bind(scope.org.id)
+    .all<{ status: Status; held: number }>();
+
+  const counts = Object.fromEntries(STATUSES.map((status) => [status, 0])) as Record<Status, number>;
+  for (const row of results) counts[row.status] = row.held;
+  return counts;
 }
 
 /** One task of the org, or null when the org holds no such row. */

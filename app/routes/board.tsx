@@ -12,7 +12,7 @@ import {
   readToggles,
   type Status,
 } from "../board";
-import { Toggle, TodayChip } from "../board-chrome";
+import { SearchBox, Toggle, TodayChip } from "../board-chrome";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
 import { listColors } from "../colors.server";
@@ -29,7 +29,9 @@ import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
 import { requireScope } from "../scope.server";
-import { createTasks, listTasks, moveTask, newTasksFrom, type Task } from "../tasks.server";
+import { readSearch } from "../search";
+import { useRemembered } from "../remembered";
+import { countByStatus, createTasks, listTasks, moveTask, newTasksFrom } from "../tasks.server";
 import type { Route } from "./+types/board";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -39,24 +41,15 @@ export function meta({ loaderData }: Route.MetaArgs) {
 /** What one card shows. The task page reads the rest of the row. */
 type Card = { id: string; title: string; fields: Shown[]; assignees: Assignee[] };
 
-/** How many tasks each status holds, so the Backlog rule can read it. */
-function countByStatus(tasks: Task[]): Record<Status, number> {
-  const counts: Record<Status, number> = {
-    backlog: 0,
-    todo: 0,
-    in_progress: 0,
-    done: 0,
-    cancelled: 0,
-  };
-  for (const task of tasks) counts[task.status]++;
-  return counts;
-}
-
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug, context);
 
-  const tasks = await listTasks(env.DB, scope);
+  const query = new URL(request.url).searchParams;
+  // The search narrows in SQL, so a board of hundreds of rows sends back what
+  // matches and nothing else.
+  const search = readSearch(query);
+  const tasks = await listTasks(env.DB, scope, { search });
   // The org's declarations decide what a card shows, so the board needs no
   // code for any one org's fields.
   const declared = await listFields(env.DB, scope);
@@ -75,7 +68,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // a day the person has not planned, and then the board offers no chip.
   const day = dayOf(request);
   const plan = await readPlan(env.DB, scope.personId, day);
-  const query = new URL(request.url).searchParams;
   // An emptied plan holds nothing to narrow to, so it carries no chip either.
   const held = new Set(plan ?? []);
   const hasPlan = held.size > 0;
@@ -83,8 +75,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
 
   // The Backlog rule reads the whole board, so narrowing does not change which
-  // columns a person sees. Clearing the chip gives the board back as it was.
-  const counts = countByStatus(tasks);
+  // columns a person sees. Clearing the chip or the box gives the board back as
+  // it was.
+  const counts = await countByStatus(env.DB, scope);
   const toggles = readToggles(query, BOARD_TOGGLES);
   const columns = columnsToShow(counts, toggles).map((status) => ({
     status,
@@ -108,6 +101,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     ask: await askedOn(env.DB, scope, request),
     toggles,
     today,
+    /** The text the box holds, so a reload draws the search it ran. */
+    search,
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
@@ -300,12 +295,15 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, day, ask } = loaderData;
+  const { org, columns, toggles, today, hasPlan, day, ask, search } = loaderData;
   const mover = useFetcher();
 
   // The chip speaks for today, so the board must know which day that is where
   // the person is, not where the Worker runs.
   useLocalDay(day);
+
+  // The last search comes back with the board it was run on.
+  useRemembered(org.slug);
 
   /**
    * The post a drag makes: the card, the column it lands in, and the card it
@@ -328,6 +326,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
         <nav className="flex items-baseline gap-4 text-sm">
+          <SearchBox search={search} />
           <TodayChip today={today} hasPlan={hasPlan} />
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
