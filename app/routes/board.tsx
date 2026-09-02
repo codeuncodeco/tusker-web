@@ -24,9 +24,10 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
+import { AssigneeFilter, ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
-import { drawsAssignees, type Assignee } from "../assignees";
+import { ANYONE, keeps, readAssignee } from "../assignee-filter";
+import { assigneeOf, drawsAssignees, inNameOrder, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
@@ -38,6 +39,7 @@ import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
 import { QuickAddBox, useAddKey, useQuickAddDraft } from "../quick-add";
+import { listMembers } from "../orgs.server";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
@@ -84,9 +86,16 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const colors = await listColors(env.DB, scope);
   // Who holds each task, for the whole org in one read. A personal org holds
   // one member, so it draws none. See ADR-0013.
-  const assignees = drawsAssignees(scope.org)
-    ? await assigneesByTask(env.DB, scope)
-    : new Map<string, Assignee[]>();
+  // The members the select offers ride along, in the order a name reads: the
+  // same order the assignee list on a task uses. The two reads go together,
+  // because neither waits on the other. A personal org draws no assignee, so
+  // it draws no select and holds no filter either, whatever the address says.
+  const draws = drawsAssignees(scope.org);
+  const [assignees, roll] = draws
+    ? await Promise.all([assigneesByTask(env.DB, scope), listMembers(env.DB, scope.org.id)])
+    : [new Map<string, Assignee[]>(), []];
+  const members = roll.map(assigneeOf).sort(inNameOrder);
+  const assignee = draws ? readAssignee(query) : ANYONE;
   // The chip narrows the board to the tasks today's plan holds. A null plan is
   // a day the person has not planned, and then the board offers no chip.
   const day = dayOf(request);
@@ -95,12 +104,19 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const held = new Set(plan ?? []);
   const hasPlan = held.size > 0;
   const today = readToday(query) && hasPlan;
-  const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
+  // Every narrowing is AND, and the filter narrows in memory over the map the
+  // initials already needed. A name no member answers to keeps nothing, which
+  // is the honest board for a member who left: their assignments left with
+  // them.
+  const shown = tasks.filter(
+    (task) =>
+      (!today || held.has(task.id)) && keeps(assignee, assignees.get(task.id) ?? []),
+  );
   // True while something narrows the board. The sweep is offered only then:
-  // a sweep of a whole unnarrowed column is not what archive is for. The chip
-  // and the search box are the two narrowings, and the sweep asks no question
-  // about which one made the column what it is.
-  const narrowed = today || search !== "";
+  // a sweep of a whole unnarrowed column is not what archive is for. The chip,
+  // the search box and the assignee filter are the three narrowings, and the
+  // sweep asks no question about which one made the column what it is.
+  const narrowed = today || search !== "" || assignee !== ANYONE;
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip or the box gives the board back as
@@ -131,6 +147,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     today,
     /** The text the box holds, so a reload draws the search it ran. */
     search,
+    /** The value the select holds, so a reload draws the filter it ran. */
+    assignee,
+    /** The org's members, in name order. A personal org hands back none. */
+    members,
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
@@ -456,7 +476,8 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, narrowed, day, ask, search } = loaderData;
+  const { org, columns, toggles, today, hasPlan, narrowed, day, ask } = loaderData;
+  const { search, assignee, members } = loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -525,6 +546,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         <h1 className="text-2xl tracking-tight">{org.name}</h1>
         <nav className="flex items-baseline gap-4">
           <SearchBox search={search} />
+          <AssigneeFilter assignee={assignee} members={members} />
           <TodayChip today={today} hasPlan={hasPlan} />
           {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
           <ColumnSwitch which="cancelled" toggles={toggles} />
