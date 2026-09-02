@@ -29,3 +29,9 @@ An emptied plan is not the same as no plan. The row stays, so the unified view
 does not offer to start a day the person already started. A board carries the
 Today chip only while the plan holds a task, because a chip that empties the
 board narrows to nothing.
+
+## Amended by ADR-0014
+
+The week set holds unfinished work now, so leftovers are a week rule and a plan
+starts empty every day. The rest of this ADR stands: the plan row is still
+written on every act, and an emptied plan is still not the same as no plan.
