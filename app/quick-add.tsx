@@ -19,6 +19,27 @@ import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObjec
 import type { FetcherWithComponents } from "react-router";
 
 import { fieldClass } from "./forms";
+import { isPagePress } from "./keys";
+
+/**
+ * `n` focuses one box, so a page keyed for the board still adds a task without
+ * the pointer. A page with several boxes gives the key to one of them, because
+ * one key names one box: on a board that is the To do column.
+ */
+export function useAddKey(box: RefObject<HTMLTextAreaElement | null>, bound: boolean) {
+  useEffect(() => {
+    if (!bound) return;
+
+    function onKey(event: KeyboardEvent) {
+      if (!isPagePress(event) || event.key !== "n") return;
+      box.current?.focus();
+      event.preventDefault();
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [box, bound]);
+}
 
 /** The form a fetcher draws. It is the same shape whatever the fetcher answers. */
 type FetcherForm = FetcherWithComponents<unknown>["Form"];

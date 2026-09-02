@@ -7,6 +7,10 @@
  * The unified board and plan mode draw the same tasks in different layouts, so
  * the key map lives here rather than in either of them. Tusker is keyboard
  * first, so the buttons are the second way, not the only one.
+ *
+ * The org board binds the same letters from `app/board-keys.ts`. It draws
+ * different rows and writes different intents, so it keeps a map of its own,
+ * and the letters are shared by decision. See ADR-0016.
  */
 
 import { useEffect } from "react";

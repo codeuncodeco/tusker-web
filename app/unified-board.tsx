@@ -122,7 +122,7 @@ export function UnifiedBoard({
             status={column.status}
             label={`Add to ${column.label}`}
             // One key names one box, and To do is where an add goes by hand.
-            hotkey={column.status === "todo"}
+            addKey={column.status === "todo"}
           />
 
           <ul className="flex flex-col gap-2">
