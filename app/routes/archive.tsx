@@ -15,7 +15,7 @@ import { useFetcher, Link } from "react-router";
 import { listArchived, readTaskIds, restoreTasks } from "../archive.server";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
-import { readToday, STATUS_LABEL } from "../board";
+import { readNarrowing, STATUS_LABEL } from "../board";
 import { TodayChip } from "../board-chrome";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
@@ -65,7 +65,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const plan = await readPlan(env.DB, scope.personId, day);
   const held = new Set(plan ?? []);
   const hasPlan = held.size > 0;
-  const today = readToday(new URL(request.url).searchParams) && hasPlan;
+  const today = readNarrowing(new URL(request.url).searchParams) === "today" && hasPlan;
   const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
 
   return {

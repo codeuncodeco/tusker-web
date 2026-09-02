@@ -19,12 +19,12 @@ import {
   columnsToShow,
   isFinished,
   readStatus,
-  readToday,
+  readNarrowing,
   readToggles,
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
+import { ColumnSwitch, SearchBox, TodayChip, WeekChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask, membersOf, readAssignees } from "../assignees.server";
@@ -42,6 +42,8 @@ import { QuickAddBox, useAddKey, useQuickAddDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
+import { weekOf } from "../week";
+import { readWeekSet } from "../weeks.server";
 import { useRemembered } from "../remembered";
 import { requireScope } from "../scope.server";
 import { readSearch } from "../search";
@@ -92,15 +94,21 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The org's members, for the picker every quick-add box carries. A personal
   // org holds one, so it draws no picker and this list is empty.
   const members = drawsAssignees(scope.org) ? await membersOf(env.DB, scope) : [];
-  // The chip narrows the board to the tasks today's plan holds. A null plan is
-  // a day the person has not planned, and then the board offers no chip.
+  // The two chips narrow the board to today's plan, or to this week's set. A
+  // null plan is a day the person has not planned, and then the chip leads to
+  // plan mode instead. An emptied plan holds nothing to narrow to, so it reads
+  // the same way, and the week set beside it reads the same way again.
   const day = dayOf(request);
-  const plan = await readPlan(env.DB, scope.personId, day);
-  // An emptied plan holds nothing to narrow to, so it carries no chip either.
-  const held = new Set(plan ?? []);
+  const held = new Set((await readPlan(env.DB, scope.personId, day)) ?? []);
+  const inWeek = new Set((await readWeekSet(env.DB, scope.personId, weekOf(day))) ?? []);
   const hasPlan = held.size > 0;
-  const today = readToday(query) && hasPlan;
-  const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
+  const hasSet = inWeek.size > 0;
+  // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
+  const narrowing = readNarrowing(query);
+  const today = narrowing === "today" && hasPlan;
+  const week = narrowing === "week" && hasSet;
+  const narrowed = today ? held : week ? inWeek : null;
+  const shown = narrowed ? tasks.filter((task) => narrowed.has(task.id)) : tasks;
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip or the box gives the board back as
@@ -131,11 +139,14 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     ask: await askedOn(env.DB, scope, request),
     toggles,
     today,
+    week,
     /** The text the box holds, so a reload draws the search it ran. */
     search,
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
+    /** This week's set holds a task, so its chip narrows rather than leads. */
+    hasSet,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
@@ -492,7 +503,8 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, members, toggles, today, hasPlan, day, ask, search } = loaderData;
+  const { org, columns, members, toggles, today, hasPlan, week, hasSet, day, ask, search } =
+    loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -562,6 +574,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         <nav className="flex items-baseline gap-4">
           <SearchBox search={search} />
           <TodayChip today={today} hasPlan={hasPlan} />
+          <WeekChip week={week} hasSet={hasSet} />
           {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
           <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>

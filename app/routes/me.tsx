@@ -13,8 +13,8 @@
  * ADR-0015.
  */
 
-import { readToday, readToggles } from "../board";
-import { ColumnSwitch, TodayChip } from "../board-chrome";
+import { readNarrowing, readToggles } from "../board";
+import { ColumnSwitch, TodayChip, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { dayOf } from "../day";
@@ -27,6 +27,8 @@ import { columnsFor, finishedSince, unifiedColumns, UNIFIED_TOGGLES } from "../u
 import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
+import { weekOf } from "../week";
+import { readWeekSet } from "../weeks.server";
 import type { Route } from "./+types/me";
 
 /** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
@@ -52,15 +54,21 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     since: finishedSince(day),
   });
 
-  // The chip narrows the board to the tasks today's plan holds. A null plan is
-  // a day the person has not planned, and an emptied one holds nothing to
-  // narrow to, so neither draws a chip.
-  const plan = await readPlan(env.DB, set.personId, day);
-  const planned = plan ?? [];
-  const hasPlan = planned.length > 0;
+  // The two chips narrow the board to the tasks today's plan holds, or to the
+  // tasks this week's set holds. A null plan is a day the person has not
+  // planned, and an emptied one holds nothing to narrow to, so neither draws a
+  // chip. The week set reads the same way.
+  const planned = (await readPlan(env.DB, set.personId, day)) ?? [];
   const inPlan = new Set(planned);
-  const today = readToday(query) && hasPlan;
-  const drawn = today ? tasks.filter((task) => inPlan.has(task.id)) : tasks;
+  const inWeek = new Set((await readWeekSet(env.DB, set.personId, weekOf(day))) ?? []);
+  const hasPlan = inPlan.size > 0;
+  const hasSet = inWeek.size > 0;
+  // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
+  const narrowing = readNarrowing(query);
+  const today = narrowing === "today" && hasPlan;
+  const week = narrowing === "week" && hasSet;
+  const narrowed = today ? inPlan : week ? inWeek : null;
+  const drawn = narrowed ? tasks.filter((task) => narrowed.has(task.id)) : tasks;
 
   return {
     orgs: set.orgs.map(held),
@@ -71,8 +79,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     planned,
     toggles,
     today,
+    week,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
+    /** This week's set holds a task, so its chip has something to narrow to. */
+    hasSet,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedAcross(env.DB, set, request),
   };
@@ -92,7 +103,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { orgs, members, columns, planned, toggles, today, hasPlan, day, ask } = loaderData;
+  const { orgs, members, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } =
+    loaderData;
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
@@ -100,8 +112,10 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         <h1 className="text-2xl tracking-tight">Your tasks</h1>
         <nav className="flex items-baseline gap-4">
           {/* A person with no plan for today gets no chip: there is nothing
-              to narrow to, and the header carries Plan on every page. */}
+              to narrow to, and the header carries Plan on every page. The
+              week set reads the same way, and the header carries Week. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
+          {hasSet ? <WeekChip week={week} hasSet /> : null}
           {UNIFIED_TOGGLES.map((which) => (
             <ColumnSwitch key={which} which={which} toggles={toggles} />
           ))}

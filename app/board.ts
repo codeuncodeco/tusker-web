@@ -118,9 +118,34 @@ export function backlogByRule(counts: Record<Status, number>): boolean {
   return counts.todo === 0 && counts.in_progress === 0;
 }
 
-/** True while a board is narrowed to today's plan. */
-export function readToday(params: URLSearchParams): boolean {
-  return params.get("today") === "1";
+/**
+ * The two narrowings a board offers: today's plan, and this week's set. One
+ * chip draws each.
+ */
+export type Narrowing = "today" | "week";
+
+/**
+ * The narrowing the address asks for, or null for a whole board.
+ *
+ * A board is narrowed by one or by neither, so this reads one answer out of
+ * the address rather than two. Both names at once is an address nobody's chip
+ * writes, and Today wins it: the day is the narrower of the two.
+ */
+export function readNarrowing(params: URLSearchParams): Narrowing | null {
+  if (params.get("today") === "1") return "today";
+  if (params.get("week") === "1") return "week";
+  return null;
+}
+
+/**
+ * The query string with one narrowing pressed, or given back, and the other
+ * one dropped. It is `flipped` and the exclusivity in one call, so a chip
+ * cannot write an address that holds both.
+ */
+export function narrowedTo(params: URLSearchParams, which: Narrowing, on: boolean): string {
+  const next = new URLSearchParams(params);
+  next.delete(which === "today" ? "week" : "today");
+  return flipped(next, which, on);
 }
 
 /**

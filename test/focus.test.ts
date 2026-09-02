@@ -11,6 +11,8 @@ import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 const db = env.DB;
 const PASSWORD = "correct horse battery";
 const DAY = "2026-09-01";
+/** The week that Tuesday sits in. */
+const WEEK = "2026-W36";
 
 beforeEach(wipe);
 
@@ -54,6 +56,18 @@ async function task(orgId: string, id: string, some: { status?: Status; position
 /** Several To do tasks of one org, in the order the column holds them. */
 async function column(orgId: string, ...ids: string[]) {
   for (const [at, id] of ids.entries()) await task(orgId, id, { position: at + 1 });
+}
+
+/** A week set, written as if the week page wrote it. */
+async function weekSet(personId: string, ids: string[], week = WEEK) {
+  await db.batch([
+    db.prepare("INSERT INTO week_plans (user_id, week) VALUES (?, ?)").bind(personId, week),
+    ...ids.map((id) =>
+      db
+        .prepare("INSERT INTO week_plan_tasks (user_id, week, task_id) VALUES (?, ?, ?)")
+        .bind(personId, week, id),
+    ),
+  ]);
 }
 
 /** A day's plan, written as if plan mode wrote it. */
@@ -174,6 +188,86 @@ describe("the batch with no plan", () => {
     await task(ada.org.id, "later", { status: "backlog" });
 
     expect(batch(await focus(ada.cookie))).toEqual(["a"]);
+  });
+});
+
+describe("the batch with no plan but a week set", () => {
+  it("is the first three of the week set, in percentile order", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b", "c", "d", "e");
+    await weekSet(ada.person.id, ["e", "d", "c", "b"]);
+
+    const data = await focus(ada.cookie);
+
+    // The set carries no order, so the page sorts it as `/me` does.
+    expect(batch(data)).toEqual(["b", "c", "d"]);
+    expect(data.focus.planned).toBe(false);
+  });
+
+  it("draws In progress before To do, as the unified view does", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const other = await team(ada.person.id, "codeuncode");
+    await column(ada.org.id, "a", "b");
+    await task(other.id, "now", { status: "in_progress" });
+    await weekSet(ada.person.id, ["a", "b", "now"]);
+
+    expect(batch(await focus(ada.cookie))).toEqual(["now", "a", "b"]);
+  });
+
+  it("leaves out a member no live task answers for", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b", "gone");
+    await task(ada.org.id, "later", { status: "backlog" });
+    await weekSet(ada.person.id, ["a", "later", "gone"]);
+    await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 'gone'").run();
+
+    // Backlog is not work for today, and an archived task is not work at all.
+    expect(batch(await focus(ada.cookie))).toEqual(["a"]);
+  });
+
+  it("draws from the unified view where the person started no week", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b");
+
+    expect(batch(await focus(ada.cookie))).toEqual(["a", "b"]);
+  });
+
+  it("draws from the unified view where the set holds nothing to work", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b");
+    await weekSet(ada.person.id, []);
+
+    expect(batch(await focus(ada.cookie))).toEqual(["a", "b"]);
+  });
+
+  it("reads the set of the week the day sits in, and no other", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b");
+    await weekSet(ada.person.id, ["b"], "2026-W37");
+
+    expect(batch(await focus(ada.cookie))).toEqual(["a", "b"]);
+  });
+
+  it("writes the batch as the day's plan on the first finish", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b", "c", "d");
+    await weekSet(ada.person.id, ["b", "c", "d"]);
+
+    await act(ada.cookie, { intent: "finish", id: "b", slug: ada.org.slug });
+
+    expect(await stored(ada.person.id)).toEqual(["b", "c", "d"]);
+    // The plan holds the batch from here on, so no fourth task slides in.
+    expect(batch(await focus(ada.cookie))).toEqual(["b", "c", "d"]);
+  });
+
+  it("takes nothing more while the week set still holds unfinished work", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await column(ada.org.id, "a", "b", "c", "d");
+    await weekSet(ada.person.id, ["a"]);
+
+    await act(ada.cookie, { intent: "more" });
+
+    expect(await stored(ada.person.id)).toBe(null);
   });
 });
 
