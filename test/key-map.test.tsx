@@ -7,7 +7,7 @@ import { TakeMore } from "../app/focus-list";
 import { KEY_MAP, type ActionName } from "../app/key-map";
 import type { LiveTask } from "../app/unified";
 import { UnifiedCard } from "../app/unified-card";
-import { ALL_ACTS, pressed, type Press } from "../app/unified-keys";
+import { ALL_ACTS, READ_ACTS, pressed, type Press } from "../app/unified-keys";
 import { UnifiedRow } from "../app/unified-row";
 
 /** One task, as the cross-org pages draw one. */
@@ -129,6 +129,15 @@ describe("the acts a page withholds", () => {
   it("answers nothing to a plan, a step or a move, which is focus mode", () => {
     for (const key of [KEY_MAP.plan.key, KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.forward.key])
       expect(pressed(key, ROWS, new Set(["b"]), none, "b")).toBe(null);
+  });
+
+  // A day past its own reads back. The plan is not rewritten there, and the
+  // task itself is live, so a move still moves it. See #66.
+  it("answers nothing to a plan or a step on a list read back, and still moves", () => {
+    for (const key of [KEY_MAP.plan.key, KEY_MAP.up.key, KEY_MAP.down.key])
+      expect(pressed(key, ROWS, new Set(["b"]), READ_ACTS, "b")).toBe(null);
+
+    expect(pressed(KEY_MAP.forward.key, ROWS, new Set(["b"]), READ_ACTS, "b")).not.toBe(null);
   });
 });
 

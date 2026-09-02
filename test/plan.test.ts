@@ -492,3 +492,143 @@ describe("stepping a task between columns", () => {
     expect(ids(await planPage(ada.cookie), "in_progress")).toEqual([]);
   });
 });
+
+/** A day before `DAY`, whose plan is written and then read back. */
+const PAST = "2026-08-25";
+
+/** A post to a day the path names, which the browser cannot talk out of. */
+function actOn(cookie: string, named: string, fields: Record<string, string>, browserDay = DAY) {
+  const request = post(`/me/plan/${named}`, fields);
+  request.headers.set("cookie", `${cookie}; day=${browserDay}`);
+  return planRoute.action(routeArgs(request, { day: named }));
+}
+
+/** A person with a plan of two tasks on `PAST`, made on that day. */
+async function planned() {
+  const ada = await member("ada@example.test", "Ada");
+  await task(ada.org.id, "a");
+  await task(ada.org.id, "b", { position: 2 });
+  await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug }, PAST);
+  await act(ada.cookie, { intent: "plan", id: "b", slug: ada.org.slug }, PAST);
+  return ada;
+}
+
+describe("walking to another day", () => {
+  it("offers the day before and the day after", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const data = await planPage(ada.cookie);
+
+    expect(data.day).toBe(DAY);
+    expect(data.prev).toBe("2026-08-31");
+    expect(data.next).toBe("2026-09-02");
+    expect(data.onToday).toBe(true);
+  });
+
+  it("walks both ways from a day the path names", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const data = await dayPage(ada.cookie, PAST);
+
+    expect(data.prev).toBe("2026-08-24");
+    expect(data.next).toBe("2026-08-26");
+    // The walk went somewhere, so the page offers the way home.
+    expect(data.onToday).toBe(false);
+  });
+
+  it("knows it is on today when the path names today", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    expect((await dayPage(ada.cookie, DAY)).onToday).toBe(true);
+  });
+});
+
+describe("a day past its own", () => {
+  it("draws the plan alone: no shelf, and no box", async () => {
+    const ada = await planned();
+    // A live task nothing planned, which today's page would offer to pick.
+    await task(ada.org.id, "loose", { position: 3 });
+
+    const data = await dayPage(ada.cookie, PAST);
+
+    expect(data.canPlan).toBe(false);
+    expect(data.canAdd).toBe(false);
+    expect(data.groups.map((one) => one.key)).toEqual(["today"]);
+    expect(ids(data, "today")).toEqual(["a", "b"]);
+  });
+
+  // The task is live whichever day is on screen, so a finish still finishes.
+  it("still finishes a task, because that writes the task and not the plan", async () => {
+    const ada = await planned();
+
+    await actOn(ada.cookie, PAST, { intent: "finish", id: "a", slug: ada.org.slug });
+
+    const row = await db.prepare("SELECT status FROM tasks WHERE id = 'a'").first<{
+      status: string;
+    }>();
+    expect(row!.status).toBe("done");
+  });
+
+  // The refusal names the acts that stand, so an act added later is refused
+  // here until someone says it is safe.
+  it("refuses an act it does not know", async () => {
+    const ada = await planned();
+
+    const response = await caught(actOn(ada.cookie, PAST, { intent: "rewrite", id: "a" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe("A plan is never rewritten after its day.");
+  });
+
+  // A plan is made on its day and ahead of it, and read back after it.
+  it("is only the days behind: a day still to come plans as today does", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+
+    const ahead = await dayPage(ada.cookie, "2026-09-02");
+    expect(ahead.canPlan).toBe(true);
+    await actOn(ada.cookie, "2026-09-02", { intent: "plan", id: "a", slug: ada.org.slug });
+
+    expect(await stored(ada.person.id, "2026-09-02")).toEqual(["a"]);
+  });
+
+  it("refuses a step, and leaves the order as the day left it", async () => {
+    const ada = await planned();
+
+    const response = await caught(actOn(ada.cookie, PAST, { intent: "up", id: "b" }));
+
+    expect(response.status).toBe(400);
+    expect(await stored(ada.person.id, PAST)).toEqual(["a", "b"]);
+  });
+
+  it("refuses a pick", async () => {
+    const ada = await planned();
+    await task(ada.org.id, "late", { position: 3 });
+
+    const response = await caught(
+      actOn(ada.cookie, PAST, { intent: "plan", id: "late", slug: ada.org.slug }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await stored(ada.person.id, PAST)).toEqual(["a", "b"]);
+  });
+
+  it("refuses to drop a task the day holds", async () => {
+    const ada = await planned();
+
+    const response = await caught(
+      actOn(ada.cookie, PAST, { intent: "unplan", id: "a", slug: ada.org.slug }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await stored(ada.person.id, PAST)).toEqual(["a", "b"]);
+  });
+
+  it("still takes the day it is, so today writes as it did", async () => {
+    const ada = await planned();
+
+    await actOn(ada.cookie, DAY, { intent: "plan", id: "a", slug: ada.org.slug });
+
+    expect(await stored(ada.person.id, DAY)).toEqual(["a"]);
+  });
+});

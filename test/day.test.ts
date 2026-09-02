@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayOf, isDay, localDay } from "../app/day";
+import { dayAfter, dayBefore, dayOf, isDay, localDay } from "../app/day";
 import { get } from "./routes";
 
 describe("a day", () => {
@@ -32,5 +32,22 @@ describe("the day a request speaks for", () => {
 
   it("ignores a cookie that does not name a day", () => {
     expect(dayOf(get("/me", "day=tomorrow"), new Date(2026, 8, 1))).toBe("2026-09-01");
+  });
+});
+
+describe("stepping to another day", () => {
+  it("goes back one day, and forward one", () => {
+    expect(dayBefore("2026-09-02")).toBe("2026-09-01");
+    expect(dayAfter("2026-09-01")).toBe("2026-09-02");
+  });
+
+  it("steps over a month end and a year end", () => {
+    expect(dayAfter("2026-08-31")).toBe("2026-09-01");
+    expect(dayBefore("2026-01-01")).toBe("2025-12-31");
+  });
+
+  it("steps over a leap day", () => {
+    expect(dayAfter("2028-02-28")).toBe("2028-02-29");
+    expect(dayBefore("2028-03-01")).toBe("2028-02-29");
   });
 });
