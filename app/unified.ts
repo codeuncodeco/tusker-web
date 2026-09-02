@@ -166,21 +166,18 @@ export function columnsFor(tasks: LiveTask[], shown: Status[]): Column[] {
   }));
 }
 
-/** The statuses that hold finished work, and so carry the cap. */
-export const FINISHED_STATUSES: Status[] = ["done", "cancelled"];
-
 /** How far back Done and Cancelled reach on the unified board. */
 const FINISHED_DAYS = 7;
 
 /**
- * The earliest `updated_at` a finished task may carry and still be drawn.
+ * The earliest `finished_at` a finished task may carry and still be drawn.
  *
  * Done and Cancelled have no cap on the org board. Across every org they are
  * every task the person ever finished, so the unified board caps them to the
  * last week.
  *
- * `tasks` holds no finish time, so this reads the last write of the row and is
- * wrong for a task edited after it was finished. #84 closes that.
+ * The cap reads the finish time, not the last write of the row, so an edit to
+ * a task finished in March does not drag it back into Done.
  */
 export function finishedSince(day: string): string {
   const at = new Date(`${day}T00:00:00.000Z`);

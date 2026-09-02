@@ -1,4 +1,4 @@
-import { isStatus, STATUSES, type Status } from "./board";
+import { isFinished, isStatus, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
 import { tickBox } from "./description";
 import { listFields } from "./fields.server";
@@ -21,6 +21,8 @@ export type Task = {
   /** The custom field values, keyed by the key the org declared. */
   data: Record<string, string>;
   created_at: string;
+  /** When the work was over, or null while the task is not finished. */
+  finished_at: string | null;
 };
 
 /** The row as the table holds it: `data` as the JSON text of the column. */
@@ -34,10 +36,27 @@ type Row = Omit<Task, "data"> & { data: string };
  * assignees are not here at all: they hold a table of their own.
  */
 const CARD_FIELDS =
-  "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at";
+  "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at, finished_at";
 
 /** The order of a column, everywhere it is read. */
 const IN_ORDER = "ORDER BY position, created_at, id";
+
+/**
+ * The time a write stamps into `updated_at` and, when the task is finished,
+ * into `finished_at`.
+ */
+const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+
+/**
+ * What a move writes into `finished_at`.
+ *
+ * Entering Done or Cancelled stamps the time, and leaving them clears it. A
+ * task that moves from one of the two to the other keeps the first stamp,
+ * because the work was over then: the pair is one finished set, and a reorder
+ * inside a column is no new finish either.
+ */
+const stamp = (status: Status) =>
+  isFinished(status) ? `COALESCE(finished_at, ${NOW})` : "NULL";
 
 /** A card in a column, cut down to what the order maths reads. */
 type Positioned = { id: string; position: number };
@@ -241,11 +260,17 @@ export async function createTasks(
     position: positions[at],
   }));
 
+  // A task typed straight into Done or Cancelled is finished the moment it is
+  // made, so it carries the finish time from the start: no later move writes
+  // one for it.
+  const finished = isFinished(tasks.status) ? NOW : "NULL";
+
   await db.batch(
     rows.map((row) =>
       db
         .prepare(
-          "INSERT INTO tasks (id, org_id, title, status, position, decides) VALUES (?, ?, ?, ?, ?, ?)",
+          `INSERT INTO tasks (id, org_id, title, status, position, decides, finished_at)
+           VALUES (?, ?, ?, ?, ?, ?, ${finished})`,
         )
         .bind(row.id, orgId, row.title, tasks.status, row.position, tasks.decides ? 1 : 0),
     ),
@@ -313,6 +338,10 @@ export type Moved = {
  * so no other card is renumbered. The `org_id` in the WHERE clause is what
  * stops one org from writing to another org's row.
  *
+ * This is the one write that changes a status, so it is the one write that can
+ * finish a task, and it carries `finished_at`. Every other write leaves the
+ * finish time where it is: an edit to a finished task did not finish it again.
+ *
  * A move into Done is a task finished, which is when Tusker may ask for the
  * decision. This function only reports that the move finished the task. Who is
  * asked is the mark's business, not the move's. See ADR-0010.
@@ -341,7 +370,8 @@ export async function moveTask(
     .prepare(
       `UPDATE tasks
        SET status = ?, position = ?,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           finished_at = ${stamp(move.status)},
+           updated_at = ${NOW}
        WHERE id = ? AND org_id = ?`,
     )
     .bind(move.status, position, move.taskId, orgId)
@@ -406,7 +436,8 @@ async function renumber(db: D1Database, orgId: string, column: Positioned[]): Pr
 
 /**
  * A task as the read API answers it. An org app draws a screen from this, so
- * it carries the description and the times the board does not read.
+ * it carries the description and the times the board does not read, the finish
+ * time among them.
  *
  * A reference value stays the external id the task holds. The org app minted
  * that id, so it names the record better than Tusker's cached label does.
@@ -415,7 +446,7 @@ export type ApiTask = Omit<Task, "org_id" | "archived"> & { updated_at: string }
 
 /** The columns the read API answers with. */
 const API_COLUMNS =
-  "id, title, description, status, position, due_date, data, created_at, updated_at";
+  "id, title, description, status, position, due_date, data, created_at, updated_at, finished_at";
 
 /**
  * The board's columns, in board order, as SQL. A task's status decides its

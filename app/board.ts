@@ -12,6 +12,17 @@ export const STATUS_LABEL: Record<Status, string> = {
   cancelled: "Cancelled",
 };
 
+/**
+ * The two statuses that hold finished work. A task in one of them carries a
+ * finish time, and a task out of them carries none.
+ */
+export const FINISHED_STATUSES: Status[] = ["done", "cancelled"];
+
+/** True when the status is one a finished task holds. */
+export function isFinished(status: Status): boolean {
+  return FINISHED_STATUSES.includes(status);
+}
+
 /** The three columns the board always shows. */
 const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
 

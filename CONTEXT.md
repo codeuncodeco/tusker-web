@@ -155,6 +155,13 @@ A flag on a task, not a status. An archived task keeps its Done or Cancelled
 status.
 _Avoid_: Closed, hidden
 
+**Finish time**:
+When the work was over: `tasks.finished_at`. A move into Done or Cancelled
+writes it, a move out clears it, and every other write leaves it alone. The
+unified board's seven-day cap reads it, because `updated_at` moves on every
+edit and a typo fix would otherwise read as a finish.
+_Avoid_: Completed at, closed date
+
 ### Order
 
 **Order**:
@@ -254,9 +261,9 @@ The same five columns across every org one person belongs to, at `/me`. A
 person who learns the board on one org meets the same page on all of them.
 Backlog, Done and Cancelled are toggle-only here, because the org board's
 Backlog rule reads "this person holds no live task anywhere" and is therefore
-dead, and Done and Cancelled cap to the last seven days. Inside a column the
-order is percentile order, and it is derived: no card is dragged and no card
-steps.
+dead, and Done and Cancelled cap to the last seven days of finish time. Inside
+a column the order is percentile order, and it is derived: no card is dragged
+and no card steps.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
