@@ -2,9 +2,10 @@
  * Plan mode: the tasks one person chose for one day, in the order they mean to
  * work them.
  *
- * The page is the unified view with selection turned on — one sort, one row
- * component, two routes. Two cross-org lists that sort differently is a bug
- * the day one of them changes.
+ * The page draws the live set as a list, with selection turned on. It shares
+ * the live set and the sort with the unified board and with focus mode, and
+ * lays them out its own way: a plan drawn from a Done column is nonsense. Two
+ * cross-org lists that sort differently is a bug the day one of them changes.
  *
  * The candidate list is therefore that list: To do and In progress, every org.
  * Backlog is unplannable, and that is right: picking a task for today is the

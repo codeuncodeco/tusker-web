@@ -1,5 +1,5 @@
 /**
- * The person axis: the unified view, plan mode, focus mode, the account page
+ * The person axis: the unified board, plan mode, focus mode, the account page
  * and the form that makes an org.
  *
  * The org half of the header needs a subject on a person page, and the current

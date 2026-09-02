@@ -75,7 +75,7 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
 }
 
 /**
- * The offer that ends a batch: three more tasks, from the unified view.
+ * The offer that ends a batch: three more tasks, from the live set.
  *
  * It shows only where the batch holds no unfinished task, because that is the
  * whole rule of focus mode. Taking them is an act, never automatic: the end of

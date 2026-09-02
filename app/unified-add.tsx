@@ -1,17 +1,22 @@
 /**
- * The quick-add box both cross-org pages carry.
+ * The quick-add box the cross-org pages carry.
  *
- * The board's box needs no org: the org is the page, and the column is the only
- * choice left. This page holds no org, so the box names one. It starts at the
- * personal org, and a team org draws a chip for as long as the box holds it,
- * because the placeholder goes away at the first keystroke, which is when the
- * risk starts. See ADR-0012.
+ * The org board's box needs no org: the org is the page, and the column is the
+ * only choice left. A cross-org page holds no org, so the box names one. It
+ * starts at the personal org every time, and a team org draws a chip for as
+ * long as the box holds it, because the placeholder goes away at the first
+ * keystroke, which is when the risk starts. See ADR-0012.
+ *
+ * The unified board puts one of these on every column, and the column names
+ * the status. Plan mode puts one at the top and names none: an add there is a
+ * pick, and a pick is live work.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { useAddingTo } from "./adding";
+import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
 import { fieldClass } from "./forms";
 import { isPagePress } from "./keys";
@@ -26,9 +31,23 @@ type Answer = Exclude<Acted, Response>;
  * The box, or nothing for a person who belongs to no org at all.
  *
  * `n` focuses the title and Escape gives the list its keys back, so the page
- * stays keyboard first with a text box on it.
+ * stays keyboard first with a text box on it. A page with several boxes gives
+ * the key to one of them, because one key names one box.
  */
-export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
+export function UnifiedAdd({
+  orgs,
+  status,
+  label = "Add a task",
+  hotkey = true,
+}: {
+  orgs: OrgHeld[];
+  /** The column the box files into, where the page draws one per column. */
+  status?: Status;
+  /** What the empty box says, and what a screen reader reads. */
+  label?: string;
+  /** True for the one box on the page that `n` focuses. */
+  hotkey?: boolean;
+}) {
   const add = useFetcher<Answer>();
   const undo = useFetcher();
   const [picked, pick] = useAddingTo();
@@ -59,6 +78,8 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
   }, [add.state, answer, draft.clear]);
 
   useEffect(() => {
+    if (!hotkey) return;
+
     function onKey(event: KeyboardEvent) {
       if (!isPagePress(event) || event.key !== "n") return;
       box.current?.focus();
@@ -67,7 +88,7 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [hotkey]);
 
   // The picker takes the focus a re-file needs, and the title where a person
   // has only their personal org and so has no picker.
@@ -99,7 +120,7 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
     <section className="flex flex-col gap-2">
       <QuickAddBox
         form={add.Form}
-        label="Add a task"
+        label={label}
         draft={draft}
         error={error}
         titleRef={box}
@@ -109,9 +130,14 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
           (event.target as HTMLElement).blur();
         }}
         fields={
-          /* A person with only their personal org has no choice to make, so
-             the org is a hidden field rather than a picker. */
-          orgs.length > 1 ? null : <input type="hidden" name="slug" value={personal.slug} />
+          <>
+            {/* The column the box sits on, where the page draws one per
+                column. Plan mode names none, and the add lands in To do. */}
+            {status ? <input type="hidden" name="status" value={status} /> : null}
+            {/* A person with only their personal org has no choice to make, so
+                the org is a hidden field rather than a picker. */}
+            {orgs.length > 1 ? null : <input type="hidden" name="slug" value={personal.slug} />}
+          </>
         }
         chip={
           /* The chip that names a team org, because a task filed in one is on

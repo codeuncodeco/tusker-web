@@ -1,18 +1,20 @@
 /**
- * The unified view: one person's tasks across every org they belong to.
+ * The cross-org pages: one person's tasks across every org they belong to.
  *
- * This module holds the sort and the grouping. Plan mode (#36) draws the same
- * list from the same rules, because two cross-org lists that sort differently
- * go wrong as soon as one of them changes.
+ * This module holds the sort, the groups plan mode draws and the columns the
+ * unified board draws. The three pages share the live set and the sort,
+ * because two cross-org lists that sort differently go wrong as soon as one of
+ * them changes. The layout is each page's own.
  */
 
-import type { Status } from "./board";
+import type { Assignee } from "./assignees";
+import { STATUS_LABEL, type Status, type Toggles } from "./board";
 import type { Shown } from "./fields";
 
 /** The org a card names. It carries no id, because a screen reads this. */
 export type CardOrg = { slug: string; name: string };
 
-/** One task of any org, as the unified view sorts and draws it. */
+/** One task of any org, as the cross-org pages sort and draw them. */
 export type LiveTask = {
   id: string;
   org: CardOrg;
@@ -28,6 +30,8 @@ export type LiveTask = {
   created_at: string;
   /** The org's `show_on_card` fields the task holds a value for. */
   fields: Shown[];
+  /** The members who hold the task. A personal org draws none. See ADR-0013. */
+  assignees: Assignee[];
   /** True for a planned task already finished. It stays in Today, struck through. */
   finished: boolean;
 };
@@ -105,3 +109,81 @@ function compare(a: string, b: string): number {
  * and all.
  */
 export type Added = { ids: string[]; slug: string; text: string; decides: boolean };
+
+/**
+ * True for a task a plan can hold. Picking a task for today is the act of
+ * taking it out of the backlog, so a person moves it to To do first, and a
+ * task already finished is nothing to plan.
+ */
+export function isPlannable(task: LiveTask): boolean {
+  return task.status === "todo" || task.status === "in_progress";
+}
+
+/**
+ * The unified board: the same five columns the org board draws, across every
+ * org at once. A person who learns the board on one org meets the same page on
+ * all of them.
+ */
+
+/** The two columns the unified board always draws. */
+const ALWAYS_SHOWN: Status[] = ["todo", "in_progress"];
+
+/**
+ * The three columns a person turns on.
+ *
+ * Backlog is one of them here and it is not on the org board. There the column
+ * appears on its own when To do and In progress are both empty. Across every
+ * org that reads "this person holds no live task anywhere", which is near
+ * enough never, so the rule is dead and the toggle is all there is.
+ */
+export const UNIFIED_TOGGLES: Status[] = ["backlog", "done", "cancelled"];
+
+/** The columns to draw, in board order. */
+export function unifiedColumns(toggles: Toggles): Status[] {
+  return [
+    ...(toggles.backlog ? (["backlog"] as Status[]) : []),
+    ...ALWAYS_SHOWN,
+    ...(toggles.done ? (["done"] as Status[]) : []),
+    ...(toggles.cancelled ? (["cancelled"] as Status[]) : []),
+  ];
+}
+
+/** One column of the unified board. */
+export type Column = { status: Status; label: string; tasks: LiveTask[] };
+
+/**
+ * The columns the board draws, each in the one order the page has.
+ *
+ * The order is the sort and nothing else. No card is dragged and no card
+ * steps: the column is derived, and to say "this first" is to plan it. See
+ * ADR-0006, "One order per column".
+ */
+export function columnsFor(tasks: LiveTask[], shown: Status[]): Column[] {
+  return shown.map((status) => ({
+    status,
+    label: STATUS_LABEL[status],
+    tasks: tasks.filter((one) => one.status === status).sort(inOrder),
+  }));
+}
+
+/** The statuses that hold finished work, and so carry the cap. */
+export const FINISHED_STATUSES: Status[] = ["done", "cancelled"];
+
+/** How far back Done and Cancelled reach on the unified board. */
+const FINISHED_DAYS = 7;
+
+/**
+ * The earliest `updated_at` a finished task may carry and still be drawn.
+ *
+ * Done and Cancelled have no cap on the org board. Across every org they are
+ * every task the person ever finished, so the unified board caps them to the
+ * last week.
+ *
+ * `tasks` holds no finish time, so this reads the last write of the row and is
+ * wrong for a task edited after it was finished. #84 closes that.
+ */
+export function finishedSince(day: string): string {
+  const at = new Date(`${day}T00:00:00.000Z`);
+  at.setUTCDate(at.getUTCDate() - FINISHED_DAYS);
+  return at.toISOString();
+}

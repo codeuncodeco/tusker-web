@@ -1,7 +1,7 @@
 /**
  * A path inside the app, so a redirect cannot be pointed at another site.
  *
- * The fallback is the unified view. A person who signed in without asking for
+ * The fallback is the unified board. A person who signed in without asking for
  * a page lands on their work, the same answer `/` gives.
  */
 export function safeNext(value: unknown, fallback = "/me"): string {

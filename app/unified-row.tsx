@@ -18,8 +18,8 @@ export function dropFields(task: LiveTask) {
 }
 
 /**
- * One row of the unified view, and of plan mode, so the two lists cannot drift
- * apart.
+ * One row of plan mode and of focus mode, so the two lists cannot drift apart.
+ * The unified board draws a card of its own.
  *
  * A card shows the title, the org, the org's `show_on_card` fields joined by
  * `·`, and the due date rightmost. The field strip truncates before the due
@@ -44,7 +44,7 @@ export function UnifiedRow({
   domId: string;
   /**
    * Which way the row can step, in a list whose order a person owns. Nothing
-   * here leaves the arrows off, which is the unified view: that order is
+   * here leaves the arrows off, which is every list but the plan: that order is
    * derived, and to say "this first" is to plan it. See ADR-0006, "One order per
    * column".
    */

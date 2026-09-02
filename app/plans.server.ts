@@ -56,7 +56,7 @@ export async function lastPlanBefore(
  *
  * Three acts are this one write. Leftovers carry a day forward or start it
  * clean, and focus mode holds its batch: the first act on a batch drawn from
- * the unified view writes those three as the day's plan, so they stay still.
+ * the live set writes those three as the day's plan, so they stay still.
  * A person who already planned the day keeps that plan, so a second press of
  * any of them changes nothing. See ADR-0009.
  */

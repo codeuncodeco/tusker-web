@@ -1,7 +1,7 @@
 /**
  * The account page: the name, the orgs and Sign out.
  *
- * It held `/me` until the unified view took that URL. `/me` now shows the
+ * It held `/me` until the unified board took that URL. `/me` now shows the
  * tasks, because a person opens Tusker to work, not to read a list of links.
  */
 

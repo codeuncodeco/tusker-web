@@ -26,8 +26,7 @@ export type Focus = {
  * The batch a person is on, and what surrounds it.
  *
  * The batch draws from today's plan when a plan exists, in plan order. With no
- * plan it draws from the unified view, in that page's order, which is the same
- * list `/me` reads.
+ * plan it draws from the live set, in the order `/me` sorts it.
  */
 export async function readFocus(
   db: D1Database,
@@ -63,7 +62,7 @@ export async function holdBatch(
 }
 
 /**
- * Takes three more tasks into the plan, from the unified view.
+ * Takes three more tasks into the plan, from the live set.
  *
  * A batch that still holds an unfinished task takes nothing: the next three
  * appear when this three are done, and not before.
@@ -83,7 +82,7 @@ export async function takeMore(
   else await appendToPlan(db, personId, day, next);
 }
 
-/** The plan in plan order, and every other live task in the unified order. */
+/** The plan in plan order, and every other live task in percentile order. */
 async function bothLists(
   db: D1Database,
   set: OrgSet,
@@ -93,6 +92,6 @@ async function bothLists(
   const groups = groupsFor(tasks, plan ?? []);
   const of = (key: GroupKey) => groups.find((group) => group.key === key)!.tasks;
 
-  // The two groups that are not the plan, in the order `/me` draws them.
+  // The two groups that are not the plan, in percentile order.
   return { inPlan: of("today"), rest: [...of("in_progress"), ...of("todo")] };
 }

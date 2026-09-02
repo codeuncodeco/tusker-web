@@ -6,7 +6,7 @@
  * and the next three appear only when this three are done.
  *
  * The batch draws from today's plan when a plan exists, in plan order. With no
- * plan it draws from the unified view, in that page's order, and the first act
+ * plan it draws from the live set, in the order `/me` sorts it, and the first act
  * writes those three as the day's plan, which is what holds the batch still.
  * See ADR-0009.
  */

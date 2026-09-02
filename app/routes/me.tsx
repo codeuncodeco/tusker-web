@@ -1,12 +1,14 @@
 /**
- * The unified view: one person's tasks across every org they belong to, in
- * percentile order.
+ * The unified board: one person's tasks across every org they belong to, in
+ * the five columns the org board draws.
  *
- * The list is derived, not draggable. #34 dropped the personal rank, so this
- * page answers "what is next" and the plan answers "in what order I will do
- * it". See ADR-0006, "One order per column".
+ * The order inside a column is derived, not draggable. #34 dropped the
+ * personal rank, so this page answers "what is next" and the plan answers "in
+ * what order I will do it". See ADR-0006, "One order per column".
  */
 
+import { readToday, readToggles } from "../board";
+import { TodayChip, Toggle } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { dayOf } from "../day";
@@ -14,11 +16,10 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
-import { groupsFor } from "../unified";
-import { UnifiedAdd } from "../unified-add";
+import { columnsFor, finishedSince, unifiedColumns, UNIFIED_TOGGLES } from "../unified";
+import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
-import { UnifiedList } from "../unified-list";
 import type { Route } from "./+types/me";
 
 export function meta(_: Route.MetaArgs) {
@@ -30,18 +31,37 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const day = dayOf(request);
-  // A null plan is a day the person has not planned. An emptied plan is not
-  // one, so the offer to plan the day goes away once they start.
+  const query = new URL(request.url).searchParams;
+  const toggles = readToggles(query, UNIFIED_TOGGLES);
+  const shown = unifiedColumns(toggles);
+
+  // Done and Cancelled cap to the last seven days. Across every org they would
+  // otherwise be every task the person ever finished.
+  const tasks = await listUnified(env.DB, set, [], {
+    statuses: shown,
+    since: finishedSince(day),
+  });
+
+  // The chip narrows the board to the tasks today's plan holds. A null plan is
+  // a day the person has not planned, and an emptied one holds nothing to
+  // narrow to, so neither draws a chip.
   const plan = await readPlan(env.DB, set.personId, day);
-  const tasks = await listUnified(env.DB, set, plan ?? []);
-  const groups = groupsFor(tasks, plan ?? []);
+  const planned = plan ?? [];
+  const hasPlan = planned.length > 0;
+  const inPlan = new Set(planned);
+  const today = readToday(query) && hasPlan;
+  const drawn = today ? tasks.filter((task) => inPlan.has(task.id)) : tasks;
 
   return {
     orgs: set.orgs.map(held),
     day,
-    groups,
-    planned: plan ?? [],
-    // The prompt a finished row raised, if the query string still holds one.
+    columns: columnsFor(drawn, shown),
+    planned,
+    toggles,
+    today,
+    /** Today's plan holds a task, so the chip has something to narrow to. */
+    hasPlan,
+    // The prompt a finished card raised, if the query string still holds one.
     ask: await askedAcross(env.DB, set, request),
   };
 }
@@ -58,30 +78,31 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, planned, day, ask } = loaderData;
-  const empty = groups.every((group) => group.tasks.length === 0);
+  const { orgs, columns, planned, toggles, today, hasPlan, day, ask } = loaderData;
 
   return (
-    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
+    <main className="flex flex-1 flex-col gap-6 p-8">
+      <header className="flex flex-wrap items-baseline gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
+        <nav className="flex items-baseline gap-4 text-sm">
+          {/* A person with no plan for today gets no chip: there is nothing
+              to narrow to, and the header carries Plan on every page. */}
+          {hasPlan ? <TodayChip today={today} hasPlan /> : null}
+          {UNIFIED_TOGGLES.map((which) => (
+            <Toggle key={which} which={which} toggles={toggles} />
+          ))}
+        </nav>
+      </header>
 
-      {/* The box files into the org the picker names, and plans nothing: on
-          this page an add is an add. See ADR-0012. */}
-      <UnifiedAdd orgs={orgs} />
-
-      {/* The header carries Plan on every page, so this line teaches the
-          keystroke and links nothing. See ADR-0011. */}
+      {/* The order in a column is derived, so the plan is where a person says
+          what to work first. The header carries Plan on every page, so this
+          line teaches the keystroke and links nothing. See ADR-0011. */}
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Press <kbd>p</kbd> on a task to put it in today's plan.
+        Each column is in the order your boards give it. Press <kbd>p</kbd> on a task to put
+        it in today's plan, which is where you say what to work first.
       </p>
 
-      {empty ? (
-        <p className="text-neutral-600 dark:text-neutral-400">
-          Nothing to do: no org you belong to holds a live task.
-        </p>
-      ) : (
-        <UnifiedList groups={groups} planned={new Set(planned)} day={day} />
-      )}
+      <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />
 
       <DecisionPrompt ask={ask} />
     </main>
