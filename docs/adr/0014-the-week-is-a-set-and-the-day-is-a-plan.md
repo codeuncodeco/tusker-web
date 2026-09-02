@@ -1,9 +1,9 @@
 # The week is a set and the day is a plan
 
 A plan is one day long (ADR-0008). Everything a person has not placed on a day
-sits in the unified view, which is every live task of every org, so the answer
-to "what am I doing this week" is either today's plan, which is too small, or
-the unified view, which is everything. Work piles on today and rolls forward.
+sits in the live set, which is To do and In progress across every org, so the
+answer to "what am I doing this week" is either today's plan, which is too
+small, or the live set, which is everything. Work piles on today and rolls forward.
 
 So Tusker holds a second level: the week set, the tasks one person means to
 finish in one named week. It is a peer of the plan, not a bigger plan.
@@ -17,11 +17,11 @@ and it would give one task three opinions about its sequence: the org column
 (ADR-0006), the plan, and the week.
 
 So the week set is membership and nothing else, and it draws in percentile
-order, the rule the unified view already uses.
+order, the rule the live set already uses.
 
 ## A shelf, not a fence
 
-Plan mode draws the week set first and the rest of the unified view below it.
+Plan mode draws the week set first and the rest of the live set below it.
 Picking a task the set does not hold adds it to the set.
 
 A fence — a day may only hold what the week holds — turns Tuesday's urgent
