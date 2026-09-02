@@ -96,6 +96,24 @@ checkbox-looking line inside a fenced block is text, and no box counts it, so
 the Nth box on screen is always the Nth toggleable line.
 _Avoid_: Subtask, task list item, todo
 
+**Description box**:
+The control that edits a description: a read view with an Edit button, and an
+uncontrolled textarea that opens in its place and takes focus. Leaving the box
+saves the whole text: Done, or Escape, or a click away. Tab indents, so Tab is
+not the way out. The textarea is uncontrolled because the keys write the
+text and move the caret in place, and a re-render mid-edit loses the caret.
+_Avoid_: Description editor, description form
+
+**Editor keys**:
+What a description textarea does with a press, in `app/editor.ts`. Enter inside
+a list item continues the list at the same indent and keeps the checkbox
+marker, and Enter on an empty item ends the list. Tab and Shift+Tab indent and
+outdent the selected lines by two spaces. Cmd or Ctrl and K makes a link out of
+the selection. Pasting a URL over a selection wraps the selection as a link.
+The keys are the whole interface: there is no toolbar, and there is no bold or
+italic.
+_Avoid_: Shortcuts, markdown toolbar, rich text
+
 **Assignee**:
 A member who holds a task. A task can have several, and a task with none is
 unassigned. An assignee says who does the work and nothing about who may read

@@ -8,7 +8,7 @@ import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, finishTask, moveAndAsk } from "../decisions.server";
-import { DescriptionView } from "../description-view";
+import { DescriptionBox } from "../description-box";
 import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
@@ -16,7 +16,13 @@ import { fieldClass } from "../forms";
 import { listMembers } from "../orgs.server";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
-import { readDueDate, readTask, saveTask, tickDescriptionBox } from "../tasks.server";
+import {
+  readDueDate,
+  readTask,
+  saveDescription,
+  saveTask,
+  tickDescriptionBox,
+} from "../tasks.server";
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -111,6 +117,20 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const box = Number(form.get("box"));
     const ticked = await tickDescriptionBox(env.DB, scope, params.taskId, box);
     if (!ticked) throw new Response("Not found", { status: 404 });
+    return { ok: true };
+  }
+
+  // The description, as the editor posts it when the box is left. It carries
+  // the whole text and no other box of the page, so leaving the editor saves
+  // the description and nothing else.
+  if (intent === "describe") {
+    const described = await saveDescription(
+      env.DB,
+      scope,
+      params.taskId,
+      String(form.get("description") ?? ""),
+    );
+    if (!described) throw new Response("Not found", { status: 404 });
     return { ok: true };
   }
 
@@ -405,7 +425,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           box of the description posts on its own. */}
       <section className="flex flex-col gap-2">
         <h2 className="font-medium">Description</h2>
-        <DescriptionView text={task.description} />
+        <DescriptionBox text={task.description} />
       </section>
 
       {/* Its own form, because finishing is one act and saving is another. */}

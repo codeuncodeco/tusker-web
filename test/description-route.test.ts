@@ -42,11 +42,16 @@ function page(cookie: string, slug: string, taskId: string) {
   return taskRoute.loader(routeArgs(get(`/o/${slug}/t/${taskId}`, cookie), { slug, taskId }));
 }
 
-/** One box of the description, ticked. */
-function tick(cookie: string, slug: string, taskId: string, box: string) {
-  const request = post(`/o/${slug}/t/${taskId}`, { intent: "tick", box });
+/** One post to the task page, signed by one member. */
+function act(cookie: string, slug: string, taskId: string, fields: Record<string, string>) {
+  const request = post(`/o/${slug}/t/${taskId}`, fields);
   request.headers.set("cookie", cookie);
   return taskRoute.action(routeArgs(request, { slug, taskId }));
+}
+
+/** One box of the description, ticked. */
+function tick(cookie: string, slug: string, taskId: string, box: string) {
+  return act(cookie, slug, taskId, { intent: "tick", box });
 }
 
 /** The description the row holds now. */
@@ -109,4 +114,37 @@ it("a tick on another org's task answers 404, because the read is scoped", async
   const response = await caught(tick(one.cookie, one.org.slug, "t2", "0"));
   expect(response.status).toBe(404);
   expect(await described("t2")).toBe("- [ ] theirs");
+});
+
+/** The description, as the box posts it when it is left. */
+function describeTask(cookie: string, slug: string, taskId: string, description: string) {
+  return act(cookie, slug, taskId, { intent: "describe", description });
+}
+
+it("leaving the box writes the description a person typed", async () => {
+  const one = await member("typed@example.test", "Typed");
+  await task(one.org.id, "t1", "old");
+
+  await describeTask(one.cookie, one.org.slug, "t1", "- [ ] buy rope\n- [ ] pack tent");
+
+  expect(await described("t1")).toBe("- [ ] buy rope\n- [ ] pack tent");
+});
+
+it("an emptied box writes an empty description", async () => {
+  const one = await member("empty@example.test", "Empty");
+  await task(one.org.id, "t1", "old");
+
+  await describeTask(one.cookie, one.org.slug, "t1", "");
+
+  expect(await described("t1")).toBe("");
+});
+
+it("a description saved on another org's task answers 404, because the write is scoped", async () => {
+  const one = await member("here@example.test", "Here");
+  const other = await member("there@example.test", "There");
+  await task(other.org.id, "t2", "theirs");
+
+  const response = await caught(describeTask(one.cookie, one.org.slug, "t2", "mine now"));
+  expect(response.status).toBe(404);
+  expect(await described("t2")).toBe("theirs");
 });
