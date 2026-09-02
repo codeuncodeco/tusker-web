@@ -191,7 +191,7 @@ describe("the columns the org board leaves without one", () => {
 
 describe("what a finished sweep says", () => {
   const swept = (archived: { id: string; slug: string }[], names?: Record<string, string>) =>
-    sweptToast({ label: "Done", action: "/o/acme/board", archived, names });
+    sweptToast({ label: "Done", undoAt: "/o/acme/board", archived, names });
 
   it("names the count and the column it swept", () => {
     expect(swept([{ id: "a", slug: "acme" }, { id: "b", slug: "acme" }]).text).toBe(
@@ -236,7 +236,7 @@ describe("what a finished sweep says", () => {
   it("says so when one org did not answer", () => {
     const toast = sweptToast({
       label: "Done",
-      action: "/me",
+      undoAt: "/me",
       archived: [{ id: "a", slug: "acme" }],
       partial: true,
     });

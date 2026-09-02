@@ -218,7 +218,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // toast that reports the sweep is the unified board's toast as well.
     const archived = await archiveTasks(env.DB, scope, readTaskIds(form));
     return {
-      archived: archived.map((id) => ({ id, slug: scope.org.slug })),
+      changed: archived.map((id) => ({ id, slug: scope.org.slug })),
       partial: false,
     };
   }

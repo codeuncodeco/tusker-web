@@ -93,23 +93,32 @@ export function ToastRegion({ held, drop }: { held: Held | null; drop: () => voi
 
 /** One message, drawn. */
 export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
-  const act = useFetcher();
+  const act = useFetcher<{ partial?: boolean }>();
+  // True when the act stopped part way. A cross-org undo writes one org at a
+  // time, so it can, and then the message stays: it is the only account of
+  // what is still archived, and pressing again takes the rest back.
+  const [stopped, setStopped] = useState(false);
 
   // The clock starts over with each message, because the key above remounts
-  // this on a new one.
+  // this on a new one. A message about work left behind holds still: it is
+  // asking for a second press.
   useEffect(() => {
+    if (stopped) return;
     const timer = setTimeout(drop, TOAST_LIFE);
     return () => clearTimeout(timer);
-  }, [drop]);
+  }, [drop, stopped]);
 
   // The act is done, so the message it belonged to has nothing left to offer.
+  // A half-done act has: it left work behind.
   useEffect(() => {
-    if (act.state === "idle" && act.data) drop();
+    if (act.state !== "idle" || !act.data) return;
+    if (act.data.partial) setStopped(true);
+    else drop();
   }, [act.state, act.data, drop]);
 
   return (
     <div className="pointer-events-auto flex items-baseline gap-3 rounded border border-border bg-surface px-3 py-2 shadow-sm">
-      <span>{toast.text}</span>
+      <span>{stopped ? "One org did not answer. Press Undo again." : toast.text}</span>
 
       {toast.act ? (
         <act.Form method="post" action={toast.act.action}>

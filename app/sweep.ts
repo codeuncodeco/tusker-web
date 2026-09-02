@@ -12,10 +12,14 @@ import type { Toast } from "./toast";
 /** One card a sweep names: the task, and the org that holds it. */
 export type Swept = { id: string; slug: string };
 
-/** What one sweep left behind: the cards it changed, and whether it ran out. */
+/**
+ * What one run left behind: the cards it changed, and whether it ran out. A
+ * sweep and its undo are the same write with the flag turned the other way, so
+ * both answer with this.
+ */
 export type SweepResult = {
   /** The cards the write changed, in the order the orgs were written. */
-  archived: Swept[];
+  changed: Swept[];
   /** True when one org did not answer, so the run stopped part way. */
   partial: boolean;
 };
@@ -70,7 +74,7 @@ export function byOrg(cards: Swept[]): { slug: string; ids: string[] }[] {
  */
 export function sweptToast({
   label,
-  action,
+  undoAt,
   archived,
   names = {},
   partial = false,
@@ -78,7 +82,7 @@ export function sweptToast({
   /** The column that was swept. */
   label: string;
   /** Where the undo posts. The toast is drawn above every route, so it says. */
-  action: string;
+  undoAt: string;
   /** The cards the sweep changed. */
   archived: Swept[];
   /**
@@ -98,7 +102,7 @@ export function sweptToast({
         ? undefined
         : {
             label: "Undo",
-            action,
+            action: undoAt,
             post: {
               intent: "restore",
               id: archived.map((card) => card.id),

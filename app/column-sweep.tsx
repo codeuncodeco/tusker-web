@@ -14,7 +14,7 @@
  * ADR-0019.
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 
 import { sweptToast, type SweepResult, type Swept } from "./sweep";
@@ -41,13 +41,18 @@ export function ColumnSweep({
   const sweep = useFetcher<SweepResult>();
   const raise = useToast();
   const done = sweep.data ?? null;
+  // The answer already reported. A fetcher holds its answer until it posts
+  // again, and every load of the page hands this a fresh set of props, so
+  // without this the message would come back on a load that swept nothing.
+  const said = useRef<SweepResult | null>(null);
 
   useEffect(() => {
-    if (sweep.state !== "idle" || !done) return;
+    if (sweep.state !== "idle" || !done || said.current === done) return;
+    said.current = done;
     // A run that changed nothing and answered says nothing, unless it stopped
     // part way: then the silence would be the wrong answer.
-    if (done.archived.length === 0 && !done.partial) return;
-    raise(sweptToast({ label, action: undoAt, archived: done.archived, names, partial: done.partial }));
+    if (done.changed.length === 0 && !done.partial) return;
+    raise(sweptToast({ label, undoAt, archived: done.changed, names, partial: done.partial }));
   }, [sweep.state, done, raise, label, undoAt, names]);
 
   if (cards.length === 0) return null;

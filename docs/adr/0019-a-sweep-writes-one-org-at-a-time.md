@@ -62,6 +62,12 @@ The control and its toast are one module, `app/column-sweep.tsx` and
 Every card posts its org slug beside its id, on both boards. The org board
 names one org over and over, which costs nothing and keeps one wire format.
 
-A form that names a different number of ids and slugs is a 400. The two lists
-read as pairs, and a sweep that guessed at the pairs would archive a task of
-the wrong org.
+The unified board's action reads the ids and the slugs as pairs, so a form that
+names a different number of each is a 400: a sweep that guessed at the pairs
+would archive a task of the wrong org. The org board reads the ids alone. Its
+org comes from the address and the slugs say nothing it does not already know,
+so it answers as it always did.
+
+The undo runs the same way and can stop part way as well. It answers with what
+it put back, and the toast that posted it says one org did not answer and asks
+for a second press: the ids it names again are the ids still archived.

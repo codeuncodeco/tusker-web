@@ -12,7 +12,7 @@ import { isFinished, type Status } from "../app/board";
 import * as meRoute from "../app/routes/me";
 import * as loginRoute from "../app/routes/login";
 import type { OrgSet } from "../app/scope.server";
-import { sweepAcross } from "../app/sweep.server";
+import { restoreAcross, sweepAcross } from "../app/sweep.server";
 import type { Swept } from "../app/sweep";
 import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
@@ -114,10 +114,10 @@ describe("a sweep over several orgs", () => {
     const swept = (await act(
       ada.cookie,
       cards({ slug: ada.org.slug, ids: [mine] }, { slug: "acme", ids: [ours] }),
-    )) as { archived: Swept[]; partial: boolean };
+    )) as { changed: Swept[]; partial: boolean };
 
     expect(swept).toEqual({
-      archived: [
+      changed: [
         { id: mine, slug: ada.org.slug },
         { id: ours, slug: "acme" },
       ],
@@ -172,6 +172,41 @@ describe("a sweep over several orgs", () => {
 });
 
 describe("the one undo for the batch", () => {
+  it("answers with what it put back, so a half undo is not silent", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const mine = await task(ada.org.id, "mine");
+    await act(ada.cookie, cards({ slug: ada.org.slug, ids: [mine] }));
+
+    const undone = (await act(ada.cookie, {
+      intent: "restore",
+      id: [mine],
+      slug: [ada.org.slug],
+    })) as { changed: Swept[]; partial: boolean };
+
+    expect(undone).toEqual({ changed: [{ id: mine, slug: ada.org.slug }], partial: false });
+  });
+
+  it("says so when one org did not answer", async () => {
+    const orgs = [
+      { id: "org-one", slug: "one", name: "One", kind: "team" },
+      { id: "org-two", slug: "two", name: "Two", kind: "team" },
+    ];
+    const db = {
+      prepare: () => ({ bind: (_id: string, orgId: string) => ({ orgId }) }),
+      batch: async (statements: { orgId: string }[]) => {
+        if (statements.some((one) => one.orgId === "org-two")) throw new Error("no answer");
+        return statements.map(() => ({ meta: { changes: 1 } }));
+      },
+    } as unknown as D1Database;
+
+    const undone = await restoreAcross(db, { personId: "ada", orgs } as OrgSet, [
+      { id: "a", slug: "one" },
+      { id: "b", slug: "two" },
+    ]);
+
+    expect(undone).toEqual({ changed: [{ id: "a", slug: "one" }], partial: true });
+  });
+
   it("puts the whole batch back, org by org", async () => {
     const ada = await member("ada@example.test", "Ada");
     const acme = await team(ada.person.id, "acme");
@@ -180,12 +215,12 @@ describe("the one undo for the batch", () => {
     const swept = (await act(
       ada.cookie,
       cards({ slug: ada.org.slug, ids: [mine] }, { slug: "acme", ids: [ours] }),
-    )) as { archived: Swept[] };
+    )) as { changed: Swept[] };
 
     await act(ada.cookie, {
       intent: "restore",
-      id: swept.archived.map((card) => card.id),
-      slug: swept.archived.map((card) => card.slug),
+      id: swept.changed.map((card) => card.id),
+      slug: swept.changed.map((card) => card.slug),
     });
 
     expect(await flagOf(mine)).toBe(0);
@@ -202,14 +237,14 @@ describe("the one undo for the batch", () => {
     const swept = (await act(
       ada.cookie,
       cards({ slug: ada.org.slug, ids: [early, late] }),
-    )) as { archived: Swept[] };
+    )) as { changed: Swept[] };
     await act(ada.cookie, {
       intent: "restore",
-      id: swept.archived.map((card) => card.id),
-      slug: swept.archived.map((card) => card.slug),
+      id: swept.changed.map((card) => card.id),
+      slug: swept.changed.map((card) => card.slug),
     });
 
-    expect(swept.archived).toEqual([{ id: late, slug: ada.org.slug }]);
+    expect(swept.changed).toEqual([{ id: late, slug: ada.org.slug }]);
     expect(await flagOf(early)).toBe(1);
     expect(await flagOf(late)).toBe(0);
   });
@@ -242,7 +277,7 @@ describe("a sweep that half succeeds", () => {
       { id: "b", slug: "two" },
     ]);
 
-    expect(swept).toEqual({ archived: [{ id: "a", slug: "one" }], partial: true });
+    expect(swept).toEqual({ changed: [{ id: "a", slug: "one" }], partial: true });
   });
 
   it("does not roll back the org that succeeded", async () => {

@@ -195,7 +195,9 @@ take it back. It is drawn over every page, one at a time, and it goes by itself
 after a short while or when a person sends it away. A batch is what needs one:
 a sweep takes several cards away at once, and the count is the only proof of
 what happened. The region is live, so a reader announces the message. The undo
-is a form button, so a keyboard reaches it.
+is a form button, so a keyboard reaches it. A message also carries a link per
+org the act touched, because there is no cross-org **Archive screen**, and an
+undo that stopped part way says so and asks for a second press.
 _Avoid_: Snackbar, notification, flash message
 
 **Archive screen**:

@@ -48,15 +48,19 @@ async function writeAcross(
     return { scope, ids: group.ids };
   });
 
-  const archived: Swept[] = [];
+  const changed: Swept[] = [];
   for (const { scope, ids } of groups) {
     try {
-      const changed = await write(db, scope, ids);
-      archived.push(...changed.map((id) => ({ id, slug: scope.org.slug })));
-    } catch {
-      return { archived, partial: true };
+      const done = await write(db, scope, ids);
+      changed.push(...done.map((id) => ({ id, slug: scope.org.slug })));
+    } catch (failure) {
+      // A thrown `Response` is an answer this run must not swallow: it says
+      // the request was wrong, and a half-run report would hide that.
+      if (failure instanceof Response) throw failure;
+      console.error(`The sweep stopped at ${scope.org.slug}.`, failure);
+      return { changed, partial: true };
     }
   }
 
-  return { archived, partial: false };
+  return { changed, partial: false };
 }

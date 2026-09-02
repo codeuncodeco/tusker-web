@@ -69,6 +69,18 @@ describe("one message", () => {
     expect(html).toContain('href="/o/ada/archive"');
   });
 
+  it("keeps its links out of the form its act posts", () => {
+    const html = markup(
+      <ToastBar
+        toast={{ text: "Archived 1 from Done.", links: [{ label: "Acme", to: "/o/acme/archive" }] }}
+        drop={() => {}}
+      />,
+    );
+
+    expect(html).toContain('href="/o/acme/archive"');
+    expect(html).not.toContain("<form");
+  });
+
   it("carries a way to send it away by hand", () => {
     const html = markup(<ToastBar toast={{ text: "Saved." }} drop={() => {}} />);
 
