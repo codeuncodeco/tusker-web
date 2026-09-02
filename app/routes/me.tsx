@@ -28,6 +28,9 @@ import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
 import type { Route } from "./+types/me";
 
+/** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
+export const handle = { frame: true };
+
 export function meta(_: Route.MetaArgs) {
   return [{ title: "Your tasks — Tusker" }];
 }
@@ -89,7 +92,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
   const { orgs, columns, planned, toggles, today, hasPlan, day, ask } = loaderData;
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-8">
+    <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl tracking-tight">Your tasks</h1>
         <nav className="flex items-baseline gap-4">
