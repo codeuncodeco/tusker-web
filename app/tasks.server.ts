@@ -46,9 +46,10 @@ const IN_ORDER = "ORDER BY position, created_at, id";
 
 /**
  * The time a write stamps into `updated_at` and, when the task is finished,
- * into `finished_at`.
+ * into `finished_at`. The archive stamps `archived_at` with it too, so it is
+ * exported: one clock for every write of the table.
  */
-const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+export const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
 /**
  * What a move writes into `finished_at`.

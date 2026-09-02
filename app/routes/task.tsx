@@ -3,7 +3,7 @@ import { Form, Link } from "react-router";
 import { archiveTasks, restoreTasks } from "../archive.server";
 import { assigneeOf, drawsAssignees, inNameOrder, type Assignee } from "../assignees";
 import { assigneesOf, readAssignees, setAssignees } from "../assignees.server";
-import { STATUSES, STATUS_LABEL, readStatus, type Status } from "../board";
+import { STATUSES, STATUS_LABEL, isFinished, readStatus, type Status } from "../board";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
@@ -59,6 +59,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       // Archive is a flag, not a status, so the page draws it beside the
       // status rather than in it.
       archived: task.archived === 1,
+      // Archive keeps finished work, so only finished work is offered it.
+      // The board says the same: the sweep sits on Done and Cancelled.
+      finished: isFinished(task.status),
     },
     fields,
     /**
@@ -444,16 +447,19 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
 
       {/* Its own form, because archiving is one act and saving is another.
           An archived task keeps its status, so this button says nothing about
-          the column it holds. */}
-      <Form method="post">
-        <button
-          name="intent"
-          value={task.archived ? "restore" : "archive"}
-          className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700"
-        >
-          {task.archived ? "Restore" : "Archive"}
-        </button>
-      </Form>
+          the column it holds. Live work is offered no Archive, as it is on the
+          board: archive keeps finished work. */}
+      {task.archived || task.finished ? (
+        <Form method="post">
+          <button
+            name="intent"
+            value={task.archived ? "restore" : "archive"}
+            className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+          >
+            {task.archived ? "Restore" : "Archive"}
+          </button>
+        </Form>
+      ) : null}
 
       {/* Its own form, because finishing is one act and saving is another. */}
       {task.status === "done" || task.status === "cancelled" ? null : (

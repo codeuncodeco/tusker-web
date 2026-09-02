@@ -15,8 +15,7 @@ import { useFetcher, Link } from "react-router";
 import { listArchived, readTaskIds, restoreTasks } from "../archive.server";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
-import { STATUS_LABEL } from "../board";
-import { readToday } from "../board";
+import { readToday, STATUS_LABEL } from "../board";
 import { TodayChip } from "../board-chrome";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
@@ -58,7 +57,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     : new Map<string, Assignee[]>();
 
   // The same chip the board carries, narrowing to the tasks today's plan
-  // holds. A day with no plan offers nothing to narrow to.
+  // holds. A day with no plan offers nothing to narrow to. A plan keeps the
+  // id of a task that was archived — the plan page drops it because no live
+  // task answers for it — so the chip narrows this list as it narrows the
+  // board.
   const day = dayOf(request);
   const plan = await readPlan(env.DB, scope.personId, day);
   const held = new Set(plan ?? []);

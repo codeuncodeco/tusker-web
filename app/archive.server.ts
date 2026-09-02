@@ -10,11 +10,9 @@
  * sweep was not the sweep's doing, so the undo leaves it archived.
  */
 
+import { FINISHED_STATUSES } from "./board";
 import type { Scope } from "./scope.server";
-import { asTask, CARD_FIELDS, type Task } from "./tasks.server";
-
-/** The time a write stamps into `archived_at` and `updated_at`. */
-const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+import { asTask, CARD_FIELDS, NOW, type Task } from "./tasks.server";
 
 /**
  * How many statements go into one batch. A sweep is as long as the column a
@@ -27,19 +25,17 @@ const BATCH = 100;
  * Archives the tasks of the org the list names, and gives back the ids it
  * changed, in the order they were named.
  *
- * A task the org does not hold, and a task already archived, change nothing
- * and are absent from the answer. The `org_id` in the WHERE clause is the
- * fence, as it is in every other write.
+ * A task the org does not hold, a task already archived and a task still live
+ * all change nothing and are absent from the answer. Archive keeps finished
+ * work, so the write says so and not only the page. The `org_id` in the WHERE
+ * clause is the fence, as it is in every other write.
  */
 export async function archiveTasks(
   db: D1Database,
   scope: Scope,
   taskIds: string[],
 ): Promise<string[]> {
-  return flag(db, scope, taskIds, {
-    set: `archived = 1, archived_at = ${NOW}`,
-    was: 0,
-  });
+  return setArchived(db, scope, taskIds, true);
 }
 
 /**
@@ -52,23 +48,33 @@ export async function restoreTasks(
   scope: Scope,
   taskIds: string[],
 ): Promise<string[]> {
-  return flag(db, scope, taskIds, { set: "archived = 0, archived_at = NULL", was: 1 });
+  return setArchived(db, scope, taskIds, false);
 }
 
 /**
- * The write both acts make: flip the flag on the rows that still hold the old
- * value, and report which rows that was.
+ * The write both acts make: set the flag on the rows that do not hold it yet,
+ * and report which rows those were.
  *
  * The old value is in the WHERE clause rather than read first, so two people
  * sweeping the same column do not both claim the same row: only the write that
- * changed it counts it.
+ * changed a row counts it.
+ *
+ * The stamp goes with the flag, so `archived` and `archived_at` always say the
+ * same thing about a row.
  */
-async function flag(
+async function setArchived(
   db: D1Database,
   scope: Scope,
   taskIds: string[],
-  how: { set: string; was: 0 | 1 },
+  archived: boolean,
 ): Promise<string[]> {
+  const set = archived ? `archived = 1, archived_at = ${NOW}` : "archived = 0, archived_at = NULL";
+  const was = archived ? 0 : 1;
+  // Only finished work is archived. Restoring reads no status: a task keeps
+  // the one it held, and it is finished by the same rule that let it in.
+  const finished = archived
+    ? ` AND status IN (${FINISHED_STATUSES.map((one) => `'${one}'`).join(", ")})`
+    : "";
   const changed: string[] = [];
 
   for (let at = 0; at < taskIds.length; at += BATCH) {
@@ -77,10 +83,10 @@ async function flag(
       batch.map((taskId) =>
         db
           .prepare(
-            `UPDATE tasks SET ${how.set}, updated_at = ${NOW}
-             WHERE id = ? AND org_id = ? AND archived = ?`,
+            `UPDATE tasks SET ${set}, updated_at = ${NOW}
+             WHERE id = ? AND org_id = ? AND archived = ?${finished}`,
           )
-          .bind(taskId, scope.org.id, how.was),
+          .bind(taskId, scope.org.id, was),
       ),
     );
     batch.forEach((taskId, index) => {
@@ -96,15 +102,18 @@ async function flag(
  *
  * It is a flat list and not a board: archived work is a history a person
  * scans, not a pipeline they rearrange, so the position that orders a column
- * says nothing here. A row archived before the column existed carries no
- * `archived_at`, and the last write of the row stands in for it.
+ * says nothing here.
+ *
+ * The sort reads `archived_at` alone, so the index over it serves the read.
+ * Every archived row carries one: the write stamps it, and the migration
+ * backfilled the rows that were archived before the column existed.
  */
 export async function listArchived(db: D1Database, scope: Scope): Promise<Task[]> {
   const { results } = await db
     .prepare(
       `SELECT ${CARD_FIELDS} FROM tasks
        WHERE org_id = ? AND archived = 1
-       ORDER BY COALESCE(archived_at, updated_at) DESC, id`,
+       ORDER BY archived_at DESC, id`,
     )
     .bind(scope.org.id)
     .all<Omit<Task, "data"> & { data: string }>();

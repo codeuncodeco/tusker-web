@@ -159,15 +159,16 @@ _Avoid_: Closed, hidden
 
 **Sweep**:
 Archiving a whole column in one act. The Done and Cancelled columns carry the
-button, and it archives exactly what is on screen: the filters and the search
-that left those cards there are the whole rule. A person archives the set they
-are looking at, which is what makes the sweep safe.
+button while the board is narrowed, and it archives exactly what is on screen:
+whatever narrowed the column is the whole rule. A person archives the set they
+are looking at, which is what makes the sweep safe. An unnarrowed board carries
+no button, because a sweep of a whole column is a sweep of everything.
 _Avoid_: Bulk archive, clear column
 
 **Archive screen**:
 One org's archived tasks as a flat list, newest archived first, at
-`/o/:slug/archive`. It reads the same filters and search as the board, and it
-holds Cancelled tasks whatever the board's Cancelled toggle says. Archived work
+`/o/:slug/archive`. It reads the same narrowings as the board, and it holds
+Cancelled tasks whatever the board's Cancelled toggle says. Archived work
 is a history a person scans, not a pipeline they rearrange, so it has no
 columns and no drag.
 _Avoid_: Archive board, history page

@@ -83,6 +83,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const hasPlan = held.size > 0;
   const today = readToday(query) && hasPlan;
   const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
+  // True while something narrows the board. The sweep is offered only then:
+  // a sweep of a whole unnarrowed column is not what archive is for.
+  const narrowed = today;
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip gives the board back as it was.
@@ -91,9 +94,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const columns = columnsToShow(counts, toggles).map((status) => ({
     status,
     label: STATUS_LABEL[status],
-    // Only the finished columns sweep. Archive keeps finished work; live work
-    // belongs on the board.
-    sweeps: isFinished(status),
     tasks: shown
       .filter((task) => task.status === status)
       .map(
@@ -116,6 +116,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
+    /** Something narrows the board, so a sweep archives a chosen set. */
+    narrowed,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
@@ -160,9 +162,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   }
 
   // The sweep of one column. The form carries the ids of the cards that were
-  // on screen, so the filters and the search that left them there decide the
-  // set: the server re-reads nothing and can archive nothing the person could
-  // not see.
+  // on screen, so whatever narrowed the board decides the set. The server
+  // re-reads nothing, and it can archive nothing the person could not see.
+  // One card posts this too, as a sweep of one.
   if (intent === "archive") {
     return { archived: await archiveTasks(env.DB, scope, readTaskIds(form)) };
   }
@@ -211,8 +213,12 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
  * The sweep of one column, and the one undo that puts the batch back.
  *
  * The form carries the id of every card the column draws, so the sweep
- * archives exactly what is on screen: the filters and the search that left
- * these cards here are the whole rule, and the server adds nothing to it.
+ * archives exactly what is on screen: whatever narrowed the column is the
+ * whole rule, and the server adds nothing to it.
+ *
+ * The board draws it only while it is narrowed, and only on a finished
+ * column. A sweep of a whole unnarrowed column is a sweep of everything, and
+ * archive keeps finished work a person chose to file.
  *
  * The undo names the ids the sweep changed, and not the ids it was given, so a
  * task somebody archived earlier is not restored by an undo of this sweep. One
@@ -384,7 +390,7 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, day, ask } = loaderData;
+  const { org, columns, toggles, today, hasPlan, narrowed, day, ask } = loaderData;
   const mover = useFetcher();
 
   // The chip speaks for today, so the board must know which day that is where
@@ -432,7 +438,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
 
             <QuickAdd status={column.status} label={column.label} />
 
-            {column.sweeps ? <ColumnSweep label={column.label} cards={column.tasks} /> : null}
+            {narrowed && isFinished(column.status) ? (
+              <ColumnSweep label={column.label} cards={column.tasks} />
+            ) : null}
 
             <ul className="flex flex-col gap-2">
               {column.tasks.map((card, index) => (

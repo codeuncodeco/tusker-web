@@ -50,7 +50,7 @@ function board(slug: string, cookie: string, fields: Record<string, string | str
 function readBoard(slug: string, cookie: string, query = "") {
   return boardRoute.loader(
     routeArgs(signed(get(`/o/${slug}/board${query}`), cookie), { slug }),
-  ) as Promise<{ columns: { status: string; tasks: { id: string }[] }[] }>;
+  ) as Promise<{ columns: { status: string; tasks: { id: string }[] }[]; narrowed: boolean }>;
 }
 
 /** A read of the archive screen, signed by the cookie. */
@@ -136,6 +136,15 @@ describe("archiving one task", () => {
     expect(await column(ada.org.slug, ada.cookie, "cancelled", "?cancelled=1")).toEqual([id]);
   });
 
+  it("refuses live work, because archive keeps finished work", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const id = await made(ada.org.slug, ada.cookie, "todo", "Still going");
+
+    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+
+    expect(await flagOf(id)).toMatchObject({ archived: 0, archived_at: null });
+  });
+
   it("writes nothing for a task another org holds", async () => {
     const ada = await member("ada@example.test", "Ada");
     const bob = await member("bob@example.test", "Bob");
@@ -190,6 +199,14 @@ describe("the per-column sweep", () => {
     expect(onScreen).toEqual([mine]);
     expect((await flagOf(mine)).archived).toBe(1);
     expect((await flagOf(other)).archived).toBe(0);
+  });
+
+  it("is offered only while the board is narrowed", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await planned(ada.org.slug, ada.cookie, "Planned");
+
+    expect((await readBoard(ada.org.slug, ada.cookie)).narrowed).toBe(false);
+    expect((await readBoard(ada.org.slug, ada.cookie, "?today=1")).narrowed).toBe(true);
   });
 
   it("counts no task the org does not hold", async () => {
@@ -329,13 +346,7 @@ describe("an archived task", () => {
 
   it("drops out of a plan", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const id = await made(ada.org.slug, ada.cookie, "todo", "Ship it");
-    await planRoute.action(
-      routeArgs(
-        signed(post("/me/plan", { intent: "plan", id, slug: ada.org.slug }), ada.cookie),
-        {},
-      ),
-    );
+    const id = await planned(ada.org.slug, ada.cookie, "Ship it");
 
     await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
     const plan = (await planRoute.loader(
