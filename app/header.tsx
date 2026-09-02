@@ -1,9 +1,10 @@
 /**
  * The one header every signed-in page draws.
  *
- * The person axis and the org axis are peers, so the bar has two halves and
- * draws both at once: Tasks, Week, Plan and Focus on the left, the current org
- * and its pages on the right. The half a person stands in is marked. See ADR-0011.
+ * The bar has two rows. Row 1 answers "who and where am I": the wordmark, the
+ * current org and the account, all plain text. Row 2 answers "where can I go":
+ * every page, as a bordered button. The person axis and the org axis are peers,
+ * so row 2 draws both halves at once and dims neither. See ADR-0011.
  *
  * Nothing here is drawn by rule. A control that comes and goes teaches
  * nothing, which is the defect this header replaces.
@@ -43,9 +44,35 @@ function pageOf(slug: string, page: string): string {
 }
 
 /**
- * A link, or the plain word when the person already stands on the page. The
- * current page takes no link, so the header says where you are by what it
- * does not offer.
+ * The look of one button of row 2. The page a person stands on fills, which is
+ * the pressed look the Today chip already carries: one idiom, not two.
+ */
+function buttonClass(here: boolean): string {
+  return `rounded border px-3 py-1 ${here ? "border-fg bg-fg text-bg" : "border-border"}`;
+}
+
+/**
+ * One page of row 2, as a button. The current page takes no link, so the
+ * header says where you are by what it does not offer, and colour repeats it.
+ */
+function Page({ to, here, children }: { to: string; here: boolean; children: React.ReactNode }) {
+  if (here) {
+    return (
+      <span aria-current="page" className={buttonClass(true)}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link to={to} className={buttonClass(false)}>
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * A plain link, or the plain word when the person already stands on the page.
+ * Row 1 and the inside of a menu draw these; row 2 draws buttons.
  */
 function Here({ to, here, children }: { to: string; here: boolean; children: React.ReactNode }) {
   if (here) {
@@ -66,23 +93,22 @@ function Here({ to, here, children }: { to: string; here: boolean; children: Rea
  * A menu that needs no script. `details` opens on click and on Enter, and a
  * browser with no script still opens it, which keeps every page of an org
  * reachable the way the switcher was.
+ *
+ * The `▾` stays whatever the summary looks like: a dropdown with no affordance
+ * is a trap.
  */
 function Menu({
   label,
-  here = false,
+  summaryClass,
   children,
 }: {
   label: React.ReactNode;
-  here?: boolean;
+  summaryClass: string;
   children: React.ReactNode;
 }) {
   return (
     <details className="relative">
-      <summary
-        className={`cursor-pointer list-none marker:content-none hover:underline ${
-          here ? "font-medium" : "text-muted"
-        }`}
-      >
+      <summary className={`cursor-pointer list-none marker:content-none ${summaryClass}`}>
         {label} <span aria-hidden="true">▾</span>
       </summary>
       <ul className="absolute right-0 z-10 mt-1 flex min-w-40 flex-col gap-1 rounded border border-border bg-surface p-2 shadow-lg">
@@ -101,34 +127,20 @@ function Menu({
  */
 export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
   const { pathname } = useLocation();
-  // A task belongs to one org and never to two, so a task page marks the org
-  // half like every other org page.
+  // A task belongs to one org and never to two, so a task page stands in the
+  // org half like every other org page.
   const inOrg = pathname.startsWith("/o/");
-  const half = (mine: boolean) =>
-    `flex flex-wrap items-baseline gap-3 ${mine ? "" : "opacity-70"}`;
   /** True while the person stands on this page of the current org. */
   const here = (page: string) => inOrg && org !== null && pathname === pageOf(org.slug, page);
 
   return (
-    <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-border px-8 py-3">
-      <Link to="/me" className="text-lg font-semibold tracking-tight">
-        Tusker
-      </Link>
+    <header className="flex flex-col gap-2 border-b border-border px-8 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+        <Link to="/me" className="text-lg font-semibold tracking-tight">
+          Tusker
+        </Link>
 
-      <nav aria-label="You" className={half(!inOrg)}>
-        {PERSON.map((page) => (
-          <Here
-            key={page.to}
-            to={page.to}
-            here={!inOrg && (page.exact ? pathname === page.to : pathname.startsWith(page.to))}
-          >
-            {page.label}
-          </Here>
-        ))}
-      </nav>
-
-      <nav aria-label="Org" className={half(inOrg)}>
-        <Menu label={org ? org.name : "Orgs"} here={inOrg}>
+        <Menu label={org ? org.name : "Orgs"} summaryClass="text-muted hover:underline">
           {orgs.map((one) => (
             <li key={one.slug}>
               <Link to={pageOf(one.slug, "board")} className="hover:underline">
@@ -148,14 +160,40 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           </li>
         </Menu>
 
+        <span className="ml-auto">
+          <Here to="/account" here={pathname === "/account"}>
+            Account
+          </Here>
+        </span>
+      </div>
+
+      {/* The two halves sit side by side, parted by whitespace alone: the bar
+          already carries a bottom border, and a rule between peers reads as a
+          split. */}
+      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
+        <nav aria-label="You" className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          {PERSON.map((page) => (
+            <Page
+              key={page.to}
+              to={page.to}
+              here={!inOrg && (page.exact ? pathname === page.to : pathname.startsWith(page.to))}
+            >
+              {page.label}
+            </Page>
+          ))}
+        </nav>
+
         {org ? (
-          <>
+          <nav aria-label="Org" className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
             {INLINE.map((page) => (
-              <Here key={page.to} to={pageOf(org.slug, page.to)} here={here(page.to)}>
+              <Page key={page.to} to={pageOf(org.slug, page.to)} here={here(page.to)}>
                 {page.label}
-              </Here>
+              </Page>
             ))}
-            <Menu label="Manage" here={MANAGE.some((page) => here(page.to))}>
+            <Menu
+              label="Manage"
+              summaryClass={buttonClass(MANAGE.some((page) => here(page.to)))}
+            >
               {MANAGE.map((page) => (
                 <li key={page.to}>
                   <Here to={pageOf(org.slug, page.to)} here={here(page.to)}>
@@ -164,15 +202,9 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
                 </li>
               ))}
             </Menu>
-          </>
+          </nav>
         ) : null}
-      </nav>
-
-      <span className="ml-auto">
-        <Here to="/account" here={pathname === "/account"}>
-          Account
-        </Here>
-      </span>
+      </div>
     </header>
   );
 }

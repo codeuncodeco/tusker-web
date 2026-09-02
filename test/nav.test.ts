@@ -1,10 +1,13 @@
 import { env } from "cloudflare:workers";
-import { RouterContextProvider } from "react-router";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { RouterContextProvider, StaticRouter } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
 import { currentOrg, rememberOrg, slugOfCurrentOrg } from "../app/current-org";
+import { Header } from "../app/header";
 import * as orgLayout from "../app/layouts/org";
 import * as personLayout from "../app/layouts/person";
 import type { Org } from "../app/orgs.server";
@@ -182,5 +185,38 @@ describe("the scope of a page under the org layout", () => {
     );
 
     expect(read.org.slug).toBe(ada.personal);
+  });
+});
+
+/** The header's markup for one address, as one string of HTML. */
+function headerAt(pathname: string, org: Org | null = null): string {
+  return renderToStaticMarkup(
+    createElement(
+      StaticRouter,
+      { location: pathname },
+      createElement(Header, { orgs: org ? [org] : [], org }),
+    ),
+  );
+}
+
+describe("the header", () => {
+  // The page a person stands on is now marked by colour, so this keeps the
+  // signal a screen reader reads honest.
+  it("marks the page a person stands on, and offers it no link", () => {
+    const markup = headerAt("/me/week");
+
+    expect(markup).toContain('<span aria-current="page"');
+    expect(markup).toMatch(/aria-current="page"[^>]*>Week</);
+    expect(markup).not.toMatch(/<a[^>]*href="\/me\/week"/);
+    // Every other page is still a link, so only one page loses one.
+    expect(markup).toMatch(/<a[^>]*href="\/me"/);
+  });
+
+  it("marks a page of the current org the same way", () => {
+    const markup = headerAt("/o/acme/decisions", org("acme", "team"));
+
+    expect(markup).toMatch(/aria-current="page"[^>]*>Decisions</);
+    expect(markup).not.toMatch(/<a[^>]*href="\/o\/acme\/decisions"/);
+    expect(markup).toMatch(/<a[^>]*href="\/o\/acme\/board"/);
   });
 });

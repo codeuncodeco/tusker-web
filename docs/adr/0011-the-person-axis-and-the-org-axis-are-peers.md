@@ -29,7 +29,7 @@ actually happened.
 ## So: peers
 
 An org is a place, not a filter. The header draws both halves at once, always,
-and marks the half you stand in. A task page marks the org half, because a
+and marks the page you stand on. A task page stands in the org half, because a
 task belongs to one org and never to two — the header says the true thing, not
 the recent thing.
 
