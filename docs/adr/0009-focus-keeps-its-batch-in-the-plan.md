@@ -1,5 +1,11 @@
 # Focus keeps its batch in the plan
 
+Amended by [ADR-0014](./0014-the-week-is-a-set-and-the-day-is-a-plan.md). With
+no plan, focus draws from the week set first, and from the live set only when
+the week holds no set. Leftovers are a week rule now, so the last consequence
+below no longer says anything: a day carries nothing to offer. Everything else
+stands, and the list this ADR calls the unified view is the live set.
+
 Ticket #38 asks focus mode to hold a batch still: the next three appear only
 when the batch holds no unfinished task, and a person who leaves and comes back
 reads the same three. It also asks focus to work with no plan, drawing from the
@@ -17,10 +23,9 @@ three tasks long. So focus stores nothing of its own.
 - With a plan, focus cuts the plan into threes from the top and works the first
   three that hold an unfinished task. A finished task keeps its place in the
   batch, struck through, so no task slides up.
-- With no plan, focus draws the first three of the week set in percentile order,
-  or of the live set when the week holds no set, and the first act on them —
-  a finish or a drop — writes them as today's plan. From then on the day has a
-  plan and the rule above holds.
+- With no plan, focus draws the first three of the unified view and the first
+  act on them — a finish or a drop — writes them as today's plan. From then on
+  the day has a plan and the rule above holds.
 - When the plan holds no unfinished task, focus offers three more, and taking
   them appends the next three of the unified view to the plan. It is an act with
   a key, never automatic: the end of a batch is where a person stops.
@@ -65,6 +70,6 @@ work in front of the dropped task, which is the escape.
 A plan of fewer than three unfinished tasks is a batch of what there is. An
 empty plan says so, and offers the day.
 
-A person who starts the day in focus mode gets no leftovers offer, because
-leftovers are a week rule now (ADR-0014) and the day carries nothing. The work
-they did is the day they started.
+A person who starts the day in focus mode gets no leftovers offer, because the
+first act writes a plan and plan mode offers leftovers only to a day with none.
+The work they did is the day they started.
