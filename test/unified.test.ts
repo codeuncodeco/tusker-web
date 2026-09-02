@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
-import type { Status } from "../app/board";
+import { isFinished, type Status } from "../app/board";
 import * as loginRoute from "../app/routes/login";
 import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
@@ -48,14 +48,21 @@ async function task(
     position?: number;
     due?: string | null;
     created?: string;
-    /** The last write of the row, which is what the seven-day cap reads. */
+    /** The last write of the row. The cap does not read it. */
     updated?: string;
+    /**
+     * When the work was over, which is what the seven-day cap reads. A
+     * finished task carries today by default, so a test that says nothing
+     * about the time gets a task inside the cap.
+     */
+    finished?: string;
   } = {},
 ) {
+  const over = isFinished(some.status ?? "todo");
   await db
     .prepare(
-      `INSERT INTO tasks (id, org_id, title, status, position, due_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (id, org_id, title, status, position, due_date, created_at, updated_at, finished_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -66,6 +73,7 @@ async function task(
       some.due ?? null,
       some.created ?? "2026-01-01T00:00:00.000Z",
       some.updated ?? `${DAY}T09:00:00.000Z`,
+      some.finished ?? (over ? `${DAY}T09:00:00.000Z` : null),
     )
     .run();
   return id;
@@ -176,20 +184,42 @@ describe("the columns", () => {
 describe("the seven-day cap", () => {
   it("holds a task finished inside the last seven days", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "recent", { status: "done", updated: "2026-08-27T00:00:00.000Z" });
+    await task(ada.org.id, "recent", { status: "done", finished: "2026-08-27T00:00:00.000Z" });
 
     expect(ids(await page(ada.cookie, "?done=1"), "done")).toEqual(["recent"]);
   });
 
-  it("drops a task last written more than seven days ago", async () => {
+  it("drops a task finished more than seven days ago", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "old", { status: "done", updated: "2026-08-20T00:00:00.000Z" });
-    await task(ada.org.id, "gone", { status: "cancelled", updated: "2026-08-20T00:00:00.000Z" });
+    await task(ada.org.id, "old", { status: "done", finished: "2026-08-20T00:00:00.000Z" });
+    await task(ada.org.id, "gone", { status: "cancelled", finished: "2026-08-20T00:00:00.000Z" });
 
     const data = await page(ada.cookie, "?done=1&cancelled=1");
 
     expect(ids(data, "done")).toEqual([]);
     expect(ids(data, "cancelled")).toEqual([]);
+  });
+
+  it("reads the finish time, so an edit does not drag an old task back in", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "typo-fixed", {
+      status: "done",
+      finished: "2026-03-01T00:00:00.000Z",
+      updated: `${DAY}T08:00:00.000Z`,
+    });
+
+    expect(ids(await page(ada.cookie, "?done=1"), "done")).toEqual([]);
+  });
+
+  it("holds a task finished this week and untouched since", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "clean", {
+      status: "done",
+      finished: "2026-08-30T00:00:00.000Z",
+      updated: "2026-08-30T00:00:00.000Z",
+    });
+
+    expect(ids(await page(ada.cookie, "?done=1"), "done")).toEqual(["clean"]);
   });
 
   it("caps no live column, so an old To do task still shows", async () => {

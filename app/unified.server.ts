@@ -9,13 +9,13 @@
 
 import { drawsAssignees, type Assignee } from "./assignees";
 import { assigneesByTask } from "./assignees.server";
-import type { Status } from "./board";
+import { FINISHED_STATUSES, type Status } from "./board";
 import { listColors } from "./colors.server";
 import { shownOnCard, type Shown } from "./fields";
 import { listFields } from "./fields.server";
 import { refLabels } from "./refs.server";
 import { scopeIn, type OrgSet } from "./scope.server";
-import { FINISHED_STATUSES, type LiveTask } from "./unified";
+import type { LiveTask } from "./unified";
 
 /**
  * Which rows a page wants of the org set.
@@ -27,7 +27,7 @@ export type Wanted = {
   /** The statuses to answer. */
   statuses: readonly Status[];
   /**
-   * The earliest `updated_at` a Done or Cancelled row may carry, or null for
+   * The earliest `finished_at` a Done or Cancelled row may carry, or null for
    * no cap. It reaches no other status: a live task is drawn however old it is.
    */
   since?: string | null;
@@ -113,7 +113,7 @@ async function placedRows(
   }
 
   if (over.length > 0) {
-    const capped = want.since ? " AND updated_at >= ?" : "";
+    const capped = want.since ? " AND finished_at >= ?" : "";
     keep.push(`(status IN (${holes(over.length)})${capped})`);
     values.push(...over);
     if (want.since) values.push(want.since);
@@ -128,10 +128,12 @@ async function placedRows(
   // A page that asks for no column and holds no plan asks for nothing.
   if (keep.length === 0) return [];
 
+  // `finished_at` is in the CTE because the filter below reads it. No card
+  // draws it.
   const { results } = await db
     .prepare(
       `WITH placed AS (
-         SELECT id, org_id, title, status, due_date, data, created_at, updated_at,
+         SELECT id, org_id, title, status, due_date, data, created_at, finished_at,
                 CAST(ROW_NUMBER() OVER (
                        PARTITION BY org_id, status ORDER BY position, created_at, id
                      ) AS REAL)
