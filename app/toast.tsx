@@ -17,7 +17,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useFetcher, useLocation } from "react-router";
+import { Link, useFetcher, useLocation } from "react-router";
 
 /** What the one button on a toast does: its name, where it posts, and what. */
 export type ToastAct = {
@@ -28,8 +28,15 @@ export type ToastAct = {
   post: Record<string, string | string[]>;
 };
 
-/** One message: the line a person reads, and at most one act. */
-export type Toast = { text: string; act?: ToastAct };
+/**
+ * Where a message sends a person for the rest of the story: the archive of one
+ * org a sweep filed into. A toast goes by itself and a reload loses it, so a
+ * batch that reached several orgs names them all.
+ */
+export type ToastLink = { label: string; to: string };
+
+/** One message: the line a person reads, at most one act, and its links. */
+export type Toast = { text: string; act?: ToastAct; links?: ToastLink[] };
 
 /** The message that stands, and its number, so a new one starts the clock again. */
 type Held = { toast: Toast; raised: number };
@@ -86,23 +93,32 @@ export function ToastRegion({ held, drop }: { held: Held | null; drop: () => voi
 
 /** One message, drawn. */
 export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
-  const act = useFetcher();
+  const act = useFetcher<{ partial?: boolean }>();
+  // True when the act stopped part way. A cross-org undo writes one org at a
+  // time, so it can, and then the message stays: it is the only account of
+  // what is still archived, and pressing again takes the rest back.
+  const [stopped, setStopped] = useState(false);
 
   // The clock starts over with each message, because the key above remounts
-  // this on a new one.
+  // this on a new one. A message about work left behind holds still: it is
+  // asking for a second press.
   useEffect(() => {
+    if (stopped) return;
     const timer = setTimeout(drop, TOAST_LIFE);
     return () => clearTimeout(timer);
-  }, [drop]);
+  }, [drop, stopped]);
 
   // The act is done, so the message it belonged to has nothing left to offer.
+  // A half-done act has: it left work behind.
   useEffect(() => {
-    if (act.state === "idle" && act.data) drop();
+    if (act.state !== "idle" || !act.data) return;
+    if (act.data.partial) setStopped(true);
+    else drop();
   }, [act.state, act.data, drop]);
 
   return (
     <div className="pointer-events-auto flex items-baseline gap-3 rounded border border-border bg-surface px-3 py-2 shadow-sm">
-      <span>{toast.text}</span>
+      <span>{stopped ? "One org did not answer. Press Undo again." : toast.text}</span>
 
       {toast.act ? (
         <act.Form method="post" action={toast.act.action}>
@@ -114,6 +130,12 @@ export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
           <button className="underline underline-offset-2">{toast.act.label}</button>
         </act.Form>
       ) : null}
+
+      {toast.links?.map((link) => (
+        <Link key={link.to} to={link.to} className="underline underline-offset-2">
+          {link.label}
+        </Link>
+      ))}
 
       <button type="button" onClick={drop} aria-label="Dismiss" className="text-muted">
         ×

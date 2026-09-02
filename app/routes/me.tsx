@@ -23,6 +23,8 @@ import { askedAcross } from "../decisions.server";
 import { planPicks } from "../picks.server";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
+import { readSwept } from "../sweep";
+import { restoreAcross, sweepAcross } from "../sweep.server";
 import { columnsFor, finishedSince, unifiedColumns } from "../unified";
 import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
@@ -93,6 +95,16 @@ export async function action({ request, context }: Route.ActionArgs) {
   const set = await requireOrgSet(request, env);
 
   const form = await request.formData();
+  const intent = String(form.get("intent") ?? "");
+
+  // The sweep of one finished column, and the one undo for that batch. A card
+  // of this board can belong to any org, so each names its own, and the write
+  // runs once per org. See ADR-0019.
+  if (intent === "archive") return sweepAcross(env.DB, set, readSwept(form));
+  // The undo runs the same way, so it can stop part way as well. It answers
+  // with what it put back, and the toast that posted it says so.
+  if (intent === "restore") return restoreAcross(env.DB, set, readSwept(form));
+
   const day = dayOf(request);
   // A pick on the board is a pick for today, as the chip reads it.
   const acted = await actOnTask(env, request, set, planPicks(env.DB, set.personId, day, false), form);
