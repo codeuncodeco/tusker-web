@@ -6,7 +6,7 @@ import { createAuth } from "../app/auth.server";
 import type { Status } from "../app/board";
 import * as loginRoute from "../app/routes/login";
 import * as weekRoute from "../app/routes/me.week";
-import { cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
 const PASSWORD = "correct horse battery";
@@ -155,6 +155,18 @@ describe("the prompt", () => {
     expect((await weekPage(ada.cookie)).leftovers).toBe(null);
   });
 
+  it("is absent on a week that is over, which is never rewritten", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+    await weekSet(ada.person.id, BEFORE, ["a"]);
+
+    const data = await weekRoute.loader(
+      routeArgs(get(`/me/week/${LAST}`, `${ada.cookie}; day=${DAY}`), { week: LAST }),
+    );
+
+    expect(data.leftovers).toBe(null);
+  });
+
   it("is raised on a week the path names as it is on this one", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
@@ -274,6 +286,21 @@ describe("carrying forward", () => {
     await act(ada.cookie, { intent: "carry" });
 
     expect(await stored(ada.person.id)).toEqual(["this"]);
+  });
+});
+
+describe("a week that is over", () => {
+  it("takes no carry, because a week set is never rewritten after its week", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+    await weekSet(ada.person.id, BEFORE, ["a"]);
+    const request = post(`/me/week/${LAST}`, { intent: "carry" });
+    request.headers.set("cookie", `${ada.cookie}; day=${DAY}`);
+
+    const response = await caught(weekRoute.action(routeArgs(request, { week: LAST })));
+
+    expect(response.status).toBe(400);
+    expect(await stored(ada.person.id, LAST)).toBe(null);
   });
 });
 

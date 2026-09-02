@@ -6,6 +6,7 @@ import { createAuth } from "../app/auth.server";
 import type { Status } from "../app/board";
 import * as planRoute from "../app/routes/me.plan";
 import * as loginRoute from "../app/routes/login";
+import * as boardRoute from "../app/routes/me";
 import * as weekRoute from "../app/routes/me.week";
 import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
@@ -215,6 +216,20 @@ describe("a pick from outside the week", () => {
     expect(await inWeek(ada.person.id)).toEqual(acted.added.ids);
   });
 
+  it("takes the membership back with the row when the add is undone", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const acted = (await act(ada.cookie, {
+      intent: "create",
+      slug: ada.org.slug,
+      title: "typed by mistake",
+    })) as { added: { ids: string[] } };
+
+    await act(ada.cookie, { intent: "undo", slug: ada.org.slug, id: acted.added.ids[0] });
+
+    expect(await planned(ada.person.id)).toEqual([]);
+    expect(await inWeek(ada.person.id)).toEqual([]);
+  });
+
   it("leaves the week set alone when a task is dropped from the day", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
@@ -223,6 +238,20 @@ describe("a pick from outside the week", () => {
     await act(ada.cookie, { intent: "unplan", id: "a", slug: ada.org.slug });
 
     expect(await planned(ada.person.id)).toEqual([]);
+    expect(await inWeek(ada.person.id)).toEqual(["a"]);
+  });
+});
+
+describe("a pick made anywhere else", () => {
+  it("takes a board pick into the week as well, so the invariant holds", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+    const request = post("/me", { intent: "plan", id: "a", slug: ada.org.slug });
+    request.headers.set("cookie", `${ada.cookie}; day=${WEDNESDAY}`);
+
+    await boardRoute.action(routeArgs(request));
+
+    expect(await planned(ada.person.id)).toEqual(["a"]);
     expect(await inWeek(ada.person.id)).toEqual(["a"]);
   });
 });

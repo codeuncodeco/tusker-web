@@ -49,7 +49,7 @@ export async function startDay(
   day: string,
   taskIds: string[],
 ): Promise<void> {
-  await startPlan(db, personId, day, taskIds);
+  if (!(await startPlan(db, personId, day, taskIds))) return;
   await addToWeek(db, personId, weekOf(day), taskIds);
 }
 

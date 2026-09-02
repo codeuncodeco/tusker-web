@@ -103,6 +103,10 @@ export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "tod
  *
  * A task the plan already holds is drawn in the plan and nowhere else, week
  * member or not.
+ *
+ * The plan is drawn above the shelf. The shelf comes first of the lists a
+ * person picks from, which is what ADR-0014 asks for; the plan is not one of
+ * them. It is the thing being built, and it holds the one order on the page.
  */
 export function planGroups(tasks: LiveTask[], plan: string[], members: string[]): Group[] {
   const planned = new Set(plan);

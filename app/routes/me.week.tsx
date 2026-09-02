@@ -45,6 +45,18 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /**
+ * True for a week the offer may reach: this one, or one still to come.
+ *
+ * A week set is never rewritten after its week, as a plan is never rewritten
+ * after its day. Starting a week that is over would also change what the next
+ * week reads as its last set, so a past week raises no prompt and takes no
+ * carry. The loader draws the prompt by this, and the action refuses by it.
+ */
+function canStart(request: Request, week: string): boolean {
+  return week >= weekIn(request);
+}
+
+/**
  * The week the route speaks for: the one the path names, or the one the
  * browser is in. A key no calendar holds is a 404, not this week.
  */
@@ -63,7 +75,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const members = started ?? [];
   // A week already started raises no prompt, emptied set included: the parent
   // row says the person planned this week, and a set is theirs to empty.
-  const leftovers = started === null ? await leftoversFor(env.DB, set, week) : null;
+  const leftovers =
+    started === null && canStart(request, week) ? await leftoversFor(env.DB, set, week) : null;
   // The members are read alongside the live set, so a task finished this week
   // keeps its membership and is drawn struck through. A member no org answers
   // for — archived, or in an org the person left — is left out of both.
@@ -102,6 +115,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // rows are read and never written, so a carried task is in both sets.
   const intent = String(form.get("intent") ?? "");
   if (intent === "carry" || intent === "clean") {
+    if (!canStart(request, week)) {
+      throw new Response("A week set is never rewritten after its week.", { status: 400 });
+    }
     const carried = intent === "carry" ? await leftoversFor(env.DB, set, week) : null;
     await startWeek(env.DB, set.personId, week, carried?.taskIds ?? []);
     return { ok: true };
@@ -172,7 +188,7 @@ function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
   return (
     <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
       <p className="grow">
-        {leftovers.from} left {count} {count === 1 ? "task" : "tasks"} unfinished.
+        {weekSpan(leftovers.from)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
       </p>
 
       <Form method="post" className="flex gap-2">

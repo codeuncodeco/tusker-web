@@ -44,14 +44,17 @@ export async function startPlan(
   personId: string,
   day: string,
   taskIds: string[],
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const written = await db
     .prepare(
       `INSERT INTO plans (user_id, day, task_ids) VALUES (?, ?, ?)
        ON CONFLICT (user_id, day) DO NOTHING`,
     )
     .bind(personId, day, JSON.stringify(taskIds))
     .run();
+  // True where this write made the plan, which is what a caller with more to
+  // write about the same act needs to know.
+  return written.meta.changes > 0;
 }
 
 /**
