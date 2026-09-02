@@ -149,9 +149,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
                 {one.name}
               </Link>
               {one.kind === "personal" ? (
-                <span className="ml-2 text-xs uppercase tracking-wide text-muted">
-                  personal
-                </span>
+                <span className="ml-2 text-xs uppercase tracking-wide text-muted">personal</span>
               ) : null}
             </li>
           ))}

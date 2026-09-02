@@ -18,7 +18,7 @@ import { useFetcher } from "react-router";
 import { useAddingTo } from "./adding";
 import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
-import { fieldClass } from "./forms";
+import { smallFieldClass } from "./forms";
 import { QuickAddBox, useAddKey, useQuickAddDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -144,7 +144,7 @@ export function UnifiedAdd({
               value={filing.slug}
               onChange={(event) => pick(event.target.value)}
               aria-label="Add to org"
-              className={fieldClass}
+              className={smallFieldClass}
             >
               {orgs.map((org) => (
                 <option key={org.slug} value={org.slug}>

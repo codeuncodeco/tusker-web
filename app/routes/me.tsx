@@ -28,6 +28,9 @@ import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
 import type { Route } from "./+types/me";
 
+/** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
+export const handle = { frame: true };
+
 export function meta(_: Route.MetaArgs) {
   return [{ title: "Your tasks — Tusker" }];
 }
@@ -89,7 +92,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
   const { orgs, columns, planned, toggles, today, hasPlan, day, ask } = loaderData;
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-8">
+    <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl tracking-tight">Your tasks</h1>
         <nav className="flex items-baseline gap-4">
@@ -101,14 +104,6 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           ))}
         </nav>
       </header>
-
-      {/* The order in a column is derived, so the plan is where a person says
-          what to work first. The keys are on the controls now, so this line
-          says what the page is for and nothing about a press. See ADR-0011. */}
-      <p className="text-muted">
-        Each column is in the order your boards give it. The plan is where you say what to
-        work first.
-      </p>
 
       <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />
 
