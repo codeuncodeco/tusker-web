@@ -7,7 +7,8 @@
  * what order I will do it". See ADR-0006, "One order per column".
  */
 
-import { readToday } from "../board";
+import { readToday, readToggles } from "../board";
+import { TodayChip, Toggle } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { dayOf } from "../day";
@@ -15,8 +16,8 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
-import { columnsFor, finishedSince, readToggles, unifiedColumns, UNIFIED_TOGGLES } from "../unified";
-import { TodayChip, Toggle, UnifiedBoard } from "../unified-board";
+import { columnsFor, finishedSince, unifiedColumns, UNIFIED_TOGGLES } from "../unified";
+import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
 import type { Route } from "./+types/me";
@@ -31,7 +32,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   const day = dayOf(request);
   const query = new URL(request.url).searchParams;
-  const toggles = readToggles(query);
+  const toggles = readToggles(query, UNIFIED_TOGGLES);
   const shown = unifiedColumns(toggles);
 
   // Done and Cancelled cap to the last seven days. Across every org they would
@@ -84,7 +85,9 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
         <nav className="flex items-baseline gap-4 text-sm">
-          {hasPlan ? <TodayChip today={today} /> : null}
+          {/* A person with no plan for today gets no chip: there is nothing
+              to narrow to, and the header carries Plan on every page. */}
+          {hasPlan ? <TodayChip today={today} hasPlan /> : null}
           {UNIFIED_TOGGLES.map((which) => (
             <Toggle key={which} which={which} toggles={toggles} />
           ))}
@@ -95,8 +98,8 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           what to work first. The header carries Plan on every page, so this
           line teaches the keystroke and links nothing. See ADR-0011. */}
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Each column is in order of what is next, worked out from your boards. Press <kbd>p</kbd>{" "}
-        on a task to put it in today's plan, which is where you say what to work first.
+        Each column is in the order your boards give it. Press <kbd>p</kbd> on a task to put
+        it in today's plan, which is where you say what to work first.
       </p>
 
       <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />

@@ -105,7 +105,7 @@ describe("who can read plan mode", () => {
 });
 
 describe("the candidate list", () => {
-  it("is the unified view's list: To do and In progress, every org", async () => {
+  it("is the live set: To do and In progress, every org", async () => {
     const ada = await member("ada@example.test", "Ada");
     const other = await team(ada.person.id, "codeuncode");
     await task(ada.org.id, "mine");
@@ -144,6 +144,67 @@ describe("the candidate list", () => {
 
     expect(response.status).toBe(400);
     expect(await stored(ada.person.id)).toBe(null);
+  });
+});
+
+describe("a task the plan holds", () => {
+  it("is drawn in Today and nowhere else", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "planned", { status: "in_progress" });
+    await task(ada.org.id, "loose");
+
+    await act(ada.cookie, { intent: "plan", id: "planned", slug: ada.org.slug });
+    const data = await planPage(ada.cookie);
+
+    expect(ids(data, "today")).toEqual(["planned"]);
+    expect(ids(data, "in_progress")).toEqual([]);
+    expect(ids(data, "todo")).toEqual(["loose"]);
+  });
+
+  it("stays in Today once it is finished, and is marked finished", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await act(ada.cookie, { intent: "finish", id: "a", slug: ada.org.slug });
+    const data = await planPage(ada.cookie);
+
+    expect(ids(data, "today")).toEqual(["a"]);
+    expect(data.groups[0].tasks[0].finished).toBe(true);
+  });
+
+  it("drops off the list once the day rolls over", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await act(ada.cookie, { intent: "finish", id: "a", slug: ada.org.slug });
+    const data = await planPage(ada.cookie, "2026-09-02");
+
+    expect(data.groups.every((one) => one.tasks.length === 0)).toBe(true);
+  });
+
+  it("drops out without an error once it is archived", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 'a'").run();
+    const data = await planPage(ada.cookie);
+
+    expect(data.groups.every((one) => one.tasks.length === 0)).toBe(true);
+  });
+
+  it("comes back out of the plan, into the column its status names", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await act(ada.cookie, { intent: "unplan", id: "a", slug: ada.org.slug });
+    const data = await planPage(ada.cookie);
+
+    expect(ids(data, "today")).toEqual([]);
+    expect(ids(data, "todo")).toEqual(["a"]);
   });
 });
 

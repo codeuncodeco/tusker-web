@@ -9,12 +9,11 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Link, useFetcher, useSearchParams } from "react-router";
+import { useFetcher } from "react-router";
 
-import { flipped, STATUS_LABEL } from "./board";
 import type { OrgHeld } from "./current-org";
 import { useLocalDay } from "./local-day";
-import type { Column, UnifiedToggle, UnifiedToggles } from "./unified";
+import type { Column } from "./unified";
 import { UnifiedAdd } from "./unified-add";
 import { UnifiedCard } from "./unified-card";
 import { useTaskKeys } from "./unified-keys";
@@ -45,7 +44,10 @@ export function UnifiedBoard({
   // The chip speaks for today, so the board must know which day that is where
   // the person is, not where the Worker runs.
   useLocalDay(day);
-  useTaskKeys(rows, planned, false, cursor, setOn, (fields) =>
+  // Nothing here steps: the order in a column is derived, and to say "this
+  // first" is to plan it. See ADR-0006, "One order per column".
+  const ordered = false;
+  useTaskKeys(rows, planned, ordered, cursor, setOn, (fields) =>
     post.submit(fields, { method: "post" }),
   );
 
@@ -93,37 +95,3 @@ export function UnifiedBoard({
   );
 }
 
-/**
- * The chip that narrows the board to today's plan, and gives it back.
- *
- * A person with no plan for today gets no chip: there is nothing to narrow to,
- * and the header already carries Plan on every page.
- */
-export function TodayChip({ today }: { today: boolean }) {
-  const [params] = useSearchParams();
-
-  return (
-    <Link
-      to={flipped(params, "today", today)}
-      aria-pressed={today}
-      className={`rounded-full border px-2 py-0.5 text-xs ${
-        today
-          ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
-          : "border-neutral-300 dark:border-neutral-700"
-      }`}
-    >
-      Today
-    </Link>
-  );
-}
-
-/** The link that turns one hidden column on or off, keeping the others. */
-export function Toggle({ which, toggles }: { which: UnifiedToggle; toggles: UnifiedToggles }) {
-  const [params] = useSearchParams();
-
-  return (
-    <Link to={flipped(params, which, toggles[which])} className="underline">
-      {toggles[which] ? "Hide" : "Show"} {STATUS_LABEL[which]}
-    </Link>
-  );
-}

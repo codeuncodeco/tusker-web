@@ -24,6 +24,7 @@ import { finishFields, planFields } from "./unified-row";
 export function useTaskKeys(
   rows: LiveTask[],
   planned: Set<string>,
+  /** True where the page gives the person an order of their own to step. */
   ordered: boolean,
   on: string | null,
   setOn: (id: string) => void,
@@ -43,9 +44,12 @@ export function useTaskKeys(
       else if (event.key === "Enter") navigate(`/o/${task.org.slug}/t/${task.id}`);
       // Backlog is unplannable, and a finished task is nothing to plan. The
       // board draws all five columns, so the key says so as well as the write.
+      // Taking a task back out is never refused: plan mode holds the tasks
+      // finished today, and `p` unplans one of those as the button does.
       else if (event.key === "p") {
-        if (!isPlannable(task)) return;
-        act(planFields(task, planned.has(task.id)));
+        const held = planned.has(task.id);
+        if (!held && !isPlannable(task)) return;
+        act(planFields(task, held));
       }
       // A step is a step of the plan, so a task the plan does not hold, and a
       // page with no order of the person's own, have nothing to step.

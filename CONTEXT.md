@@ -50,7 +50,7 @@ _Avoid_: Setup wizard, first-run signup
 **Landing**:
 The page at `/` for a person with no session: the product line, the note that
 Tusker is invitation only, and the way in. A signed-in person never sees it,
-because `/` sends that person to the unified view. While the instance holds
+because `/` sends that person to the unified board. While the instance holds
 no account, `/` sends the person to Bootstrap.
 _Avoid_: Home page, marketing page, splash
 
@@ -274,11 +274,12 @@ The tasks one person chose for one day, in the order they mean to work them. A
 plan belongs to the person and can hold tasks from several orgs.
 
 **Plan mode**:
-The page where a person builds a plan: pick the tasks, order them, keep them. It draws the live set as a list, at `/me/plan`, and `/me/plan/:day`
-for a named day. Plan mode, focus and the unified board share the live set and
-the sort, and lay them out differently: a plan drawn from a Done column is
-nonsense. Every pick and every step writes the plan row, so nothing waits
-on a tab and there is no Commit button. See ADR-0008.
+The page where a person builds a plan: pick the tasks, order them, keep them.
+It draws the live set as a list, at `/me/plan`, and `/me/plan/:day` for a named
+day. Plan mode, focus and the unified board share the live set and the sort,
+and lay them out differently: a plan drawn from a Done column is nonsense.
+Every pick and every step writes the plan row, so nothing waits on a tab and
+there is no Commit button. See ADR-0008.
 _Avoid_: Daily planner, plan builder
 
 **Leftovers**:
@@ -320,10 +321,10 @@ See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 
 **Assignee filter**:
-The control on a board and on the unified view that narrows by who holds a
-task: mine, unassigned, or everyone. It is everyone by default, it lives in the
-address, and on a board it narrows what the Today chip already left. An org of
-one member carries no filter. See ADR-0013.
+The control on either board that narrows by who holds a task: mine,
+unassigned, or everyone. It is everyone by default, it lives in the address,
+and it narrows what the Today chip already left. An org of one member carries
+no filter. See ADR-0013.
 _Avoid_: My tasks toggle, owner filter
 
 **Live set**:

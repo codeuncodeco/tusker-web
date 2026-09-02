@@ -8,7 +8,7 @@
  */
 
 import type { Assignee } from "./assignees";
-import { STATUS_LABEL, type Status } from "./board";
+import { STATUS_LABEL, type Status, type Toggles } from "./board";
 import type { Shown } from "./fields";
 
 /** The org a card names. It carries no id, because a screen reads this. */
@@ -136,23 +136,10 @@ const ALWAYS_SHOWN: Status[] = ["todo", "in_progress"];
  * org that reads "this person holds no live task anywhere", which is near
  * enough never, so the rule is dead and the toggle is all there is.
  */
-export const UNIFIED_TOGGLES = ["backlog", "done", "cancelled"] as const;
-
-export type UnifiedToggle = (typeof UNIFIED_TOGGLES)[number];
-
-export type UnifiedToggles = Record<UnifiedToggle, boolean>;
-
-/** Which of the three hidden columns the query string asks for. */
-export function readToggles(params: URLSearchParams): UnifiedToggles {
-  return {
-    backlog: params.get("backlog") === "1",
-    done: params.get("done") === "1",
-    cancelled: params.get("cancelled") === "1",
-  };
-}
+export const UNIFIED_TOGGLES: Status[] = ["backlog", "done", "cancelled"];
 
 /** The columns to draw, in board order. */
-export function unifiedColumns(toggles: UnifiedToggles): Status[] {
+export function unifiedColumns(toggles: Toggles): Status[] {
   return [
     ...(toggles.backlog ? (["backlog"] as Status[]) : []),
     ...ALWAYS_SHOWN,
@@ -183,7 +170,7 @@ export function columnsFor(tasks: LiveTask[], shown: Status[]): Column[] {
 export const FINISHED_STATUSES: Status[] = ["done", "cancelled"];
 
 /** How far back Done and Cancelled reach on the unified board. */
-export const FINISHED_DAYS = 7;
+const FINISHED_DAYS = 7;
 
 /**
  * The earliest `updated_at` a finished task may carry and still be drawn.
@@ -195,8 +182,8 @@ export const FINISHED_DAYS = 7;
  * `tasks` holds no finish time, so this reads the last write of the row and is
  * wrong for a task edited after it was finished. #84 closes that.
  */
-export function finishedSince(day: string, days = FINISHED_DAYS): string {
+export function finishedSince(day: string): string {
   const at = new Date(`${day}T00:00:00.000Z`);
-  at.setUTCDate(at.getUTCDate() - days);
+  at.setUTCDate(at.getUTCDate() - FINISHED_DAYS);
   return at.toISOString();
 }

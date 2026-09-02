@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { readToggles } from "../app/board";
 import {
   columnsFor,
   finishedSince,
   groupsFor,
   inOrder,
   isPlannable,
-  readToggles,
   unifiedColumns,
+  UNIFIED_TOGGLES,
   type LiveTask,
 } from "../app/unified";
 
@@ -140,7 +141,7 @@ describe("the columns of the unified board", () => {
   });
 
   it("reads each toggle out of the query string", () => {
-    expect(readToggles(new URLSearchParams("?backlog=1&cancelled=1"))).toEqual({
+    expect(readToggles(new URLSearchParams("?backlog=1&cancelled=1"), UNIFIED_TOGGLES)).toEqual({
       backlog: true,
       done: false,
       cancelled: true,

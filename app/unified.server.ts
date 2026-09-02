@@ -34,7 +34,7 @@ export type Wanted = {
 };
 
 /** The live set: To do and In progress, the work a person still holds. */
-export const LIVE: Wanted = { statuses: ["todo", "in_progress"] };
+const LIVE: Wanted = { statuses: ["todo", "in_progress"] };
 
 /** The row the query answers with, before a card's fields are read. */
 type Row = {
