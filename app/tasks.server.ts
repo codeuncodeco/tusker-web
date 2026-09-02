@@ -1,4 +1,4 @@
-import { isFinished, isStatus, STATUSES, type Status } from "./board";
+import { isFinished, isStatus, stepInColumn, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
 import { tickBox } from "./description";
 import { listFields } from "./fields.server";
@@ -438,6 +438,40 @@ export async function moveTask(
     .run();
 
   return { moved: done.meta.changes > 0, finished };
+}
+
+/**
+ * Steps one card one place up or down its own column.
+ *
+ * The neighbour it lands above is read here and not sent by the page. A page
+ * holds the order it last loaded, and a second press before that order comes
+ * back would name the place the card already left. The column is fresh in this
+ * function, so a held key steps the card once per press.
+ *
+ * `moved` is false when no row matched, so the route can answer 404. A card
+ * already at the end of its column moves nowhere and is no error: the arrow is
+ * disabled and the key does nothing, and a race that gets past both is a
+ * no-op.
+ */
+export async function stepTask(
+  db: D1Database,
+  scope: Scope,
+  step: { taskId: string; way: 1 | -1 },
+): Promise<Moved> {
+  const orgId = scope.org.id;
+  const was = await db
+    .prepare("SELECT status FROM tasks WHERE id = ? AND org_id = ? AND archived = 0")
+    .bind(step.taskId, orgId)
+    .first<{ status: Status }>();
+  if (!was) return { moved: false, finished: false };
+
+  const column = await columnPlaces(db, orgId, was.status);
+  const at = column.findIndex((one) => one.id === step.taskId);
+  const landing = stepInColumn(column.map((one) => one.id), at, step.way);
+  if (!landing) return { moved: true, finished: false };
+
+  // A step stays in the column, so it can finish nothing.
+  return moveTask(db, scope, { taskId: step.taskId, status: was.status, before: landing.before });
 }
 
 /** The live cards of one column, in the order the board draws them. */

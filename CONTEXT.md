@@ -270,7 +270,9 @@ _Avoid_: Tasks endpoint, public API
 
 **Board**:
 The To do, In progress and Done columns for one org, with Backlog and Cancelled
-shown by rule.
+shown by rule. The order inside a column is the org's and it is stored, so this
+is the one board where a card is dragged into a place, and the one that binds
+`J` and `K`. See ADR-0016.
 
 **Unified board**:
 The same five columns across every org one person belongs to, at `/me`. A
@@ -423,6 +425,25 @@ order. The unified board draws it as two of its five columns, and plan mode and
 focus draw it as a list. It is not narrowed to the tasks the person holds: the
 assignee filter does that, and the plan is where a person's own list lives.
 _Avoid_: My tasks, unified view
+
+**Card keys**:
+What a press does to the card the cursor names, on the board, the unified
+board, plan mode and the week page. `j` and `k` move the cursor, `Enter` opens
+the task, `x` finishes it, `n` goes to the quick-add box, and `>` and `<` walk
+the card along the run. `p` plans or unplans, on the pages that draw a plan
+control. `J` and `K` step a stored order: the org's on the board, the day's in
+plan mode. A step names the card and the way, never a place, because the page's
+copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Enter`, `x`, `n` and `d`,
+which drops a task from the batch. Every key posts what a control on the page
+posts, so no act is reachable by key alone. See ADR-0016.
+_Avoid_: Shortcuts, hotkeys, bindings
+
+**Cursor**:
+The card the keys act on. It names a card and not a place, so the card keeps
+the cursor while the page redraws around it. `j` and `k` move it, a click on a
+card body places it, and it starts on the first card the page draws. Focus mode
+draws three rows and gives no click. See ADR-0015.
+_Avoid_: Selection, focus, highlight
 
 ### Look
 
