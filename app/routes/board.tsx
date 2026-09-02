@@ -25,6 +25,7 @@ import {
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { AssigneeFilter, ColumnSwitch, SearchBox, TodayChip } from "../board-chrome";
+import { ColumnSweep } from "../column-sweep";
 import { useBoardKeys } from "../board-keys";
 import { ANYONE, keeps, readAssignee } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
@@ -54,7 +55,6 @@ import {
   newTasksFrom,
   stepTask,
 } from "../tasks.server";
-import { useToast, type Toast } from "../toast";
 import type { Route } from "./+types/board";
 
 /** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
@@ -214,7 +214,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // re-reads nothing, and it can archive nothing the person could not see.
   // One card posts this too, as a sweep of one.
   if (intent === "archive") {
-    return { archived: await archiveTasks(env.DB, scope, readTaskIds(form)) };
+    // The cards go back named as they were posted, org and all, because the
+    // toast that reports the sweep is the unified board's toast as well.
+    const archived = await archiveTasks(env.DB, scope, readTaskIds(form));
+    return {
+      archived: archived.map((id) => ({ id, slug: scope.org.slug })),
+      partial: false,
+    };
   }
 
   // One undo for the whole batch. It names the ids the sweep changed, so a
@@ -287,65 +293,6 @@ function QuickAdd({
         />
       }
     />
-  );
-}
-
-/**
- * The sweep of one column.
- *
- * The form carries the id of every card the column draws, so the sweep
- * archives exactly what is on screen: whatever narrowed the column is the
- * whole rule, and the server adds nothing to it. Narrowing decides the set and
- * never the button: a finished column that holds a card carries the sweep.
- *
- * It sits in the column head, beside the name and the count, and a column
- * holding nothing draws none.
- *
- * The batch reports itself in a toast, which holds the one undo. The undo
- * names the ids the sweep changed, and not the ids it was given, so a task
- * somebody archived earlier is not restored by an undo of this sweep. One
- * sweep is one act, so its undo is one act.
- */
-/** What one sweep says once it is done: the count, and the one undo. */
-export function sweptToast(label: string, slug: string, archived: string[]): Toast {
-  return {
-    text: `Archived ${archived.length} from ${label}.`,
-    act: {
-      label: "Undo",
-      // The toast is drawn above every route, so it names the board it posts
-      // to. The ids are the ones the sweep changed, and not the ones it was
-      // given.
-      action: `/o/${slug}/board`,
-      post: { intent: "restore", id: archived },
-    },
-  };
-}
-
-function ColumnSweep({ label, cards, slug }: { label: string; cards: Card[]; slug: string }) {
-  const sweep = useFetcher<typeof action>();
-  const raise = useToast();
-  const archived = sweep.data && "archived" in sweep.data ? sweep.data.archived : null;
-
-  useEffect(() => {
-    if (sweep.state !== "idle" || !archived || archived.length === 0) return;
-    raise(sweptToast(label, slug, archived));
-  }, [sweep.state, archived, raise, label, slug]);
-
-  if (cards.length === 0) return null;
-
-  return (
-    <sweep.Form method="post">
-      <input type="hidden" name="intent" value="archive" />
-      {cards.map((card) => (
-        <input key={card.id} type="hidden" name="id" value={card.id} />
-      ))}
-      <button
-        aria-label={`Archive ${cards.length} from ${label}`}
-        className="rounded border border-border px-2 py-0.5 text-xs"
-      >
-        Archive {cards.length}
-      </button>
-    </sweep.Form>
   );
 }
 
@@ -605,7 +552,11 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                   what it holds. The head is pinned, so the sweep stays in
                   sight while the cards scroll. */}
               {isFinished(column.status) ? (
-                <ColumnSweep label={column.label} cards={column.tasks} slug={org.slug} />
+                <ColumnSweep
+                  label={column.label}
+                  cards={column.tasks.map((card) => ({ id: card.id, slug: org.slug }))}
+                  undoAt={`/o/${org.slug}/board`}
+                />
               ) : null}
             </div>
 

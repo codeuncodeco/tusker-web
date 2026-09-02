@@ -17,7 +17,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useFetcher, useLocation } from "react-router";
+import { Link, useFetcher, useLocation } from "react-router";
 
 /** What the one button on a toast does: its name, where it posts, and what. */
 export type ToastAct = {
@@ -28,8 +28,15 @@ export type ToastAct = {
   post: Record<string, string | string[]>;
 };
 
-/** One message: the line a person reads, and at most one act. */
-export type Toast = { text: string; act?: ToastAct };
+/**
+ * Where a message sends a person for the rest of the story: the archive of one
+ * org a sweep filed into. A toast goes by itself and a reload loses it, so a
+ * batch that reached several orgs names them all.
+ */
+export type ToastLink = { label: string; to: string };
+
+/** One message: the line a person reads, at most one act, and its links. */
+export type Toast = { text: string; act?: ToastAct; links?: ToastLink[] };
 
 /** The message that stands, and its number, so a new one starts the clock again. */
 type Held = { toast: Toast; raised: number };
@@ -114,6 +121,12 @@ export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
           <button className="underline underline-offset-2">{toast.act.label}</button>
         </act.Form>
       ) : null}
+
+      {toast.links?.map((link) => (
+        <Link key={link.to} to={link.to} className="underline underline-offset-2">
+          {link.label}
+        </Link>
+      ))}
 
       <button type="button" onClick={drop} aria-label="Dismiss" className="text-muted">
         ×

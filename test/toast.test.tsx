@@ -51,6 +51,24 @@ describe("one message", () => {
     expect(html).toContain('name="id" value="b"');
   });
 
+  it("links to the archive of every org a sweep filed into", () => {
+    const html = markup(
+      <ToastBar
+        toast={{
+          text: "Archived 3 from Done.",
+          links: [
+            { label: "Acme", to: "/o/acme/archive" },
+            { label: "Ada", to: "/o/ada/archive" },
+          ],
+        }}
+        drop={() => {}}
+      />,
+    );
+
+    expect(html).toContain('href="/o/acme/archive"');
+    expect(html).toContain('href="/o/ada/archive"');
+  });
+
   it("carries a way to send it away by hand", () => {
     const html = markup(<ToastBar toast={{ text: "Saved." }} drop={() => {}} />);
 

@@ -177,12 +177,16 @@ archived, and the archive screen sorts by it.
 _Avoid_: Closed, hidden
 
 **Sweep**:
-Archiving a whole column in one act. The Done and Cancelled columns carry the
-button in their head, beside the name and the count, while the column holds a
-card. It archives exactly what is on screen: whatever narrowed the column is
-the whole rule. A person archives the set they are looking at, and that is what
-makes the sweep safe. Narrowing decides the set and never the button. The batch
-reports itself in a **Toast**, which holds the one undo.
+Archiving a whole column in one act. Both boards carry it: the Done and
+Cancelled columns hold the button in their head, beside the name and the count,
+while the column holds a card. It archives exactly what is on screen: whatever
+narrowed the column is the whole rule. A person archives the set they are
+looking at, and that is what makes the sweep safe. Narrowing decides the set and
+never the button, and no key binds it. A sweep of the unified board spans orgs:
+each card names the org that holds it, and the write runs once per org, in
+sequence. A run that stops part way reports the ids it changed, and the undo
+restores those. The batch reports itself in a **Toast**, which holds the one
+undo. See ADR-0019.
 _Avoid_: Bulk archive, clear column
 
 **Toast**:
@@ -196,10 +200,11 @@ _Avoid_: Snackbar, notification, flash message
 
 **Archive screen**:
 One org's archived tasks as a flat list, newest archived first, at
-`/o/:slug/archive`. It carries the board's Today chip, and it holds
-Cancelled tasks whatever the board's Cancelled toggle says. Archived work
-is a history a person scans, not a pipeline they rearrange, so it has no
-columns and no drag.
+`/o/:slug/archive`. It is per org: there is no cross-org archive, so a **Sweep**
+of the unified board files into several, and its **Toast** links to each one. It
+carries the board's Today chip, and it holds Cancelled tasks whatever the
+board's Cancelled toggle says. Archived work is a history a person scans, not a
+pipeline they rearrange, so it has no columns and no drag.
 _Avoid_: Archive board, history page
 
 **Run**:

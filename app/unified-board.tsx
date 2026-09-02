@@ -12,10 +12,11 @@
  * names a column and never a place. See ADR-0015.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
-import type { Status } from "./board";
+import { isFinished, type Status } from "./board";
+import { ColumnSweep } from "./column-sweep";
 import type { OrgHeld } from "./current-org";
 import type { Assignee } from "./assignees";
 import { useLocalDay } from "./local-day";
@@ -43,6 +44,12 @@ export function UnifiedBoard({
 }) {
   const post = useFetcher();
   const [on, setOn] = useState<string | null>(null);
+  // The name of every org, for the archive links the swept toast carries. It
+  // is made once, because the sweep re-binds its effect on a new object.
+  const names = useMemo(
+    () => Object.fromEntries(orgs.map((org) => [org.slug, org.name])),
+    [orgs],
+  );
   // The column a dragged card is over, which draws the outline that says where
   // it will land. One card is dragged at a time, so one column is named.
   const [over, setOver] = useState<Status | null>(null);
@@ -118,9 +125,24 @@ export function UnifiedBoard({
             over === column.status ? "border-fg" : "border-border"
           }`}
         >
-          <h2 className="uppercase tracking-wide text-muted">
-            {column.label} <span className="text-dim">{column.tasks.length}</span>
-          </h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="uppercase tracking-wide text-muted">
+              {column.label} <span className="text-dim">{column.tasks.length}</span>
+            </h2>
+            {/* The sweep acts on the whole column, so it is column chrome, and
+                it sits with the name and the count as it does on the org
+                board. A column of this board holds cards of several orgs, so
+                each card names the org that holds it, and the toast links to
+                the archive of every org the sweep touched. See ADR-0019. */}
+            {isFinished(column.status) ? (
+              <ColumnSweep
+                label={column.label}
+                cards={column.tasks.map((task) => ({ id: task.id, slug: task.org.slug }))}
+                undoAt="/me"
+                names={names}
+              />
+            ) : null}
+          </div>
 
           {/* One box per column, and the column names the status. The picker
               starts at the personal org every time. See ADR-0012. */}

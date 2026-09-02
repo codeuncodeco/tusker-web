@@ -15,6 +15,7 @@ import * as loginRoute from "../app/routes/login";
 import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
 import * as taskRoute from "../app/routes/task";
+import type { Swept } from "../app/sweep";
 import { cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -210,7 +211,7 @@ describe("the per-column sweep", () => {
     const swept = (await board(ada.org.slug, ada.cookie, {
       intent: "archive",
       id: [hers],
-    })) as { archived: string[] };
+    })) as { archived: Swept[] };
 
     expect(swept.archived).toEqual([]);
     expect((await flagOf(hers)).archived).toBe(0);
@@ -226,9 +227,12 @@ describe("the one undo for the batch", () => {
     const swept = (await board(ada.org.slug, ada.cookie, {
       intent: "archive",
       id: onScreen,
-    })) as { archived: string[] };
+    })) as { archived: Swept[] };
 
-    await board(ada.org.slug, ada.cookie, { intent: "restore", id: swept.archived });
+    await board(ada.org.slug, ada.cookie, {
+      intent: "restore",
+      id: swept.archived.map((card) => card.id),
+    });
 
     expect(await column(ada.org.slug, ada.cookie, "done")).toEqual(onScreen);
   });
@@ -243,10 +247,13 @@ describe("the one undo for the batch", () => {
     const swept = (await board(ada.org.slug, ada.cookie, {
       intent: "archive",
       id: [early, late],
-    })) as { archived: string[] };
-    await board(ada.org.slug, ada.cookie, { intent: "restore", id: swept.archived });
+    })) as { archived: Swept[] };
+    await board(ada.org.slug, ada.cookie, {
+      intent: "restore",
+      id: swept.archived.map((card) => card.id),
+    });
 
-    expect(swept.archived).toEqual([late]);
+    expect(swept.archived).toEqual([{ id: late, slug: ada.org.slug }]);
     expect((await flagOf(early)).archived).toBe(1);
     expect((await flagOf(late)).archived).toBe(0);
   });
