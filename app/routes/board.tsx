@@ -28,9 +28,9 @@ import { QuickAddBox, useQuickAddDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
+import { useRemembered } from "../remembered";
 import { requireScope } from "../scope.server";
 import { readSearch } from "../search";
-import { useRemembered } from "../remembered";
 import { countByStatus, createTasks, listTasks, moveTask, newTasksFrom } from "../tasks.server";
 import type { Route } from "./+types/board";
 
@@ -49,7 +49,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The search narrows in SQL, so a board of hundreds of rows sends back what
   // matches and nothing else.
   const search = readSearch(query);
-  const tasks = await listTasks(env.DB, scope, { search });
+  const tasks = await listTasks(env.DB, scope, search);
   // The org's declarations decide what a card shows, so the board needs no
   // code for any one org's fields.
   const declared = await listFields(env.DB, scope);

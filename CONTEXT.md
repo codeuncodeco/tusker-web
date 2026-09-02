@@ -385,9 +385,10 @@ _Avoid_: My tasks toggle, owner filter
 The box on the org board that narrows it to the tasks holding the text in
 their title or description. It is one more narrowing beside the filters, not a
 screen of its own: the same board, the same columns, the same drag. The match
-runs in SQL, as a `LIKE` over the two columns, and it is case-insensitive. A
-`%` or a `_` typed in the box is a character to find, not a wildcard. Nothing
-is ranked: the column order stands.
+runs in SQL, as a `LIKE` over each of the two columns, so a match is a match
+in one of them and never across the seam between them. It is case-insensitive
+for ASCII, which is what `LIKE` gives. A `%` or a `_` typed in the box is a
+character to find, not a wildcard. Nothing is ranked: the column order stands.
 _Avoid_: Full-text search, query, find
 
 **Remembered narrowing**:

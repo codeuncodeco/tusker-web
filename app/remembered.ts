@@ -1,15 +1,36 @@
 /**
- * What a board remembers across loads.
+ * The remembered narrowing: the search a board was left with, and the filters
+ * beside it once they land.
  *
- * The narrowing is the person's, not the org's, so the browser holds it. The
- * address stays the truth while a person is on the board: this only fills the
- * address in when a board is opened with none.
+ * It belongs to the person and not to the org, so the browser holds it, one
+ * entry per org. The current org takes a cookie instead, because the header is
+ * server rendered and a wrong first frame there is a wrong page. A board is
+ * not that: the address is the truth, and this only fills it in when a board
+ * is opened with none.
  */
 
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { memoryKey, narrowingOf } from "./search";
+import { readSearch, SEARCH_NAME } from "./search";
+
+/** Where one board keeps the narrowing it was left with. */
+export function memoryKey(slug: string): string {
+  return `tusker:board:${slug}`;
+}
+
+/**
+ * The narrowing part of an address, as the query string to remember. A column
+ * toggle stays out: it says what a person wants to see, and the address is
+ * read for it every time. The filters join this when they land.
+ *
+ * An empty answer is a board a person cleared by hand, and it is remembered as
+ * cleared.
+ */
+export function narrowingOf(params: URLSearchParams): string {
+  const search = readSearch(params);
+  return search ? new URLSearchParams({ [SEARCH_NAME]: search }).toString() : "";
+}
 
 /** Reads one board's remembered narrowing. A browser that refuses holds none. */
 function recall(slug: string): string | null {

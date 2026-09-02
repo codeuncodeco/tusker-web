@@ -1,17 +1,18 @@
 /**
- * The controls both boards carry in their header: the search box, the Today
- * chip and the links that turn a hidden column on.
+ * The controls a board carries in its header: the search box, the Today chip
+ * and the links that turn a hidden column on.
  *
  * The org board and the unified board draw the same five columns, so they draw
  * the same switches over them. Which columns each offers is the board's own
- * business; the switch is not.
+ * business, and so is which controls it draws: the search box is the org
+ * board's alone, because a search is one org's rows.
  */
 
 import { useEffect, useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 
 import { flipped, STATUS_LABEL, type Status, type Toggles } from "./board";
-import { SEARCH_QUERY, withoutSearch } from "./search";
+import { SEARCH_NAME, withoutSearch } from "./search";
 
 /**
  * The box that narrows a board to the tasks holding the text.
@@ -34,7 +35,7 @@ export function SearchBox({ search }: { search: string }) {
       ))}
       <input
         type="search"
-        name={SEARCH_QUERY}
+        name={SEARCH_NAME}
         value={text}
         onChange={(event) => setText(event.currentTarget.value)}
         aria-label="Search tasks"

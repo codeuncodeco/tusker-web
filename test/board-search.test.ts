@@ -86,6 +86,14 @@ describe("searching the board", () => {
     expect(titles(await board("ada", ada.cookie, "?q=column"))).toEqual(["Write it"]);
   });
 
+  it("does not match across the seam between the two columns", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada, "Write the", "board and the rest");
+
+    expect(titles(await board("ada", ada.cookie, "?q=the board"))).toEqual([]);
+    expect(titles(await board("ada", ada.cookie, "?q=Write the"))).toEqual(["Write the"]);
+  });
+
   it("gives the whole board back when the box is empty", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada, "Write the board");

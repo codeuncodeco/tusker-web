@@ -4,7 +4,6 @@ import { tickBox } from "./description";
 import { listFields } from "./fields.server";
 import { between, placesAbove } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
-import { LIKE_ESCAPE, likeAnywhere } from "./search";
 import { MAX_TITLES, titlesIn } from "./titles";
 
 export type Task = {
@@ -62,36 +61,46 @@ const finishedAtSql = (status: Status) =>
 /** A card in a column, cut down to what the order maths reads. */
 type Positioned = { id: string; position: number };
 
-/** What a read of the board narrows to, past the org and the archive. */
-export type Narrowing = {
-  /** The text a card must hold in its title or description. Empty narrows nothing. */
-  search?: string;
-};
+/** The character the search clause names as its escape. */
+const LIKE_ESCAPE = "\\";
 
 /**
- * One org's live tasks, in column order, narrowed by what the board asks for.
+ * The SQL that keeps a task holding the text, and the values to bind to it.
  *
- * The search runs here rather than over the answer, because the rows are D1's
+ * The clause and its pattern are made together, because the escaping is one
+ * rule: a `%`, a `_` or a `\` is a character a person typed and means to find,
+ * so each one is escaped here and the clause names the escape.
+ *
+ * The two columns are read apart, not joined, so a match is a match in the
+ * title or in the description and never across the seam between them.
+ */
+export function holdsText(text: string): { sql: string; values: string[] } {
+  const pattern = `%${text.replace(/[\\%_]/g, (one) => LIKE_ESCAPE + one)}%`;
+  const like = `LIKE ? ESCAPE '${LIKE_ESCAPE}'`;
+  return { sql: `(title ${like} OR description ${like})`, values: [pattern, pattern] };
+}
+
+/**
+ * One org's live tasks, in column order, narrowed to the ones holding the
+ * search text. An empty search narrows nothing.
+ *
+ * The match runs here rather than over the answer, because the rows are D1's
  * and the query is the place to cut them. A `LIKE` over the two columns is
  * enough for one org's tasks. FTS5 is the answer when a board is big enough to
  * feel it, and no board is yet.
  *
- * The match reads the title and the description as one text, so it finds what
- * the extension found. It is case-insensitive for ASCII, which is what `LIKE`
- * gives without ICU.
+ * The match is case-insensitive for ASCII, which is what `LIKE` gives without
+ * ICU.
  */
-export async function listTasks(
-  db: D1Database,
-  scope: Scope,
-  narrowing: Narrowing = {},
-): Promise<Task[]> {
+export async function listTasks(db: D1Database, scope: Scope, search = ""): Promise<Task[]> {
   const where = ["org_id = ?", "archived = 0"];
   const values: unknown[] = [scope.org.id];
 
-  const search = narrowing.search?.trim();
-  if (search) {
-    where.push(`(title || ' ' || description) LIKE ? ESCAPE '${LIKE_ESCAPE}'`);
-    values.push(likeAnywhere(search));
+  const text = search.trim();
+  if (text) {
+    const held = holdsText(text);
+    where.push(held.sql);
+    values.push(...held.values);
   }
 
   const { results } = await db
@@ -108,12 +117,11 @@ export async function listTasks(
  * To do empty is not a board with no work in hand, and clearing the box must
  * give the board back as it was.
  */
-export async function countByStatus(
-  db: D1Database,
-  scope: Scope,
-): Promise<Record<Status, number>> {
+export async function countByStatus(db: D1Database, scope: Scope): Promise<Record<Status, number>> {
   const { results } = await db
-    .prepare("SELECT status, COUNT(*) AS held FROM tasks WHERE org_id = ? AND archived = 0 GROUP BY status")
+    .prepare(
+      "SELECT status, COUNT(*) AS held FROM tasks WHERE org_id = ? AND archived = 0 GROUP BY status",
+    )
     .bind(scope.org.id)
     .all<{ status: Status; held: number }>();
 
