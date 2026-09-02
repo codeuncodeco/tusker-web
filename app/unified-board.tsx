@@ -21,7 +21,7 @@ import { useLocalDay } from "./local-day";
 import type { Column } from "./unified";
 import { UnifiedAdd } from "./unified-add";
 import { UnifiedCard } from "./unified-card";
-import { useTaskKeys } from "./unified-keys";
+import { ALL_ACTS, useTaskKeys } from "./unified-keys";
 import { moveFields } from "./unified-row";
 
 export function UnifiedBoard({
@@ -55,8 +55,7 @@ export function UnifiedBoard({
   useLocalDay(day);
   // Nothing here steps: the order in a column is derived, and to say "this
   // first" is to plan it. See ADR-0006, "One order per column".
-  const ordered = false;
-  useTaskKeys(rows, planned, ordered, cursor, setOn, (fields) =>
+  useTaskKeys(rows, planned, { ...ALL_ACTS, step: false }, cursor, setOn, (fields) =>
     post.submit(fields, { method: "post" }),
   );
 

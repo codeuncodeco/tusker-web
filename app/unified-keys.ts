@@ -1,33 +1,114 @@
 /**
- * The keys the cross-org lists bind: `j` and `k` move, `Enter` opens, `p`
- * plans and `x` finishes. `>` and `<` walk the card between columns. `J` and
- * `K` step a planned task through the plan, where the page gives a person that
- * order to keep.
+ * The keys every cross-org list binds, and the one place that binds them.
  *
- * The unified board and plan mode draw the same tasks in different layouts, so
- * the key map lives here rather than in either of them. Tusker is keyboard
- * first, so the buttons are the second way, not the only one.
+ * `j` and `k` move, `Enter` opens, `p` plans, `x` finishes, `>` and `<` walk
+ * the card between columns, and `J` and `K` step a planned task through the
+ * plan. The keys themselves live in `app/key-map.ts`; the guards live here,
+ * because a guard reads the task, the plan set and the page's acts.
+ *
+ * The unified board, plan mode, the week and focus mode draw the same tasks in
+ * different layouts, so one hook serves all four. Tusker is keyboard first, so
+ * the buttons are the second way, not the only one.
  */
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 
 import { stepped } from "./board";
+import { KEY_MAP } from "./key-map";
 import { isPagePress } from "./keys";
 import { isPlannable, type LiveTask } from "./unified";
 import { finishFields, moveFields, planFields } from "./unified-row";
 
 /**
+ * Which acts a page gives, past the two every list has: moving the cursor, and
+ * opening or finishing the task under it.
+ */
+export type ListActs = {
+  /** True where `p` puts a task in the page's list, or takes it back out. */
+  plan: boolean;
+  /** True where the page gives the person an order of their own to step. */
+  step: boolean;
+  /** True where `>` and `<` walk a task between columns. */
+  move: boolean;
+};
+
+/** Every act, which is what a board, a plan and a week give. */
+export const ALL_ACTS: ListActs = { plan: true, step: true, move: true };
+
+/** What one press does to the list, or null where the list ignores it. */
+export type Press =
+  | { kind: "cursor"; id: string }
+  | { kind: "open"; task: LiveTask }
+  | { kind: "act"; fields: Record<string, string> };
+
+/**
+ * Reads one press against the list. It touches nothing, so a test can ask what
+ * a key does without a page to press it on.
+ */
+export function pressed(
+  key: string,
+  rows: LiveTask[],
+  planned: Set<string>,
+  acts: ListActs,
+  on: string | null,
+): Press | null {
+  const at = rows.findIndex((one) => one.id === on);
+  const task = rows[at];
+
+  // The cursor names a task, not a place in the list. A plan moves a row into
+  // the plan group, and the cursor goes with it.
+  if (key === KEY_MAP.next.key)
+    return { kind: "cursor", id: rows[Math.min(at + 1, rows.length - 1)]?.id ?? "" };
+  if (key === KEY_MAP.prev.key)
+    return { kind: "cursor", id: rows[Math.max(at - 1, 0)]?.id ?? "" };
+  if (!task) return null;
+  if (key === KEY_MAP.open.key) return { kind: "open", task };
+
+  // Backlog is unplannable, and a finished task is nothing to plan. The board
+  // draws all five columns, so the key says so as well as the write. Taking a
+  // task back out is never refused: plan mode holds the tasks finished today,
+  // and `p` unplans one of those as the button does.
+  if (key === KEY_MAP.plan.key) {
+    if (!acts.plan) return null;
+    const held = planned.has(task.id);
+    if (!held && !isPlannable(task)) return null;
+    return { kind: "act", fields: planFields(task, held) };
+  }
+
+  // A step is a step of the plan, so a task the plan does not hold, and a page
+  // with no order of the person's own, have nothing to step.
+  if (key === KEY_MAP.up.key || key === KEY_MAP.down.key) {
+    if (!acts.step || !planned.has(task.id)) return null;
+    return { kind: "act", fields: { intent: key === KEY_MAP.up.key ? "up" : "down", id: task.id } };
+  }
+
+  // `>` and `<` walk the card along the run and stop at both ends. They post
+  // the move a drop posts and the select posts: a column, and no place inside
+  // it. Cancelled is off the run. See ADR-0015.
+  if (key === KEY_MAP.forward.key || key === KEY_MAP.back.key) {
+    if (!acts.move) return null;
+    const to = stepped(task.status, key === KEY_MAP.forward.key ? 1 : -1);
+    if (!to) return null;
+    return { kind: "act", fields: moveFields(task, to) };
+  }
+
+  // A task already finished has nothing left to finish.
+  if (key === KEY_MAP.finish.key) {
+    if (task.finished) return null;
+    return { kind: "act", fields: finishFields(task) };
+  }
+
+  return null;
+}
+
+/**
  * Binds the keys to one flat list of tasks.
- *
- * The cursor names a task, not a place in the list. A plan moves a row into
- * the plan group, and the cursor goes with it.
  */
 export function useTaskKeys(
   rows: LiveTask[],
   planned: Set<string>,
-  /** True where the page gives the person an order of their own to step. */
-  ordered: boolean,
+  acts: ListActs,
   on: string | null,
   setOn: (id: string) => void,
   act: (fields: Record<string, string>) => void,
@@ -38,45 +119,18 @@ export function useTaskKeys(
     function onKey(event: KeyboardEvent) {
       if (!isPagePress(event)) return;
 
-      const at = rows.findIndex((one) => one.id === on);
-      const task = rows[at];
-      if (event.key === "j") setOn(rows[Math.min(at + 1, rows.length - 1)]?.id ?? "");
-      else if (event.key === "k") setOn(rows[Math.max(at - 1, 0)]?.id ?? "");
-      else if (!task) return;
-      else if (event.key === "Enter") navigate(`/o/${task.org.slug}/t/${task.id}`);
-      // Backlog is unplannable, and a finished task is nothing to plan. The
-      // board draws all five columns, so the key says so as well as the write.
-      // Taking a task back out is never refused: plan mode holds the tasks
-      // finished today, and `p` unplans one of those as the button does.
-      else if (event.key === "p") {
-        const held = planned.has(task.id);
-        if (!held && !isPlannable(task)) return;
-        act(planFields(task, held));
-      }
-      // A step is a step of the plan, so a task the plan does not hold, and a
-      // page with no order of the person's own, have nothing to step.
-      else if (event.key === "J" || event.key === "K") {
-        if (!ordered || !planned.has(task.id)) return;
-        act({ intent: event.key === "K" ? "up" : "down", id: task.id });
-      }
-      // `>` and `<` walk the card along the run and stop at both ends. They
-      // post the move a drop posts and the select posts: a column, and no
-      // place inside it. Cancelled is off the run. See ADR-0015.
-      else if (event.key === ">" || event.key === "<") {
-        const to = stepped(task.status, event.key === ">" ? 1 : -1);
-        if (!to) return;
-        act(moveFields(task, to));
-      }
-      // A task already finished has nothing left to finish.
-      else if (event.key === "x") {
-        if (task.finished) return;
-        act(finishFields(task));
-      } else return;
+      const press = pressed(event.key, rows, planned, acts, on);
+      if (!press) return;
+
+      if (press.kind === "cursor") setOn(press.id);
+      else if (press.kind === "open")
+        navigate(`/o/${press.task.org.slug}/t/${press.task.id}`);
+      else act(press.fields);
 
       event.preventDefault();
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, planned, ordered, on, setOn, act, navigate]);
+  }, [rows, planned, acts, on, setOn, act, navigate]);
 }

@@ -1,5 +1,11 @@
 # Focus keeps its batch in the plan
 
+Amended by ticket #103. The drop is gone. Every key a list binds now rides on
+a control, and focus mode draws no Drop button to carry `d`. "The drop" below
+argued that with no escape one blocked task freezes the day; the answer now is
+that a batch of three is small enough to finish or to leave, and the plan is
+edited in plan mode. Focus mode has one way out: finish.
+
 Amended by [ADR-0014](./0014-the-week-is-a-set-and-the-day-is-a-plan.md). With
 no plan, focus draws from the week set first, and from the live set only when
 the week holds no set. Leftovers are a week rule now, so the last consequence
@@ -24,13 +30,15 @@ three tasks long. So focus stores nothing of its own.
   three that hold an unfinished task. A finished task keeps its place in the
   batch, struck through, so no task slides up.
 - With no plan, focus draws the first three of the unified view and the first
-  act on them — a finish or a drop — writes them as today's plan. From then on
-  the day has a plan and the rule above holds.
+  finish on them writes them as today's plan. From then on the day has a plan
+  and the rule above holds.
 - When the plan holds no unfinished task, focus offers three more, and taking
   them appends the next three of the unified view to the plan. It is an act with
   a key, never automatic: the end of a batch is where a person stops.
 
 ## The drop
+
+Removed by ticket #103. The argument stands as it was made.
 
 Ticket #38 asks whether a person can take a task out of a batch without
 finishing it. With no escape, one blocked task freezes the day. With a free one,
@@ -53,7 +61,7 @@ three.
 
 Ticket #38 also puts "changing the plan from inside focus mode" out of scope.
 Focus does not let a person edit the plan — there is no pick, no reorder and no
-unplan on the screen — but the three writes above do change the row. Holding a
+unplan on the screen — but the writes above do change the row. Holding a
 batch with no store to hold it in is not possible, so the exclusion is reopened
 here rather than worked around.
 
@@ -62,10 +70,6 @@ here rather than worked around.
 Working in focus makes a plan, so `/me` shows that work under Today and stops
 offering to plan the day. That is honest: the person did choose those tasks,
 task by task, and the plan is where a person's own order lives (ADR-0006).
-
-A drop out of a plan no longer than one batch moves the task to the end of that
-same batch, because the end of the plan is inside it. Taking three more brings
-work in front of the dropped task, which is the escape.
 
 A plan of fewer than three unfinished tasks is a batch of what there is. An
 empty plan says so, and offers the day.
