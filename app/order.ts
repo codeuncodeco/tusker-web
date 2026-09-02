@@ -22,3 +22,18 @@ export function between(before: number | null, after: number | null): number | n
   const middle = before + (after - before) / 2;
   return middle > before && middle < after ? middle : null;
 }
+
+/**
+ * The positions a block of new cards takes at the top of a column, in the
+ * order they were typed: the first line gets the lowest position, so it lands
+ * topmost and no card of the block is reversed.
+ *
+ * `first` is the position of the card that was on top, or null for an empty
+ * column. Nothing is below the top of a column, so the block always has room
+ * and no renumber is needed. One card gives the same answer as
+ * `between(null, first)`.
+ */
+export function above(first: number | null, count: number): number[] {
+  const base = first ?? STEP;
+  return Array.from({ length: count }, (_, at) => base - STEP * (count - at));
+}

@@ -32,10 +32,12 @@ export function routeArgs(request: Request, params: Record<string, string> = {})
   return { request, context, params } as never;
 }
 
-/** A form post to a route action. */
-export function post(path: string, fields: Record<string, string>) {
+/** A form post to a route action. A list of values posts the field over again. */
+export function post(path: string, fields: Record<string, string | string[]>) {
   const body = new FormData();
-  for (const [name, value] of Object.entries(fields)) body.append(name, value);
+  for (const [name, value] of Object.entries(fields)) {
+    for (const one of Array.isArray(value) ? value : [value]) body.append(name, one);
+  }
   return new Request(`${SITE}${path}`, { method: "POST", body });
 }
 

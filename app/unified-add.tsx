@@ -40,7 +40,7 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
   // Counts the undos, so each one puts the person back on the picker.
   const [undone, setUndone] = useState(0);
 
-  const box = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLSelectElement>(null);
 
   // Every person has a personal org, and it is first in the set. A person who
@@ -80,9 +80,15 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
 
   /** Takes the add back and gives the box the words and the mark again. */
   function refile(one: Added) {
-    undo.submit({ intent: "undo", id: one.id, slug: one.slug }, { method: "post" });
+    // One add is one act, so the undo names every row it made in one post.
+    const form = new FormData();
+    form.append("intent", "undo");
+    form.append("slug", one.slug);
+    for (const id of one.ids) form.append("id", id);
+    undo.submit(form, { method: "post" });
+
     setLast(null);
-    draft.setTitle(one.title);
+    draft.setTitle(one.text);
     draft.setDecides(one.decides);
     // A person undoes when the org was wrong, so the picker starts over.
     pick(null);
@@ -149,8 +155,9 @@ export function UnifiedAdd({ orgs }: { orgs: OrgHeld[] }) {
 }
 
 /**
- * The line one add leaves behind. It has no timer: it stays until the next
- * add, the dismiss, or the end of the page.
+ * The line one add leaves behind. It counts what the add made, because a
+ * pasted list is one act with several rows in it. It has no timer: it stays
+ * until the next add, the dismiss, or the end of the page.
  */
 function UndoLine({
   added,
@@ -169,7 +176,9 @@ function UndoLine({
       role="status"
       className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400"
     >
-      <span className="grow">Added to {org}</span>
+      <span className="grow">
+        {added.ids.length === 1 ? "Added" : `Added ${added.ids.length} tasks`} to {org}
+      </span>
       <button type="button" onClick={() => undo(added)} className="underline">
         Undo
       </button>

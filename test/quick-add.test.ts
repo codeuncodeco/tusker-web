@@ -39,7 +39,7 @@ async function team(personId: string, slug: string) {
 }
 
 /** A post to the unified view, signed by the cookie and named for a day. */
-function onMe(cookie: string, fields: Record<string, string>, day = DAY) {
+function onMe(cookie: string, fields: Record<string, string | string[]>, day = DAY) {
   const request = post("/me", fields);
   request.headers.set("cookie", `${cookie}; day=${day}`);
   return meRoute.action(routeArgs(request));
@@ -48,7 +48,7 @@ function onMe(cookie: string, fields: Record<string, string>, day = DAY) {
 /** A post to plan mode, for today or for the day the path names. */
 function onPlan(
   cookie: string,
-  fields: Record<string, string>,
+  fields: Record<string, string | string[]>,
   params: Record<string, string> = {},
   day = DAY,
 ) {
@@ -74,10 +74,19 @@ async function planned(personId: string, day = DAY) {
   return row ? (JSON.parse(row.task_ids) as string[]) : null;
 }
 
-/** What a create answered with, once the act says it added a task. */
+/** What a create answered with, once the act says it added the tasks. */
 function added(acted: unknown) {
   expect(acted).toHaveProperty("added");
-  return (acted as { added: { id: string; slug: string; title: string; decides: boolean } }).added;
+  return (acted as { added: { ids: string[]; slug: string; text: string; decides: boolean } }).added;
+}
+
+/** The titles one org holds, top of the To do column first. */
+async function titlesIn(orgId: string) {
+  const { results } = await db
+    .prepare("SELECT title FROM tasks WHERE org_id = ? ORDER BY position, created_at, id")
+    .bind(orgId)
+    .all<{ title: string }>();
+  return results.map((one) => one.title);
 }
 
 describe("the add", () => {
@@ -91,9 +100,9 @@ describe("the add", () => {
       title: "fix the map",
     });
 
-    expect(added(acted)).toMatchObject({ slug: "blrhikes", title: "fix the map", decides: false });
+    expect(added(acted)).toMatchObject({ slug: "blrhikes", text: "fix the map", decides: false });
     expect((await rowsIn(blr.id)).results).toEqual([
-      { id: added(acted).id, title: "fix the map", status: "todo", decides: 0 },
+      { id: added(acted).ids[0], title: "fix the map", status: "todo", decides: 0 },
     ]);
     expect((await rowsIn(ada.org.id)).results).toEqual([]);
   });
@@ -103,12 +112,7 @@ describe("the add", () => {
     await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "first" });
     await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "second" });
 
-    const { results } = await db
-      .prepare("SELECT title FROM tasks WHERE org_id = ? ORDER BY position")
-      .bind(ada.org.id)
-      .all<{ title: string }>();
-
-    expect(results.map((one) => one.title)).toEqual(["second", "first"]);
+    expect(await titlesIn(ada.org.id)).toEqual(["second", "first"]);
   });
 
   it("marks the task when the box is ticked, and leaves it unmarked when it is not", async () => {
@@ -122,8 +126,8 @@ describe("the add", () => {
     expect(marked.decides).toBe(true);
     expect(plain.decides).toBe(false);
     const rows = (await rowsIn(ada.org.id)).results;
-    expect(rows.find((one) => one.id === marked.id)!.decides).toBe(1);
-    expect(rows.find((one) => one.id === plain.id)!.decides).toBe(0);
+    expect(rows.find((one) => one.id === marked.ids[0])!.decides).toBe(1);
+    expect(rows.find((one) => one.id === plain.ids[0])!.decides).toBe(0);
   });
 
   it("plans nothing on the unified view", async () => {
@@ -140,7 +144,7 @@ describe("the add", () => {
     const first = added(await onPlan(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a" }));
     const next = added(await onPlan(ada.cookie, { intent: "create", slug: ada.org.slug, title: "b" }));
 
-    expect(await planned(ada.person.id)).toEqual([first.id, next.id]);
+    expect(await planned(ada.person.id)).toEqual([first.ids[0], next.ids[0]]);
   });
 
   it("wants a title, and makes no row without one", async () => {
@@ -181,7 +185,7 @@ describe("the undo", () => {
     const ada = await member("ada@example.test", "Ada");
     const one = added(await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a" }));
 
-    await onMe(ada.cookie, { intent: "undo", id: one.id, slug: one.slug });
+    await onMe(ada.cookie, { intent: "undo", id: one.ids, slug: one.slug });
 
     expect((await rowsIn(ada.org.id)).results).toEqual([]);
   });
@@ -190,7 +194,7 @@ describe("the undo", () => {
     const ada = await member("ada@example.test", "Ada");
     const one = added(await onPlan(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a" }));
 
-    await onPlan(ada.cookie, { intent: "undo", id: one.id, slug: one.slug });
+    await onPlan(ada.cookie, { intent: "undo", id: one.ids, slug: one.slug });
 
     expect(await planned(ada.person.id)).toEqual([]);
     expect((await rowsIn(ada.org.id)).results).toEqual([]);
@@ -202,7 +206,7 @@ describe("the undo", () => {
     const theirs = added(await onMe(bo.cookie, { intent: "create", slug: bo.org.slug, title: "theirs" }));
 
     const response = await caught(
-      onMe(ada.cookie, { intent: "undo", id: theirs.id, slug: bo.org.slug }),
+      onMe(ada.cookie, { intent: "undo", id: theirs.ids, slug: bo.org.slug }),
     );
 
     expect(response.status).toBe(404);
@@ -216,13 +220,129 @@ describe("the undo", () => {
     );
     await db
       .prepare("INSERT INTO decisions (id, org_id, task_id, title) VALUES ('d1', ?, ?, 'why')")
-      .bind(ada.org.id, one.id)
+      .bind(ada.org.id, one.ids[0])
       .run();
 
-    await onMe(ada.cookie, { intent: "undo", id: one.id, slug: one.slug });
+    await onMe(ada.cookie, { intent: "undo", id: one.ids, slug: one.slug });
 
     const row = await db.prepare("SELECT task_id FROM decisions WHERE id = 'd1'").first<{ task_id: string | null }>();
     expect(row?.task_id).toBe(null);
+  });
+
+  it("deletes every row one paste made, and leaves the rest of the board", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "was here first" });
+    const paste = added(
+      await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "one\ntwo\nthree" }),
+    );
+
+    await onMe(ada.cookie, { intent: "undo", id: paste.ids, slug: paste.slug });
+
+    expect(await titlesIn(ada.org.id)).toEqual(["was here first"]);
+  });
+
+  it("drops every task of the paste from the day's plan", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const kept = added(await onPlan(ada.cookie, { intent: "create", slug: ada.org.slug, title: "keep" }));
+    const paste = added(
+      await onPlan(ada.cookie, { intent: "create", slug: ada.org.slug, title: "one\ntwo" }),
+    );
+
+    await onPlan(ada.cookie, { intent: "undo", id: paste.ids, slug: paste.slug });
+
+    expect(await planned(ada.person.id)).toEqual(kept.ids);
+    expect(await titlesIn(ada.org.id)).toEqual(["keep"]);
+  });
+
+  it("writes nothing when one id of the list names another org's task", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const bo = await member("bo@example.test", "Bo");
+    const mine = added(await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "mine" }));
+    const theirs = added(await onMe(bo.cookie, { intent: "create", slug: bo.org.slug, title: "theirs" }));
+
+    const response = await caught(
+      onMe(ada.cookie, { intent: "undo", id: [...mine.ids, ...theirs.ids], slug: ada.org.slug }),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await titlesIn(ada.org.id)).toEqual(["mine"]);
+    expect(await titlesIn(bo.org.id)).toEqual(["theirs"]);
+  });
+});
+
+describe("a list of lines", () => {
+  it("makes one task of every line, first line at the top of the column", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "was here first" });
+
+    const acted = added(
+      await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "one\ntwo\nthree" }),
+    );
+
+    expect(acted.ids.length).toBe(3);
+    expect(await titlesIn(ada.org.id)).toEqual(["one", "two", "three", "was here first"]);
+  });
+
+  it("makes no task of a blank line, and reads a Windows line break", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const acted = added(
+      await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "one\r\n\n   \r\ntwo\n" }),
+    );
+
+    expect(acted.ids.length).toBe(2);
+    expect(await titlesIn(ada.org.id)).toEqual(["one", "two"]);
+  });
+
+  it("marks every task the paste made, and an unticked box marks none", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a\nb", decides: "1" });
+    await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "c\nd" });
+
+    const rows = (await rowsIn(ada.org.id)).results;
+    expect(rows.filter((one) => one.decides === 1).map((one) => one.title).sort()).toEqual(["a", "b"]);
+    expect(rows.filter((one) => one.decides === 0).map((one) => one.title).sort()).toEqual(["c", "d"]);
+  });
+
+  it("gives the whole text back, line breaks and all, for the undo to refill the box", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const acted = added(
+      await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "one\ntwo" }),
+    );
+
+    expect(acted.text).toBe("one\ntwo");
+  });
+
+  it("puts every task of the paste in today's plan, in plan mode", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const acted = added(
+      await onPlan(ada.cookie, { intent: "create", slug: ada.org.slug, title: "one\ntwo\nthree" }),
+    );
+
+    expect(await planned(ada.person.id)).toEqual(acted.ids);
+  });
+
+  it("refuses a list of more than 100 lines, and writes nothing", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const lines = Array.from({ length: 101 }, (_, at) => `task ${at}`).join("\n");
+
+    const acted = await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: lines });
+
+    expect(acted).toEqual({ error: "A list makes 100 tasks at the most." });
+    expect((await rowsIn(ada.org.id)).results).toEqual([]);
+  });
+
+  it("takes a list of exactly 100 lines", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const lines = Array.from({ length: 100 }, (_, at) => `task ${at}`).join("\n");
+
+    const acted = added(await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: lines }));
+
+    expect(acted.ids.length).toBe(100);
+    expect((await titlesIn(ada.org.id))[0]).toBe("task 0");
   });
 });
 

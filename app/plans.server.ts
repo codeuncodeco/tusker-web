@@ -136,13 +136,29 @@ export async function unplanTask(
   day: string,
   taskId: string,
 ): Promise<void> {
+  await unplanTasks(db, personId, day, [taskId]);
+}
+
+/**
+ * Takes a block of tasks out of a day's plan, leaving the rest in order.
+ *
+ * The undo of one paste is one act, so the whole block leaves the day in one
+ * write rather than in one write per task.
+ */
+export async function unplanTasks(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskIds: string[],
+): Promise<void> {
   const plan = await readPlan(db, personId, day);
-  if (!plan?.includes(taskId)) return;
+  const drop = new Set(taskIds);
+  if (!plan?.some((one) => drop.has(one))) return;
   await writePlan(
     db,
     personId,
     day,
-    plan.filter((one) => one !== taskId),
+    plan.filter((one) => !drop.has(one)),
   );
 }
 

@@ -7,9 +7,9 @@
  */
 
 import { decide, finishTask } from "./decisions.server";
-import { appendToPlan, unplanTask } from "./plans.server";
+import { appendToPlan, unplanTask, unplanTasks } from "./plans.server";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
-import { createTask, deleteTask, newTaskFrom, readTask, type Task } from "./tasks.server";
+import { createTasks, deleteTask, newTasksFrom, readTask, type Task } from "./tasks.server";
 import type { Added } from "./unified";
 
 /**
@@ -42,13 +42,14 @@ function scopeFrom(set: OrgSet, form: FormData): Scope {
 }
 
 /**
- * Makes a task from a typed title, in the org the picker named.
+ * Makes a task of every line typed, in the org the picker named.
  *
- * The task lands in To do, at the top of the column, where a person looks for
- * the one they just typed. Plan mode also puts it at the end of the day's
- * plan, because there an add is a pick.
+ * The tasks land in To do, at the top of the column and in list order, where a
+ * person looks for the ones they just typed. Plan mode also puts every one of
+ * them at the end of the day's plan, because there an add is a pick: a person
+ * who pastes ten lines into their own plan asked for ten picks.
  */
-async function addTask(
+async function addTasks(
   env: Env,
   set: OrgSet,
   day: string,
@@ -56,23 +57,49 @@ async function addTask(
   intoPlan: boolean,
 ): Promise<Acted> {
   const scope = scopeFrom(set, form);
-  const typed = newTaskFrom(form);
+  const typed = newTasksFrom(form);
   if ("error" in typed) return typed;
 
-  const made = await createTask(env.DB, scope, { ...typed, status: "todo" });
-  if (intoPlan) await appendToPlan(env.DB, set.personId, day, [made.id]);
+  const made = await createTasks(env.DB, scope, { ...typed, status: "todo" });
+  const ids = made.map((one) => one.id);
+  if (intoPlan) await appendToPlan(env.DB, set.personId, day, ids);
 
-  // The box keeps the words, so an add into the wrong org is filed again
-  // rather than typed again. See ADR-0012.
-  return { added: { id: made.id, slug: scope.org.slug, ...typed } };
+  // The box keeps the words as they were typed, so an add into the wrong org
+  // is filed again rather than typed again. See ADR-0012.
+  return {
+    added: { ids, slug: scope.org.slug, text: String(form.get("title") ?? ""), decides: typed.decides },
+  };
 }
 
 /**
- * The acts this module answers for on a task a form names. `create` is the
- * sixth, and it stands apart: it names an org and no task. Any other form is
+ * Takes one add back: it deletes every row that add wrote and drops them all
+ * from the day's plan.
+ *
+ * One add is one act, so its undo is one act. Every id is read back through
+ * the one-org scope first, so a list that names a task of another org writes
+ * nothing at all and answers 404, rather than deleting the rows before it.
+ */
+async function undoAdd(env: Env, set: OrgSet, day: string, form: FormData): Promise<Acted> {
+  const scope = scopeFrom(set, form);
+  const ids = form.getAll("id").map(String).filter((id) => id !== "");
+  if (ids.length === 0) throw new Response("Not found", { status: 404 });
+
+  for (const id of ids) {
+    if (!(await readTask(env.DB, scope, id))) throw new Response("Not found", { status: 404 });
+  }
+
+  await unplanTasks(env.DB, set.personId, day, ids);
+  for (const id of ids) await deleteTask(env.DB, scope, id);
+
+  return { ok: true };
+}
+
+/**
+ * The acts this module answers for on a task a form names. `create` and `undo`
+ * stand apart: they name an org and a list, not one task. Any other form is
  * the route's own.
  */
-const ACTS = ["plan", "unplan", "finish", "decide", "undo"] as const;
+const ACTS = ["plan", "unplan", "finish", "decide"] as const;
 
 /**
  * What one act answers with: the page again when it raised or answered the
@@ -96,7 +123,10 @@ export async function actOnTask(
 ): Promise<Acted | null> {
   const intent = String(form.get("intent") ?? "");
   // An add names an org and no task, so it proves its scope and stops here.
-  if (intent === "create") return addTask(env, set, day, form, intoPlan);
+  if (intent === "create") return addTasks(env, set, day, form, intoPlan);
+  // Taking an add back is the one delete Tusker has. It names every row that
+  // add made, so it stands apart as well. See ADR-0012.
+  if (intent === "undo") return undoAdd(env, set, day, form);
   if (!ACTS.some((act) => act === intent)) return null;
 
   // Every act names the org the task belongs to, and the row is read back
@@ -114,13 +144,6 @@ export async function actOnTask(
   }
 
   if (intent === "unplan") await unplanTask(env.DB, set.personId, day, taskId);
-
-  // Taking an add back is the one delete Tusker has. The task leaves the day
-  // as well, so an undo in plan mode leaves no hole in the plan. See ADR-0012.
-  if (intent === "undo") {
-    await unplanTask(env.DB, set.personId, day, taskId);
-    await deleteTask(env.DB, scope, taskId);
-  }
 
   // The prompt one of these pages raised, answered. It writes the decision and
   // gives the page back with the prompt gone.

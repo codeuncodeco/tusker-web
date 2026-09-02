@@ -99,5 +99,9 @@ function compare(a: string, b: string): number {
 /**
  * What a quick add left behind, so the box can offer to undo it and then give
  * the person their words back. See ADR-0012.
+ *
+ * One add is one act, whether it made one task or a pasted list of them: it
+ * carries every id it wrote, and the text as the person typed it, line breaks
+ * and all.
  */
-export type Added = { id: string; slug: string; title: string; decides: boolean };
+export type Added = { ids: string[]; slug: string; text: string; decides: boolean };
