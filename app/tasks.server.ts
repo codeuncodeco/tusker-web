@@ -23,29 +23,33 @@ export type Task = {
   created_at: string;
   /** When the work was over, or null while the task is not finished. */
   finished_at: string | null;
+  /** When the task was archived, or null while it is on the board. */
+  archived_at: string | null;
 };
 
 /** The row as the table holds it: `data` as the JSON text of the column. */
 type Row = Omit<Task, "data"> & { data: string };
 
 /**
- * The columns a card and the task editor read.
+ * The columns a card and the task editor read. The archive screen reads them
+ * too, so it is exported.
  *
  * The description is here for the task page. A card does not draw it: the board
  * cuts each row down to a card before the payload leaves the server. The
  * assignees are not here at all: they hold a table of their own.
  */
-const CARD_FIELDS =
-  "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at, finished_at";
+export const CARD_FIELDS =
+  "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at, finished_at, archived_at";
 
 /** The order of a column, everywhere it is read. */
 const IN_ORDER = "ORDER BY position, created_at, id";
 
 /**
  * The time a write stamps into `updated_at` and, when the task is finished,
- * into `finished_at`.
+ * into `finished_at`. The archive stamps `archived_at` with it too, so it is
+ * exported: one clock for every write of the table.
  */
-const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+export const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
 /**
  * What a move writes into `finished_at`.
@@ -263,7 +267,7 @@ export function readDueDate(form: FormData): { dueDate: string | null } | { erro
 }
 
 /** The row as every screen reads it, with the JSON column parsed. */
-function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: Record<string, string> } {
+export function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: Record<string, string> } {
   return { ...row, data: JSON.parse(row.data) as Record<string, string> };
 }
 
@@ -538,7 +542,7 @@ async function renumber(db: D1Database, orgId: string, column: Positioned[]): Pr
  * A reference value stays the external id the task holds. The org app minted
  * that id, so it names the record better than Tusker's cached label does.
  */
-export type ApiTask = Omit<Task, "org_id" | "archived" | "finished_at"> & {
+export type ApiTask = Omit<Task, "org_id" | "archived" | "archived_at" | "finished_at"> & {
   updated_at: string;
 };
 

@@ -17,11 +17,13 @@ import {
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
+  isFinished,
   readStatus,
   readToday,
   readToggles,
   type Status,
 } from "../board";
+import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { SearchBox, Toggle, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
@@ -91,6 +93,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const hasPlan = held.size > 0;
   const today = readToday(query) && hasPlan;
   const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
+  // True while something narrows the board. The sweep is offered only then:
+  // a sweep of a whole unnarrowed column is not what archive is for. The chip
+  // and the search box are the two narrowings, and the sweep asks no question
+  // about which one made the column what it is.
+  const narrowed = today || search !== "";
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip or the box gives the board back as
@@ -124,6 +131,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
+    /** Something narrows the board, so a sweep archives a chosen set. */
+    narrowed,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
@@ -177,6 +186,21 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // The sweep of one column. The form carries the ids of the cards that were
+  // on screen, so whatever narrowed the board decides the set. The server
+  // re-reads nothing, and it can archive nothing the person could not see.
+  // One card posts this too, as a sweep of one.
+  if (intent === "archive") {
+    return { archived: await archiveTasks(env.DB, scope, readTaskIds(form)) };
+  }
+
+  // One undo for the whole batch. It names the ids the sweep changed, so a
+  // task already archived before the sweep stays archived.
+  if (intent === "restore") {
+    await restoreTasks(env.DB, scope, readTaskIds(form));
+    return { ok: true };
+  }
+
   // The prompt a finished card raised, answered.
   if (intent === "decide") return decide(env.DB, scope, request, form);
 
@@ -218,6 +242,56 @@ function QuickAdd({ status, label, addKey }: { status: Status; label: string; ad
       }}
       fields={<input type="hidden" name="status" value={status} />}
     />
+  );
+}
+
+/**
+ * The sweep of one column, and the one undo that puts the batch back.
+ *
+ * The form carries the id of every card the column draws, so the sweep
+ * archives exactly what is on screen: whatever narrowed the column is the
+ * whole rule, and the server adds nothing to it.
+ *
+ * The board draws it only while it is narrowed, and only on a finished
+ * column. A sweep of a whole unnarrowed column is a sweep of everything, and
+ * archive keeps finished work a person chose to file.
+ *
+ * The undo names the ids the sweep changed, and not the ids it was given, so a
+ * task somebody archived earlier is not restored by an undo of this sweep. One
+ * sweep is one act, so its undo is one act.
+ */
+function ColumnSweep({ label, cards }: { label: string; cards: Card[] }) {
+  const sweep = useFetcher<typeof action>();
+  const archived = sweep.data && "archived" in sweep.data ? sweep.data.archived : null;
+
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      {cards.length > 0 ? (
+        <sweep.Form method="post">
+          <input type="hidden" name="intent" value="archive" />
+          {cards.map((card) => (
+            <input key={card.id} type="hidden" name="id" value={card.id} />
+          ))}
+          <button
+            aria-label={`Archive ${cards.length} from ${label}`}
+            className="rounded border border-border px-2 py-0.5"
+          >
+            Archive {cards.length}
+          </button>
+        </sweep.Form>
+      ) : null}
+
+      {archived && archived.length > 0 ? (
+        <sweep.Form method="post" className="flex items-baseline gap-2 text-muted">
+          <input type="hidden" name="intent" value="restore" />
+          {archived.map((id) => (
+            <input key={id} type="hidden" name="id" value={id} />
+          ))}
+          <span>Archived {archived.length}.</span>
+          <button className="underline">Undo</button>
+        </sweep.Form>
+      ) : null}
+    </div>
   );
 }
 
@@ -264,6 +338,9 @@ function CardItem({
   const card = cards[index];
   const post = useFetcher();
   const step = useFetcher();
+  // Its own form, because a form posts one intent and a step is not an
+  // archive.
+  const archiver = useFetcher();
 
   return (
     <li
@@ -356,12 +433,27 @@ function CardItem({
           </button>
         </step.Form>
       </span>
+
+      {/* One task, off the board and kept. It is offered where the work is
+          finished, because archive holds finished work. */}
+      {isFinished(status) ? (
+        <archiver.Form method="post">
+          <input type="hidden" name="intent" value="archive" />
+          <input type="hidden" name="id" value={card.id} />
+          <button
+            aria-label={`Archive ${card.title}`}
+            className="text-xs text-muted underline underline-offset-2"
+          >
+            Archive
+          </button>
+        </archiver.Form>
+      ) : null}
     </li>
   );
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, day, ask, search } = loaderData;
+  const { org, columns, toggles, today, hasPlan, narrowed, day, ask, search } = loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -454,6 +546,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               label={column.label}
               addKey={column.status === "todo"}
             />
+
+            {narrowed && isFinished(column.status) ? (
+              <ColumnSweep label={column.label} cards={column.tasks} />
+            ) : null}
 
             <ul className="flex flex-col gap-2">
               {column.tasks.map((card, index) => (
