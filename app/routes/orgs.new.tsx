@@ -39,8 +39,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function NewOrg({ actionData }: Route.ComponentProps) {
   return (
     <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-6 p-8">
-      <h1 className="text-3xl font-semibold tracking-tight">New org</h1>
-      <p className="text-neutral-600 dark:text-neutral-400">
+      <h1 className="text-3xl tracking-tight">New org</h1>
+      <p className="text-muted">
         You become its owner. Add the rest of the people from the org's Members page.
       </p>
 
@@ -50,17 +50,17 @@ export default function NewOrg({ actionData }: Route.ComponentProps) {
           <input name="name" required autoFocus className={fieldClass} />
         </label>
         <label className="flex flex-col gap-1">
-          Slug <span className="text-sm text-neutral-500">The URL, as in /o/codeuncode/board. Optional.</span>
+          Slug <span className="text-muted">The URL, as in /o/codeuncode/board. Optional.</span>
           <input name="slug" placeholder="from the name" className={fieldClass} />
         </label>
 
         {actionData?.error ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+          <p role="alert" className="text-danger">
             {actionData.error}
           </p>
         ) : null}
 
-        <button className="rounded bg-neutral-900 px-3 py-2 text-white dark:bg-neutral-100 dark:text-neutral-900">
+        <button className="rounded bg-fg px-3 py-2 text-bg">
           Make the org
         </button>
       </Form>

@@ -31,10 +31,10 @@ export default function Decisions({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Decisions</h1>
+      <h1 className="text-2xl tracking-tight">Decisions</h1>
 
       {decisions.length === 0 ? (
-        <p className="text-neutral-600 dark:text-neutral-400">
+        <p className="text-muted">
           No decision yet. Mark a task as one that holds a decision, and Tusker asks when
           you finish it.
         </p>
@@ -43,10 +43,10 @@ export default function Decisions({ loaderData }: Route.ComponentProps) {
           {decisions.map((decision) => (
             <li
               key={decision.id}
-              className="flex flex-col gap-1 rounded border border-neutral-200 p-4 dark:border-neutral-800"
+              className="flex flex-col gap-1 rounded border border-border p-4"
             >
-              <h2 className="font-medium">{decision.title}</h2>
-              <p className="text-xs tabular-nums text-neutral-500">
+              <h2>{decision.title}</h2>
+              <p className="text-xs tabular-nums text-muted">
                 {decision.created_at.slice(0, 10)}
                 {decision.task ? (
                   <>
@@ -61,7 +61,7 @@ export default function Decisions({ loaderData }: Route.ComponentProps) {
                 ) : null}
               </p>
               {decision.rationale ? (
-                <p className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
+                <p className="whitespace-pre-wrap text-muted">
                   {decision.rationale}
                 </p>
               ) : null}

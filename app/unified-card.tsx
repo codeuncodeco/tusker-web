@@ -5,9 +5,11 @@
  * draws it in, counting from one. No row stores it, and it drifts between
  * loads, because the percentile is an index over a column length that changes.
  *
- * The select moves the card to another column. There is no drag and there are
- * no arrows: the column is derived, and to say "this first" is to plan it. See
- * ADR-0006, "One order per column".
+ * Three things move the card to another column: the select, the `>` and `<`
+ * keys, and a drag onto the column. All three name a column and no place
+ * inside it, because the order in a unified column is derived. There are no
+ * arrows for the same reason: to say "this first" is to plan it. See ADR-0006,
+ * "One order per column", and ADR-0015, "A drop names a column, not a place".
  */
 
 import { Link, useFetcher } from "react-router";
@@ -24,6 +26,7 @@ export function UnifiedCard({
   planned,
   selected,
   domId,
+  place,
 }: {
   task: LiveTask;
   /** The place the board draws the card in, counting from one. */
@@ -32,6 +35,12 @@ export function UnifiedCard({
   planned: boolean;
   selected: boolean;
   domId: string;
+  /**
+   * Puts the keyboard cursor on this card. `>` and `<` act on the cursor, and
+   * `j` was the only way to move it: on a long column that put the keys near
+   * the top and nowhere else. See ADR-0015.
+   */
+  place: () => void;
 }) {
   const move = useFetcher();
   const plan = useFetcher();
@@ -41,18 +50,26 @@ export function UnifiedCard({
     <li
       id={domId}
       aria-current={selected ? "true" : undefined}
-      className={`flex flex-col gap-2 rounded border p-3 text-sm ${
+      onClick={place}
+      // The column takes the drop, so a card carries no drop handler of its
+      // own: a drop on a card bubbles to the column under it.
+      draggable
+      onDragStart={(event) => event.dataTransfer.setData("text/plain", task.id)}
+      className={`flex cursor-grab flex-col gap-2 rounded border p-3 ${
         selected
-          ? "border-neutral-900 bg-neutral-50 dark:border-neutral-200 dark:bg-neutral-900"
-          : "border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+          ? "border-fg bg-surface-2"
+          : "border-border bg-surface"
       }`}
     >
       <span className="flex items-baseline gap-2">
-        <span className="tabular-nums text-neutral-400">{rank}</span>
+        <span className="tabular-nums text-dim">{rank}</span>
         <Link
           to={`/o/${task.org.slug}/t/${task.id}`}
+          // A link drags itself, and its own drag carries a URL and no task
+          // id. The card is what drags, so the title gives the gesture up.
+          draggable={false}
           className={`flex-1 underline-offset-2 hover:underline ${
-            task.finished ? "text-neutral-500 line-through" : ""
+            task.finished ? "text-muted line-through" : ""
           }`}
         >
           {task.title}
@@ -60,9 +77,9 @@ export function UnifiedCard({
         <Initials assignees={task.assignees} />
       </span>
 
-      <span className="text-xs uppercase tracking-wide text-neutral-500">{task.org.name}</span>
+      <span className="text-xs uppercase tracking-wide text-muted">{task.org.name}</span>
 
-      <span className="flex items-baseline gap-2 text-xs text-neutral-500">
+      <span className="flex items-baseline gap-2 text-xs text-muted">
         {/* The field strip truncates before the due date does: the due date is
             the one signal that reads the same in every org. */}
         <span className="flex min-w-0 flex-1 gap-1 truncate">
@@ -88,7 +105,7 @@ export function UnifiedCard({
             aria-label={`Column for ${task.title}`}
             defaultValue={task.status}
             onChange={(event) => move.submit(event.currentTarget.form)}
-            className="rounded border border-neutral-300 bg-transparent px-1 py-0.5 text-xs dark:border-neutral-700"
+            className="rounded border border-border bg-transparent px-1 py-0.5 text-xs"
           >
             {STATUSES.map((one) => (
               <option key={one} value={one}>
@@ -109,7 +126,7 @@ export function UnifiedCard({
             <button
               name="intent"
               value={fields.intent}
-              className="rounded border border-neutral-300 px-1.5 py-0.5 text-xs dark:border-neutral-700"
+              className="rounded border border-border px-1.5 py-0.5 text-xs"
             >
               {planned ? "Unplan" : "Plan"}
             </button>

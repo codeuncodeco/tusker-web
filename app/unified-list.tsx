@@ -60,8 +60,8 @@ export function UnifiedList({
     <div ref={list} className="flex flex-col gap-6">
       {groups.map((group) => (
         <section key={group.key} className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-            {label(group)} <span className="text-neutral-400">{group.tasks.length}</span>
+          <h2 className="uppercase tracking-wide text-muted">
+            {label(group)} <span className="text-dim">{group.tasks.length}</span>
           </h2>
 
           <ul className="flex flex-col gap-2">
@@ -73,6 +73,7 @@ export function UnifiedList({
                 verbs={verbs}
                 selected={cursor === task.id}
                 domId={`row-${task.id}`}
+                place={() => setOn(task.id)}
                 moves={
                   group.key === ordered
                     ? { up: at > 0, down: at < group.tasks.length - 1 }

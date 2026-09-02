@@ -100,22 +100,22 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
 
   return (
     <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-8 p-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Sign in to Tusker</h1>
+      <h1 className="text-3xl tracking-tight">Sign in to Tusker</h1>
 
       {actionData?.error ? (
-        <p role="alert" className="rounded border border-red-300 p-3 text-red-700 dark:border-red-800 dark:text-red-400">
+        <p role="alert" className="rounded border border-danger p-3 text-danger">
           {actionData.error}
         </p>
       ) : null}
       {actionData?.sent ? (
-        <p role="status" className="rounded border border-neutral-300 p-3 dark:border-neutral-700">
+        <p role="status" className="rounded border border-border p-3">
           {actionData.sent}
         </p>
       ) : null}
 
       <Form method="post" className="flex flex-col gap-3">
         <input type="hidden" name="next" value={next} />
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1">
           Email
           <input
             name="email"
@@ -126,7 +126,7 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
             className={fieldClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1">
           Password
           <input
             name="password"
@@ -138,11 +138,11 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
         <button
           name="intent"
           value="password"
-          className="rounded bg-neutral-900 px-3 py-2 text-white dark:bg-neutral-100 dark:text-neutral-900"
+          className="rounded bg-fg px-3 py-2 text-bg"
         >
           Sign in
         </button>
-        <div className="flex gap-3 text-sm">
+        <div className="flex gap-3">
           <button name="intent" value="link" className="underline">
             Mail me a link and a code
           </button>
@@ -152,10 +152,10 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
         </div>
       </Form>
 
-      <Form method="post" className="flex flex-col gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
+      <Form method="post" className="flex flex-col gap-3 border-t border-border pt-6">
         <input type="hidden" name="next" value={next} />
         <input type="hidden" name="email" value={email} />
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1">
           Code from the mail
           <input
             name="otp"
@@ -164,7 +164,7 @@ export default function SignIn({ actionData }: Route.ComponentProps) {
             className={fieldClass}
           />
         </label>
-        <button name="intent" value="code" className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+        <button name="intent" value="code" className="rounded border border-border px-3 py-2">
           Sign in with the code
         </button>
       </Form>

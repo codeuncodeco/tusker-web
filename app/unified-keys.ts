@@ -1,7 +1,8 @@
 /**
  * The keys the cross-org lists bind: `j` and `k` move, `Enter` opens, `p`
- * plans and `x` finishes. `J` and `K` step a planned task through the plan,
- * where the page gives a person that order to keep.
+ * plans and `x` finishes. `>` and `<` walk the card between columns. `J` and
+ * `K` step a planned task through the plan, where the page gives a person that
+ * order to keep.
  *
  * The unified board and plan mode draw the same tasks in different layouts, so
  * the key map lives here rather than in either of them. Tusker is keyboard
@@ -11,9 +12,10 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 
+import { stepped } from "./board";
 import { isPagePress } from "./keys";
 import { isPlannable, type LiveTask } from "./unified";
-import { finishFields, planFields } from "./unified-row";
+import { finishFields, moveFields, planFields } from "./unified-row";
 
 /**
  * Binds the keys to one flat list of tasks.
@@ -56,6 +58,14 @@ export function useTaskKeys(
       else if (event.key === "J" || event.key === "K") {
         if (!ordered || !planned.has(task.id)) return;
         act({ intent: event.key === "K" ? "up" : "down", id: task.id });
+      }
+      // `>` and `<` walk the card along the run and stop at both ends. They
+      // post the move a drop posts and the select posts: a column, and no
+      // place inside it. Cancelled is off the run. See ADR-0015.
+      else if (event.key === ">" || event.key === "<") {
+        const to = stepped(task.status, event.key === ">" ? 1 : -1);
+        if (!to) return;
+        act(moveFields(task, to));
       }
       // A task already finished has nothing left to finish.
       else if (event.key === "x") {

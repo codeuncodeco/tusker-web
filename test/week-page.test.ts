@@ -443,3 +443,36 @@ describe("the quick-add box on the week page", () => {
     expect((await db.prepare("SELECT id FROM tasks").all()).results).toEqual([]);
   });
 });
+
+describe("stepping a task between columns", () => {
+  /** The column one task sits in now. */
+  async function columnOf(id: string) {
+    const row = await db
+      .prepare("SELECT status FROM tasks WHERE id = ?")
+      .bind(id)
+      .first<{ status: string }>();
+    return row?.status ?? null;
+  }
+
+  it("takes the move the > key posts", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+
+    await act(ada.cookie, { intent: "move", id: "ship", slug: ada.org.slug, status: "in_progress" });
+
+    expect(await columnOf("ship")).toBe("in_progress");
+  });
+
+  // A step to Done finishes the task, and the set keeps it: the week says what
+  // a person meant to finish, and finishing it is not leaving the set.
+  it("keeps a picked task in the set when it steps to Done", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+    await act(ada.cookie, { intent: "plan", id: "ship", slug: ada.org.slug });
+
+    await act(ada.cookie, { intent: "move", id: "ship", slug: ada.org.slug, status: "done" });
+
+    expect(await columnOf("ship")).toBe("done");
+    expect(await stored(ada.person.id)).toEqual(["ship"]);
+  });
+});

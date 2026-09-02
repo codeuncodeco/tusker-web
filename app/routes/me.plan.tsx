@@ -138,17 +138,18 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Your plan</h1>
-        <span className="tabular-nums text-sm text-neutral-500">{day}</span>
+        <h1 className="text-2xl tracking-tight">Your plan</h1>
+        <span className="tabular-nums text-muted">{day}</span>
       </header>
 
       {/* An add here is a pick: the task lands in the day, at the end, like
           any other. A named day carries no box. See ADR-0012. */}
       {canAdd ? <UnifiedAdd orgs={orgs} /> : null}
 
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+      <p className="text-muted">
         Press <kbd>p</kbd> to plan a task, and <kbd>J</kbd> and <kbd>K</kbd> to say in what
-        order you will work them. Every act is kept, so nothing waits on this tab.
+        order you will work them. <kbd>&gt;</kbd> and <kbd>&lt;</kbd> walk a task between
+        columns. Every act is kept, so nothing waits on this tab.
       </p>
 
       {leftovers && <LeftoverPrompt leftovers={leftovers} />}
@@ -178,7 +179,7 @@ function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
   const count = leftovers.taskIds.length;
 
   return (
-    <section className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
+    <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
       <p className="grow">
         {dayName(leftovers.from)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
       </p>
@@ -187,14 +188,14 @@ function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
         <button
           name="intent"
           value="carry"
-          className="rounded border border-neutral-300 px-3 py-1 dark:border-neutral-700"
+          className="rounded border border-border px-3 py-1"
         >
           Carry {count === 1 ? "it" : "them"} forward
         </button>
         <button
           name="intent"
           value="clean"
-          className="rounded border border-neutral-300 px-3 py-1 dark:border-neutral-700"
+          className="rounded border border-border px-3 py-1"
         >
           Start clean
         </button>

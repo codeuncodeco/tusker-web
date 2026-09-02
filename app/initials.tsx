@@ -17,7 +17,7 @@ export function Initials({ assignees }: { assignees: Assignee[] }) {
         <li
           key={assignee.id}
           title={assignee.name}
-          className="rounded-full bg-neutral-200 px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200"
+          className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-muted"
         >
           <span className="sr-only">{assignee.name}</span>
           <span aria-hidden="true">{assignee.initials}</span>

@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 
 import { flipped, STATUS_LABEL, type Status, type Toggles } from "./board";
+import { fieldClass } from "./forms";
 import { SEARCH_NAME, withoutSearch } from "./search";
 
 /**
@@ -40,7 +41,7 @@ export function SearchBox({ search }: { search: string }) {
         onChange={(event) => setText(event.currentTarget.value)}
         aria-label="Search tasks"
         placeholder="Search"
-        className="w-48 rounded border border-neutral-300 bg-transparent px-2 py-0.5 text-sm dark:border-neutral-700"
+        className={`w-48 ${fieldClass}`}
       />
       {/* Enter in the box submits. This is the press for everybody else. */}
       <button className="sr-only">Search</button>
@@ -66,8 +67,8 @@ export function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean
       aria-pressed={hasPlan ? today : undefined}
       className={`rounded-full border px-2 py-0.5 text-xs ${
         today
-          ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
-          : "border-neutral-300 dark:border-neutral-700"
+          ? "border-fg bg-fg text-bg"
+          : "border-border"
       }`}
     >
       Today

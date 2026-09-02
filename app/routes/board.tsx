@@ -227,10 +227,10 @@ function CardItem({
         const dragged = event.dataTransfer.getData("text/plain");
         if (dragged && dragged !== card.id) move(dragged, status, card.id);
       }}
-      className="flex cursor-grab flex-col gap-2 rounded border border-neutral-200 bg-white p-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+      className="flex cursor-grab flex-col gap-2 rounded border border-border bg-surface p-3 shadow-sm"
     >
       <span className="flex items-baseline gap-2">
-        <span className="tabular-nums text-neutral-400">{index + 1}</span>
+        <span className="tabular-nums text-dim">{index + 1}</span>
         <Link to={`/o/${slug}/t/${card.id}`} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
@@ -238,14 +238,14 @@ function CardItem({
       </span>
 
       {card.fields.length > 0 ? (
-        <ul className="flex flex-wrap gap-2 text-xs text-neutral-500">
+        <ul className="flex flex-wrap gap-2 text-xs text-muted">
           {card.fields.map((field) => (
             <li
               key={field.key}
-              className="flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 dark:bg-neutral-800"
+              className="flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5"
             >
               <Dot color={field.color} />
-              <span className="text-neutral-400">{field.label}</span> {field.value}
+              <span className="text-dim">{field.label}</span> {field.value}
             </li>
           ))}
         </ul>
@@ -259,7 +259,7 @@ function CardItem({
           aria-label={`Column for ${card.title}`}
           defaultValue={status}
           onChange={(event) => post.submit(event.currentTarget.form)}
-          className="rounded border border-neutral-300 bg-transparent px-1 py-0.5 text-xs dark:border-neutral-700"
+          className="rounded border border-border bg-transparent px-1 py-0.5 text-xs"
         >
           {STATUSES.map((one) => (
             <option key={one} value={one}>
@@ -276,7 +276,7 @@ function CardItem({
           value={up ?? ""}
           disabled={up === null}
           aria-label={`Move ${card.title} up`}
-          className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+          className="rounded border border-border px-1 text-xs disabled:opacity-30"
         >
           ↑
         </button>
@@ -285,7 +285,7 @@ function CardItem({
           value={down ?? ""}
           disabled={down === null}
           aria-label={`Move ${card.title} down`}
-          className="rounded border border-neutral-300 px-1 text-xs disabled:opacity-30 dark:border-neutral-700"
+          className="rounded border border-border px-1 text-xs disabled:opacity-30"
         >
           ↓
         </button>
@@ -324,8 +324,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   return (
     <main className="flex flex-1 flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <nav className="flex items-baseline gap-4 text-sm">
+        <h1 className="text-2xl tracking-tight">{org.name}</h1>
+        <nav className="flex items-baseline gap-4">
           <SearchBox search={search} />
           <TodayChip today={today} hasPlan={hasPlan} />
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
@@ -339,10 +339,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             key={column.status}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => onDrop(column.status, event)}
-            className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
+            className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-border p-3"
           >
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-              {column.label} <span className="text-neutral-400">{column.tasks.length}</span>
+            <h2 className="uppercase tracking-wide text-muted">
+              {column.label} <span className="text-dim">{column.tasks.length}</span>
             </h2>
 
             <QuickAdd status={column.status} label={column.label} />

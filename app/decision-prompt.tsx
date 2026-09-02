@@ -47,12 +47,12 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="decision-prompt"
-        className="flex w-full max-w-lg flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900"
+        className="flex w-full max-w-lg flex-col gap-3 rounded-lg border border-border bg-surface p-6"
       >
-        <h2 id="decision-prompt" className="text-lg font-semibold tracking-tight">
+        <h2 id="decision-prompt" className="text-lg tracking-tight">
           What was decided?
         </h2>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        <p className="text-muted">
           {ask.title} is Done. Press <kbd>Esc</kbd> to skip.
         </p>
 
@@ -61,7 +61,7 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
           <input type="hidden" name="id" value={ask.id} />
           <input type="hidden" name="slug" value={ask.slug} />
 
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1">
             Title
             {/* Empty, with the task named beside it. A title that repeats
                 the task says nothing the log did not already hold. */}
@@ -74,22 +74,22 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1">
             Rationale
             <textarea name="rationale" rows={4} className={fieldClass} />
           </label>
 
           {error ? (
-            <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+            <p role="alert" className="text-danger">
               {error}
             </p>
           ) : null}
 
           <div className="flex items-baseline gap-4">
-            <button className="rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+            <button className="rounded border border-border px-3 py-2">
               Keep it
             </button>
-            <Link to={closed} replace className="text-sm underline">
+            <Link to={closed} replace className="underline">
               Skip
             </Link>
           </div>
