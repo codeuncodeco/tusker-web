@@ -21,8 +21,8 @@ export default defineConfig({
   ],
   test: {
     setupFiles: ["./test/apply-migrations.ts"],
-    // A test reads `app/app.css?raw` to check that every palette name has a
-    // token. Vitest blanks CSS imports unless this is on.
+    // `test/colors.test.ts` reads `app/app.css?raw`, to check that every
+    // palette name has a token. Vitest blanks a CSS import unless this is on.
     css: true,
   },
 });

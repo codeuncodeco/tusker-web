@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 
 // Every component source, as text. The sweep that put the tokens in is only
 // done while no component reaches past them, so these read the files rather
@@ -9,8 +9,6 @@ const sources = import.meta.glob("../app/**/*.tsx", {
   eager: true,
 }) as Record<string, string>;
 
-const entries = Object.entries(sources);
-
 /** The class strings of one file, so a word in prose never counts as a class. */
 function classes(source: string): string[] {
   return [...source.matchAll(/className=(?:"([^"\n]*)"|\{`([^`]*)`\})/gs)].map(
@@ -18,28 +16,30 @@ function classes(source: string): string[] {
   );
 }
 
-describe("the sweep", () => {
-  it("finds a component that still names Tailwind's grey ramp", () => {
-    for (const [path, source] of entries) {
-      expect([path, classes(source).filter((one) => one.includes("neutral-"))]).toEqual([path, []]);
-    }
-  });
+/**
+ * Asserts that no component names a class the sweep was meant to remove, and
+ * names the file and the class when one does.
+ */
+function expectNoClass(names: (one: string) => boolean, skip: string[] = []): void {
+  for (const [path, source] of Object.entries(sources)) {
+    if (skip.some((one) => path.endsWith(one))) continue;
+    expect([path, classes(source).filter(names)]).toEqual([path, []]);
+  }
+}
 
-  it("finds a `dark:` variant, which the tokens made dead", () => {
-    // Each token is a `light-dark()` pair, so it flips itself. A `dark:`
-    // variant beside one either repeats it or fights it.
-    for (const [path, source] of entries) {
-      expect([path, classes(source).filter((one) => one.includes("dark:"))]).toEqual([path, []]);
-    }
-  });
+it("leaves no component naming Tailwind's grey ramp", () => {
+  expectNoClass((one) => one.includes("neutral-"));
+});
 
-  it("finds a component that repeats the body size", () => {
-    // `text-sm` is what <body> sets, so saying it again says nothing. The
-    // `text-xs` that remain then mean "smaller than body", which is the point
-    // of saying it.
-    for (const [path, source] of entries) {
-      if (path.endsWith("root.tsx")) continue;
-      expect([path, classes(source).filter((one) => /\btext-sm\b/.test(one))]).toEqual([path, []]);
-    }
-  });
+it("leaves no `dark:` variant, which the tokens made dead", () => {
+  // Each token is a `light-dark()` pair, so it flips itself. A `dark:` variant
+  // beside one either repeats it or fights it.
+  expectNoClass((one) => one.includes("dark:"));
+});
+
+it("leaves no component repeating the body size", () => {
+  // `text-sm` is what <body> sets, so saying it again says nothing. The
+  // `text-xs` that remain then mean "smaller than body", which is the point of
+  // saying it.
+  expectNoClass((one) => /\btext-sm\b/.test(one), ["root.tsx"]);
 });
