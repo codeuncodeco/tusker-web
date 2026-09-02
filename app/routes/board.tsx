@@ -52,6 +52,7 @@ import {
   newTasksFrom,
   stepTask,
 } from "../tasks.server";
+import { useToast, type Toast } from "../toast";
 import type { Route } from "./+types/board";
 
 /** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
@@ -96,11 +97,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const hasPlan = held.size > 0;
   const today = readToday(query) && hasPlan;
   const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
-  // True while something narrows the board. The sweep is offered only then:
-  // a sweep of a whole unnarrowed column is not what archive is for. The chip
-  // and the search box are the two narrowings, and the sweep asks no question
-  // about which one made the column what it is.
-  const narrowed = today || search !== "";
 
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip or the box gives the board back as
@@ -134,8 +130,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
-    /** Something narrows the board, so a sweep archives a chosen set. */
-    narrowed,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
@@ -249,52 +243,61 @@ function QuickAdd({ status, label, addKey }: { status: Status; label: string; ad
 }
 
 /**
- * The sweep of one column, and the one undo that puts the batch back.
+ * The sweep of one column.
  *
  * The form carries the id of every card the column draws, so the sweep
  * archives exactly what is on screen: whatever narrowed the column is the
- * whole rule, and the server adds nothing to it.
+ * whole rule, and the server adds nothing to it. Narrowing decides the set and
+ * never the button: a finished column that holds a card carries the sweep.
  *
- * The board draws it only while it is narrowed, and only on a finished
- * column. A sweep of a whole unnarrowed column is a sweep of everything, and
- * archive keeps finished work a person chose to file.
+ * It sits in the column head, beside the name and the count, and a column
+ * holding nothing draws none.
  *
- * The undo names the ids the sweep changed, and not the ids it was given, so a
- * task somebody archived earlier is not restored by an undo of this sweep. One
+ * The batch reports itself in a toast, which holds the one undo. The undo
+ * names the ids the sweep changed, and not the ids it was given, so a task
+ * somebody archived earlier is not restored by an undo of this sweep. One
  * sweep is one act, so its undo is one act.
  */
-function ColumnSweep({ label, cards }: { label: string; cards: Card[] }) {
+/** What one sweep says once it is done: the count, and the one undo. */
+export function sweptToast(label: string, slug: string, archived: string[]): Toast {
+  return {
+    text: `Archived ${archived.length} from ${label}.`,
+    act: {
+      label: "Undo",
+      // The toast is drawn above every route, so it names the board it posts
+      // to. The ids are the ones the sweep changed, and not the ones it was
+      // given.
+      action: `/o/${slug}/board`,
+      post: { intent: "restore", id: archived },
+    },
+  };
+}
+
+function ColumnSweep({ label, cards, slug }: { label: string; cards: Card[]; slug: string }) {
   const sweep = useFetcher<typeof action>();
+  const raise = useToast();
   const archived = sweep.data && "archived" in sweep.data ? sweep.data.archived : null;
 
-  return (
-    <div className="flex flex-col gap-1 text-xs">
-      {cards.length > 0 ? (
-        <sweep.Form method="post">
-          <input type="hidden" name="intent" value="archive" />
-          {cards.map((card) => (
-            <input key={card.id} type="hidden" name="id" value={card.id} />
-          ))}
-          <button
-            aria-label={`Archive ${cards.length} from ${label}`}
-            className="rounded border border-border px-2 py-0.5"
-          >
-            Archive {cards.length}
-          </button>
-        </sweep.Form>
-      ) : null}
+  useEffect(() => {
+    if (sweep.state !== "idle" || !archived || archived.length === 0) return;
+    raise(sweptToast(label, slug, archived));
+  }, [sweep.state, archived, raise, label, slug]);
 
-      {archived && archived.length > 0 ? (
-        <sweep.Form method="post" className="flex items-baseline gap-2 text-muted">
-          <input type="hidden" name="intent" value="restore" />
-          {archived.map((id) => (
-            <input key={id} type="hidden" name="id" value={id} />
-          ))}
-          <span>Archived {archived.length}.</span>
-          <button className="underline">Undo</button>
-        </sweep.Form>
-      ) : null}
-    </div>
+  if (cards.length === 0) return null;
+
+  return (
+    <sweep.Form method="post">
+      <input type="hidden" name="intent" value="archive" />
+      {cards.map((card) => (
+        <input key={card.id} type="hidden" name="id" value={card.id} />
+      ))}
+      <button
+        aria-label={`Archive ${cards.length} from ${label}`}
+        className="rounded border border-border px-2 py-0.5 text-xs"
+      >
+        Archive {cards.length}
+      </button>
+    </sweep.Form>
   );
 }
 
@@ -456,7 +459,7 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, narrowed, day, ask, search } = loaderData;
+  const { org, columns, toggles, today, hasPlan, day, ask, search } = loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -542,9 +545,19 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             // width it always had. Past that the row scrolls sideways.
             className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
           >
-            <h2 className="uppercase tracking-wide text-muted">
-              {column.label} <span className="text-dim">{column.tasks.length}</span>
-            </h2>
+            <div className="flex items-baseline gap-3">
+              <h2 className="uppercase tracking-wide text-muted">
+                {column.label} <span className="text-dim">{column.tasks.length}</span>
+              </h2>
+              {/* The sweep acts on the whole column, so it is column chrome.
+                  It sits with the name and the count, the way the extension
+                  drew it, so the act on the column is where the column says
+                  what it holds. The head is pinned, so the sweep stays in
+                  sight while the cards scroll. */}
+              {isFinished(column.status) ? (
+                <ColumnSweep label={column.label} cards={column.tasks} slug={org.slug} />
+              ) : null}
+            </div>
 
             {/* One key names one box, and To do is where an add goes by hand. */}
             <QuickAdd
@@ -552,12 +565,6 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               label={column.label}
               addKey={column.status === "todo"}
             />
-
-            {/* The sweep acts on the whole column, so it is column chrome and
-                stays pinned with the heading and the box. */}
-            {narrowed && isFinished(column.status) ? (
-              <ColumnSweep label={column.label} cards={column.tasks} />
-            ) : null}
 
             {/* The heading, the box and the sweep stay pinned, and only this
                 scrolls. The gutter is reserved, so a full column is as wide as

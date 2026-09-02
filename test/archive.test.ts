@@ -1,6 +1,7 @@
 /**
  * Archive: the per-column sweep, the one undo for the batch, the flat list
- * newest first, and what leaves the board when a task is archived. See #61.
+ * newest first, and what leaves the board when a task is archived.
+ * See #61 and #121.
  */
 
 import { env } from "cloudflare:workers";
@@ -50,7 +51,7 @@ function board(slug: string, cookie: string, fields: Record<string, string | str
 function readBoard(slug: string, cookie: string, query = "") {
   return boardRoute.loader(
     routeArgs(signed(get(`/o/${slug}/board${query}`), cookie), { slug }),
-  ) as Promise<{ columns: { status: string; tasks: { id: string }[] }[]; narrowed: boolean }>;
+  ) as Promise<{ columns: { status: string; tasks: { id: string }[] }[] }>;
 }
 
 /** A read of the archive screen, signed by the cookie. */
@@ -176,7 +177,7 @@ describe("the per-column sweep", () => {
     expect(await column(ada.org.slug, ada.cookie, "done")).toEqual([left]);
   });
 
-  it("sweeps the whole column when the column is what is on screen", async () => {
+  it("sweeps a whole unnarrowed column, which is the whole column", async () => {
     const ada = await member("ada@example.test", "Ada");
     await made(ada.org.slug, ada.cookie, "done", "One");
     await made(ada.org.slug, ada.cookie, "done", "Two");
@@ -199,14 +200,6 @@ describe("the per-column sweep", () => {
     expect(onScreen).toEqual([mine]);
     expect((await flagOf(mine)).archived).toBe(1);
     expect((await flagOf(other)).archived).toBe(0);
-  });
-
-  it("is offered only while the board is narrowed", async () => {
-    const ada = await member("ada@example.test", "Ada");
-    await planned(ada.org.slug, ada.cookie, "Planned");
-
-    expect((await readBoard(ada.org.slug, ada.cookie)).narrowed).toBe(false);
-    expect((await readBoard(ada.org.slug, ada.cookie, "?today=1")).narrowed).toBe(true);
   });
 
   it("counts no task the org does not hold", async () => {
