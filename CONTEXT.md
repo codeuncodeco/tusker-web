@@ -402,6 +402,23 @@ and it narrows what the Today chip already left. An org of one member carries
 no filter. See ADR-0013.
 _Avoid_: My tasks toggle, owner filter
 
+**Search**:
+The box on the org board that narrows it to the tasks holding the text in
+their title or description. It is one more narrowing beside the filters, not a
+screen of its own: the same board, the same columns, the same drag. The match
+runs in SQL, as a `LIKE` over each of the two columns, so a match is a match
+in one of them and never across the seam between them. It is case-insensitive
+for ASCII, which is what `LIKE` gives. A `%` or a `_` typed in the box is a
+character to find, not a wildcard. Nothing is ranked: the column order stands.
+_Avoid_: Full-text search, query, find
+
+**Remembered narrowing**:
+The search, and later the filters, a board was left with. It belongs to the
+person, so the browser holds it, one entry per org. A board opened with no
+query at all gets it back in the address. A board opened with a query keeps
+that query as it stands, so a search cleared by hand stays cleared.
+_Avoid_: Saved filter, sticky filter, last view
+
 **Live set**:
 To do and In progress, across every org one person belongs to, in percentile
 order. The unified board draws it as two of its five columns, and plan mode and
