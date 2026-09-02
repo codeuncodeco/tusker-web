@@ -4,19 +4,25 @@
  *
  * A person who learns the board on one org meets the same page on all of them.
  * The layout is the org board's; the order is the unified sort, and it is
- * derived: no card is dragged and no card steps. See ADR-0006, "One order per
- * column".
+ * derived: no card is dragged into a place and no card steps. See ADR-0006,
+ * "One order per column".
+ *
+ * A card still moves between columns, because a column is a status. The drop
+ * target is the whole column and no insertion line is drawn, so the gesture
+ * names a column and never a place. See ADR-0015.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
+import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
 import { useLocalDay } from "./local-day";
 import type { Column } from "./unified";
 import { UnifiedAdd } from "./unified-add";
 import { UnifiedCard } from "./unified-card";
 import { useTaskKeys } from "./unified-keys";
+import { moveFields } from "./unified-row";
 
 export function UnifiedBoard({
   columns,
@@ -33,6 +39,9 @@ export function UnifiedBoard({
 }) {
   const post = useFetcher();
   const [on, setOn] = useState<string | null>(null);
+  // The column a dragged card is over, which draws the outline that says where
+  // it will land. One card is dragged at a time, so one column is named.
+  const [over, setOver] = useState<Status | null>(null);
   const board = useRef<HTMLDivElement>(null);
 
   // One flat order, so `j` and `k` walk the board column by column, the way a
@@ -51,17 +60,56 @@ export function UnifiedBoard({
     post.submit(fields, { method: "post" }),
   );
 
+  /**
+   * A drop on a column, wherever in it the pointer let go. It posts the move
+   * the select and the keys post: `moveTask` runs with `before: null`, so the
+   * card lands at the bottom of that column in its own org, as the org board's
+   * column drop writes it. See ADR-0015.
+   *
+   * The card then draws where percentile order puts it, which is usually not
+   * where the pointer let go. The cursor goes to the card, so the person can
+   * see it and keep working it by key.
+   */
+  function onDrop(status: Status, event: React.DragEvent) {
+    event.preventDefault();
+    setOver(null);
+    const dragged = rows.find((one) => one.id === event.dataTransfer.getData("text/plain"));
+    if (!dragged || dragged.status === status) return;
+    setOn(dragged.id);
+    post.submit(moveFields(dragged, status), { method: "post" });
+  }
+
   // The cursor follows the keys down a column longer than the window.
   useEffect(() => {
     board.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
 
   return (
-    <div ref={board} className="flex flex-1 gap-4 overflow-x-auto">
+    <div
+      ref={board}
+      // A cancelled drag raises no drop, so the outline is cleared here: the
+      // end of a drag bubbles from the card to the board whatever ended it.
+      onDragEnd={() => setOver(null)}
+      className="flex flex-1 gap-4 overflow-x-auto"
+    >
       {columns.map((column) => (
         <section
           key={column.status}
-          className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
+          onDragOver={(event) => {
+            event.preventDefault();
+            setOver(column.status);
+          }}
+          // A drag over a card raises leave on the column it is still inside,
+          // so the outline stays until the pointer is out of the column.
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(null);
+          }}
+          onDrop={(event) => onDrop(column.status, event)}
+          className={`flex w-72 shrink-0 flex-col gap-3 rounded-lg border p-3 ${
+            over === column.status
+              ? "border-neutral-900 dark:border-neutral-200"
+              : "border-neutral-200 dark:border-neutral-800"
+          }`}
         >
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
             {column.label} <span className="text-neutral-400">{column.tasks.length}</span>
@@ -86,6 +134,7 @@ export function UnifiedBoard({
                 planned={planned.has(task.id)}
                 selected={cursor === task.id}
                 domId={`card-${task.id}`}
+                place={() => setOn(task.id)}
               />
             ))}
           </ul>

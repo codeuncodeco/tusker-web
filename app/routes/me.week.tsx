@@ -113,8 +113,9 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       <UnifiedAdd orgs={orgs} />
 
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Press <kbd>p</kbd> to pick a task for this week. The week says what you mean
-        to finish. The day says when. Every act is kept, so nothing waits on this tab.
+        Press <kbd>p</kbd> to pick a task for this week, and <kbd>&gt;</kbd> and
+        <kbd>&lt;</kbd> to walk one between columns. The week says what you mean to
+        finish. The day says when. Every act is kept, so nothing waits on this tab.
       </p>
 
       <UnifiedList

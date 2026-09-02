@@ -73,6 +73,7 @@ export function UnifiedList({
                 verbs={verbs}
                 selected={cursor === task.id}
                 domId={`row-${task.id}`}
+                place={() => setOn(task.id)}
                 moves={
                   group.key === ordered
                     ? { up: at > 0, down: at < group.tasks.length - 1 }
