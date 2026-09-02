@@ -1,5 +1,15 @@
-import { useEffect } from "react";
-import { Link, useFetcher, useSearchParams } from "react-router";
+/**
+ * The org board: one org's five columns, at `/o/:slug/board`.
+ *
+ * The order inside a column is the org's and it is stored, so this is the one
+ * board where a card is dragged into a place and where `J` and `K` step it.
+ * The keys are in `app/board-keys.ts`, and they are the letters the cross-org
+ * lists bind, so a person who learns the board on `/me` finds it here.
+ * See ADR-0016.
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { Link, useFetcher } from "react-router";
 
 import {
   BOARD_TOGGLES,
@@ -13,6 +23,7 @@ import {
   type Status,
 } from "../board";
 import { Toggle, TodayChip } from "../board-chrome";
+import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
 import { listColors } from "../colors.server";
@@ -24,12 +35,19 @@ import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
-import { QuickAddBox, useQuickAddDraft } from "../quick-add";
+import { QuickAddBox, useAddKey, useQuickAddDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
 import { requireScope } from "../scope.server";
-import { createTasks, listTasks, moveTask, newTasksFrom, type Task } from "../tasks.server";
+import {
+  createTasks,
+  listTasks,
+  moveTask,
+  newTasksFrom,
+  stepTask,
+  type Task,
+} from "../tasks.server";
 import type { Route } from "./+types/board";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -154,6 +172,16 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // A step up or down the card's own column. The page names the card and the
+  // way, and the server reads the neighbour it lands above: the page's copy of
+  // the order is one load old, and a held key would post the same place twice.
+  if (intent === "up" || intent === "down") {
+    const id = String(form.get("id") ?? "");
+    const stepped = await stepTask(env.DB, scope, { taskId: id, way: intent === "down" ? 1 : -1 });
+    if (!stepped.moved) throw new Response("Not found", { status: 404 });
+    return { ok: true };
+  }
+
   // The prompt a finished card raised, answered.
   if (intent === "decide") return decide(env.DB, scope, request, form);
 
@@ -164,12 +192,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
  * The box at the top of a column. It posts on Enter and empties itself once
  * the tasks land, so a person can type the next one at once. The column names
  * the status, so the only extra this placement needs is a hidden field.
+ *
+ * `n` focuses the box on the To do column and Escape gives the board its keys
+ * back, as they do on the unified board. One key names one box.
  */
-function QuickAdd({ status, label }: { status: Status; label: string }) {
+function QuickAdd({ status, label, addKey }: { status: Status; label: string; addKey: boolean }) {
   const add = useFetcher<typeof action>();
   const draft = useQuickAddDraft();
   const error = add.data && "error" in add.data ? add.data.error : null;
   const { clear } = draft;
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  useAddKey(box, addKey);
 
   useEffect(() => {
     if (add.state !== "idle" || !add.data || !("ok" in add.data)) return;
@@ -182,22 +216,31 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
       label={`Add to ${label}`}
       draft={draft}
       error={error}
+      titleRef={box}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        (event.target as HTMLElement).blur();
+      }}
       fields={<input type="hidden" name="status" value={status} />}
     />
   );
 }
 
-/** What a drag asks for: the card, its column, and the card it lands above. */
-type Move = (id: string, status: Status, before: string | null) => void;
+/**
+ * What a drag asks for: the card, its column, and the card it lands above. A
+ * key names no card, and the move lands at the bottom of the column.
+ */
+type Move = (id: string, status: Status, before?: string | null) => void;
 
 /**
  * One card. It shows its rank, the way the extension did: the place the board
  * draws it in, counting from one. No row stores it.
  *
- * The select moves the card to another column, and the two arrows move it
- * inside one. Both sit in a form that posts on its own, so a move needs no
+ * The select moves the card to another column, and the two arrows step it
+ * inside one. Each sits in a form that posts on its own, so neither needs a
  * script. Tusker is keyboard first, so the drag is the second way, not the
- * only one.
+ * only one: `>` and `<` post what the select posts, and `J` and `K` post what
+ * the arrows post. See ADR-0016.
  */
 function CardItem({
   cards,
@@ -205,23 +248,33 @@ function CardItem({
   status,
   slug,
   move,
+  selected,
+  domId,
+  place,
 }: {
   cards: Card[];
   index: number;
   status: Status;
   slug: string;
   move: Move;
+  selected: boolean;
+  domId: string;
+  /**
+   * Puts the keyboard cursor on this card. The keys act on the cursor, and `j`
+   * was the only way to move it: on a long column that put them near the top
+   * and nowhere else. See ADR-0015.
+   */
+  place: () => void;
 }) {
   const card = cards[index];
   const post = useFetcher();
-
-  // Up lands above the card overhead. Down lands above the card after the
-  // next one, and an empty value names the bottom of the column.
-  const up = index === 0 ? null : cards[index - 1].id;
-  const down = index === cards.length - 1 ? null : (cards[index + 2]?.id ?? "");
+  const step = useFetcher();
 
   return (
     <li
+      id={domId}
+      aria-current={selected ? "true" : undefined}
+      onClick={place}
       draggable
       onDragStart={(event) => event.dataTransfer.setData("text/plain", card.id)}
       onDragOver={(event) => event.preventDefault()}
@@ -232,7 +285,9 @@ function CardItem({
         const dragged = event.dataTransfer.getData("text/plain");
         if (dragged && dragged !== card.id) move(dragged, status, card.id);
       }}
-      className="flex cursor-grab flex-col gap-2 rounded border border-border bg-surface p-3 shadow-sm"
+      className={`flex cursor-grab flex-col gap-2 rounded border p-3 shadow-sm ${
+        selected ? "border-fg bg-surface-2" : "border-border bg-surface"
+      }`}
     >
       <span className="flex items-baseline gap-2">
         <span className="tabular-nums text-dim">{index + 1}</span>
@@ -256,45 +311,56 @@ function CardItem({
         </ul>
       ) : null}
 
-      <post.Form method="post" className="flex gap-2">
-        <input type="hidden" name="intent" value="move" />
-        <input type="hidden" name="id" value={card.id} />
-        <select
-          name="status"
-          aria-label={`Column for ${card.title}`}
-          defaultValue={status}
-          onChange={(event) => post.submit(event.currentTarget.form)}
-          className="rounded border border-border bg-transparent px-1 py-0.5 text-xs"
-        >
-          {STATUSES.map((one) => (
-            <option key={one} value={one}>
-              {STATUS_LABEL[one]}
-            </option>
-          ))}
-        </select>
-        {/* The submit the select needs when no script runs. */}
-        <button name="before" value="" className="sr-only">
-          Move
-        </button>
-        <button
-          name="before"
-          value={up ?? ""}
-          disabled={up === null}
-          aria-label={`Move ${card.title} up`}
-          className="rounded border border-border px-1 text-xs disabled:opacity-30"
-        >
-          ↑
-        </button>
-        <button
-          name="before"
-          value={down ?? ""}
-          disabled={down === null}
-          aria-label={`Move ${card.title} down`}
-          className="rounded border border-border px-1 text-xs disabled:opacity-30"
-        >
-          ↓
-        </button>
-      </post.Form>
+      <span className="flex gap-2">
+        {/* The select posts on its own, so a move needs no script. */}
+        <post.Form method="post" className="flex">
+          <input type="hidden" name="intent" value="move" />
+          <input type="hidden" name="id" value={card.id} />
+          <select
+            name="status"
+            aria-label={`Column for ${card.title}`}
+            defaultValue={status}
+            onChange={(event) => post.submit(event.currentTarget.form)}
+            className="rounded border border-border bg-transparent px-1 py-0.5 text-xs"
+          >
+            {STATUSES.map((one) => (
+              <option key={one} value={one}>
+                {STATUS_LABEL[one]}
+              </option>
+            ))}
+          </select>
+          {/* The submit the select needs when no script runs. */}
+          <button name="before" value="" className="sr-only">
+            Move
+          </button>
+        </post.Form>
+
+        {/* The two arrows, which post what `J` and `K` post. A card at the top
+            of its column cannot step up and one at the bottom cannot step
+            down, and that is all the page decides: the place the step lands
+            above is the server's, because this order is one load old. */}
+        <step.Form method="post" className="flex gap-2">
+          <input type="hidden" name="id" value={card.id} />
+          <button
+            name="intent"
+            value="up"
+            disabled={index === 0}
+            aria-label={`Move ${card.title} up`}
+            className="rounded border border-border px-1 text-xs disabled:opacity-30"
+          >
+            ↑
+          </button>
+          <button
+            name="intent"
+            value="down"
+            disabled={index === cards.length - 1}
+            aria-label={`Move ${card.title} down`}
+            className="rounded border border-border px-1 text-xs disabled:opacity-30"
+          >
+            ↓
+          </button>
+        </step.Form>
+      </span>
     </li>
   );
 }
@@ -302,6 +368,13 @@ function CardItem({
 export default function Board({ loaderData }: Route.ComponentProps) {
   const { org, columns, toggles, today, hasPlan, day, ask } = loaderData;
   const mover = useFetcher();
+  const [on, setOn] = useState<string | null>(null);
+  const board = useRef<HTMLDivElement>(null);
+
+  // The cursor starts on the first card the board draws, and stays on its own
+  // card while the board moves under it.
+  const rows = columns.flatMap((column) => column.tasks);
+  const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
 
   // The chip speaks for today, so the board must know which day that is where
   // the person is, not where the Worker runs.
@@ -309,11 +382,24 @@ export default function Board({ loaderData }: Route.ComponentProps) {
 
   /**
    * The post a drag makes: the card, the column it lands in, and the card it
-   * lands above. No card named means the bottom of the column. A card's own
-   * form carries the moves the keyboard makes.
+   * lands above. No card named means the bottom of the column. `>`, `<` and
+   * `x` post the same thing, naming no card.
+   *
+   * The cursor goes to the card that moved, whether a pointer or a key moved
+   * it, so the person can see where it landed and keep working it.
    */
-  const move: Move = (id, status, before) => {
+  const move: Move = (id, status, before = null) => {
+    setOn(id);
     mover.submit({ intent: "move", id, status, before: before ?? "" }, { method: "post" });
+  };
+
+  /**
+   * The post `J` and `K` make: the card and the way. It names no place, so the
+   * server reads the card the step lands above out of the order as it stands.
+   */
+  const step = (id: string, way: "up" | "down") => {
+    setOn(id);
+    mover.submit({ intent: way, id }, { method: "post" });
   };
 
   /** A drop on the column itself, past the last card, lands at the bottom. */
@@ -322,6 +408,23 @@ export default function Board({ loaderData }: Route.ComponentProps) {
     const id = event.dataTransfer.getData("text/plain");
     if (id) move(id, status, null);
   }
+
+  // The keys post what the card's own controls post. The board hands them the
+  // ids it draws, in board order, because a key that steps the order needs the
+  // column the card sits in. See ADR-0016.
+  useBoardKeys(
+    columns.map((column) => ({ status: column.status, ids: column.tasks.map((one) => one.id) })),
+    org.slug,
+    cursor,
+    setOn,
+    move,
+    step,
+  );
+
+  // The cursor follows the keys down a column longer than the window.
+  useEffect(() => {
+    board.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [cursor]);
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-8">
@@ -334,7 +437,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         </nav>
       </header>
 
-      <div className="flex flex-1 gap-4 overflow-x-auto">
+      <div ref={board} className="flex flex-1 gap-4 overflow-x-auto">
         {columns.map((column) => (
           <section
             key={column.status}
@@ -346,7 +449,12 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               {column.label} <span className="text-dim">{column.tasks.length}</span>
             </h2>
 
-            <QuickAdd status={column.status} label={column.label} />
+            {/* One key names one box, and To do is where an add goes by hand. */}
+            <QuickAdd
+              status={column.status}
+              label={column.label}
+              addKey={column.status === "todo"}
+            />
 
             <ul className="flex flex-col gap-2">
               {column.tasks.map((card, index) => (
@@ -357,6 +465,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                   status={column.status}
                   slug={org.slug}
                   move={move}
+                  selected={cursor === card.id}
+                  domId={`card-${card.id}`}
+                  place={() => setOn(card.id)}
                 />
               ))}
             </ul>
