@@ -287,36 +287,65 @@ rather than typed again. One add is one act, so its undo is one act. It is the
 only delete Tusker has. See ADR-0012.
 _Avoid_: Trash, revert
 
+**Week set**:
+The tasks one person means to finish in one named week. It is membership and
+nothing else: no order, no day. The week set says what, and the plan says when.
+It belongs to the person and can hold tasks from several orgs. Membership is
+always per named week, so a task is in the set of week 36 and not "in the week
+set". See ADR-0014.
+_Avoid_: Week plan, weekly backlog, commitment
+
+**Week page**:
+The page where a person builds a week set, at `/me/week`, and `/me/week/:week`
+for a named week. It is the unified view with selection turned on, with the
+quick-add box, and the week it draws runs Monday to Friday. Every pick writes,
+as in plan mode. See ADR-0014.
+_Avoid_: Weekly planner, week board
+
 **Plan**:
 The tasks one person chose for one day, in the order they mean to work them. A
-plan belongs to the person and can hold tasks from several orgs.
+plan belongs to the person and can hold tasks from several orgs. Every task a
+plan holds is in that week's set: picking a task the set does not hold adds it.
+See ADR-0014.
 
 **Plan mode**:
-The page where a person builds a plan: pick the tasks, order them, keep them.
-It draws the live set as a list, at `/me/plan`, and `/me/plan/:day` for a named
-day. Plan mode, focus and the unified board share the live set and the sort,
-and lay them out differently: a plan drawn from a Done column is nonsense.
-Every pick and every step writes the plan row, so nothing waits on a tab and
-there is no Commit button. See ADR-0008.
+The page where a person builds a plan: pick the tasks, order them, keep them. It
+is the unified view with selection turned on, at `/me/plan`, and `/me/plan/:day`
+for a named day. Plan mode, focus and the unified board share the live set and
+the sort, and lay them out differently: a plan drawn from a Done column is
+nonsense. Every pick and every step writes the plan row, so nothing waits on a
+tab and there is no Commit button. It draws the week set first, and the rest of
+the unified view under a heading below it. See ADR-0008.
 _Avoid_: Daily planner, plan builder
 
 **Leftovers**:
-The tasks the last plan holds that are still unfinished. Opening plan mode on a
-day with no plan offers them: carry them forward, or start clean. A plan is
-never rewritten after its day, so carrying forward copies them and leaves the
-old row as it was.
+The tasks the last week set holds that are still unfinished. Opening the week
+page on a week with no set offers them: carry them forward, or start clean. A
+week set is never rewritten after its week, so carrying forward copies the
+memberships and leaves the old ones as they were, and a carried task is in both
+sets. A day carries nothing: each plan starts empty, and the week set is where
+unfinished work waits. See ADR-0014.
 _Avoid_: Rollover, unfinished carry-over
 
 **Today chip**:
-The control on a board that narrows it to the tasks today's plan holds. Both
-boards carry one. A person with no plan for today gets no chip on the unified
-board, and the org board's chip then leads to plan mode instead.
+The control on a board that narrows it to the tasks today's plan holds. Every
+board draws it, planned or not. A day with no plan holds nothing to narrow to,
+so the chip is then a way to plan mode: a control that comes and goes teaches
+nobody that plans exist. See ADR-0011.
 _Avoid_: Today filter, my-day toggle
+
+**Week chip**:
+The control on a board that narrows it to the tasks this week's set holds. It
+sits beside the Today chip and reads the same way: every board draws it, and a
+week with an empty set makes it a way to the week page. The two narrowings are
+exclusive, so a board is narrowed by one, or by neither.
+_Avoid_: Week filter, this-week toggle
 
 **Focus**:
 A mode that shows one batch of tasks and hides the rest until that batch is
-done, at `/me/focus`. It draws from the plan when a plan exists, and from the
-unified board's live set when none does. See ADR-0009.
+done, at `/me/focus`. It draws from the plan when a plan exists, from the week
+set in percentile order when none does, and from the unified view when there is
+no set either. See ADR-0009.
 _Avoid_: Focus timer, deep work mode
 
 **Batch**:
@@ -331,8 +360,8 @@ today's plan, so it comes back last. See ADR-0009.
 _Avoid_: Skip, snooze, defer
 
 **Header**:
-The one bar every signed-in page draws. It has a person half, for Tasks, Plan
-and Focus, and an org half, for the current org and its pages. Both halves are
+The one bar every signed-in page draws. It has a person half, for Tasks, Week,
+Plan and Focus, and an org half, for the current org and its pages. Both halves are
 always drawn, and the half a person stands in is marked. A control that comes
 and goes teaches nothing, so nothing in the header is drawn by rule.
 See ADR-0011.
