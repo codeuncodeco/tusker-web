@@ -105,8 +105,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
   // A task belongs to one org and never to two, so a task page marks the org
   // half like every other org page.
   const inOrg = pathname.startsWith("/o/");
-  const half = (mine: boolean) =>
-    `flex flex-wrap items-baseline gap-3 ${mine ? "" : "opacity-70"}`;
+  const half = (mine: boolean) => "flex flex-wrap items-baseline gap-3";
   /** True while the person stands on this page of the current org. */
   const here = (page: string) => inOrg && org !== null && pathname === pageOf(org.slug, page);
 
@@ -136,9 +135,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
                 {one.name}
               </Link>
               {one.kind === "personal" ? (
-                <span className="ml-2 text-xs uppercase tracking-wide text-muted">
-                  personal
-                </span>
+                <span className="ml-2 text-xs uppercase tracking-wide text-muted">personal</span>
               ) : null}
             </li>
           ))}
