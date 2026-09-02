@@ -12,9 +12,11 @@
  * `sm:`-prefixed and the small screen keeps document scroll.
  *
  * The classes themselves are written where they are used, and not named here.
- * A flex item will not shrink under its content unless it is told it may, so
- * the chain from the window to the card list is `sm:min-h-0` at every link,
- * and one link left out gives the page its scrollbar back.
+ * A flex item down the main axis grows to its content unless it is told it may
+ * shrink, so every box from the window to the card list carries `sm:min-h-0`,
+ * and one left out gives the page its scrollbar back. A column is the one
+ * exception: it sits across the row's axis, so the row's height is already its
+ * own and it needs nothing.
  */
 
 import { useMatches } from "react-router";

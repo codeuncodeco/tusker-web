@@ -31,10 +31,12 @@ export default function Person({ loaderData }: Route.ComponentProps) {
 
   return (
     <div
-      className={`flex min-h-full flex-col ${frame ? "sm:h-full sm:min-h-0 sm:overflow-hidden" : ""}`}
+      className={`flex min-h-full flex-col ${frame ? "sm:h-full sm:min-h-0" : ""}`}
     >
       <Header orgs={loaderData.orgs} org={loaderData.org} />
-      <div className={`flex flex-1 flex-col ${frame ? "sm:min-h-0" : ""}`}>
+      {/* The clip sits under the header, and not around it, because the org
+          menu and Manage are drawn over the page from inside the header. */}
+      <div className={`flex flex-1 flex-col ${frame ? "sm:min-h-0 sm:overflow-hidden" : ""}`}>
         <Outlet />
       </div>
     </div>
