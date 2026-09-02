@@ -12,7 +12,7 @@ import { useFetcher } from "react-router";
 
 import { useLocalDay } from "./local-day";
 import type { Group, GroupKey } from "./unified";
-import { ALL_ACTS, NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
+import { ALL_ACTS, NO_STEP_ACTS, READ_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
 
 export function UnifiedList({
@@ -21,6 +21,7 @@ export function UnifiedList({
   day,
   namedDay = false,
   ordered = null,
+  picks = true,
   label = (group) => group.label,
   verbs = PLAN_VERBS,
 }: {
@@ -32,6 +33,8 @@ export function UnifiedList({
   namedDay?: boolean;
   /** The group whose order belongs to the person, and so carries the steps. */
   ordered?: GroupKey | null;
+  /** False where the list is read back: a day past its own takes no pick. */
+  picks?: boolean;
   /** The heading one group carries, where a route names it its own way. */
   label?: (group: Group) => string;
   /** What the pick button reads, where a page picks into a list of its own. */
@@ -47,9 +50,10 @@ export function UnifiedList({
   const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
 
   useLocalDay(day, !namedDay);
-  // One of two constants, and never a fresh object: the hook re-binds the
+  // One of three constants, and never a fresh object: the hook re-binds the
   // window on every change of what it is given.
-  useTaskKeys(rows, planned, ordered !== null ? ALL_ACTS : NO_STEP_ACTS, cursor, setOn, (fields) =>
+  const acts = !picks ? READ_ACTS : ordered !== null ? ALL_ACTS : NO_STEP_ACTS;
+  useTaskKeys(rows, planned, acts, cursor, setOn, (fields) =>
     post.submit(fields, { method: "post" }),
   );
 
@@ -72,6 +76,7 @@ export function UnifiedList({
                 key={task.id}
                 task={task}
                 planned={planned.has(task.id)}
+                plannable={picks}
                 verbs={verbs}
                 selected={cursor === task.id}
                 domId={`row-${task.id}`}

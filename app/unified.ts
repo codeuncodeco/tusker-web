@@ -117,6 +117,24 @@ export function planGroups(tasks: LiveTask[], plan: string[], members: string[])
 }
 
 /**
+ * The one group a day read back draws: its plan, in its order, and nothing
+ * else.
+ *
+ * A plan is never rewritten after its day, so a shelf to pick from is noise
+ * there. A picked id no org answers for is left out, as it is everywhere.
+ */
+export function planOnly(tasks: LiveTask[], plan: string[]): Group[] {
+  const byId = new Map(tasks.map((one) => [one.id, one]));
+  return [
+    {
+      key: "today",
+      label: GROUP_LABEL.today,
+      tasks: plan.map((id) => byId.get(id)).filter((one) => one !== undefined),
+    },
+  ];
+}
+
+/**
  * The head groups a page names, and under them the rest of the live set split
  * by status.
  *

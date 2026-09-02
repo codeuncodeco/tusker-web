@@ -46,6 +46,12 @@ export const ALL_ACTS: ListActs = { plan: true, step: true, move: true };
  */
 export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
 
+/**
+ * Neither a pick nor a step, for a list that is read back and not built: a day
+ * past its own. The task itself is live, so a finish and a move stand.
+ */
+export const READ_ACTS: ListActs = { plan: false, step: false, move: true };
+
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
   | { kind: "cursor"; id: string }

@@ -405,6 +405,15 @@ Every pick and every step writes the plan row, so nothing waits on a tab and
 there is no Commit button. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
 
+**Day walk**:
+The controls that carry plan mode from one day to the next: the day before, the
+day after, the date itself as a link to its own address, and the way back to
+today. It is what makes `/me/plan/:day` reachable. Building a plan and reading
+one back are not the same act, so a day before today draws its plan alone: no
+shelf, no pick, no step, and no add. Today and the days after it plan as they
+always did.
+_Avoid_: Date picker, day navigator
+
 **Leftovers**:
 The tasks the last week set holds that are still unfinished. Opening the week
 page on a week with no set offers them: carry them forward, or start clean. A
