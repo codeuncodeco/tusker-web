@@ -9,6 +9,10 @@
  * The unified board, plan mode, the week and focus mode draw the same tasks in
  * different layouts, so one hook serves all four. Tusker is keyboard first, so
  * the buttons are the second way, not the only one.
+ *
+ * The org board binds the same letters from `app/board-keys.ts`. It draws
+ * different rows and writes different intents, so it keeps a map of its own,
+ * and the letters are shared by decision. See ADR-0016.
  */
 
 import { useEffect } from "react";

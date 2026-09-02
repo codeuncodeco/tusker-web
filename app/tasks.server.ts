@@ -1,4 +1,4 @@
-import { isFinished, isStatus, STATUSES, type Status } from "./board";
+import { isFinished, isStatus, stepInColumn, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
 import { tickBox } from "./description";
 import { listFields } from "./fields.server";
@@ -23,29 +23,33 @@ export type Task = {
   created_at: string;
   /** When the work was over, or null while the task is not finished. */
   finished_at: string | null;
+  /** When the task was archived, or null while it is on the board. */
+  archived_at: string | null;
 };
 
 /** The row as the table holds it: `data` as the JSON text of the column. */
 type Row = Omit<Task, "data"> & { data: string };
 
 /**
- * The columns a card and the task editor read.
+ * The columns a card and the task editor read. The archive screen reads them
+ * too, so it is exported.
  *
  * The description is here for the task page. A card does not draw it: the board
  * cuts each row down to a card before the payload leaves the server. The
  * assignees are not here at all: they hold a table of their own.
  */
-const CARD_FIELDS =
-  "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at, finished_at";
+export const CARD_FIELDS =
+  "id, org_id, title, status, position, due_date, archived, decides, description, data, created_at, finished_at, archived_at";
 
 /** The order of a column, everywhere it is read. */
 const IN_ORDER = "ORDER BY position, created_at, id";
 
 /**
  * The time a write stamps into `updated_at` and, when the task is finished,
- * into `finished_at`.
+ * into `finished_at`. The archive stamps `archived_at` with it too, so it is
+ * exported: one clock for every write of the table.
  */
-const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+export const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
 /**
  * What a move writes into `finished_at`.
@@ -61,13 +65,73 @@ const finishedAtSql = (status: Status) =>
 /** A card in a column, cut down to what the order maths reads. */
 type Positioned = { id: string; position: number };
 
-/** One org's live tasks, in column order. */
-export async function listTasks(db: D1Database, scope: Scope): Promise<Task[]> {
+/** The character the search clause names as its escape. */
+const LIKE_ESCAPE = "\\";
+
+/**
+ * The SQL that keeps a task holding the text, and the values to bind to it.
+ *
+ * The clause and its pattern are made together, because the escaping is one
+ * rule: a `%`, a `_` or a `\` is a character a person typed and means to find,
+ * so each one is escaped here and the clause names the escape.
+ *
+ * The two columns are read apart, not joined, so a match is a match in the
+ * title or in the description and never across the seam between them.
+ */
+export function holdsText(text: string): { sql: string; values: string[] } {
+  const pattern = `%${text.replace(/[\\%_]/g, (one) => LIKE_ESCAPE + one)}%`;
+  const like = `LIKE ? ESCAPE '${LIKE_ESCAPE}'`;
+  return { sql: `(title ${like} OR description ${like})`, values: [pattern, pattern] };
+}
+
+/**
+ * One org's live tasks, in column order, narrowed to the ones holding the
+ * search text. An empty search narrows nothing.
+ *
+ * The match runs here rather than over the answer, because the rows are D1's
+ * and the query is the place to cut them. A `LIKE` over the two columns is
+ * enough for one org's tasks. FTS5 is the answer when a board is big enough to
+ * feel it, and no board is yet.
+ *
+ * The match is case-insensitive for ASCII, which is what `LIKE` gives without
+ * ICU.
+ */
+export async function listTasks(db: D1Database, scope: Scope, search = ""): Promise<Task[]> {
+  const where = ["org_id = ?", "archived = 0"];
+  const values: unknown[] = [scope.org.id];
+
+  const text = search.trim();
+  if (text) {
+    const held = holdsText(text);
+    where.push(held.sql);
+    values.push(...held.values);
+  }
+
   const { results } = await db
-    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE org_id = ? AND archived = 0 ${IN_ORDER}`)
-    .bind(scope.org.id)
+    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE ${where.join(" AND ")} ${IN_ORDER}`)
+    .bind(...values)
     .all<Row>();
   return results.map(asTask);
+}
+
+/**
+ * How many live tasks each status holds, across the whole board.
+ *
+ * The Backlog rule reads this and not the narrowed list: a search that leaves
+ * To do empty is not a board with no work in hand, and clearing the box must
+ * give the board back as it was.
+ */
+export async function countByStatus(db: D1Database, scope: Scope): Promise<Record<Status, number>> {
+  const { results } = await db
+    .prepare(
+      "SELECT status, COUNT(*) AS held FROM tasks WHERE org_id = ? AND archived = 0 GROUP BY status",
+    )
+    .bind(scope.org.id)
+    .all<{ status: Status; held: number }>();
+
+  const counts = Object.fromEntries(STATUSES.map((status) => [status, 0])) as Record<Status, number>;
+  for (const row of results) counts[row.status] = row.held;
+  return counts;
 }
 
 /** One task of the org, or null when the org holds no such row. */
@@ -203,7 +267,7 @@ export function readDueDate(form: FormData): { dueDate: string | null } | { erro
 }
 
 /** The row as every screen reads it, with the JSON column parsed. */
-function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: Record<string, string> } {
+export function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: Record<string, string> } {
   return { ...row, data: JSON.parse(row.data) as Record<string, string> };
 }
 
@@ -380,6 +444,40 @@ export async function moveTask(
   return { moved: done.meta.changes > 0, finished };
 }
 
+/**
+ * Steps one card one place up or down its own column.
+ *
+ * The neighbour it lands above is read here and not sent by the page. A page
+ * holds the order it last loaded, and a second press before that order comes
+ * back would name the place the card already left. The column is fresh in this
+ * function, so a held key steps the card once per press.
+ *
+ * `moved` is false when no row matched, so the route can answer 404. A card
+ * already at the end of its column moves nowhere and is no error: the arrow is
+ * disabled and the key does nothing, and a race that gets past both is a
+ * no-op.
+ */
+export async function stepTask(
+  db: D1Database,
+  scope: Scope,
+  step: { taskId: string; way: 1 | -1 },
+): Promise<Moved> {
+  const orgId = scope.org.id;
+  const was = await db
+    .prepare("SELECT status FROM tasks WHERE id = ? AND org_id = ? AND archived = 0")
+    .bind(step.taskId, orgId)
+    .first<{ status: Status }>();
+  if (!was) return { moved: false, finished: false };
+
+  const column = await columnPlaces(db, orgId, was.status);
+  const at = column.findIndex((one) => one.id === step.taskId);
+  const landing = stepInColumn(column.map((one) => one.id), at, step.way);
+  if (!landing) return { moved: true, finished: false };
+
+  // A step stays in the column, so it can finish nothing.
+  return moveTask(db, scope, { taskId: step.taskId, status: was.status, before: landing.before });
+}
+
 /** The live cards of one column, in the order the board draws them. */
 async function columnPlaces(db: D1Database, orgId: string, status: Status): Promise<Positioned[]> {
   const { results } = await db
@@ -444,7 +542,7 @@ async function renumber(db: D1Database, orgId: string, column: Positioned[]): Pr
  * A reference value stays the external id the task holds. The org app minted
  * that id, so it names the record better than Tusker's cached label does.
  */
-export type ApiTask = Omit<Task, "org_id" | "archived" | "finished_at"> & {
+export type ApiTask = Omit<Task, "org_id" | "archived" | "archived_at" | "finished_at"> & {
   updated_at: string;
 };
 
