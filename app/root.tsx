@@ -9,6 +9,7 @@ import {
 
 import { AddingProvider } from "./adding";
 import type { Route } from "./+types/root";
+import { ToastProvider } from "./toast";
 import "./app.css";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -32,9 +33,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   // The org the cross-org quick-add box files into lives here, so the pick
   // holds across a move between pages and dies on a reload. See ADR-0012.
+  // One place a page raises a message about a batch it just ran, drawn over
+  // every route. See #121.
   return (
     <AddingProvider>
-      <Outlet />
+      <ToastProvider>
+        <Outlet />
+      </ToastProvider>
     </AddingProvider>
   );
 }
