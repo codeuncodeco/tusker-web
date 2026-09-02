@@ -29,8 +29,8 @@ export function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean
       aria-pressed={hasPlan ? today : undefined}
       className={`rounded-full border px-2 py-0.5 text-xs ${
         today
-          ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
-          : "border-neutral-300 dark:border-neutral-700"
+          ? "border-fg bg-fg text-bg"
+          : "border-border"
       }`}
     >
       Today

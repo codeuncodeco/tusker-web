@@ -84,29 +84,29 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
   return (
     <main className="mx-auto flex flex-1 w-full max-w-2xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Focus</h1>
+        <h1 className="text-2xl tracking-tight">Focus</h1>
         {batch.number > 0 ? (
-          <span className="text-sm text-neutral-500">Batch {batch.number}</span>
+          <span className="text-muted">Batch {batch.number}</span>
         ) : null}
       </header>
 
       {batch.tasks.length > 0 ? (
         <>
           <FocusList tasks={batch.tasks} />
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-muted">
             <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>x</kbd> finishes and{" "}
             <kbd>d</kbd> drops a task to the end of the plan.{" "}
             {batch.left > 0 ? `${batch.left} more, after these.` : "This is the last of them."}
           </p>
         </>
       ) : planEmpty ? (
-        <p className="text-neutral-600 dark:text-neutral-400">
+        <p className="text-muted">
           Your plan for today is empty.
         </p>
       ) : planned ? (
-        <p className="text-neutral-600 dark:text-neutral-400">That is the plan done.</p>
+        <p className="text-muted">That is the plan done.</p>
       ) : (
-        <p className="text-neutral-600 dark:text-neutral-400">
+        <p className="text-muted">
           Nothing to do: no org you belong to holds a live task.
         </p>
       )}

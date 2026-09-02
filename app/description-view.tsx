@@ -17,11 +17,11 @@ export function DescriptionView({ text }: { text: string }) {
   const blocks = descriptionBlocks(text);
 
   if (blocks.length === 0) {
-    return <p className="text-sm text-neutral-500">This task carries no description.</p>;
+    return <p className="text-muted">This task carries no description.</p>;
   }
 
   return (
-    <div className="flex flex-col text-sm">
+    <div className="flex flex-col">
       {blocks.map((block, at) => (
         <Block key={at} block={block} />
       ))}
@@ -33,7 +33,7 @@ export function DescriptionView({ text }: { text: string }) {
 function Block({ block }: { block: DescriptionBlock }) {
   if (block.kind === "code") {
     return (
-      <pre className="my-1 overflow-x-auto rounded bg-neutral-100 p-2 dark:bg-neutral-800">
+      <pre className="my-1 overflow-x-auto rounded bg-surface p-2">
         <code>{block.text}</code>
       </pre>
     );
@@ -80,7 +80,7 @@ function CheckLine({ block }: { block: Extract<DescriptionBlock, { kind: "check"
           onChange={(event) => tick.submit(event.currentTarget.form)}
         />
         <span
-          className={checked ? "text-neutral-500 line-through" : ""}
+          className={checked ? "text-muted line-through" : ""}
           // Made by renderInline, out of text it escaped first.
           dangerouslySetInnerHTML={{ __html: block.html }}
         />

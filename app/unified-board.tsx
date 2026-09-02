@@ -61,10 +61,10 @@ export function UnifiedBoard({
       {columns.map((column) => (
         <section
           key={column.status}
-          className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
+          className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border border-border p-3"
         >
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-            {column.label} <span className="text-neutral-400">{column.tasks.length}</span>
+          <h2 className="uppercase tracking-wide text-muted">
+            {column.label} <span className="text-dim">{column.tasks.length}</span>
           </h2>
 
           {/* One box per column, and the column names the status. The picker

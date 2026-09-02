@@ -59,24 +59,24 @@ async function onlyWhileEmpty(db: D1Database) {
 export default function Bootstrap({ actionData }: Route.ComponentProps) {
   return (
     <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-6 p-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Set up Tusker</h1>
-      <p className="text-neutral-600 dark:text-neutral-400">
+      <h1 className="text-3xl tracking-tight">Set up Tusker</h1>
+      <p className="text-muted">
         This instance holds no account yet. The one you make here is the first, and this page
         closes behind it.
       </p>
 
       {actionData?.error ? (
-        <p role="alert" className="rounded border border-red-300 p-3 text-red-700 dark:border-red-800 dark:text-red-400">
+        <p role="alert" className="rounded border border-danger p-3 text-danger">
           {actionData.error}
         </p>
       ) : null}
 
       <Form method="post" className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1">
           Name
           <input name="name" autoComplete="name" defaultValue={actionData?.name ?? ""} className={fieldClass} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1">
           Email
           <input
             name="email"
@@ -87,7 +87,7 @@ export default function Bootstrap({ actionData }: Route.ComponentProps) {
             className={fieldClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1">
           Password
           <input
             name="password"
@@ -98,7 +98,7 @@ export default function Bootstrap({ actionData }: Route.ComponentProps) {
             className={fieldClass}
           />
         </label>
-        <button className="rounded bg-neutral-900 px-3 py-2 text-white dark:bg-neutral-100 dark:text-neutral-900">
+        <button className="rounded bg-fg px-3 py-2 text-bg">
           Make the first account
         </button>
       </Form>

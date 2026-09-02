@@ -43,7 +43,7 @@ export function DescriptionBox({ text }: { text: string }) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="self-start rounded border border-neutral-300 px-3 py-1 text-sm dark:border-neutral-700"
+          className="self-start rounded border border-border px-3 py-1"
         >
           Edit
         </button>
@@ -63,7 +63,7 @@ export function DescriptionBox({ text }: { text: string }) {
         defaultValue={shown}
         rows={8}
         aria-label="Description"
-        className="w-full rounded border border-neutral-300 px-3 py-2 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900"
+        className="w-full rounded border border-border bg-surface px-3 py-2 font-mono"
         onKeyDown={(event) => {
           // Tab indents, so Tab cannot be the way out. Escape is: it blurs the
           // box, and the blur saves, so a keyboard leaves by one press.
@@ -89,7 +89,7 @@ export function DescriptionBox({ text }: { text: string }) {
         type="button"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => box.current?.blur()}
-        className="rounded border border-neutral-300 px-3 py-1 text-sm dark:border-neutral-700"
+        className="rounded border border-border px-3 py-1"
       >
         Done
       </button>
