@@ -458,7 +458,7 @@ export async function readTaskFilter(
  * hand, and Done is a status, not the archive.
  *
  * The whole list answers at once. One org's live tasks are hundreds of rows,
- * as they are for the unified view, so there is no page and no limit.
+ * as they are for the unified board, so there is no page and no limit.
  */
 export async function filterTasks(
   db: D1Database,

@@ -1,69 +1,19 @@
 /**
- * The list both cross-org pages draw: the unified view, and plan mode with
- * selection turned on.
+ * The list plan mode and focus mode draw: the live set, in one flat sequence.
  *
- * One sort, one row component, one set of keys. Two cross-org lists that drew
- * or sorted differently is a bug the day one of them changes, so the page
- * shell lives here and a route brings only its own words.
+ * The unified board draws the same tasks as columns. The three pages share the
+ * live set and the sort, and lay them out differently: a plan drawn from a
+ * Done column is nonsense. The sort stays one, which is what ADR-0006 asks
+ * for; the layout does not.
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useFetcher, useNavigate } from "react-router";
+import { useFetcher } from "react-router";
 
-import { isPagePress } from "./keys";
 import { useLocalDay } from "./local-day";
-import type { Group, GroupKey, LiveTask } from "./unified";
-import { UnifiedRow, finishFields, planFields } from "./unified-row";
-
-/**
- * The keys the list binds: `j` and `k` move, `Enter` opens, `p` plans and `x`
- * finishes. `J` and `K` step a planned task through the plan, where the page
- * gives a person that order to keep. Tusker is keyboard first, so the arrow
- * buttons are the second way, not the only one.
- *
- * The cursor names a task, not a place in the list. A plan moves a row into
- * the plan group, and the cursor goes with it.
- */
-function useKeys(
-  rows: LiveTask[],
-  planned: Set<string>,
-  ordered: boolean,
-  on: string | null,
-  setOn: (id: string) => void,
-  act: (fields: Record<string, string>) => void,
-) {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (!isPagePress(event)) return;
-
-      const at = rows.findIndex((one) => one.id === on);
-      const task = rows[at];
-      if (event.key === "j") setOn(rows[Math.min(at + 1, rows.length - 1)]?.id ?? "");
-      else if (event.key === "k") setOn(rows[Math.max(at - 1, 0)]?.id ?? "");
-      else if (!task) return;
-      else if (event.key === "Enter") navigate(`/o/${task.org.slug}/t/${task.id}`);
-      else if (event.key === "p") act(planFields(task, planned.has(task.id)));
-      // A step is a step of the plan, so a task the plan does not hold, and a
-      // page with no order of the person's own, have nothing to step.
-      else if (event.key === "J" || event.key === "K") {
-        if (!ordered || !planned.has(task.id)) return;
-        act({ intent: event.key === "K" ? "up" : "down", id: task.id });
-      }
-      // A task already finished has nothing left to finish.
-      else if (event.key === "x") {
-        if (task.finished) return;
-        act(finishFields(task));
-      } else return;
-
-      event.preventDefault();
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [rows, planned, ordered, on, setOn, act, navigate]);
-}
+import type { Group, GroupKey } from "./unified";
+import { useTaskKeys } from "./unified-keys";
+import { UnifiedRow } from "./unified-row";
 
 export function UnifiedList({
   groups,
@@ -94,7 +44,7 @@ export function UnifiedList({
   const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
 
   useLocalDay(day, !namedDay);
-  useKeys(rows, planned, ordered !== null, cursor, setOn, (fields) =>
+  useTaskKeys(rows, planned, ordered !== null, cursor, setOn, (fields) =>
     post.submit(fields, { method: "post" }),
   );
 

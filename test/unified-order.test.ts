@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { groupsFor, inOrder, type LiveTask } from "../app/unified";
+import {
+  columnsFor,
+  finishedSince,
+  groupsFor,
+  inOrder,
+  isPlannable,
+  readToggles,
+  unifiedColumns,
+  type LiveTask,
+} from "../app/unified";
 
 /** A row with only the parts the sort reads named. */
 function live(some: Partial<LiveTask> & { id: string }): LiveTask {
@@ -12,6 +21,7 @@ function live(some: Partial<LiveTask> & { id: string }): LiveTask {
     percentile: 0.5,
     created_at: "2026-01-01T00:00:00.000Z",
     fields: [],
+    assignees: [],
     finished: false,
     ...some,
   };
@@ -104,5 +114,79 @@ describe("the groups", () => {
   it("drops a planned task the org no longer holds", () => {
     const [today] = groupsFor([live({ id: "a" })], ["a", "gone"]);
     expect(today.tasks.map((one) => one.id)).toEqual(["a"]);
+  });
+});
+
+describe("the columns of the unified board", () => {
+  const off = { backlog: false, done: false, cancelled: false };
+
+  it("always draws To do and In progress", () => {
+    expect(unifiedColumns(off)).toEqual(["todo", "in_progress"]);
+  });
+
+  it("draws all five in board order when every toggle is on", () => {
+    expect(unifiedColumns({ backlog: true, done: true, cancelled: true })).toEqual([
+      "backlog",
+      "todo",
+      "in_progress",
+      "done",
+      "cancelled",
+    ]);
+  });
+
+  it("draws Backlog on the toggle alone, and by no rule of its own", () => {
+    expect(unifiedColumns(off)).not.toContain("backlog");
+    expect(unifiedColumns({ ...off, backlog: true })).toContain("backlog");
+  });
+
+  it("reads each toggle out of the query string", () => {
+    expect(readToggles(new URLSearchParams("?backlog=1&cancelled=1"))).toEqual({
+      backlog: true,
+      done: false,
+      cancelled: true,
+    });
+  });
+
+  it("puts each task in the column its status names, in the sort order", () => {
+    const columns = columnsFor(
+      [
+        live({ id: "second", percentile: 0.9 }),
+        live({ id: "running", status: "in_progress" }),
+        live({ id: "first", percentile: 0.1 }),
+      ],
+      ["todo", "in_progress"],
+    );
+
+    expect(columns.map((one) => [one.status, one.tasks.map((task) => task.id)])).toEqual([
+      ["todo", ["first", "second"]],
+      ["in_progress", ["running"]],
+    ]);
+  });
+
+  it("names a column the way the org board names it", () => {
+    expect(columnsFor([], ["in_progress"])[0].label).toBe("In progress");
+  });
+});
+
+describe("the seven-day cap", () => {
+  it("reaches back a week from the day the person is in", () => {
+    expect(finishedSince("2026-09-01")).toBe("2026-08-25T00:00:00.000Z");
+  });
+
+  it("crosses a month and a year end", () => {
+    expect(finishedSince("2026-01-03")).toBe("2025-12-27T00:00:00.000Z");
+  });
+});
+
+describe("what a plan can hold", () => {
+  it("takes a To do or an In progress task", () => {
+    expect(isPlannable(live({ id: "a" }))).toBe(true);
+    expect(isPlannable(live({ id: "b", status: "in_progress" }))).toBe(true);
+  });
+
+  it("takes no Backlog, Done or Cancelled task", () => {
+    expect(isPlannable(live({ id: "a", status: "backlog" }))).toBe(false);
+    expect(isPlannable(live({ id: "b", status: "done" }))).toBe(false);
+    expect(isPlannable(live({ id: "c", status: "cancelled" }))).toBe(false);
   });
 });

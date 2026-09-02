@@ -6,7 +6,9 @@ import {
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
+  flipped,
   readStatus,
+  readToday,
   type Status,
   type Toggles,
 } from "../board";
@@ -35,11 +37,6 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 /** What one card shows. The task page reads the rest of the row. */
 type Card = { id: string; title: string; fields: Shown[]; assignees: Assignee[] };
-
-/** True while the board is narrowed to today's plan. */
-function readToday(params: URLSearchParams): boolean {
-  return params.get("today") === "1";
-}
 
 /** Which of the two hidden columns the query string asks for. */
 function readToggles(params: URLSearchParams): Toggles {
@@ -304,18 +301,6 @@ function CardItem({
       </post.Form>
     </li>
   );
-}
-
-/**
- * The query string with one switch turned the other way, and the rest of it
- * kept. Every switch the header draws is one of these.
- */
-function flipped(params: URLSearchParams, which: string, on: boolean): string {
-  const next = new URLSearchParams(params);
-  if (on) next.delete(which);
-  else next.set(which, "1");
-  const query = next.toString();
-  return query ? `?${query}` : "?";
 }
 
 /**

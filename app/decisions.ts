@@ -3,7 +3,7 @@
  *
  * The prompt is not the answer of the post that finished the task. It is a
  * place, so every way of finishing reaches it — a board card, the task page, a
- * row of the unified view, focus mode — and a reload before the person answers
+ * card of the unified board, focus mode — and a reload before the person answers
  * raises the same prompt again. See ADR-0010.
  */
 
