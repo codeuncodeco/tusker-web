@@ -2,6 +2,8 @@ import { Link, useFetcher } from "react-router";
 
 import type { Status } from "./board";
 import { Dot } from "./dot";
+import { keyHint } from "./key-hint";
+import { KEY_MAP } from "./key-map";
 import type { LiveTask } from "./unified";
 
 /** The fields a pick or a finish posts, so a key and a button send the same thing. */
@@ -15,7 +17,7 @@ export function planFields(task: LiveTask, planned: boolean) {
  */
 export type Verbs = { pick: string; drop: string };
 
-export const PLAN_VERBS: Verbs = { pick: "Plan", drop: "Unplan" };
+export const PLAN_VERBS: Verbs = { pick: KEY_MAP.plan.label, drop: KEY_MAP.unplan.label };
 
 /**
  * What a move posts: the column the card lands in, and no place inside it. The
@@ -31,11 +33,6 @@ export function finishFields(task: LiveTask) {
   return { intent: "finish", id: task.id, slug: task.org.slug };
 }
 
-/** What a drop posts: focus mode moves the task down today's plan. See ADR-0009. */
-export function dropFields(task: LiveTask) {
-  return { intent: "drop", id: task.id, slug: task.org.slug };
-}
-
 /**
  * One row of plan mode and of focus mode, so the two lists cannot drift apart.
  * The unified board draws a card of its own.
@@ -45,7 +42,7 @@ export function dropFields(task: LiveTask) {
  * date does: the due date is the one signal that reads the same in every org.
  *
  * The two acts sit in a form of their own, so they work with no script. The
- * `p` and `x` keys post the same fields.
+ * `p` and `x` keys post the same fields, and each button carries its key.
  */
 export function UnifiedRow({
   task,
@@ -55,7 +52,6 @@ export function UnifiedRow({
   place,
   moves,
   plannable = true,
-  droppable = false,
   verbs = PLAN_VERBS,
 }: {
   task: LiveTask;
@@ -78,13 +74,15 @@ export function UnifiedRow({
   moves?: { up: boolean; down: boolean };
   /** False where planning a task means nothing, which is focus mode. */
   plannable?: boolean;
-  /** True where a task can leave the screen unfinished, which is focus mode. */
-  droppable?: boolean;
   /** What the pick button reads, where a page picks into a list of its own. */
   verbs?: Verbs;
 }) {
   const post = useFetcher();
   const plan = planFields(task, planned);
+  const up = keyHint("up");
+  const down = keyHint("down");
+  const pick = keyHint(planned ? "unplan" : "plan");
+  const finish = keyHint("finish");
 
   return (
     <li
@@ -130,18 +128,20 @@ export function UnifiedRow({
               value="up"
               disabled={!moves.up}
               aria-label={`Move ${task.title} up`}
+              {...up.keys}
               className="rounded border border-border px-1 text-xs disabled:opacity-30"
             >
-              ↑
+              ↑{up.hint}
             </button>
             <button
               name="intent"
               value="down"
               disabled={!moves.down}
               aria-label={`Move ${task.title} down`}
+              {...down.keys}
               className="rounded border border-border px-1 text-xs disabled:opacity-30"
             >
-              ↓
+              ↓{down.hint}
             </button>
           </>
         ) : null}
@@ -149,29 +149,22 @@ export function UnifiedRow({
           <button
             name="intent"
             value={plan.intent}
+            {...pick.keys}
             className="rounded border border-border px-1.5 text-xs"
           >
             {planned ? verbs.drop : verbs.pick}
-          </button>
-        ) : null}
-        {droppable ? (
-          <button
-            name="intent"
-            value="drop"
-            disabled={task.finished}
-            aria-label={`Drop ${task.title} to the end of the plan`}
-            className="rounded border border-border px-1.5 text-xs disabled:opacity-30"
-          >
-            Drop
+            {pick.hint}
           </button>
         ) : null}
         <button
           name="intent"
           value="finish"
           disabled={task.finished}
+          {...finish.keys}
           className="rounded border border-border px-1.5 text-xs disabled:opacity-30"
         >
-          Finish
+          {KEY_MAP.finish.label}
+          {finish.hint}
         </button>
       </post.Form>
 

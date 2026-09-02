@@ -231,44 +231,6 @@ describe("finishing from focus", () => {
   });
 });
 
-describe("dropping a task out of a batch", () => {
-  it("moves it to the end of the plan, unfinished", async () => {
-    const ada = await member("ada@example.test", "Ada");
-    await column(ada.org.id, "a", "b", "c", "d");
-    await plan(ada.person.id, ["a", "b", "c", "d"]);
-
-    await act(ada.cookie, { intent: "drop", id: "a", slug: ada.org.slug });
-
-    expect(await stored(ada.person.id)).toEqual(["b", "c", "d", "a"]);
-    expect(batch(await focus(ada.cookie))).toEqual(["b", "c", "d"]);
-  });
-
-  it("holds the batch first, where the day has no plan yet", async () => {
-    const ada = await member("ada@example.test", "Ada");
-    await column(ada.org.id, "a", "b", "c", "d");
-
-    await act(ada.cookie, { intent: "drop", id: "a", slug: ada.org.slug });
-
-    // The three on the screen become the plan, and the dropped one goes last
-    // of them. Taking three more brings work in front of it. See ADR-0009.
-    expect(await stored(ada.person.id)).toEqual(["b", "c", "a"]);
-  });
-
-  it("refuses a task the person cannot reach", async () => {
-    const ada = await member("ada@example.test", "Ada");
-    const eve = await member("eve@example.test", "Eve");
-    await task(eve.org.id, "theirs");
-    await plan(ada.person.id, []);
-
-    const response = await caught(
-      act(ada.cookie, { intent: "drop", id: "theirs", slug: eve.org.slug }),
-    );
-
-    expect(response.status).toBe(404);
-    expect(await stored(ada.person.id)).toEqual([]);
-  });
-});
-
 describe("taking three more", () => {
   it("appends the next three of the unified view, once the batch is done", async () => {
     const ada = await member("ada@example.test", "Ada");

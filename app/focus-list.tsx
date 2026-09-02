@@ -1,53 +1,31 @@
 /**
  * The batch on the screen, and the keys that work it.
  *
- * Focus is keyboard first, like the board: `j` and `k` move, `Enter` opens,
- * `x` finishes, `d` drops the task to the end of the plan and `n` takes three
- * more once the batch is done (ADR-0009). The buttons are the second way, not
- * the only one.
+ * Focus is keyboard first, like the board, and it binds the same keys through
+ * the same hook: `j` and `k` move, `Enter` opens and `x` finishes. Nothing
+ * here plans, steps or moves a column, because focus mode is three tasks and
+ * no editing of the plan (ADR-0009). `n` takes three more once the batch is
+ * done. The buttons are the second way, not the only one.
  */
 
 import { useEffect, useState } from "react";
-import { useFetcher, useNavigate } from "react-router";
+import { useFetcher } from "react-router";
 
+import { keyHint } from "./key-hint";
+import { KEY_MAP } from "./key-map";
 import { isPagePress } from "./keys";
 import type { LiveTask } from "./unified";
-import { UnifiedRow, dropFields, finishFields } from "./unified-row";
+import { type ListActs, useTaskKeys } from "./unified-keys";
+import { UnifiedRow } from "./unified-row";
 
-function useKeys(
-  rows: LiveTask[],
-  on: string | null,
-  setOn: (id: string) => void,
-  act: (fields: Record<string, string>) => void,
-) {
-  const navigate = useNavigate();
+/**
+ * Focus mode edits no plan. It opens a task and finishes it, and that is the
+ * whole of what the batch takes. See ADR-0009.
+ */
+const FOCUS_ACTS: ListActs = { plan: false, step: false, move: false };
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (!isPagePress(event)) return;
-
-      const at = rows.findIndex((one) => one.id === on);
-      const task = rows[at];
-      if (event.key === "j") setOn(rows[Math.min(at + 1, rows.length - 1)]?.id ?? "");
-      else if (event.key === "k") setOn(rows[Math.max(at - 1, 0)]?.id ?? "");
-      else if (!task) return;
-      else if (event.key === "Enter") navigate(`/o/${task.org.slug}/t/${task.id}`);
-      // A task already finished has nothing left to finish, and nothing to drop.
-      else if (event.key === "x") {
-        if (task.finished) return;
-        act(finishFields(task));
-      } else if (event.key === "d") {
-        if (task.finished) return;
-        act(dropFields(task));
-      } else return;
-
-      event.preventDefault();
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [rows, on, setOn, act, navigate]);
-}
+/** The plan set a focus row reads. Focus plans nothing, so it holds nothing. */
+const NO_PLAN: Set<string> = new Set();
 
 export function FocusList({ tasks }: { tasks: LiveTask[] }) {
   const post = useFetcher();
@@ -55,7 +33,9 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
 
   // The cursor names a task, and starts on the first of the batch.
   const cursor = tasks.some((one) => one.id === on) ? on : (tasks[0]?.id ?? null);
-  useKeys(tasks, cursor, setOn, (fields) => post.submit(fields, { method: "post" }));
+  useTaskKeys(tasks, NO_PLAN, FOCUS_ACTS, cursor, setOn, (fields) =>
+    post.submit(fields, { method: "post" }),
+  );
 
   return (
     <ul className="flex flex-col gap-2">
@@ -67,7 +47,6 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
           selected={cursor === task.id}
           domId={`row-${task.id}`}
           plannable={false}
-          droppable
         />
       ))}
     </ul>
@@ -84,11 +63,12 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
 export function TakeMore() {
   const post = useFetcher();
   const take = post.submit;
+  const more = keyHint("more");
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (!isPagePress(event)) return;
-      if (event.key !== "n") return;
+      if (event.key !== KEY_MAP.more.key) return;
       take({ intent: "more" }, { method: "post" });
       event.preventDefault();
     }
@@ -102,9 +82,11 @@ export function TakeMore() {
       <button
         name="intent"
         value="more"
+        {...more.keys}
         className="rounded border border-border px-2 py-1"
       >
-        Take three more <kbd>n</kbd>
+        {KEY_MAP.more.label}
+        {more.hint}
       </button>
     </post.Form>
   );

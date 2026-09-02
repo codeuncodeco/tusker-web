@@ -104,6 +104,25 @@ not the way out. The textarea is uncontrolled because the keys write the
 text and move the caret in place, and a re-render mid-edit loses the caret.
 _Avoid_: Description editor, description form
 
+**List keys**:
+The keys a keyed list binds, in `app/unified-keys.ts`: `j` and `k` move the
+cursor, `Enter` opens, `p` plans, `x` finishes, `>` and `<` walk a task between
+columns, and `J` and `K` step a planned task through the plan. One table,
+`app/key-map.ts`, holds the key of every act, and one hook binds the list's
+own, so the board, the plan, the week and focus mode cannot drift apart. `n`
+takes three more, and the offer that ends a batch binds it where it is drawn. A page says which
+acts it gives; the rest answer nothing. The peer of **Editor keys**: one is for
+a list and one is for a box, and `isPagePress` is the border between them.
+_Avoid_: Hotkeys, shortcuts, bindings
+
+**Key hint**:
+The mark a control carries to name its key: `Plan p`, `Finish x`. It is drawn
+where the pointer is fine, because a phone has no keyboard, and it rides beside
+`aria-keyshortcuts` on the control. The eye reads `⇧K` and the machine reads
+`Shift+K`: the two forms differ because the attribute has its own grammar. A
+sentence under a list that teaches the same key is a repeat, and goes.
+_Avoid_: Shortcut badge, keycap, tooltip
+
 **Editor keys**:
 What a description textarea does with a press, in `app/editor.ts`. Enter inside
 a list item continues the list at the same indent and keeps the checkbox
@@ -397,13 +416,6 @@ The tasks focus mode shows at one time, three at the most. The plan is cut into
 threes from the top, and the batch is the first three that hold an unfinished
 task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
-
-**Drop**:
-Taking a task out of a batch without finishing it. The task moves to the end of
-today's plan, so it comes back last. A dragged card also drops, on either
-board, and that drop names a column or a place: the two acts share the word and
-nothing else. See ADR-0009 and ADR-0015.
-_Avoid_: Skip, snooze, defer
 
 **Header**:
 The one bar every signed-in page draws. It has a person half, for Tasks, Week,

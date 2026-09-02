@@ -18,9 +18,9 @@ import { askedAcross } from "../decisions.server";
 import { FocusList, TakeMore } from "../focus-list";
 import { holdBatch, readFocus, takeMore } from "../focus.server";
 import { useLocalDay } from "../local-day";
-import { planPicks, pushDownPlan } from "../plans.server";
+import { planPicks } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
-import { actOnTask, taskFrom } from "../unified-actions.server";
+import { actOnTask } from "../unified-actions.server";
 import type { Route } from "./+types/me.focus";
 
 export function meta(_: Route.MetaArgs) {
@@ -56,16 +56,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   // The batch on the screen becomes today's plan before the act lands, so the
   // other two tasks stay where the person left them.
-  if (intent === "finish" || intent === "drop") {
+  if (intent === "finish") {
     await holdBatch(env.DB, set.personId, day, await readFocus(env.DB, set, set.personId, day));
-  }
-
-  if (intent === "drop") {
-    // A drop reads the task row like every other act, so a task the person
-    // cannot reach is a 404 and not an id a plan quietly moves.
-    const { task } = await taskFrom(env, set, form);
-    await pushDownPlan(env.DB, set.personId, day, task.id);
-    return { ok: true };
   }
 
   // Finishing here is the act the board makes, so a marked task raises the
@@ -93,9 +85,10 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
       {batch.tasks.length > 0 ? (
         <>
           <FocusList tasks={batch.tasks} />
+          {/* Finish draws a button, and the button carries `x`. These two keys
+              move and open, and no control on the page says them. */}
           <p className="text-muted">
-            <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>x</kbd> finishes and{" "}
-            <kbd>d</kbd> drops a task to the end of the plan.{" "}
+            <kbd>j</kbd> and <kbd>k</kbd> move, and <kbd>Enter</kbd> opens.{" "}
             {batch.left > 0 ? `${batch.left} more, after these.` : "This is the last of them."}
           </p>
         </>
