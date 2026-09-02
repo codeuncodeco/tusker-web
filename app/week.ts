@@ -69,6 +69,19 @@ export function daysOfWeek(week: string): string[] {
   });
 }
 
+/**
+ * The whole week, Monday to Sunday.
+ *
+ * The page draws five days, but the data holds seven: a Saturday plan is a
+ * plan, so a cascade that clears a week's plans must reach it.
+ */
+export function weekBounds(week: string): { monday: string; sunday: string } {
+  const monday = mondayOf(week);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  return { monday: dayText(monday), sunday: dayText(sunday) };
+}
+
 /** The week as a person reads it: the Monday and the Friday that bound it. */
 export function weekSpan(week: string): string {
   const days = daysOfWeek(week);

@@ -18,7 +18,7 @@ import { askedAcross } from "../decisions.server";
 import { FocusList, TakeMore } from "../focus-list";
 import { holdBatch, readFocus, takeMore } from "../focus.server";
 import { useLocalDay } from "../local-day";
-import { planPicks } from "../plans.server";
+import { planPicks } from "../picks.server";
 import { requireOrgSet } from "../scope.server";
 import { actOnTask } from "../unified-actions.server";
 import type { Route } from "./+types/me.focus";

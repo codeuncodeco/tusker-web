@@ -5,6 +5,7 @@ import {
   columnsFor,
   finishedSince,
   groupsFor,
+  planGroups,
   inOrder,
   isPlannable,
   unifiedColumns,
@@ -115,6 +116,44 @@ describe("the groups", () => {
   it("drops a planned task the org no longer holds", () => {
     const [today] = groupsFor([live({ id: "a" })], ["a", "gone"]);
     expect(today.tasks.map((one) => one.id)).toEqual(["a"]);
+  });
+});
+
+describe("the groups plan mode draws", () => {
+  it("draws the plan, this week, In progress and To do, in that order", () => {
+    const groups = planGroups([live({ id: "a" })], [], []);
+    expect(groups.map((one) => one.key)).toEqual(["today", "week", "in_progress", "todo"]);
+  });
+
+  it("draws the week set in percentile order, whatever order it arrives in", () => {
+    const tasks = [live({ id: "a", percentile: 0.9 }), live({ id: "b", percentile: 0.1 })];
+    const [, week] = planGroups(tasks, [], ["a", "b"]);
+    expect(week.tasks.map((one) => one.id)).toEqual(["b", "a"]);
+  });
+
+  it("draws a task the plan holds in the plan and not in the week", () => {
+    const tasks = [live({ id: "a" }), live({ id: "b" })];
+    const [today, week] = planGroups(tasks, ["a"], ["a", "b"]);
+    expect(today.tasks.map((one) => one.id)).toEqual(["a"]);
+    expect(week.tasks.map((one) => one.id)).toEqual(["b"]);
+  });
+
+  it("leaves the rest of the live set under its own headings", () => {
+    const tasks = [live({ id: "a" }), live({ id: "b", status: "in_progress" }), live({ id: "c" })];
+    const [, , inProgress, todo] = planGroups(tasks, ["a"], []);
+    expect(inProgress.tasks.map((one) => one.id)).toEqual(["b"]);
+    expect(todo.tasks.map((one) => one.id)).toEqual(["c"]);
+  });
+
+  it("keeps the plan in plan order", () => {
+    const tasks = [live({ id: "a", percentile: 0.1 }), live({ id: "b", percentile: 0.9 })];
+    const [today] = planGroups(tasks, ["b", "a"], ["a", "b"]);
+    expect(today.tasks.map((one) => one.id)).toEqual(["b", "a"]);
+  });
+
+  it("drops a member no org answers for", () => {
+    const [, week] = planGroups([live({ id: "a" })], [], ["a", "gone"]);
+    expect(week.tasks.map((one) => one.id)).toEqual(["a"]);
   });
 });
 

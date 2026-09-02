@@ -8,7 +8,6 @@
  * plan. See ADR-0004.
  */
 
-import type { Leftovers } from "./leftovers";
 import type { Picks } from "./picks";
 import { moveInPlan, type Step } from "./plan";
 
@@ -29,27 +28,6 @@ export async function readPlan(
     .bind(personId, day)
     .first<{ task_ids: string }>();
   return row ? (JSON.parse(row.task_ids) as string[]) : null;
-}
-
-/**
- * The last plan before a day, or null when the person planned no earlier day.
- *
- * The day it names is the last day that holds a plan, so after a weekend it is
- * Friday and not yesterday. A plan for a later day says nothing about this
- * one.
- */
-export async function lastPlanBefore(
-  db: D1Database,
-  personId: string,
-  day: string,
-): Promise<Leftovers | null> {
-  const row = await db
-    .prepare(
-      "SELECT day, task_ids FROM plans WHERE user_id = ? AND day < ? ORDER BY day DESC LIMIT 1",
-    )
-    .bind(personId, day)
-    .first<{ day: string; task_ids: string }>();
-  return row ? { from: row.day, taskIds: JSON.parse(row.task_ids) as string[] } : null;
 }
 
 /**
@@ -155,16 +133,41 @@ async function writePlan(
     .run();
 }
 
-/** The picks of one day: what plan mode's acts, and a board's, write. */
-export function planPicks(
+/**
+ * Takes a block of tasks out of every plan in a run of days.
+ *
+ * A task that leaves a week set leaves that week's plans with it, from the day
+ * the person is on and forward. The run stops where the caller says, because
+ * a past day is never rewritten: a plan records what a person meant to do on
+ * that day. See ADR-0014.
+ */
+export async function unplanAcross(
   db: D1Database,
   personId: string,
-  day: string,
-  onAdd: boolean,
-): Picks {
-  return {
-    onAdd,
-    add: (taskIds) => appendToPlan(db, personId, day, taskIds),
-    remove: (taskIds) => unplanTasks(db, personId, day, taskIds),
-  };
+  from: string,
+  to: string,
+  taskIds: string[],
+): Promise<void> {
+  if (taskIds.length === 0 || from > to) return;
+
+  const drop = new Set(taskIds);
+  const { results } = await db
+    .prepare("SELECT day, task_ids FROM plans WHERE user_id = ? AND day >= ? AND day <= ?")
+    .bind(personId, from, to)
+    .all<{ day: string; task_ids: string }>();
+
+  const writes = results
+    .map((row) => ({ day: row.day, taskIds: JSON.parse(row.task_ids) as string[] }))
+    .filter((one) => one.taskIds.some((id) => drop.has(id)))
+    .map((one) =>
+      db
+        .prepare(
+          `UPDATE plans SET task_ids = ?,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           WHERE user_id = ? AND day = ?`,
+        )
+        .bind(JSON.stringify(one.taskIds.filter((id) => !drop.has(id))), personId, one.day),
+    );
+
+  if (writes.length > 0) await db.batch(writes);
 }

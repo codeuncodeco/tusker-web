@@ -9,15 +9,24 @@
  * draws it in the sort every cross-org list has and gives no way to step a
  * row. The order of the work is the day's business. See ADR-0014.
  *
+ * A week with no set opens on the leftovers prompt: the unfinished members of
+ * the last week that holds one, to carry forward or to leave. That offer is
+ * made once a week, and the day carries nothing. See ADR-0014.
+ *
  * Every pick writes the row. There is no draft and no Commit button, because a
  * commitment the tab can lose is no commitment. See ADR-0008.
  */
+
+import { Form } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
+import type { Leftovers } from "../leftovers";
+import { leftoversFor } from "../leftovers.server";
+import { weekPicks } from "../picks.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { UnifiedAdd } from "../unified-add";
@@ -25,7 +34,7 @@ import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import { isWeek, weekIn, weekSpan } from "../week";
-import { readWeekSet, weekPicks } from "../weeks.server";
+import { readWeekSet, startWeek } from "../weeks.server";
 import type { Route } from "./+types/me.week";
 
 /** What the pick button reads here: a week is picked, and a day is planned. */
@@ -50,7 +59,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const week = weekFor(request, params.week);
-  const members = (await readWeekSet(env.DB, set.personId, week)) ?? [];
+  const started = await readWeekSet(env.DB, set.personId, week);
+  const members = started ?? [];
+  // A week already started raises no prompt, emptied set included: the parent
+  // row says the person planned this week, and a set is theirs to empty.
+  const leftovers = started === null ? await leftoversFor(env.DB, set, week) : null;
   // The members are read alongside the live set, so a task finished this week
   // keeps its membership and is drawn struck through. A member no org answers
   // for — archived, or in an org the person left — is left out of both.
@@ -67,6 +80,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     named: params.week !== undefined,
     /** The day the browser is in, which is what names an unnamed week. */
     day: dayOf(request),
+    /** What the last set leaves over, or null when there is nothing to offer. */
+    leftovers,
     groups,
     picked: inWeek.tasks.map((one) => one.id),
     /** What the week says on a Friday: six of nine. */
@@ -82,8 +97,19 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   const form = await request.formData();
   const week = weekFor(request, params.week);
+
+  // Carrying forward copies the old memberships into this week's set. The old
+  // rows are read and never written, so a carried task is in both sets.
+  const intent = String(form.get("intent") ?? "");
+  if (intent === "carry" || intent === "clean") {
+    const carried = intent === "carry" ? await leftoversFor(env.DB, set, week) : null;
+    await startWeek(env.DB, set.personId, week, carried?.taskIds ?? []);
+    return { ok: true };
+  }
+
   // An add here is a pick as well, so the task joins the week it is typed into.
-  const picks = weekPicks(env.DB, set.personId, week, true);
+  // A task that leaves the set leaves this week's plans from today forward.
+  const picks = weekPicks(env.DB, set.personId, week, true, dayOf(request));
 
   const acted = await actOnTask(env, request, set, picks, form);
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
@@ -92,7 +118,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Week({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, picked, week, span, day, done, ask } = loaderData;
+  const { orgs, groups, picked, week, span, day, done, leftovers, ask } = loaderData;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -117,6 +143,8 @@ export default function Week({ loaderData }: Route.ComponentProps) {
         nothing waits on this tab.
       </p>
 
+      {leftovers && <LeftoverPrompt leftovers={leftovers} />}
+
       <UnifiedList
         groups={groups}
         planned={new Set(picked)}
@@ -130,5 +158,31 @@ export default function Week({ loaderData }: Route.ComponentProps) {
 
       <DecisionPrompt ask={ask} />
     </main>
+  );
+}
+
+/**
+ * The two ways out of an unfinished week: carry its leftovers into this one,
+ * or start clean. The prompt names the week it carries from, because the last
+ * week that holds a set is not always the week before.
+ */
+function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
+  const count = leftovers.taskIds.length;
+
+  return (
+    <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
+      <p className="grow">
+        {leftovers.from} left {count} {count === 1 ? "task" : "tasks"} unfinished.
+      </p>
+
+      <Form method="post" className="flex gap-2">
+        <button name="intent" value="carry" className="rounded border border-border px-3 py-1">
+          Carry {count === 1 ? "it" : "them"} forward
+        </button>
+        <button name="intent" value="clean" className="rounded border border-border px-3 py-1">
+          Start clean
+        </button>
+      </Form>
+    </section>
   );
 }
