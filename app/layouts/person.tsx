@@ -11,6 +11,7 @@ import { Outlet } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { currentOrg, held, slugOfCurrentOrg } from "../current-org";
+import { useFrame } from "../frame";
 import { Header } from "../header";
 import { requireOrgSet } from "../scope.server";
 import type { Route } from "./+types/person";
@@ -24,10 +25,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 export default function Person({ loaderData }: Route.ComponentProps) {
+  // A board page holds still and scrolls inside its columns, so the wrapper is
+  // the window and nothing taller. Every other page keeps document scroll.
+  const frame = useFrame();
+
   return (
-    <div className="flex min-h-full flex-col">
+    <div
+      className={`flex min-h-full flex-col ${frame ? "sm:h-full sm:min-h-0 sm:overflow-hidden" : ""}`}
+    >
       <Header orgs={loaderData.orgs} org={loaderData.org} />
-      <div className="flex flex-1 flex-col">
+      <div className={`flex flex-1 flex-col ${frame ? "sm:min-h-0" : ""}`}>
         <Outlet />
       </div>
     </div>

@@ -90,7 +90,8 @@ export function UnifiedBoard({
       // A cancelled drag raises no drop, so the outline is cleared here: the
       // end of a drag bubbles from the card to the board whatever ended it.
       onDragEnd={() => setOver(null)}
-      className="flex flex-1 gap-4 overflow-x-auto"
+      // The row holds still, and each column scrolls inside itself.
+      className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0"
     >
       {columns.map((column) => (
         <section
@@ -105,9 +106,12 @@ export function UnifiedBoard({
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(null);
           }}
           onDrop={(event) => onDrop(column.status, event)}
+          // Every column takes an equal share of the width, down to the width
+          // it always had. Past that the row scrolls sideways.
+          //
           // The outline says where the card will land. It borrows the colour a
           // selected card carries, because both mean "this one".
-          className={`flex w-72 shrink-0 flex-col gap-3 rounded-lg border p-3 ${
+          className={`flex min-w-72 flex-1 flex-col gap-3 rounded-lg border p-3 ${
             over === column.status ? "border-fg" : "border-border"
           }`}
         >
@@ -125,7 +129,10 @@ export function UnifiedBoard({
             addKey={column.status === "todo"}
           />
 
-          <ul className="flex flex-col gap-2">
+          {/* The heading and the box stay pinned, and only this scrolls. The
+              gutter is reserved, so a full column is as wide as an empty one,
+              which is the point of the equal split. */}
+          <ul className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
             {column.tasks.map((task, at) => (
               <UnifiedCard
                 key={task.id}
