@@ -181,25 +181,28 @@ export function isPlannable(task: LiveTask): boolean {
  * all of them.
  */
 
-/** The two columns the unified board always draws. */
-const ALWAYS_SHOWN: Status[] = ["todo", "in_progress"];
-
 /**
- * The three columns a person turns on.
+ * The three columns the unified board always draws.
  *
- * Backlog is one of them here and it is not on the org board. There the column
+ * Done is one of them. The board draws work in hand and where it ended, and
+ * where work ended is never a request, so the column comes on every load and
+ * it comes empty on a week with no finished work. See ADR-0018.
+ *
+ * Backlog is a switch here and it is a rule on the org board. There the column
  * appears on its own when To do and In progress are both empty. Across every
  * org that reads "this person holds no live task anywhere", which is near
- * enough never, so the rule is dead and the toggle is all there is.
+ * enough never, so the rule is dead and the switch is all there is.
  */
-export const UNIFIED_TOGGLES: Status[] = ["backlog", "done", "cancelled"];
+const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
 
-/** The columns to draw, in board order. */
+/**
+ * The columns to draw, in board order. The switches are `BOARD_TOGGLES`, the
+ * same two the org board offers.
+ */
 export function unifiedColumns(toggles: Toggles): Status[] {
   return [
     ...(toggles.backlog ? (["backlog"] as Status[]) : []),
     ...ALWAYS_SHOWN,
-    ...(toggles.done ? (["done"] as Status[]) : []),
     ...(toggles.cancelled ? (["cancelled"] as Status[]) : []),
   ];
 }

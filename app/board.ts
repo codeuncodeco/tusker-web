@@ -74,7 +74,15 @@ const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
  */
 export type Toggles = Partial<Record<Status, boolean>>;
 
-/** The columns the org board hides until a person asks for them. */
+/**
+ * The columns a board hides until a person asks for them. Both boards offer
+ * this list and no other, so the two read one list rather than two that must
+ * stay equal.
+ *
+ * The board draws work in hand and where it ended. Backlog is neither, so it
+ * comes by rule or by request; Cancelled is off the run, so it comes by
+ * request. Done is where work ended, and that is never a request. See ADR-0018.
+ */
 export const BOARD_TOGGLES: Status[] = ["backlog", "cancelled"];
 
 /** The toggles one board offers, read out of the query string. */

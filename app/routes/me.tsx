@@ -13,7 +13,7 @@
  * ADR-0015.
  */
 
-import { readToday, readToggles } from "../board";
+import { BOARD_TOGGLES, readToday, readToggles } from "../board";
 import { ColumnSwitch, TodayChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
@@ -23,7 +23,7 @@ import { askedAcross } from "../decisions.server";
 import { planPicks } from "../picks.server";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
-import { columnsFor, finishedSince, unifiedColumns, UNIFIED_TOGGLES } from "../unified";
+import { columnsFor, finishedSince, unifiedColumns } from "../unified";
 import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified } from "../unified.server";
@@ -42,7 +42,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   const day = dayOf(request);
   const query = new URL(request.url).searchParams;
-  const toggles = readToggles(query, UNIFIED_TOGGLES);
+  const toggles = readToggles(query, BOARD_TOGGLES);
   const shown = unifiedColumns(toggles);
 
   // Done and Cancelled cap to the last seven days. Across every org they would
@@ -100,7 +100,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           {/* A person with no plan for today gets no chip: there is nothing
               to narrow to, and the header carries Plan on every page. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
-          {UNIFIED_TOGGLES.map((which) => (
+          {BOARD_TOGGLES.map((which) => (
             <ColumnSwitch key={which} which={which} toggles={toggles} />
           ))}
         </nav>
