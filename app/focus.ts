@@ -4,7 +4,7 @@
  * Three is the whole feature. A plan of fourteen tasks is a list a person
  * reads; three is work they do. This module holds the one rule that says
  * which three, and it reads a list somebody else ordered — the plan when a
- * plan exists, the unified view when it does not.
+ * plan exists, the live set when it does not.
  */
 
 import type { LiveTask } from "./unified";

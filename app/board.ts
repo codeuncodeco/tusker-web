@@ -15,7 +15,19 @@ export const STATUS_LABEL: Record<Status, string> = {
 /** The three columns the board always shows. */
 const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
 
-export type Toggles = { backlog: boolean; cancelled: boolean };
+/**
+ * Which of the hidden columns a query string asks for. Each board offers its
+ * own set of them, and the query string names a column by its status.
+ */
+export type Toggles = Partial<Record<Status, boolean>>;
+
+/** The columns the org board hides until a person asks for them. */
+export const BOARD_TOGGLES: Status[] = ["backlog", "cancelled"];
+
+/** The toggles one board offers, read out of the query string. */
+export function readToggles(params: URLSearchParams, which: readonly Status[]): Toggles {
+  return Object.fromEntries(which.map((status) => [status, params.get(status) === "1"]));
+}
 
 /** True when the value names a status. Every write of a status reads this. */
 export function isStatus(value: unknown): value is Status {
@@ -51,4 +63,21 @@ export function columnsToShow(counts: Record<Status, number>, toggles: Toggles):
 /** True when the board shows Backlog whatever the toggle says. */
 export function backlogByRule(counts: Record<Status, number>): boolean {
   return counts.todo === 0 && counts.in_progress === 0;
+}
+
+/** True while a board is narrowed to today's plan. */
+export function readToday(params: URLSearchParams): boolean {
+  return params.get("today") === "1";
+}
+
+/**
+ * The query string with one switch turned the other way, and the rest of it
+ * kept. Every switch a board header draws is one of these.
+ */
+export function flipped(params: URLSearchParams, which: string, on: boolean): string {
+  const next = new URLSearchParams(params);
+  if (on) next.delete(which);
+  else next.set(which, "1");
+  const query = next.toString();
+  return query ? `?${query}` : "?";
 }

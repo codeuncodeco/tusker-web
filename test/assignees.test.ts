@@ -298,7 +298,7 @@ describe("a card", () => {
 });
 
 describe("a due date set on the task page", () => {
-  it("shows on the unified view row", async () => {
+  it("shows on the unified board card", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const org = await team("hikes", [ada.person]);
     const id = await task(org.id, "walk");
@@ -308,7 +308,7 @@ describe("a due date set on the task page", () => {
     const request = get("/me");
     request.headers.set("cookie", `${ada.cookie}; day=${DAY}`);
     const page = await meRoute.loader(routeArgs(request));
-    const rows = page.groups.flatMap((group) => group.tasks);
-    expect(rows.find((one) => one.id === id)!.due_date).toBe("2026-09-20");
+    const cards = page.columns.flatMap((column) => column.tasks);
+    expect(cards.find((one) => one.id === id)!.due_date).toBe("2026-09-20");
   });
 });

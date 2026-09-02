@@ -50,7 +50,7 @@ _Avoid_: Setup wizard, first-run signup
 **Landing**:
 The page at `/` for a person with no session: the product line, the note that
 Tusker is invitation only, and the way in. A signed-in person never sees it,
-because `/` sends that person to the unified view. While the instance holds
+because `/` sends that person to the unified board. While the instance holds
 no account, `/` sends the person to Bootstrap.
 _Avoid_: Home page, marketing page, splash
 
@@ -95,6 +95,24 @@ flips that line in the raw text and saves the whole description. A
 checkbox-looking line inside a fenced block is text, and no box counts it, so
 the Nth box on screen is always the Nth toggleable line.
 _Avoid_: Subtask, task list item, todo
+
+**Description box**:
+The control that edits a description: a read view with an Edit button, and an
+uncontrolled textarea that opens in its place and takes focus. Leaving the box
+saves the whole text: Done, or Escape, or a click away. Tab indents, so Tab is
+not the way out. The textarea is uncontrolled because the keys write the
+text and move the caret in place, and a re-render mid-edit loses the caret.
+_Avoid_: Description editor, description form
+
+**Editor keys**:
+What a description textarea does with a press, in `app/editor.ts`. Enter inside
+a list item continues the list at the same indent and keeps the checkbox
+marker, and Enter on an empty item ends the list. Tab and Shift+Tab indent and
+outdent the selected lines by two spaces. Cmd or Ctrl and K makes a link out of
+the selection. Pasting a URL over a selection wraps the selection as a link.
+The keys are the whole interface: there is no toolbar, and there is no bold or
+italic.
+_Avoid_: Shortcuts, markdown toolbar, rich text
 
 **Assignee**:
 A member who holds a task. A task can have several, and a task with none is
@@ -156,8 +174,10 @@ order puts the card, read at draw time, and no row stores it.
 _Avoid_: Personal priority, personal rank
 
 **Percentile order**:
-The rule that sorts the cross-org list. A task takes its fractional place inside
-its own org column, and the due date breaks a tie.
+The rule that sorts a cross-org column. A task takes its fractional place inside
+its own org column, and the due date breaks a tie. It is what makes the unified
+rank drift between loads: the place is an index over a column length that
+changes.
 
 ### Fields
 
@@ -229,10 +249,20 @@ _Avoid_: Tasks endpoint, public API
 The To do, In progress and Done columns for one org, with Backlog and Cancelled
 shown by rule.
 
+**Unified board**:
+The same five columns across every org one person belongs to, at `/me`. A
+person who learns the board on one org meets the same page on all of them.
+Backlog, Done and Cancelled are toggle-only here, because the org board's
+Backlog rule reads "this person holds no live task anywhere" and is therefore
+dead, and Done and Cancelled cap to the last seven days. Inside a column the
+order is percentile order, and it is derived: no card is dragged and no card
+steps.
+_Avoid_: Unified view, my tasks page, global board
+
 **Quick-add box**:
 The box that makes a task from a typed title. On a board it sits at the top of a
-column, and the column names the status. On the unified view and in plan mode it
-carries an org picker instead, which starts at the personal org every time a
+column, and the column names the status. On the unified board and in plan mode
+it carries an org picker, which starts at the personal org every time a
 person opens Tusker. A team org draws a chip that names it while the box holds
 it. The decision mark is set here. The title is a textarea one line high: Enter
 posts and Shift+Enter makes a line, so a pasted list keeps its line breaks.
@@ -267,8 +297,8 @@ _Avoid_: Week plan, weekly backlog, commitment
 
 **Week page**:
 The page where a person builds a week set, at `/me/week`, and `/me/week/:week`
-for a named week. It is the unified view with selection turned on, with the
-quick-add box, and the week it draws runs Monday to Friday. Every pick writes,
+for a named week. It draws the live set as a list, as plan mode does, with the
+quick-add box, and the week it names runs Monday to Friday. Every pick writes,
 as in plan mode. See ADR-0014.
 _Avoid_: Weekly planner, week board
 
@@ -279,11 +309,13 @@ plan holds is in that week's set: picking a task the set does not hold adds it.
 See ADR-0014.
 
 **Plan mode**:
-The page where a person builds a plan: pick the tasks, order them, keep them. It
-is the unified view with selection turned on, at `/me/plan`, and `/me/plan/:day`
-for a named day. Every pick and every step writes the plan row, so nothing waits
-on a tab and there is no Commit button. It draws the week set first, and the
-rest of the unified view under a heading below it. See ADR-0008.
+The page where a person builds a plan: pick the tasks, order them, keep them.
+It draws the live set as a list, at `/me/plan`, and `/me/plan/:day` for a named
+day. Plan mode, focus and the unified board share the live set and the sort,
+and lay them out differently: a plan drawn from a Done column is nonsense. The
+week set comes first, and the rest of the live set under a heading below it.
+Every pick and every step writes the plan row, so nothing waits on a tab and
+there is no Commit button. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
 
 **Leftovers**:
@@ -296,24 +328,24 @@ unfinished work waits. See ADR-0014.
 _Avoid_: Rollover, unfinished carry-over
 
 **Today chip**:
-The control on a board that narrows it to the tasks today's plan holds. Every
-board draws it, planned or not. A day with no plan holds nothing to narrow to,
-so the chip is then a way to plan mode: a control that comes and goes teaches
-nobody that plans exist. See ADR-0011.
+The control on a board that narrows it to the tasks today's plan holds. Both
+boards carry one. A person with no plan for today gets no chip on the unified
+board, and the org board's chip then leads to plan mode instead.
 _Avoid_: Today filter, my-day toggle
 
 **Week chip**:
 The control on a board that narrows it to the tasks this week's set holds. It
-sits beside the Today chip and reads the same way: every board draws it, and a
-week with an empty set makes it a way to the week page. The two narrowings are
-exclusive, so a board is narrowed by one, or by neither.
+sits beside the Today chip and reads the same way: both boards carry one, a
+person with no set for this week gets no chip on the unified board, and the org
+board's chip then leads to the week page. The two narrowings are exclusive, so
+a board is narrowed by one, or by neither.
 _Avoid_: Week filter, this-week toggle
 
 **Focus**:
 A mode that shows one batch of tasks and hides the rest until that batch is
 done, at `/me/focus`. It draws from the plan when a plan exists, from the week
-set in percentile order when none does, and from the unified view when there is
-no set either. See ADR-0009.
+set when none does, and from the live set when there is no set either.
+See ADR-0009 and ADR-0014.
 _Avoid_: Focus timer, deep work mode
 
 **Batch**:
@@ -336,14 +368,15 @@ See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 
 **Assignee filter**:
-The control on a board and on the unified view that narrows by who holds a
-task: mine, unassigned, or everyone. It is everyone by default, it lives in the
-address, and on a board it narrows what the Today chip already left. An org of
-one member carries no filter. See ADR-0013.
+The control on either board that narrows by who holds a task: mine,
+unassigned, or everyone. It is everyone by default, it lives in the address,
+and it narrows what the Today chip already left. An org of one member carries
+no filter. See ADR-0013.
 _Avoid_: My tasks toggle, owner filter
 
-**Unified view**:
-Every live task of every org one person belongs to, in percentile order. It is
-not narrowed to the tasks they hold: the assignee filter does that, and the plan
-is where a person's own list lives.
-_Avoid_: My tasks page, global board
+**Live set**:
+To do and In progress, across every org one person belongs to, in percentile
+order. The unified board draws it as two of its five columns, and plan mode and
+focus draw it as a list. It is not narrowed to the tasks the person holds: the
+assignee filter does that, and the plan is where a person's own list lives.
+_Avoid_: My tasks, unified view

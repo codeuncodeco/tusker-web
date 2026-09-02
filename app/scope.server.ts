@@ -63,7 +63,7 @@ export async function requireScope(
 
 /**
  * Proof that the signed-in person is a member of every org in the set. The
- * unified view reads across all of them at once, so it takes this rather than
+ * cross-org pages read across all of them at once, so they take this rather than
  * a list of ids it assembled itself.
  */
 export type OrgSet = { orgs: Org[]; personId: string };

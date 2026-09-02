@@ -2,11 +2,12 @@
  * The acts both cross-org lists make: make a task, put it in a day's plan, take
  * it out again, finish it, and take an add back.
  *
- * The unified view and plan mode are one list, so they are one set of acts as
- * well. A key and a button post the same fields to either route.
+ * The unified board and plan mode draw the same tasks, so they are one set of
+ * acts as well. A key and a button post the same fields to either route.
  */
 
-import { decide, finishTask } from "./decisions.server";
+import { readStatus, type Status } from "./board";
+import { decide, finishTask, moveAndAsk, promptFor } from "./decisions.server";
 import { appendToPlan, unplanTasks } from "./plans.server";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { createTasks, deleteTasks, newTasksFrom, readTask, type Task } from "./tasks.server";
@@ -42,15 +43,28 @@ function scopeFrom(set: OrgSet, form: FormData): Scope {
 }
 
 /**
- * Makes a task of every line typed, in the org the picker named.
+ * The column an add names, or To do.
  *
- * The tasks land in To do, at the top of the column and in list order, where a
- * person looks for the ones they just typed. Plan mode also puts every one of
- * them at the end of the day's plan, because there an add is a pick: a person
- * who pastes ten lines into their own plan asked for ten picks.
+ * Each box of the unified board names its own column. Plan mode's box names
+ * none: an add there is a pick as well, and a pick is live work.
+ */
+function statusFor(form: FormData, intoPlan: boolean): Status {
+  if (intoPlan || form.get("status") === null) return "todo";
+  return readStatus(form);
+}
+
+/**
+ * Makes a task of every line typed, in the org the picker named and the column
+ * the box sits on.
+ *
+ * The tasks land at the top of the column and in list order, where a person
+ * looks for the ones they just typed. Plan mode also puts every one of them at
+ * the end of the day's plan, because there an add is a pick: a person who
+ * pastes ten lines into their own plan asked for ten picks.
  */
 async function addTasks(
   env: Env,
+  request: Request,
   set: OrgSet,
   day: string,
   form: FormData,
@@ -60,8 +74,15 @@ async function addTasks(
   const typed = newTasksFrom(form);
   if ("error" in typed) return typed;
 
-  const ids = await createTasks(env.DB, scope, { ...typed, status: "todo" });
+  const status = statusFor(form, intoPlan);
+  const ids = await createTasks(env.DB, scope, { ...typed, status });
   if (intoPlan) await appendToPlan(env.DB, set.personId, day, ids);
+
+  // A marked task typed straight into Done is finished the moment it is made,
+  // so it is asked now: no later move would ask it. One box is one prompt, so
+  // a pasted list is asked about the task on top of it.
+  const prompt = await promptFor(env.DB, scope, request, ids[0]);
+  if (prompt) return prompt;
 
   // The box keeps the words as they were typed, so an add into the wrong org
   // is filed again rather than typed again. See ADR-0012.
@@ -96,7 +117,7 @@ async function undoAdd(env: Env, set: OrgSet, day: string, form: FormData): Prom
  * stand apart: they name an org and a list, not one task. Any other form is
  * the route's own.
  */
-const ACTS = ["plan", "unplan", "finish", "decide"] as const;
+const ACTS = ["plan", "unplan", "move", "finish", "decide"] as const;
 
 /**
  * What one act answers with: the page again when it raised or answered the
@@ -120,7 +141,7 @@ export async function actOnTask(
 ): Promise<Acted | null> {
   const intent = String(form.get("intent") ?? "");
   // An add names an org and no task, so it proves its scope and stops here.
-  if (intent === "create") return addTasks(env, set, day, form, intoPlan);
+  if (intent === "create") return addTasks(env, request, set, day, form, intoPlan);
   // Taking an add back is the one delete Tusker has. It names every row that
   // add made, so it stands apart as well. See ADR-0012.
   if (intent === "undo") return undoAdd(env, set, day, form);
@@ -130,6 +151,15 @@ export async function actOnTask(
   // through the one-org scope.
   const { scope, task } = await taskFrom(env, set, form);
   const taskId = task.id;
+
+  // The select of a unified card. The task lands at the bottom of that column
+  // in its own org: a task nobody placed sits at the bottom. Moving is the
+  // board's act, so a marked task raises the prompt here as it does there.
+  if (intent === "move") {
+    const moved = await moveAndAsk(env.DB, scope, request, taskId, readStatus(form));
+    if (!moved.moved) throw new Response("Not found", { status: 404 });
+    return moved.prompt ?? { ok: true };
+  }
 
   if (intent === "plan") {
     // Picking a task for today is the act of taking it out of the backlog, so

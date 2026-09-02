@@ -18,7 +18,7 @@ three tasks long. So focus stores nothing of its own.
   three that hold an unfinished task. A finished task keeps its place in the
   batch, struck through, so no task slides up.
 - With no plan, focus draws the first three of the week set in percentile order,
-  or of the unified view when the week holds no set, and the first act on them —
+  or of the live set when the week holds no set, and the first act on them —
   a finish or a drop — writes them as today's plan. From then on the day has a
   plan and the rule above holds.
 - When the plan holds no unfinished task, focus offers three more, and taking

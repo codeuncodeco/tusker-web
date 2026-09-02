@@ -105,6 +105,33 @@ export async function saveTask(
 }
 
 /**
+ * Writes the whole description the box saved.
+ *
+ * The text is raw markdown and is written as it was typed: the page renders it,
+ * so nothing is escaped or normalised on the way in. The write is scoped like
+ * every other, so a task another org holds is not reachable by its id.
+ *
+ * Returns false when no row matched, so the route can answer 404.
+ */
+export async function saveDescription(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+  description: string,
+): Promise<boolean> {
+  const done = await db
+    .prepare(
+      `UPDATE tasks
+       SET description = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE id = ? AND org_id = ?`,
+    )
+    .bind(description, taskId, scope.org.id)
+    .run();
+
+  return done.meta.changes > 0;
+}
+
+/**
  * Flips the Nth checkbox of one task's description and writes the whole text
  * back.
  *
@@ -458,7 +485,7 @@ export async function readTaskFilter(
  * hand, and Done is a status, not the archive.
  *
  * The whole list answers at once. One org's live tasks are hundreds of rows,
- * as they are for the unified view, so there is no page and no limit.
+ * as they are for the unified board, so there is no page and no limit.
  */
 export async function filterTasks(
   db: D1Database,

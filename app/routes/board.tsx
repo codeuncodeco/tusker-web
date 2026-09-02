@@ -2,14 +2,17 @@ import { useEffect } from "react";
 import { Link, useFetcher, useSearchParams } from "react-router";
 
 import {
+  BOARD_TOGGLES,
   STATUSES,
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
   readStatus,
+  readToday,
+  readToggles,
   type Status,
-  type Toggles,
 } from "../board";
+import { Toggle, TodayChip } from "../board-chrome";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
 import { listColors } from "../colors.server";
@@ -35,16 +38,6 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 /** What one card shows. The task page reads the rest of the row. */
 type Card = { id: string; title: string; fields: Shown[]; assignees: Assignee[] };
-
-/** True while the board is narrowed to today's plan. */
-function readToday(params: URLSearchParams): boolean {
-  return params.get("today") === "1";
-}
-
-/** Which of the two hidden columns the query string asks for. */
-function readToggles(params: URLSearchParams): Toggles {
-  return { backlog: params.get("backlog") === "1", cancelled: params.get("cancelled") === "1" };
-}
 
 /** How many tasks each status holds, so the Backlog rule can read it. */
 function countByStatus(tasks: Task[]): Record<Status, number> {
@@ -92,7 +85,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // The Backlog rule reads the whole board, so narrowing does not change which
   // columns a person sees. Clearing the chip gives the board back as it was.
   const counts = countByStatus(tasks);
-  const toggles = readToggles(query);
+  const toggles = readToggles(query, BOARD_TOGGLES);
   const columns = columnsToShow(counts, toggles).map((status) => ({
     status,
     label: STATUS_LABEL[status],
@@ -303,56 +296,6 @@ function CardItem({
         </button>
       </post.Form>
     </li>
-  );
-}
-
-/**
- * The query string with one switch turned the other way, and the rest of it
- * kept. Every switch the header draws is one of these.
- */
-function flipped(params: URLSearchParams, which: string, on: boolean): string {
-  const next = new URLSearchParams(params);
-  if (on) next.delete(which);
-  else next.set(which, "1");
-  const query = next.toString();
-  return query ? `?${query}` : "?";
-}
-
-/**
- * The chip that narrows the board to today's plan, and gives it back.
- *
- * It is drawn on every board, planned or not. A day with no plan holds nothing
- * to narrow to, so the chip then leads to plan mode: a control that comes and
- * goes teaches nobody that plans exist.
- */
-function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean }) {
-  const [params] = useSearchParams();
-
-  return (
-    <Link
-      to={hasPlan ? flipped(params, "today", today) : "/me/plan"}
-      // With no plan the chip is a way to plan mode and not a filter, so it
-      // announces no pressed state it does not hold.
-      aria-pressed={hasPlan ? today : undefined}
-      className={`rounded-full border px-2 py-0.5 text-xs ${
-        today
-          ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
-          : "border-neutral-300 dark:border-neutral-700"
-      }`}
-    >
-      Today
-    </Link>
-  );
-}
-
-/** The link that turns one hidden column on or off, keeping the other one. */
-function Toggle({ which, toggles }: { which: "backlog" | "cancelled"; toggles: Toggles }) {
-  const [params] = useSearchParams();
-
-  return (
-    <Link to={flipped(params, which, toggles[which])} className="underline">
-      {toggles[which] ? "Hide" : "Show"} {STATUS_LABEL[which]}
-    </Link>
   );
 }
 
