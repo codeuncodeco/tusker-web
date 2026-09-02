@@ -244,7 +244,8 @@ Several lines posted from one quick-add box. Each non-empty line, trimmed, is
 one task, in the order the lines appear, and the block lands at the top of the
 column with the first line topmost. The mark goes on all of them or on none,
 because one box holds one tick. A list of more than 100 lines is refused and
-writes nothing.
+writes nothing. One box raises one decision prompt, so a marked list typed
+straight into Done is asked about the task on top of it.
 _Avoid_: Bulk add, batch, import
 
 **Undo an add**:

@@ -80,8 +80,8 @@ function added(acted: unknown) {
   return (acted as { added: { ids: string[]; slug: string; text: string; decides: boolean } }).added;
 }
 
-/** The titles one org holds, top of the To do column first. */
-async function titlesIn(orgId: string) {
+/** The titles one org holds, top of the column first. */
+async function columnOf(orgId: string) {
   const { results } = await db
     .prepare("SELECT title FROM tasks WHERE org_id = ? ORDER BY position, created_at, id")
     .bind(orgId)
@@ -112,7 +112,7 @@ describe("the add", () => {
     await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "first" });
     await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "second" });
 
-    expect(await titlesIn(ada.org.id)).toEqual(["second", "first"]);
+    expect(await columnOf(ada.org.id)).toEqual(["second", "first"]);
   });
 
   it("marks the task when the box is ticked, and leaves it unmarked when it is not", async () => {
@@ -238,7 +238,7 @@ describe("the undo", () => {
 
     await onMe(ada.cookie, { intent: "undo", id: paste.ids, slug: paste.slug });
 
-    expect(await titlesIn(ada.org.id)).toEqual(["was here first"]);
+    expect(await columnOf(ada.org.id)).toEqual(["was here first"]);
   });
 
   it("drops every task of the paste from the day's plan", async () => {
@@ -251,7 +251,7 @@ describe("the undo", () => {
     await onPlan(ada.cookie, { intent: "undo", id: paste.ids, slug: paste.slug });
 
     expect(await planned(ada.person.id)).toEqual(kept.ids);
-    expect(await titlesIn(ada.org.id)).toEqual(["keep"]);
+    expect(await columnOf(ada.org.id)).toEqual(["keep"]);
   });
 
   it("writes nothing when one id of the list names another org's task", async () => {
@@ -265,8 +265,8 @@ describe("the undo", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(await titlesIn(ada.org.id)).toEqual(["mine"]);
-    expect(await titlesIn(bo.org.id)).toEqual(["theirs"]);
+    expect(await columnOf(ada.org.id)).toEqual(["mine"]);
+    expect(await columnOf(bo.org.id)).toEqual(["theirs"]);
   });
 });
 
@@ -280,7 +280,7 @@ describe("a list of lines", () => {
     );
 
     expect(acted.ids.length).toBe(3);
-    expect(await titlesIn(ada.org.id)).toEqual(["one", "two", "three", "was here first"]);
+    expect(await columnOf(ada.org.id)).toEqual(["one", "two", "three", "was here first"]);
   });
 
   it("makes no task of a blank line, and reads a Windows line break", async () => {
@@ -291,7 +291,7 @@ describe("a list of lines", () => {
     );
 
     expect(acted.ids.length).toBe(2);
-    expect(await titlesIn(ada.org.id)).toEqual(["one", "two"]);
+    expect(await columnOf(ada.org.id)).toEqual(["one", "two"]);
   });
 
   it("marks every task the paste made, and an unticked box marks none", async () => {
@@ -342,7 +342,7 @@ describe("a list of lines", () => {
     const acted = added(await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: lines }));
 
     expect(acted.ids.length).toBe(100);
-    expect((await titlesIn(ada.org.id))[0]).toBe("task 0");
+    expect((await columnOf(ada.org.id))[0]).toBe("task 0");
   });
 });
 

@@ -7,9 +7,9 @@
  */
 
 import { decide, finishTask } from "./decisions.server";
-import { appendToPlan, unplanTask, unplanTasks } from "./plans.server";
+import { appendToPlan, unplanTasks } from "./plans.server";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
-import { createTasks, deleteTask, newTasksFrom, readTask, type Task } from "./tasks.server";
+import { createTasks, deleteTasks, newTasksFrom, readTask, type Task } from "./tasks.server";
 import type { Added } from "./unified";
 
 /**
@@ -60,15 +60,12 @@ async function addTasks(
   const typed = newTasksFrom(form);
   if ("error" in typed) return typed;
 
-  const made = await createTasks(env.DB, scope, { ...typed, status: "todo" });
-  const ids = made.map((one) => one.id);
+  const ids = await createTasks(env.DB, scope, { ...typed, status: "todo" });
   if (intoPlan) await appendToPlan(env.DB, set.personId, day, ids);
 
   // The box keeps the words as they were typed, so an add into the wrong org
   // is filed again rather than typed again. See ADR-0012.
-  return {
-    added: { ids, slug: scope.org.slug, text: String(form.get("title") ?? ""), decides: typed.decides },
-  };
+  return { added: { ids, slug: scope.org.slug, text: typed.text, decides: typed.decides } };
 }
 
 /**
@@ -89,7 +86,7 @@ async function undoAdd(env: Env, set: OrgSet, day: string, form: FormData): Prom
   }
 
   await unplanTasks(env.DB, set.personId, day, ids);
-  for (const id of ids) await deleteTask(env.DB, scope, id);
+  await deleteTasks(env.DB, scope, ids);
 
   return { ok: true };
 }
@@ -143,7 +140,7 @@ export async function actOnTask(
     await appendToPlan(env.DB, set.personId, day, [taskId]);
   }
 
-  if (intent === "unplan") await unplanTask(env.DB, set.personId, day, taskId);
+  if (intent === "unplan") await unplanTasks(env.DB, set.personId, day, [taskId]);
 
   // The prompt one of these pages raised, answered. It writes the decision and
   // gives the page back with the prompt gone.

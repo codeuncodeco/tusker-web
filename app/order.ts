@@ -33,7 +33,7 @@ export function between(before: number | null, after: number | null): number | n
  * and no renumber is needed. One card gives the same answer as
  * `between(null, first)`.
  */
-export function above(first: number | null, count: number): number[] {
+export function placesAbove(first: number | null, count: number): number[] {
   const base = first ?? STEP;
   return Array.from({ length: count }, (_, at) => base - STEP * (count - at));
 }

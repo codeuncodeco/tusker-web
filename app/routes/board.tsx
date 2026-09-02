@@ -140,7 +140,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // straight into Done is finished the moment it is made, so it is asked
     // now: no later move would ask it. One box is one prompt, so a pasted list
     // is asked about the task on top of it.
-    const prompt = await promptFor(env.DB, scope, request, made[0].id);
+    const prompt = await promptFor(env.DB, scope, request, made[0]);
     if (prompt) return prompt;
     return { ok: true };
   }

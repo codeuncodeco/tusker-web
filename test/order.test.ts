@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { above, between } from "../app/order";
+import { between, placesAbove } from "../app/order";
 
 describe("the position a drop takes", () => {
   it("takes the midpoint of its two neighbours", () => {
@@ -36,20 +36,20 @@ describe("the position a drop takes", () => {
 
 describe("the positions a block of new tasks takes", () => {
   it("puts one task below the card that was on top", () => {
-    expect(above(1, 1)).toEqual([0]);
-    expect(above(-4.5, 1)).toEqual([-5.5]);
+    expect(placesAbove(1, 1)).toEqual([0]);
+    expect(placesAbove(-4.5, 1)).toEqual([-5.5]);
   });
 
   it("puts a block below that card, in the order it was typed", () => {
-    expect(above(1, 3)).toEqual([-2, -1, 0]);
+    expect(placesAbove(1, 3)).toEqual([-2, -1, 0]);
   });
 
   it("puts a block in an empty column in the order it was typed", () => {
-    expect(above(null, 1)).toEqual([0]);
-    expect(above(null, 3)).toEqual([-2, -1, 0]);
+    expect(placesAbove(null, 1)).toEqual([0]);
+    expect(placesAbove(null, 3)).toEqual([-2, -1, 0]);
   });
 
   it("gives back nothing for a block of no tasks", () => {
-    expect(above(1, 0)).toEqual([]);
+    expect(placesAbove(1, 0)).toEqual([]);
   });
 });
