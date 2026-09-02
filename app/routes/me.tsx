@@ -106,12 +106,11 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       </header>
 
       {/* The order in a column is derived, so the plan is where a person says
-          what to work first. The header carries Plan on every page, so this
-          line teaches the keystroke and links nothing. See ADR-0011. */}
+          what to work first. The keys are on the controls now, so this line
+          says what the page is for and nothing about a press. See ADR-0011. */}
       <p className="text-muted">
-        Each column is in the order your boards give it. Press <kbd>p</kbd> on a task to put
-        it in today's plan, which is where you say what to work first. Drag a card to another
-        column, or press <kbd>&gt;</kbd> and <kbd>&lt;</kbd> to walk it along.
+        Each column is in the order your boards give it. The plan is where you say what to
+        work first.
       </p>
 
       <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />

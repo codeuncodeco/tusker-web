@@ -17,12 +17,14 @@ import {
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
+  isFinished,
   readStatus,
   readToday,
   readToggles,
   type Status,
 } from "../board";
-import { Toggle, TodayChip } from "../board-chrome";
+import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
+import { SearchBox, Toggle, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
@@ -39,14 +41,16 @@ import { QuickAddBox, useAddKey, useQuickAddDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
+import { useRemembered } from "../remembered";
 import { requireScope } from "../scope.server";
+import { readSearch } from "../search";
 import {
+  countByStatus,
   createTasks,
   listTasks,
   moveTask,
   newTasksFrom,
   stepTask,
-  type Task,
 } from "../tasks.server";
 import type { Route } from "./+types/board";
 
@@ -60,24 +64,15 @@ export function meta({ loaderData }: Route.MetaArgs) {
 /** What one card shows. The task page reads the rest of the row. */
 type Card = { id: string; title: string; fields: Shown[]; assignees: Assignee[] };
 
-/** How many tasks each status holds, so the Backlog rule can read it. */
-function countByStatus(tasks: Task[]): Record<Status, number> {
-  const counts: Record<Status, number> = {
-    backlog: 0,
-    todo: 0,
-    in_progress: 0,
-    done: 0,
-    cancelled: 0,
-  };
-  for (const task of tasks) counts[task.status]++;
-  return counts;
-}
-
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug, context);
 
-  const tasks = await listTasks(env.DB, scope);
+  const query = new URL(request.url).searchParams;
+  // The search narrows in SQL, so a board of hundreds of rows sends back what
+  // matches and nothing else.
+  const search = readSearch(query);
+  const tasks = await listTasks(env.DB, scope, search);
   // The org's declarations decide what a card shows, so the board needs no
   // code for any one org's fields.
   const declared = await listFields(env.DB, scope);
@@ -96,16 +91,21 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // a day the person has not planned, and then the board offers no chip.
   const day = dayOf(request);
   const plan = await readPlan(env.DB, scope.personId, day);
-  const query = new URL(request.url).searchParams;
   // An emptied plan holds nothing to narrow to, so it carries no chip either.
   const held = new Set(plan ?? []);
   const hasPlan = held.size > 0;
   const today = readToday(query) && hasPlan;
   const shown = today ? tasks.filter((task) => held.has(task.id)) : tasks;
+  // True while something narrows the board. The sweep is offered only then:
+  // a sweep of a whole unnarrowed column is not what archive is for. The chip
+  // and the search box are the two narrowings, and the sweep asks no question
+  // about which one made the column what it is.
+  const narrowed = today || search !== "";
 
   // The Backlog rule reads the whole board, so narrowing does not change which
-  // columns a person sees. Clearing the chip gives the board back as it was.
-  const counts = countByStatus(tasks);
+  // columns a person sees. Clearing the chip or the box gives the board back as
+  // it was.
+  const counts = await countByStatus(env.DB, scope);
   const toggles = readToggles(query, BOARD_TOGGLES);
   const columns = columnsToShow(counts, toggles).map((status) => ({
     status,
@@ -129,9 +129,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     ask: await askedOn(env.DB, scope, request),
     toggles,
     today,
+    /** The text the box holds, so a reload draws the search it ran. */
+    search,
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan,
+    /** Something narrows the board, so a sweep archives a chosen set. */
+    narrowed,
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
@@ -185,6 +189,21 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // The sweep of one column. The form carries the ids of the cards that were
+  // on screen, so whatever narrowed the board decides the set. The server
+  // re-reads nothing, and it can archive nothing the person could not see.
+  // One card posts this too, as a sweep of one.
+  if (intent === "archive") {
+    return { archived: await archiveTasks(env.DB, scope, readTaskIds(form)) };
+  }
+
+  // One undo for the whole batch. It names the ids the sweep changed, so a
+  // task already archived before the sweep stays archived.
+  if (intent === "restore") {
+    await restoreTasks(env.DB, scope, readTaskIds(form));
+    return { ok: true };
+  }
+
   // The prompt a finished card raised, answered.
   if (intent === "decide") return decide(env.DB, scope, request, form);
 
@@ -226,6 +245,56 @@ function QuickAdd({ status, label, addKey }: { status: Status; label: string; ad
       }}
       fields={<input type="hidden" name="status" value={status} />}
     />
+  );
+}
+
+/**
+ * The sweep of one column, and the one undo that puts the batch back.
+ *
+ * The form carries the id of every card the column draws, so the sweep
+ * archives exactly what is on screen: whatever narrowed the column is the
+ * whole rule, and the server adds nothing to it.
+ *
+ * The board draws it only while it is narrowed, and only on a finished
+ * column. A sweep of a whole unnarrowed column is a sweep of everything, and
+ * archive keeps finished work a person chose to file.
+ *
+ * The undo names the ids the sweep changed, and not the ids it was given, so a
+ * task somebody archived earlier is not restored by an undo of this sweep. One
+ * sweep is one act, so its undo is one act.
+ */
+function ColumnSweep({ label, cards }: { label: string; cards: Card[] }) {
+  const sweep = useFetcher<typeof action>();
+  const archived = sweep.data && "archived" in sweep.data ? sweep.data.archived : null;
+
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      {cards.length > 0 ? (
+        <sweep.Form method="post">
+          <input type="hidden" name="intent" value="archive" />
+          {cards.map((card) => (
+            <input key={card.id} type="hidden" name="id" value={card.id} />
+          ))}
+          <button
+            aria-label={`Archive ${cards.length} from ${label}`}
+            className="rounded border border-border px-2 py-0.5"
+          >
+            Archive {cards.length}
+          </button>
+        </sweep.Form>
+      ) : null}
+
+      {archived && archived.length > 0 ? (
+        <sweep.Form method="post" className="flex items-baseline gap-2 text-muted">
+          <input type="hidden" name="intent" value="restore" />
+          {archived.map((id) => (
+            <input key={id} type="hidden" name="id" value={id} />
+          ))}
+          <span>Archived {archived.length}.</span>
+          <button className="underline">Undo</button>
+        </sweep.Form>
+      ) : null}
+    </div>
   );
 }
 
@@ -272,6 +341,9 @@ function CardItem({
   const card = cards[index];
   const post = useFetcher();
   const step = useFetcher();
+  // Its own form, because a form posts one intent and a step is not an
+  // archive.
+  const archiver = useFetcher();
 
   return (
     <li
@@ -364,12 +436,27 @@ function CardItem({
           </button>
         </step.Form>
       </span>
+
+      {/* One task, off the board and kept. It is offered where the work is
+          finished, because archive holds finished work. */}
+      {isFinished(status) ? (
+        <archiver.Form method="post">
+          <input type="hidden" name="intent" value="archive" />
+          <input type="hidden" name="id" value={card.id} />
+          <button
+            aria-label={`Archive ${card.title}`}
+            className="text-xs text-muted underline underline-offset-2"
+          >
+            Archive
+          </button>
+        </archiver.Form>
+      ) : null}
     </li>
   );
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, toggles, today, hasPlan, day, ask } = loaderData;
+  const { org, columns, toggles, today, hasPlan, narrowed, day, ask, search } = loaderData;
   const mover = useFetcher();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -382,6 +469,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // The chip speaks for today, so the board must know which day that is where
   // the person is, not where the Worker runs.
   useLocalDay(day);
+
+  // The last search comes back with the board it was run on.
+  useRemembered(org.slug);
 
   /**
    * The post a drag makes: the card, the column it lands in, and the card it
@@ -434,6 +524,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl tracking-tight">{org.name}</h1>
         <nav className="flex items-baseline gap-4">
+          <SearchBox search={search} />
           <TodayChip today={today} hasPlan={hasPlan} />
           {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
           <Toggle which="cancelled" toggles={toggles} />
@@ -462,9 +553,15 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               addKey={column.status === "todo"}
             />
 
-            {/* The heading and the box stay pinned, and only this scrolls. The
-                gutter is reserved, so a full column is as wide as an empty
-                one, which is the point of the equal split. */}
+            {/* The sweep acts on the whole column, so it is column chrome and
+                stays pinned with the heading and the box. */}
+            {narrowed && isFinished(column.status) ? (
+              <ColumnSweep label={column.label} cards={column.tasks} />
+            ) : null}
+
+            {/* The heading, the box and the sweep stay pinned, and only this
+                scrolls. The gutter is reserved, so a full column is as wide as
+                an empty one, which is the point of the equal split. */}
             <ul className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
               {column.tasks.map((card, index) => (
                 <CardItem

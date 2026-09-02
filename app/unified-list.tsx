@@ -12,7 +12,7 @@ import { useFetcher } from "react-router";
 
 import { useLocalDay } from "./local-day";
 import type { Group, GroupKey } from "./unified";
-import { useTaskKeys } from "./unified-keys";
+import { ALL_ACTS, NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
 
 export function UnifiedList({
@@ -47,7 +47,9 @@ export function UnifiedList({
   const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
 
   useLocalDay(day, !namedDay);
-  useTaskKeys(rows, planned, ordered !== null, cursor, setOn, (fields) =>
+  // One of two constants, and never a fresh object: the hook re-binds the
+  // window on every change of what it is given.
+  useTaskKeys(rows, planned, ordered !== null ? ALL_ACTS : NO_STEP_ACTS, cursor, setOn, (fields) =>
     post.submit(fields, { method: "post" }),
   );
 

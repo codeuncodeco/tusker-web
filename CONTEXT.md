@@ -104,6 +104,25 @@ not the way out. The textarea is uncontrolled because the keys write the
 text and move the caret in place, and a re-render mid-edit loses the caret.
 _Avoid_: Description editor, description form
 
+**List keys**:
+The keys a keyed list binds, in `app/unified-keys.ts`: `j` and `k` move the
+cursor, `Enter` opens, `p` plans, `x` finishes, `>` and `<` walk a task between
+columns, and `J` and `K` step a planned task through the plan. One table,
+`app/key-map.ts`, holds the key of every act, and one hook binds the list's
+own, so the board, the plan, the week and focus mode cannot drift apart. `n`
+takes three more, and the offer that ends a batch binds it where it is drawn. A page says which
+acts it gives; the rest answer nothing. The peer of **Editor keys**: one is for
+a list and one is for a box, and `isPagePress` is the border between them.
+_Avoid_: Hotkeys, shortcuts, bindings
+
+**Key hint**:
+The mark a control carries to name its key: `Plan p`, `Finish x`. It is drawn
+where the pointer is fine, because a phone has no keyboard, and it rides beside
+`aria-keyshortcuts` on the control. The eye reads `⇧K` and the machine reads
+`Shift+K`: the two forms differ because the attribute has its own grammar. A
+sentence under a list that teaches the same key is a repeat, and goes.
+_Avoid_: Shortcut badge, keycap, tooltip
+
 **Editor keys**:
 What a description textarea does with a press, in `app/editor.ts`. Enter inside
 a list item continues the list at the same indent and keeps the checkbox
@@ -152,8 +171,26 @@ _Avoid_: Decision history, changelog
 
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled
-status.
+status, and it leaves the board, the unified board and every plan. Restoring it
+puts it back in the column it held. `tasks.archived_at` holds when it was
+archived, and the archive screen sorts by it.
 _Avoid_: Closed, hidden
+
+**Sweep**:
+Archiving a whole column in one act. The Done and Cancelled columns carry the
+button while the board is narrowed, and it archives exactly what is on screen:
+whatever narrowed the column is the whole rule. A person archives the set they
+are looking at, which is what makes the sweep safe. An unnarrowed board carries
+no button, because a sweep of a whole column is a sweep of everything.
+_Avoid_: Bulk archive, clear column
+
+**Archive screen**:
+One org's archived tasks as a flat list, newest archived first, at
+`/o/:slug/archive`. It carries the board's Today chip, and it holds
+Cancelled tasks whatever the board's Cancelled toggle says. Archived work
+is a history a person scans, not a pipeline they rearrange, so it has no
+columns and no drag.
+_Avoid_: Archive board, history page
 
 **Run**:
 The columns a card steps along, in workflow order: Backlog, To do, In progress,
@@ -380,13 +417,6 @@ threes from the top, and the batch is the first three that hold an unfinished
 task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
 
-**Drop**:
-Taking a task out of a batch without finishing it. The task moves to the end of
-today's plan, so it comes back last. A dragged card also drops, on either
-board, and that drop names a column or a place: the two acts share the word and
-nothing else. See ADR-0009 and ADR-0015.
-_Avoid_: Skip, snooze, defer
-
 **Header**:
 The one bar every signed-in page draws. It has a person half, for Tasks, Week,
 Plan and Focus, and an org half, for the current org and its pages. Both halves are
@@ -401,6 +431,23 @@ unassigned, or everyone. It is everyone by default, it lives in the address,
 and it narrows what the Today chip already left. An org of one member carries
 no filter. See ADR-0013.
 _Avoid_: My tasks toggle, owner filter
+
+**Search**:
+The box on the org board that narrows it to the tasks holding the text in
+their title or description. It is one more narrowing beside the filters, not a
+screen of its own: the same board, the same columns, the same drag. The match
+runs in SQL, as a `LIKE` over each of the two columns, so a match is a match
+in one of them and never across the seam between them. It is case-insensitive
+for ASCII, which is what `LIKE` gives. A `%` or a `_` typed in the box is a
+character to find, not a wildcard. Nothing is ranked: the column order stands.
+_Avoid_: Full-text search, query, find
+
+**Remembered narrowing**:
+The search, and later the filters, a board was left with. It belongs to the
+person, so the browser holds it, one entry per org. A board opened with no
+query at all gets it back in the address. A board opened with a query keeps
+that query as it stands, so a search cleared by hand stays cleared.
+_Avoid_: Saved filter, sticky filter, last view
 
 **Live set**:
 To do and In progress, across every org one person belongs to, in percentile

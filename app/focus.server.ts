@@ -48,8 +48,8 @@ export async function readFocus(
 
 /**
  * Writes the batch on the screen as today's plan, where the person has planned
- * no day. It is what a first finish or first drop does before it acts, so the
- * three tasks stay still from then on.
+ * no day. It is what a first finish does before it acts, so the three
+ * tasks stay still from then on.
  */
 export async function holdBatch(
   db: D1Database,

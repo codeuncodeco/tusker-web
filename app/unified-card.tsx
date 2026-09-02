@@ -5,6 +5,9 @@
  * draws it in, counting from one. No row stores it, and it drifts between
  * loads, because the percentile is an index over a column length that changes.
  *
+ * The select carries no key hint: a native select draws no child markup, and
+ * Tab and the arrows already work it.
+ *
  * Three things move the card to another column: the select, the `>` and `<`
  * keys, and a drag onto the column. All three name a column and no place
  * inside it, because the order in a unified column is derived. There are no
@@ -17,8 +20,9 @@ import { Link, useFetcher } from "react-router";
 import { STATUSES, STATUS_LABEL } from "./board";
 import { Dot } from "./dot";
 import { Initials } from "./initials";
+import { keyHint } from "./key-hint";
 import { isPlannable, type LiveTask } from "./unified";
-import { planFields } from "./unified-row";
+import { PLAN_VERBS, planFields } from "./unified-row";
 
 export function UnifiedCard({
   task,
@@ -45,6 +49,7 @@ export function UnifiedCard({
   const move = useFetcher();
   const plan = useFetcher();
   const fields = planFields(task, planned);
+  const pick = keyHint(planned ? "unplan" : "plan");
 
   return (
     <li
@@ -126,9 +131,11 @@ export function UnifiedCard({
             <button
               name="intent"
               value={fields.intent}
+              {...pick.keys}
               className="rounded border border-border px-1.5 py-0.5 text-xs"
             >
-              {planned ? "Unplan" : "Plan"}
+              {planned ? PLAN_VERBS.drop : PLAN_VERBS.pick}
+              {pick.hint}
             </button>
           </plan.Form>
         ) : null}
