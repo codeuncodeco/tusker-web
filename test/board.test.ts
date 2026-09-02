@@ -270,7 +270,7 @@ describe("the order inside a column", () => {
     expect(cards.map((one) => one.title)).toEqual(["Second", "First", "Third"]);
   });
 
-  it("reads an empty neighbour, as the arrow at the foot of a column sends", async () => {
+  it("reads an empty neighbour, as the select's submit sends", async () => {
     const ada = await member("ada@example.test", "Ada");
     const [first] = await threeCards(ada.cookie);
 
@@ -289,5 +289,62 @@ describe("the order inside a column", () => {
 
     const cards = column(await board("ada", ada.cookie), "done")!.tasks;
     expect(cards.map((one) => one.title)).toEqual(["Older", "First"]);
+  });
+
+  /** The titles To do holds, top first. */
+  async function todo(cookie: string) {
+    const cards = column(await board("ada", cookie), "todo")!.tasks;
+    return cards.map((one) => one.title);
+  }
+
+  it("steps a card down one place", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "down", id: first.id });
+
+    expect(await todo(ada.cookie)).toEqual(["Second", "First", "Third"]);
+  });
+
+  it("steps a card up one place", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [, , third] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "up", id: third.id });
+
+    expect(await todo(ada.cookie)).toEqual(["First", "Third", "Second"]);
+  });
+
+  // The page's copy of the order is one load old, so the place a step lands
+  // above is read here. A held key steps the card once per press.
+  it("steps a card twice without the page reading the order again", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "down", id: first.id });
+    await act("ada", ada.cookie, { intent: "down", id: first.id });
+
+    expect(await todo(ada.cookie)).toEqual(["Second", "Third", "First"]);
+  });
+
+  it("leaves a card at the end of its column where it is", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const [first, , third] = await threeCards(ada.cookie);
+
+    await act("ada", ada.cookie, { intent: "up", id: first.id });
+    await act("ada", ada.cookie, { intent: "down", id: third.id });
+
+    expect(await todo(ada.cookie)).toEqual(["First", "Second", "Third"]);
+  });
+
+  it("does not step a card of another org", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const bo = await member("bo@example.test", "Bo");
+    const [first] = await threeCards(ada.cookie);
+
+    const response = await caught(act("bo", bo.cookie, { intent: "down", id: first.id }));
+
+    expect(response.status).toBe(404);
+    expect(await todo(ada.cookie)).toEqual(["First", "Second", "Third"]);
   });
 });

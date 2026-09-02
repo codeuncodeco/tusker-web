@@ -42,6 +42,29 @@ export function stepped(from: Status, way: 1 | -1): Status | null {
   return STATUS_RUN[at + way] ?? null;
 }
 
+/**
+ * Where a card lands when it steps one place inside its own column, or null at
+ * the end it cannot step past. The `before` it carries is the card it lands
+ * above, and no card named means the bottom of the column.
+ *
+ * Up lands above the card overhead. Down lands above the card after the next
+ * one, because the card leaves its own place as it moves.
+ *
+ * The org board's action reads this, over the column as it stands, and no page
+ * reads it: a page holds an order one load old, and a held key would then name
+ * a place the card has left. Only the org board steps at all, because it is the
+ * one board whose order is stored. See ADR-0006 and ADR-0016.
+ */
+export function stepInColumn(
+  ids: string[],
+  at: number,
+  way: 1 | -1,
+): { before: string | null } | null {
+  if (at === -1) return null;
+  if (way === -1) return at === 0 ? null : { before: ids[at - 1] };
+  return at === ids.length - 1 ? null : { before: ids[at + 2] ?? null };
+}
+
 /** The three columns the board always shows. */
 const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
 

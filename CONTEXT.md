@@ -167,7 +167,7 @@ _Avoid_: Bulk archive, clear column
 
 **Archive screen**:
 One org's archived tasks as a flat list, newest archived first, at
-`/o/:slug/archive`. It reads the same narrowings as the board, and it holds
+`/o/:slug/archive`. It carries the board's Today chip, and it holds
 Cancelled tasks whatever the board's Cancelled toggle says. Archived work
 is a history a person scans, not a pipeline they rearrange, so it has no
 columns and no drag.
@@ -288,7 +288,9 @@ _Avoid_: Tasks endpoint, public API
 
 **Board**:
 The To do, In progress and Done columns for one org, with Backlog and Cancelled
-shown by rule.
+shown by rule. The order inside a column is the org's and it is stored, so this
+is the one board where a card is dragged into a place, and the one that binds
+`J` and `K`. See ADR-0016.
 
 **Unified board**:
 The same five columns across every org one person belongs to, at `/me`. A
@@ -418,12 +420,48 @@ and it narrows what the Today chip already left. An org of one member carries
 no filter. See ADR-0013.
 _Avoid_: My tasks toggle, owner filter
 
+**Search**:
+The box on the org board that narrows it to the tasks holding the text in
+their title or description. It is one more narrowing beside the filters, not a
+screen of its own: the same board, the same columns, the same drag. The match
+runs in SQL, as a `LIKE` over each of the two columns, so a match is a match
+in one of them and never across the seam between them. It is case-insensitive
+for ASCII, which is what `LIKE` gives. A `%` or a `_` typed in the box is a
+character to find, not a wildcard. Nothing is ranked: the column order stands.
+_Avoid_: Full-text search, query, find
+
+**Remembered narrowing**:
+The search, and later the filters, a board was left with. It belongs to the
+person, so the browser holds it, one entry per org. A board opened with no
+query at all gets it back in the address. A board opened with a query keeps
+that query as it stands, so a search cleared by hand stays cleared.
+_Avoid_: Saved filter, sticky filter, last view
+
 **Live set**:
 To do and In progress, across every org one person belongs to, in percentile
 order. The unified board draws it as two of its five columns, and plan mode and
 focus draw it as a list. It is not narrowed to the tasks the person holds: the
 assignee filter does that, and the plan is where a person's own list lives.
 _Avoid_: My tasks, unified view
+
+**Card keys**:
+What a press does to the card the cursor names, on the board, the unified
+board, plan mode and the week page. `j` and `k` move the cursor, `Enter` opens
+the task, `x` finishes it, `n` goes to the quick-add box, and `>` and `<` walk
+the card along the run. `p` plans or unplans, on the pages that draw a plan
+control. `J` and `K` step a stored order: the org's on the board, the day's in
+plan mode. A step names the card and the way, never a place, because the page's
+copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Enter`, `x`, `n` and `d`,
+which drops a task from the batch. Every key posts what a control on the page
+posts, so no act is reachable by key alone. See ADR-0016.
+_Avoid_: Shortcuts, hotkeys, bindings
+
+**Cursor**:
+The card the keys act on. It names a card and not a place, so the card keeps
+the cursor while the page redraws around it. `j` and `k` move it, a click on a
+card body places it, and it starts on the first card the page draws. Focus mode
+draws three rows and gives no click. See ADR-0015.
+_Avoid_: Selection, focus, highlight
 
 ### Look
 

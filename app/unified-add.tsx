@@ -19,8 +19,7 @@ import { useAddingTo } from "./adding";
 import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
 import { fieldClass } from "./forms";
-import { isPagePress } from "./keys";
-import { QuickAddBox, useQuickAddDraft } from "./quick-add";
+import { QuickAddBox, useAddKey, useQuickAddDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
 
@@ -38,7 +37,7 @@ export function UnifiedAdd({
   orgs,
   status,
   label = "Add a task",
-  hotkey = true,
+  addKey = true,
 }: {
   orgs: OrgHeld[];
   /** The column the box files into, where the page draws one per column. */
@@ -46,7 +45,7 @@ export function UnifiedAdd({
   /** What the empty box says, and what a screen reader reads. */
   label?: string;
   /** True for the one box on the page that `n` focuses. */
-  hotkey?: boolean;
+  addKey?: boolean;
 }) {
   const add = useFetcher<Answer>();
   const undo = useFetcher();
@@ -77,18 +76,7 @@ export function UnifiedAdd({
     draft.clear();
   }, [add.state, answer, draft.clear]);
 
-  useEffect(() => {
-    if (!hotkey) return;
-
-    function onKey(event: KeyboardEvent) {
-      if (!isPagePress(event) || event.key !== "n") return;
-      box.current?.focus();
-      event.preventDefault();
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [hotkey]);
+  useAddKey(box, addKey);
 
   // The picker takes the focus a re-file needs, and the title where a person
   // has only their personal org and so has no picker.
