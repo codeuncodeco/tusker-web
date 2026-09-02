@@ -426,10 +426,14 @@ See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 
 **Assignee filter**:
-The control on either board that narrows by who holds a task: mine,
-unassigned, or everyone. It is everyone by default, it lives in the address,
-and it narrows what the Today chip already left. An org of one member carries
-no filter. See ADR-0013.
+The select on the org board that narrows it to the tasks one member holds:
+`Anyone`, `Unassigned`, then each member in name order. `Anyone` is the start
+and narrows nothing. A member answers for a task they hold among others, and
+`Unassigned` answers for a task nobody holds. It lives in the address, it joins
+the remembered narrowing, and it narrows what the Today chip and the search
+already left. A personal org carries no filter, because it draws no assignee.
+The unified board carries none either: a member select there would name
+strangers. See ADR-0013 and ADR-0017.
 _Avoid_: My tasks toggle, owner filter
 
 **Search**:
@@ -443,7 +447,7 @@ character to find, not a wildcard. Nothing is ranked: the column order stands.
 _Avoid_: Full-text search, query, find
 
 **Remembered narrowing**:
-The search, and later the filters, a board was left with. It belongs to the
+The search and the assignee filter a board was left with. It belongs to the
 person, so the browser holds it, one entry per org. A board opened with no
 query at all gets it back in the address. A board opened with a query keeps
 that query as it stands, so a search cleared by hand stays cleared.
@@ -453,7 +457,8 @@ _Avoid_: Saved filter, sticky filter, last view
 To do and In progress, across every org one person belongs to, in percentile
 order. The unified board draws it as two of its five columns, and plan mode and
 focus draw it as a list. It is not narrowed to the tasks the person holds: the
-assignee filter does that, and the plan is where a person's own list lives.
+plan is where a person's own list lives, and the assignee filter narrows the org
+board.
 _Avoid_: My tasks, unified view
 
 **Card keys**:
