@@ -324,12 +324,15 @@ is the one board where a card is dragged into a place, and the one that binds
 **Unified board**:
 The same five columns across every org one person belongs to, at `/me`. A
 person who learns the board on one org meets the same page on all of them.
-Backlog, Done and Cancelled are toggle-only here, because the org board's
-Backlog rule reads "this person holds no live task anywhere" and is therefore
-dead, and Done and Cancelled cap to the last seven days of finish time. Inside
-a column the order is percentile order, and it is derived: no card is dragged
-into a place and no card steps. A card still moves between columns, because a
-column is a status: by drag, by key or by the card's select. See ADR-0015.
+Done is drawn on every load, empty or not. The board draws work in hand and
+where it ended, and where work ended is never a request. See ADR-0018. Backlog
+and Cancelled are switches here, the same two the org board offers. Backlog
+takes no rule here, because the org board's rule reads "this person holds no
+live task anywhere" and is therefore dead. Done and Cancelled cap to the last
+seven days of finish time. Inside a column the order is percentile order, and
+it is derived: no card is dragged into a place and no card steps. A card still
+moves between columns, because a column is a status: by drag, by key or by the
+card's select. See ADR-0015.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
@@ -421,8 +424,8 @@ _Avoid_: Week filter, this-week toggle
 **Column switch**:
 The control on a board that draws a column the board hides by default. It names
 the column and holds no verb: the box says whether the column is drawn. Backlog
-and Cancelled on the org board; Backlog, Done and Cancelled on the unified
-board.
+and Cancelled, on both boards. Done takes no switch: the board draws where work
+ended. See ADR-0018.
 _Avoid_: Show link, column filter, toggle
 
 **Focus**:
