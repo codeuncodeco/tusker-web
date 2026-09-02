@@ -52,7 +52,7 @@ import {
   newTasksFrom,
   stepTask,
 } from "../tasks.server";
-import { useToast } from "../toast";
+import { useToast, type Toast } from "../toast";
 import type { Route } from "./+types/board";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -255,6 +255,21 @@ function QuickAdd({ status, label, addKey }: { status: Status; label: string; ad
  * somebody archived earlier is not restored by an undo of this sweep. One
  * sweep is one act, so its undo is one act.
  */
+/** What one sweep says once it is done: the count, and the one undo. */
+export function sweptToast(label: string, slug: string, archived: string[]): Toast {
+  return {
+    text: `Archived ${archived.length} from ${label}.`,
+    act: {
+      label: "Undo",
+      // The toast is drawn above every route, so it names the board it posts
+      // to. The ids are the ones the sweep changed, and not the ones it was
+      // given.
+      action: `/o/${slug}/board`,
+      post: { intent: "restore", id: archived },
+    },
+  };
+}
+
 function ColumnSweep({ label, cards, slug }: { label: string; cards: Card[]; slug: string }) {
   const sweep = useFetcher<typeof action>();
   const raise = useToast();
@@ -262,14 +277,7 @@ function ColumnSweep({ label, cards, slug }: { label: string; cards: Card[]; slu
 
   useEffect(() => {
     if (sweep.state !== "idle" || !archived || archived.length === 0) return;
-    raise({
-      text: `Archived ${archived.length} from ${label}.`,
-      act: {
-        label: "Undo",
-        action: `/o/${slug}/board`,
-        post: { intent: "restore", id: archived },
-      },
-    });
+    raise(sweptToast(label, slug, archived));
   }, [sweep.state, archived, raise, label, slug]);
 
   if (cards.length === 0) return null;

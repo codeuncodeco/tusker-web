@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
-import Board from "../app/routes/board";
+import Board, { sweptToast } from "../app/routes/board";
 import type { Status } from "../app/board";
 
 /** One column, as the loader hands it over. */
@@ -91,5 +91,20 @@ describe("the columns that carry none", () => {
     const html = board([column("todo", "To do", ["One", "Two"])]);
 
     expect(html).not.toContain("from To do");
+  });
+});
+
+describe("what a finished sweep says", () => {
+  it("names the count and the column it swept", () => {
+    expect(sweptToast("Done", "acme", ["a", "b", "c"]).text).toBe("Archived 3 from Done.");
+  });
+
+  it("offers one undo, which posts the ids the sweep changed", () => {
+    // The sweep was given three ids and changed two: one was already archived.
+    expect(sweptToast("Done", "acme", ["a", "b"]).act).toEqual({
+      label: "Undo",
+      action: "/o/acme/board",
+      post: { intent: "restore", id: ["a", "b"] },
+    });
   });
 });

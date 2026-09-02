@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
+import App from "../app/root";
 import { ToastBar, ToastRegion } from "../app/toast";
 
 /** The markup one piece draws, through a router the fetchers need. */
@@ -58,5 +59,20 @@ describe("one message", () => {
 
   it("draws no form while it holds no act", () => {
     expect(markup(<ToastBar toast={{ text: "Saved." }} drop={() => {}} />)).not.toContain("<form");
+  });
+});
+
+describe("the region every page shares", () => {
+  it("is mounted by the root layout, so a page that raises one is heard", () => {
+    // `useToast` answers a page that stands under no provider with a no-op, so
+    // a region left out of the root would lose every message in silence.
+    const Stub = createRoutesStub([
+      { path: "/", Component: App, children: [{ index: true, Component: () => <p>A page</p> }] },
+    ]);
+
+    const html = renderToStaticMarkup(<Stub initialEntries={["/"]} />);
+
+    expect(html).toContain("A page");
+    expect(html).toContain('role="status"');
   });
 });

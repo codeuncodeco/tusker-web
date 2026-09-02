@@ -180,9 +180,9 @@ _Avoid_: Closed, hidden
 Archiving a whole column in one act. The Done and Cancelled columns carry the
 button in their head, beside the name and the count, while the column holds a
 card. It archives exactly what is on screen: whatever narrowed the column is
-the whole rule. A person archives the set they are looking at, which is what
-makes the sweep safe, so narrowing decides the set and never the button. The
-batch reports itself in a **Toast**, which holds the one undo.
+the whole rule. A person archives the set they are looking at, and that is what
+makes the sweep safe. Narrowing decides the set and never the button. The batch
+reports itself in a **Toast**, which holds the one undo.
 _Avoid_: Bulk archive, clear column
 
 **Toast**:
@@ -190,8 +190,8 @@ One short message about an act that is already done, with at most one way to
 take it back. It is drawn over every page, one at a time, and it goes by itself
 after a short while or when a person sends it away. A batch is what needs one:
 a sweep takes several cards away at once, and the count is the only proof of
-what happened. The region is live, so the message is read out, and the undo is
-a form button, so a keyboard reaches it.
+what happened. The region is live, so a reader announces the message. The undo
+is a form button, so a keyboard reaches it.
 _Avoid_: Snackbar, notification, flash message
 
 **Archive screen**:

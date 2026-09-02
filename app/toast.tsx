@@ -12,12 +12,12 @@
  * goes by itself after a short while, and a person can send it away sooner.
  *
  * The undo posts a form, so it is a button a keyboard reaches and a screen
- * reader names, and the region it lands in is live, so the message is read out
- * when it arrives.
+ * reader names. The region it lands in is live, so a reader announces the
+ * message when it arrives. See #121.
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, useLocation } from "react-router";
 
 /** What the one button on a toast does: its name, where it posts, and what. */
 export type ToastAct = {
@@ -31,11 +31,11 @@ export type ToastAct = {
 /** One message: the line a person reads, and at most one act. */
 export type Toast = { text: string; act?: ToastAct };
 
-/** The message that stands, and which one it is, so a new one starts the clock again. */
-type Held = { toast: Toast; nth: number };
+/** The message that stands, and its number, so a new one starts the clock again. */
+type Held = { toast: Toast; raised: number };
 
 /** How long a message stands before it goes by itself. */
-export const TOAST_LIFE = 8000;
+const TOAST_LIFE = 6000;
 
 const Raise = createContext<(toast: Toast) => void>(() => {});
 
@@ -47,13 +47,18 @@ export function useToast(): (toast: Toast) => void {
 /** Holds the message that stands, and draws it over the page. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [held, hold] = useState<Held | null>(null);
-  const nth = useRef(0);
+  const raised = useRef(0);
+  const { pathname } = useLocation();
 
   const raise = useCallback((toast: Toast) => {
-    nth.current += 1;
-    hold({ toast, nth: nth.current });
+    raised.current += 1;
+    hold({ toast, raised: raised.current });
   }, []);
   const drop = useCallback(() => hold(null), []);
+
+  // A message is about the page it was raised on, and its act posts there. A
+  // person who has left that page is done with both, so the message goes.
+  useEffect(() => drop(), [pathname, drop]);
 
   return (
     <Raise.Provider value={raise}>
@@ -74,7 +79,7 @@ export function ToastRegion({ held, drop }: { held: Held | null; drop: () => voi
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center p-4"
     >
-      {held ? <ToastBar key={held.nth} toast={held.toast} drop={drop} /> : null}
+      {held ? <ToastBar key={held.raised} toast={held.toast} drop={drop} /> : null}
     </div>
   );
 }
