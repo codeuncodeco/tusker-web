@@ -52,20 +52,20 @@ export function dayOf(request: Request, now: Date = new Date()): string {
 }
 
 /**
- * The day before, and the day after.
- *
- * The step is taken in UTC, so a month end, a year end and a leap day are the
- * calendar's business and not the reader's zone.
+ * The day before. The step uses UTC, so a month end, a year end and a leap day
+ * are the calendar's business and not the reader's zone.
  */
 export function dayBefore(day: string): string {
-  return stepped(day, -1);
+  return dayStepped(day, -1);
 }
 
+/** The day after, stepped the same way. */
 export function dayAfter(day: string): string {
-  return stepped(day, 1);
+  return dayStepped(day, 1);
 }
 
-function stepped(day: string, by: number): string {
+/** One day moved by whole days. `app/board.ts` steps a column; this steps a day. */
+function dayStepped(day: string, by: number): string {
   const at = new Date(`${day}T00:00:00Z`);
   at.setUTCDate(at.getUTCDate() + by);
   return at.toISOString().slice(0, 10);

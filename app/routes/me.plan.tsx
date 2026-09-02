@@ -82,11 +82,14 @@ function canAddTo(request: Request, day: string): boolean {
 }
 
 /**
- * The acts that write the day's plan, and so are refused after its day. The
- * rest — a move, a finish, a decision — write the task and not the plan, and a
- * task is live whichever day is on screen.
+ * The acts that write the task and not the plan. A task is live whichever day
+ * is on screen, so these stand on a day read back.
+ *
+ * Every other act a form can name writes the plan, and a day past its own
+ * refuses them all. The list is this way round on purpose: an act added later
+ * is refused there until someone says it is safe.
  */
-const PLAN_WRITES = ["up", "down", "create", "undo", "plan", "unplan"];
+const TASK_ACTS = ["move", "finish", "decide"];
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
@@ -114,7 +117,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     day,
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
-    /** True on the day the person is in, which the walk offers no way back to. */
+    /** True on the day the person is in. The walk offers no way home from there. */
     onToday: day === dayOf(request),
     /** True where the box may add to this day, and so is drawn at all. */
     canAdd: canAddTo(request, day),
@@ -140,11 +143,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   // The page draws no pick and no step on a day it cannot plan, and the write
   // says so too: a key, a stale tab and a hand-made post all land here.
-  if (PLAN_WRITES.includes(intent) && !canPlanOn(request, day)) {
+  if (!TASK_ACTS.includes(intent) && !canPlanOn(request, day)) {
     throw new Response("A plan is never rewritten after its day.", { status: 400 });
   }
 
-  // An add is a pick and a new task both, and the box is drawn on one day.
+  // An add is a pick and a new task both. The box is drawn on one day, so it
+  // is refused on every other one, behind today and ahead of it alike.
   if (intent === "create" && !canAddTo(request, day)) {
     throw new Response("A task is made on the day it is thought of.", { status: 400 });
   }

@@ -557,6 +557,29 @@ describe("a day past its own", () => {
     expect(ids(data, "today")).toEqual(["a", "b"]);
   });
 
+  // The task is live whichever day is on screen, so a finish still finishes.
+  it("still finishes a task, because that writes the task and not the plan", async () => {
+    const ada = await planned();
+
+    await actOn(ada.cookie, PAST, { intent: "finish", id: "a", slug: ada.org.slug });
+
+    const row = await db.prepare("SELECT status FROM tasks WHERE id = 'a'").first<{
+      status: string;
+    }>();
+    expect(row!.status).toBe("done");
+  });
+
+  // The refusal names the acts that stand, so an act added later is refused
+  // here until someone says it is safe.
+  it("refuses an act it does not know", async () => {
+    const ada = await planned();
+
+    const response = await caught(actOn(ada.cookie, PAST, { intent: "rewrite", id: "a" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe("A plan is never rewritten after its day.");
+  });
+
   // A plan is made on its day and ahead of it, and read back after it.
   it("is only the days behind: a day still to come plans as today does", async () => {
     const ada = await member("ada@example.test", "Ada");

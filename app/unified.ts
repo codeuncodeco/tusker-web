@@ -124,14 +124,7 @@ export function planGroups(tasks: LiveTask[], plan: string[], members: string[])
  * there. A picked id no org answers for is left out, as it is everywhere.
  */
 export function planOnly(tasks: LiveTask[], plan: string[]): Group[] {
-  const byId = new Map(tasks.map((one) => [one.id, one]));
-  return [
-    {
-      key: "today",
-      label: GROUP_LABEL.today,
-      tasks: plan.map((id) => byId.get(id)).filter((one) => one !== undefined),
-    },
-  ];
+  return [head(new Map(tasks.map((one) => [one.id, one])), "today", plan, true)];
 }
 
 /**
@@ -150,16 +143,29 @@ function drawn(
   const rest = tasks.filter((one) => !inHead.has(one.id)).sort(inOrder);
 
   return [
-    ...heads.map(({ key, ids, ordered }) => {
-      const held = ids.map((id) => byId.get(id)).filter((one) => one !== undefined);
-      return { key, label: GROUP_LABEL[key], tasks: ordered ? held : held.sort(inOrder) };
-    }),
+    ...heads.map(({ key, ids, ordered }) => head(byId, key, ids, ordered)),
     ...UNDER_HEAD.map((key) => ({
       key,
       label: GROUP_LABEL[key],
       tasks: rest.filter((one) => one.status === key),
     })),
   ];
+}
+
+/**
+ * One head group: the tasks a page picked, in the order the page named them.
+ *
+ * An id no org answers for is left out here and nowhere else, so a task that
+ * was archived or deleted drops out of every list by one rule.
+ */
+function head(
+  byId: Map<string, LiveTask>,
+  key: GroupKey,
+  ids: string[],
+  ordered: boolean,
+): Group {
+  const held = ids.map((id) => byId.get(id)).filter((one) => one !== undefined);
+  return { key, label: GROUP_LABEL[key], tasks: ordered ? held : held.sort(inOrder) };
 }
 
 /** A dated task above an undated one, and the earlier date first. */

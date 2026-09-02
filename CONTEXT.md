@@ -402,7 +402,9 @@ day. Plan mode, focus and the unified board share the live set and the sort,
 and lay them out differently: a plan drawn from a Done column is nonsense. The
 week set comes first, and the rest of the live set under a heading below it.
 Every pick and every step writes the plan row, so nothing waits on a tab and
-there is no Commit button. See ADR-0008 and ADR-0014.
+there is no Commit button. All of that is the day the person is in, and the days
+ahead of it. Reading a finished day back is not plan mode's act, so a **Day
+walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
 
 **Day walk**:
