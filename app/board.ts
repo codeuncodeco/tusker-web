@@ -23,6 +23,25 @@ export function isFinished(status: Status): boolean {
   return FINISHED_STATUSES.includes(status);
 }
 
+/**
+ * The columns a card steps along, in workflow order. `>` and `<` walk this run
+ * and stop at both ends.
+ *
+ * Cancelled is off it: an outcome is not the next step, so a card reaches
+ * Cancelled by a drag or by the select. See ADR-0015.
+ */
+export const STATUS_RUN: Status[] = ["backlog", "todo", "in_progress", "done"];
+
+/**
+ * The column one step along the run, or null where there is none: at either
+ * end of it, and from a column that is off it.
+ */
+export function stepped(from: Status, way: 1 | -1): Status | null {
+  const at = STATUS_RUN.indexOf(from);
+  if (at === -1) return null;
+  return STATUS_RUN[at + way] ?? null;
+}
+
 /** The three columns the board always shows. */
 const ALWAYS_SHOWN: Status[] = ["todo", "in_progress", "done"];
 

@@ -454,3 +454,34 @@ describe("the Today chip on a board", () => {
     );
   });
 });
+
+describe("stepping a task between columns", () => {
+  /** The column one task sits in now. */
+  async function columnOf(id: string) {
+    const row = await db
+      .prepare("SELECT status FROM tasks WHERE id = ?")
+      .bind(id)
+      .first<{ status: string }>();
+    return row?.status ?? null;
+  }
+
+  it("takes the move the > key posts", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+
+    await act(ada.cookie, { intent: "move", id: "ship", slug: ada.org.slug, status: "in_progress" });
+
+    expect(await columnOf("ship")).toBe("in_progress");
+  });
+
+  // The page draws the live set, so a task stepped into Done leaves it.
+  it("drops the task off the page when it steps to Done", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship", { status: "in_progress" });
+
+    await act(ada.cookie, { intent: "move", id: "ship", slug: ada.org.slug, status: "done" });
+
+    expect(await columnOf("ship")).toBe("done");
+    expect(ids(await planPage(ada.cookie), "in_progress")).toEqual([]);
+  });
+});

@@ -1,5 +1,6 @@
 import { Link, useFetcher } from "react-router";
 
+import type { Status } from "./board";
 import { Dot } from "./dot";
 import type { LiveTask } from "./unified";
 
@@ -15,6 +16,16 @@ export function planFields(task: LiveTask, planned: boolean) {
 export type Verbs = { pick: string; drop: string };
 
 export const PLAN_VERBS: Verbs = { pick: "Plan", drop: "Unplan" };
+
+/**
+ * What a move posts: the column the card lands in, and no place inside it. The
+ * `>` and `<` keys send this, and so does a drop on a unified column. The
+ * card's select posts the same four fields as a form, so it needs no script.
+ * See ADR-0015.
+ */
+export function moveFields(task: LiveTask, status: Status) {
+  return { intent: "move", id: task.id, slug: task.org.slug, status };
+}
 
 export function finishFields(task: LiveTask) {
   return { intent: "finish", id: task.id, slug: task.org.slug };
@@ -41,6 +52,7 @@ export function UnifiedRow({
   planned,
   selected,
   domId,
+  place,
   moves,
   plannable = true,
   droppable = false,
@@ -51,6 +63,12 @@ export function UnifiedRow({
   planned: boolean;
   selected: boolean;
   domId: string;
+  /**
+   * Puts the keyboard cursor on this row. A page with keys that act on the
+   * cursor gives one, so a long list is reachable by pointer as well as by
+   * `j`. Focus mode gives none: a batch is three rows.
+   */
+  place?: () => void;
   /**
    * Which way the row can step, in a list whose order a person owns. Nothing
    * here leaves the arrows off, which is every list but the plan: that order is
@@ -72,6 +90,7 @@ export function UnifiedRow({
     <li
       id={domId}
       aria-current={selected ? "true" : undefined}
+      onClick={place}
       className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border p-3 ${
         selected
           ? "border-fg bg-surface-2"

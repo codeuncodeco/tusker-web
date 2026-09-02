@@ -155,6 +155,19 @@ A flag on a task, not a status. An archived task keeps its Done or Cancelled
 status.
 _Avoid_: Closed, hidden
 
+**Run**:
+The columns a card steps along, in workflow order: Backlog, To do, In progress,
+Done. The `>` and `<` keys walk it and stop at both ends. Cancelled is off the
+run, because an outcome is not the next step, so a card reaches Cancelled by a
+drag or by the select. See ADR-0015.
+_Avoid_: Workflow, pipeline, stage list
+
+**Finish**:
+Ending a task, which is always a move to Done. The form names no column,
+because finishing has only one to name. Cancelling is not finishing, though a
+cancelled task carries a finish time.
+_Avoid_: Complete, close
+
 **Finish time**:
 When the work was over: `tasks.finished_at`. A move into Done or Cancelled
 writes it, a move out clears it, and every other write leaves it alone. The
@@ -266,7 +279,8 @@ Backlog, Done and Cancelled are toggle-only here, because the org board's
 Backlog rule reads "this person holds no live task anywhere" and is therefore
 dead, and Done and Cancelled cap to the last seven days of finish time. Inside
 a column the order is percentile order, and it is derived: no card is dragged
-and no card steps.
+into a place and no card steps. A card still moves between columns, because a
+column is a status: by drag, by key or by the card's select. See ADR-0015.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
@@ -366,7 +380,9 @@ _Avoid_: Chunk, sprint, session
 
 **Drop**:
 Taking a task out of a batch without finishing it. The task moves to the end of
-today's plan, so it comes back last. See ADR-0009.
+today's plan, so it comes back last. A dragged card also drops, on either
+board, and that drop names a column or a place: the two acts share the word and
+nothing else. See ADR-0009 and ADR-0015.
 _Avoid_: Skip, snooze, defer
 
 **Header**:
