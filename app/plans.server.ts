@@ -115,22 +115,6 @@ export async function movePlan(
 }
 
 /**
- * Moves a task to the end of a day's plan, where focus mode drops one out of a
- * batch. A task the plan does not hold is left alone: a drop says "not now"
- * about a task the person already planned. See ADR-0009.
- */
-export async function pushDownPlan(
-  db: D1Database,
-  personId: string,
-  day: string,
-  taskId: string,
-): Promise<void> {
-  const plan = await readPlan(db, personId, day);
-  if (!plan?.includes(taskId) || plan[plan.length - 1] === taskId) return;
-  await writePlan(db, personId, day, [...plan.filter((one) => one !== taskId), taskId]);
-}
-
-/**
  * Takes a block of tasks out of a day's plan, leaving the rest in order.
  *
  * One task is a block of one. The undo of one paste is one act as well, so the

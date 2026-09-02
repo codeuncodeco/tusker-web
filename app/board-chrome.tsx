@@ -1,16 +1,54 @@
 /**
- * The controls both boards carry in their header: the Today chip and the
- * switches that draw a hidden column.
+ * The controls a board carries in its header: the search box, the Today chip
+ * and the switches that draw a hidden column.
  *
  * The org board and the unified board draw the same five columns, so they draw
  * the same switches over them. Which columns each offers is the board's own
- * business; the switch is not.
+ * business, and so is which controls it draws: the search box is the org
+ * board's alone, because a search is one org's rows.
  */
 
-import { Link, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Form, Link, useSearchParams } from "react-router";
 
 import { flipped, STATUS_LABEL, type Status, type Toggles } from "./board";
+import { fieldClass } from "./forms";
 import { Square, SquareCheck } from "./icons";
+import { SEARCH_NAME, withoutSearch } from "./search";
+
+/**
+ * The box that narrows a board to the tasks holding the text.
+ *
+ * It is a GET form, so a search is a place: the address carries it, Back works
+ * and a narrowed board is a link. The rest of the query rides along as hidden
+ * fields, so a search keeps the columns a person turned on.
+ */
+export function SearchBox({ search }: { search: string }) {
+  const [params] = useSearchParams();
+  // The box is the person's while they type, and the address is the truth
+  // after they submit or move.
+  const [text, setText] = useState(search);
+  useEffect(() => setText(search), [search]);
+
+  return (
+    <Form method="get" role="search" className="flex items-baseline gap-2">
+      {withoutSearch(params).map(([name, value], at) => (
+        <input key={`${name}:${at}`} type="hidden" name={name} value={value} />
+      ))}
+      <input
+        type="search"
+        name={SEARCH_NAME}
+        value={text}
+        onChange={(event) => setText(event.currentTarget.value)}
+        aria-label="Search tasks"
+        placeholder="Search"
+        className={`w-48 ${fieldClass}`}
+      />
+      {/* Enter in the box submits. This is the press for everybody else. */}
+      <button className="sr-only">Search</button>
+    </Form>
+  );
+}
 
 /**
  * The chip that narrows a board to today's plan, and gives it back.

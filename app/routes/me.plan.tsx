@@ -146,11 +146,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
           any other. A named day carries no box. See ADR-0012. */}
       {canAdd ? <UnifiedAdd orgs={orgs} /> : null}
 
-      <p className="text-muted">
-        Press <kbd>p</kbd> to plan a task, and <kbd>J</kbd> and <kbd>K</kbd> to say in what
-        order you will work them. <kbd>&gt;</kbd> and <kbd>&lt;</kbd> walk a task between
-        columns. Every act is kept, so nothing waits on this tab.
-      </p>
+      <p className="text-muted">Every act is kept, so nothing waits on this tab.</p>
 
       {leftovers && <LeftoverPrompt leftovers={leftovers} />}
 
