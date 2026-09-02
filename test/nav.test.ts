@@ -200,8 +200,8 @@ function headerAt(pathname: string, org: Org | null = null): string {
 }
 
 describe("the header", () => {
-  // The page a person stands on is now marked by colour, so this keeps the
-  // signal a screen reader reads honest.
+  // Colour marks the page a person stands on, so this keeps the signal a
+  // screen reader reads honest.
   it("marks the page a person stands on, and offers it no link", () => {
     const markup = headerAt("/me/week");
 

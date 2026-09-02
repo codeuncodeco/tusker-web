@@ -47,7 +47,7 @@ export function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean
  * holds no verb, because the box already says what the click does, so the link
  * names the act to a screen reader instead.
  */
-export function Toggle({ which, toggles }: { which: Status; toggles: Toggles }) {
+export function ColumnSwitch({ which, toggles }: { which: Status; toggles: Toggles }) {
   const [params] = useSearchParams();
   const on = toggles[which] ?? false;
   const label = STATUS_LABEL[which];
@@ -56,7 +56,7 @@ export function Toggle({ which, toggles }: { which: Status; toggles: Toggles }) 
     <Link
       to={flipped(params, which, on)}
       aria-label={`${on ? "Hide" : "Show"} ${label}`}
-      className="flex items-center gap-1.5 text-xs uppercase tracking-wide"
+      className="inline-flex items-baseline gap-1.5 text-xs uppercase tracking-wide"
     >
       {on ? <SquareCheck /> : <Square />}
       {label}

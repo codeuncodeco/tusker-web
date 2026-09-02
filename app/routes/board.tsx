@@ -22,7 +22,7 @@ import {
   readToggles,
   type Status,
 } from "../board";
-import { Toggle, TodayChip } from "../board-chrome";
+import { ColumnSwitch, TodayChip } from "../board-chrome";
 import { useBoardKeys } from "../board-keys";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
@@ -432,8 +432,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         <h1 className="text-2xl tracking-tight">{org.name}</h1>
         <nav className="flex items-baseline gap-4">
           <TodayChip today={today} hasPlan={hasPlan} />
-          {loaderData.backlogByRule ? null : <Toggle which="backlog" toggles={toggles} />}
-          <Toggle which="cancelled" toggles={toggles} />
+          {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
+          <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>
       </header>
 

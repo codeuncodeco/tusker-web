@@ -399,7 +399,7 @@ The one bar every signed-in page draws, in two rows. Row 1 names who and
 where: the wordmark, the current org and the account. Row 2 is every page as a
 button, in a person half for Tasks, Week, Plan and Focus and an org half for
 the current org's pages. Both halves are always drawn, and the page a person
-stands on is marked. `/account` is in neither half and marks neither. A control
+stands on is marked. `/account` stands in neither half, so it marks neither. A control
 that comes and goes teaches nothing, so nothing in the header is drawn by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar

@@ -99,16 +99,17 @@ function Here({ to, here, children }: { to: string; here: boolean; children: Rea
  */
 function Menu({
   label,
-  summaryClass,
+  summaryClass = "",
   children,
 }: {
   label: React.ReactNode;
-  summaryClass: string;
+  /** What the summary looks like. Row 1 draws plain text; row 2 a button. */
+  summaryClass?: string;
   children: React.ReactNode;
 }) {
   return (
     <details className="relative">
-      <summary className={`cursor-pointer list-none marker:content-none ${summaryClass}`}>
+      <summary className={`cursor-pointer list-none marker:content-none hover:underline ${summaryClass}`}>
         {label} <span aria-hidden="true">▾</span>
       </summary>
       <ul className="absolute right-0 z-10 mt-1 flex min-w-40 flex-col gap-1 rounded border border-border bg-surface p-2 shadow-lg">
@@ -140,7 +141,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           Tusker
         </Link>
 
-        <Menu label={org ? org.name : "Orgs"} summaryClass="text-muted hover:underline">
+        <Menu label={org ? org.name : "Orgs"}>
           {orgs.map((one) => (
             <li key={one.slug}>
               <Link to={pageOf(one.slug, "board")} className="hover:underline">
