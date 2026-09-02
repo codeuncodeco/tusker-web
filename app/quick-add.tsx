@@ -8,9 +8,14 @@
  *
  * The body is controlled. The cross-org box must be, because an undo gives the
  * words back, and one state model is better than two that read the same on screen.
+ *
+ * The title is a textarea one line high, not an input. An input strips the line
+ * breaks out of a paste before the form is posted, and the line breaks are what
+ * makes a pasted list several tasks. Enter still posts, and Shift+Enter makes a
+ * line, so a person who types one title sees no change.
  */
 
-import { useCallback, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { FetcherWithComponents } from "react-router";
 
 import { fieldClass } from "./forms";
@@ -58,7 +63,7 @@ export function QuickAddBox({
   draft: Draft;
   /** The sentence the act answered with, or nothing. */
   error?: string | null;
-  titleRef?: RefObject<HTMLInputElement | null>;
+  titleRef?: RefObject<HTMLTextAreaElement | null>;
   onKeyDown?: (event: React.KeyboardEvent<HTMLFormElement>) => void;
   /** The hidden fields that name the target: a status, or an org. */
   fields?: ReactNode;
@@ -67,6 +72,17 @@ export function QuickAddBox({
   /** The control beside the title that picks the target. */
   picker?: ReactNode;
 }) {
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  // The box starts one line high and grows with what it holds, up to a few
+  // lines, so a person sees the list they pasted before they post it.
+  useEffect(() => {
+    const field = box.current;
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight}px`;
+  }, [draft.title]);
+
   return (
     <Form method="post" className="flex flex-col gap-2" onKeyDown={onKeyDown}>
       <input type="hidden" name="intent" value="create" />
@@ -74,15 +90,27 @@ export function QuickAddBox({
       {chip}
 
       <div className="flex flex-wrap gap-2">
-        <input
-          ref={titleRef}
+        <textarea
+          ref={(field) => {
+            box.current = field;
+            if (titleRef) titleRef.current = field;
+          }}
           name="title"
           required
+          rows={1}
           value={draft.title}
           onChange={(event) => draft.setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter posts, as it did while this was an input. Shift+Enter
+            // makes a line, and a paste brings its own. A key pressed while an
+            // input method is composing belongs to that method.
+            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+          }}
           placeholder={label}
           aria-label={label}
-          className={`grow ${fieldClass}`}
+          className={`grow resize-none overflow-y-auto max-h-40 ${fieldClass}`}
         />
         {picker}
       </div>

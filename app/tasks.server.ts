@@ -2,8 +2,9 @@ import { isStatus, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
 import { tickBox } from "./description";
 import { listFields } from "./fields.server";
-import { between } from "./order";
+import { between, placesAbove } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
+import { MAX_TITLES, titlesIn } from "./titles";
 
 export type Task = {
   id: string;
@@ -161,43 +162,69 @@ function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { data: R
 }
 
 /**
- * The title and the mark a quick-add box posts, or the reason it makes no
- * task. Both boxes read a form the same way, so the two say the same thing to
+ * The titles, the mark and the raw text a quick-add box posts, or the reason
+ * it makes no task. Both boxes read a form the same way, so the two say the same thing to
  * a person who presses Enter on an empty one.
+ *
+ * The box takes a line break, so one post makes a list: one task per line, in
+ * the order the lines appear. The mark goes on all of them or on none, because
+ * one box holds one tick.
  */
-export function newTaskFrom(form: FormData): { title: string; decides: boolean } | { error: string } {
-  const title = String(form.get("title") ?? "").trim();
-  if (!title) return { error: "A task needs a title." };
+export function newTasksFrom(
+  form: FormData,
+): { titles: string[]; decides: boolean; text: string } | { error: string } {
+  const text = String(form.get("title") ?? "");
+  const titles = titlesIn(text);
+  if (titles.length === 0) return { error: "A task needs a title." };
+  if (titles.length > MAX_TITLES) {
+    return { error: `A list makes ${MAX_TITLES} tasks at the most.` };
+  }
   // The mark goes on when the task is made, while the thought is there. It is
   // off by default, so an unticked box is a task that decides nothing.
-  return { title, decides: form.get("decides") === "1" };
+  // The text goes back as it was typed, line breaks and all, because the undo
+  // of a pasted list refills the box with it.
+  return { titles, decides: form.get("decides") === "1", text };
 }
 
 /**
- * Adds a task at the top of its column, where a person looks for the one they
- * just typed. The scope carries the org id, so the membership check is already
- * done: `org_id` is the only fence.
+ * Adds a block of tasks at the top of its column, where a person looks for the
+ * ones they just typed, and gives back the ids it wrote, in list order.
+ *
+ * The block goes in as one move, in list order, above the card that was on
+ * top: adding the lines one at a time would reverse them. One typed title is a
+ * block of one, and lands where it always did.
+ *
+ * The scope carries the org id, so the membership check is already done:
+ * `org_id` is the only fence. The rows are not read back, because a hundred
+ * ids in one `IN` clause is more bound values than D1 takes, and the caller
+ * wants the ids it just made.
  */
-export async function createTask(
+export async function createTasks(
   db: D1Database,
   scope: Scope,
-  task: { title: string; status: Status; decides: boolean },
-): Promise<Task> {
-  const id = crypto.randomUUID();
+  tasks: { titles: string[]; status: Status; decides: boolean },
+): Promise<string[]> {
   const orgId = scope.org.id;
-  const column = await columnPlaces(db, orgId, task.status);
-  const position = await placeAbove(db, orgId, task.status, column, column[0]?.id ?? null);
+  const column = await columnPlaces(db, orgId, tasks.status);
+  const positions = placesAbove(column[0]?.position ?? null, tasks.titles.length);
 
-  await db
-    .prepare(
-      "INSERT INTO tasks (id, org_id, title, status, position, decides) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(id, orgId, task.title, task.status, position, task.decides ? 1 : 0)
-    .run();
+  const rows = tasks.titles.map((title, at) => ({
+    id: crypto.randomUUID(),
+    title,
+    position: positions[at],
+  }));
 
-  const made = await db.prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ?`).bind(id).first<Row>();
-  if (!made) throw new Error("The task disappeared right after the insert.");
-  return asTask(made);
+  await db.batch(
+    rows.map((row) =>
+      db
+        .prepare(
+          "INSERT INTO tasks (id, org_id, title, status, position, decides) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(row.id, orgId, row.title, tasks.status, row.position, tasks.decides ? 1 : 0),
+    ),
+  );
+
+  return rows.map((row) => row.id);
 }
 
 /**
@@ -222,6 +249,26 @@ export async function deleteTask(
     .bind(taskId, scope.org.id)
     .run();
   return done.meta.changes > 0;
+}
+
+/**
+ * Deletes every task of the org the list names, in one write.
+ *
+ * The undo of one add is one act, so a paste of ten rows leaves ten rows or
+ * none: a delete that stopped halfway would leave a person guessing which rows
+ * survived.
+ */
+export async function deleteTasks(
+  db: D1Database,
+  scope: Scope,
+  taskIds: string[],
+): Promise<void> {
+  if (taskIds.length === 0) return;
+  await db.batch(
+    taskIds.map((taskId) =>
+      db.prepare("DELETE FROM tasks WHERE id = ? AND org_id = ?").bind(taskId, scope.org.id),
+    ),
+  );
 }
 
 /** What a move did: whether a row moved, and whether the move finished it. */

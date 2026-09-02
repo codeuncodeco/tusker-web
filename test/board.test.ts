@@ -95,6 +95,21 @@ describe("quick add", () => {
     expect(results).toEqual([]);
   });
 
+  it("makes one task of every line, first line at the top of the column", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await act("ada", ada.cookie, { intent: "create", status: "todo", title: "Was here first" });
+
+    await act("ada", ada.cookie, { intent: "create", status: "todo", title: "one\ntwo\nthree" });
+
+    const data = await board("ada", ada.cookie);
+    expect(column(data, "todo")!.tasks.map((one) => one.title)).toEqual([
+      "one",
+      "two",
+      "three",
+      "Was here first",
+    ]);
+  });
+
   it("refuses a status the board does not hold", async () => {
     const ada = await member("ada@example.test", "Ada");
 

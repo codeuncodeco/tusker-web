@@ -26,7 +26,7 @@ import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { readPlan } from "../plans.server";
 import { requireScope } from "../scope.server";
-import { createTask, listTasks, moveTask, newTaskFrom, type Task } from "../tasks.server";
+import { createTasks, listTasks, moveTask, newTasksFrom, type Task } from "../tasks.server";
 import type { Route } from "./+types/board";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -133,13 +133,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   if (intent === "create") {
     const status = readStatus(form);
-    const typed = newTaskFrom(form);
+    const typed = newTasksFrom(form);
     if ("error" in typed) return typed;
-    const made = await createTask(env.DB, scope, { ...typed, status });
+    const made = await createTasks(env.DB, scope, { ...typed, status });
     // The box sits on every column, Done included. A marked task typed
     // straight into Done is finished the moment it is made, so it is asked
-    // now: no later move would ask it.
-    const prompt = await promptFor(env.DB, scope, request, made.id);
+    // now: no later move would ask it. One box is one prompt, so a pasted list
+    // is asked about the task on top of it.
+    const prompt = await promptFor(env.DB, scope, request, made[0]);
     if (prompt) return prompt;
     return { ok: true };
   }
@@ -168,7 +169,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
 /**
  * The box at the top of a column. It posts on Enter and empties itself once
- * the task lands, so a person can type the next one at once. The column names
+ * the tasks land, so a person can type the next one at once. The column names
  * the status, so the only extra this placement needs is a hidden field.
  */
 function QuickAdd({ status, label }: { status: Status; label: string }) {

@@ -234,14 +234,27 @@ The box that makes a task from a typed title. On a board it sits at the top of a
 column, and the column names the status. On the unified view and in plan mode it
 carries an org picker instead, which starts at the personal org every time a
 person opens Tusker. A team org draws a chip that names it while the box holds
-it. The decision mark is set here. See ADR-0012.
+it. The decision mark is set here. The title is a textarea one line high: Enter
+posts and Shift+Enter makes a line, so a pasted list keeps its line breaks.
+See ADR-0012.
 _Avoid_: Composer, capture box, new task form
 
+**Pasted list**:
+Several lines posted from one quick-add box. Each non-empty line, trimmed, is
+one task, in the order the lines appear, and the block lands at the top of the
+column with the first line topmost. The mark goes on all of them or on none,
+because one box holds one tick. A list of more than 100 lines is refused and
+writes nothing. One box raises one decision prompt, so a marked list typed
+straight into Done is asked about the task on top of it.
+_Avoid_: Bulk add, batch, import
+
 **Undo an add**:
-The line the quick-add box shows after it makes a task. It deletes the row and
-gives the box back the title and the mark, with the picker reset to the personal
-org, so a task typed into the wrong org is filed again rather than typed again.
-It is the only delete Tusker has. See ADR-0012.
+The line the quick-add box shows after it makes a task. It counts what the add
+made, deletes every row that add wrote, drops them all from the day's plan, and
+gives the box back the whole text as it was typed and the mark, with the picker
+reset to the personal org, so a task typed into the wrong org is filed again
+rather than typed again. One add is one act, so its undo is one act. It is the
+only delete Tusker has. See ADR-0012.
 _Avoid_: Trash, revert
 
 **Plan**:

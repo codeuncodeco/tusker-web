@@ -52,6 +52,13 @@ That delete is a hard delete of a row made seconds ago, and it is the only
 delete Tusker has. Archiving instead would leave a real row in a team org that
 its members can find, which is the failure this whole ADR sets out to prevent.
 
+The box takes a pasted list, so one add can make many rows (#23). One add is
+still one act: the undo line counts what the add made, and the undo deletes
+every row of it, drops them all from the day's plan, and gives the box back the
+whole text as it was typed. A partial undo would leave a person guessing which
+rows survived. A cap of 100 lines bounds the worst paste, so the row this
+delete must answer for is always a block a person can still see.
+
 ## Consequences
 
 A person adding to a team org picks it once per visit. That is the price of the
