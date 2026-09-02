@@ -128,6 +128,8 @@ async function placedRows(
   // A page that asks for no column and holds no plan asks for nothing.
   if (keep.length === 0) return [];
 
+  // `finished_at` is in the CTE because the filter below reads it. No card
+  // draws it.
   const { results } = await db
     .prepare(
       `WITH placed AS (

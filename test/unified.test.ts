@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
-import type { Status } from "../app/board";
+import { isFinished, type Status } from "../app/board";
 import * as loginRoute from "../app/routes/login";
 import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
@@ -58,7 +58,7 @@ async function task(
     finished?: string;
   } = {},
 ) {
-  const over = some.status === "done" || some.status === "cancelled";
+  const over = isFinished(some.status ?? "todo");
   await db
     .prepare(
       `INSERT INTO tasks (id, org_id, title, status, position, due_date, created_at, updated_at, finished_at)

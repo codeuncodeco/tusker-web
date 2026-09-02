@@ -55,7 +55,7 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
  * because the work was over then: the pair is one finished set, and a reorder
  * inside a column is no new finish either.
  */
-const stamp = (status: Status) =>
+const finishedAtSql = (status: Status) =>
   isFinished(status) ? `COALESCE(finished_at, ${NOW})` : "NULL";
 
 /** A card in a column, cut down to what the order maths reads. */
@@ -107,7 +107,7 @@ export async function saveTask(
     .prepare(
       `UPDATE tasks
        SET title = ?, data = ?, decides = ?, due_date = ?,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           updated_at = ${NOW}
        WHERE id = ? AND org_id = ?`,
     )
     .bind(
@@ -141,7 +141,7 @@ export async function saveDescription(
   const done = await db
     .prepare(
       `UPDATE tasks
-       SET description = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       SET description = ?, updated_at = ${NOW}
        WHERE id = ? AND org_id = ?`,
     )
     .bind(description, taskId, scope.org.id)
@@ -181,7 +181,7 @@ export async function tickDescriptionBox(
   const done = await db
     .prepare(
       `UPDATE tasks
-       SET description = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       SET description = ?, updated_at = ${NOW}
        WHERE id = ? AND org_id = ?`,
     )
     .bind(ticked, taskId, scope.org.id)
@@ -370,7 +370,7 @@ export async function moveTask(
     .prepare(
       `UPDATE tasks
        SET status = ?, position = ?,
-           finished_at = ${stamp(move.status)},
+           finished_at = ${finishedAtSql(move.status)},
            updated_at = ${NOW}
        WHERE id = ? AND org_id = ?`,
     )
@@ -436,17 +436,21 @@ async function renumber(db: D1Database, orgId: string, column: Positioned[]): Pr
 
 /**
  * A task as the read API answers it. An org app draws a screen from this, so
- * it carries the description and the times the board does not read, the finish
- * time among them.
+ * it carries the description and the times the board does not read.
+ *
+ * The finish time is not among them. `docs/task-api.md` states the answer, and
+ * a column the board wanted is no reason to widen what an org app is promised.
  *
  * A reference value stays the external id the task holds. The org app minted
  * that id, so it names the record better than Tusker's cached label does.
  */
-export type ApiTask = Omit<Task, "org_id" | "archived"> & { updated_at: string };
+export type ApiTask = Omit<Task, "org_id" | "archived" | "finished_at"> & {
+  updated_at: string;
+};
 
 /** The columns the read API answers with. */
 const API_COLUMNS =
-  "id, title, description, status, position, due_date, data, created_at, updated_at, finished_at";
+  "id, title, description, status, position, due_date, data, created_at, updated_at";
 
 /**
  * The board's columns, in board order, as SQL. A task's status decides its
