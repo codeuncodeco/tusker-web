@@ -108,8 +108,9 @@ _Avoid_: Description editor, description form
 The keys a keyed list binds, in `app/unified-keys.ts`: `j` and `k` move the
 cursor, `Enter` opens, `p` plans, `x` finishes, `>` and `<` walk a task between
 columns, and `J` and `K` step a planned task through the plan. One table,
-`app/key-map.ts`, holds the key of every act, and one hook binds them, so the
-board, the plan, the week and focus mode cannot drift apart. A page says which
+`app/key-map.ts`, holds the key of every act, and one hook binds the list's
+own, so the board, the plan, the week and focus mode cannot drift apart. `n`
+takes three more, and the offer that ends a batch binds it where it is drawn. A page says which
 acts it gives; the rest answer nothing. The peer of **Editor keys**: one is for
 a list and one is for a box, and `isPagePress` is the border between them.
 _Avoid_: Hotkeys, shortcuts, bindings

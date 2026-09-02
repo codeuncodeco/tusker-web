@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 import type { Status } from "../app/board";
 import { TakeMore } from "../app/focus-list";
 import { KEY_MAP, type ActionName } from "../app/key-map";
-import { ALL_ACTS, pressed, type Press } from "../app/unified-keys";
-import { UnifiedCard } from "../app/unified-card";
 import type { LiveTask } from "../app/unified";
+import { UnifiedCard } from "../app/unified-card";
+import { ALL_ACTS, pressed, type Press } from "../app/unified-keys";
 import { UnifiedRow } from "../app/unified-row";
 
 /** One task, as the cross-org pages draw one. */
@@ -34,54 +34,73 @@ function press(key: string, planned: string[] = []): Press | null {
 }
 
 describe("the key each act binds", () => {
-  // One expectation per row of the map. A new act with no line here fails the
-  // last test of this block, so the map cannot grow a key nothing fires.
-  const fires: Record<ActionName, () => void> = {
-    next: () => expect(press(KEY_MAP.next.key)).toEqual({ kind: "cursor", id: "b" }),
-    prev: () => expect(press(KEY_MAP.prev.key)).toEqual({ kind: "cursor", id: "a" }),
-    open: () => expect(press(KEY_MAP.open.key)).toEqual({ kind: "open", task: ROWS[1] }),
-    plan: () =>
-      expect(press(KEY_MAP.plan.key)).toEqual({
-        kind: "act",
-        fields: { intent: "plan", id: "b", slug: "acme" },
-      }),
-    unplan: () =>
-      expect(press(KEY_MAP.unplan.key, ["b"])).toEqual({
-        kind: "act",
-        fields: { intent: "unplan", id: "b", slug: "acme" },
-      }),
-    up: () =>
-      expect(press(KEY_MAP.up.key, ["b"])).toEqual({
-        kind: "act",
-        fields: { intent: "up", id: "b" },
-      }),
-    down: () =>
-      expect(press(KEY_MAP.down.key, ["b"])).toEqual({
-        kind: "act",
-        fields: { intent: "down", id: "b" },
-      }),
-    forward: () =>
-      expect(press(KEY_MAP.forward.key)).toEqual({
-        kind: "act",
-        fields: { intent: "move", id: "b", slug: "acme", status: "in_progress" },
-      }),
-    back: () =>
-      expect(press(KEY_MAP.back.key)).toEqual({
-        kind: "act",
-        fields: { intent: "move", id: "b", slug: "acme", status: "backlog" },
-      }),
-    finish: () =>
-      expect(press(KEY_MAP.finish.key)).toEqual({
-        kind: "act",
-        fields: { intent: "finish", id: "b", slug: "acme" },
-      }),
-    // `n` is the offer that ends a batch, and it is bound where the offer is
-    // drawn rather than on the list.
-    more: () => expect(press(KEY_MAP.more.key)).toBe(null),
+  // One line per row of the map, and the key is written out. Reading it back
+  // off the map would only prove the map equals itself. A new act with no line
+  // here fails the last test of this block, so the map cannot grow a key
+  // nothing fires.
+  const fires: Record<ActionName, { key: string; press: () => void }> = {
+    next: { key: "j", press: () => expect(press("j")).toEqual({ kind: "cursor", id: "b" }) },
+    prev: { key: "k", press: () => expect(press("k")).toEqual({ kind: "cursor", id: "a" }) },
+    open: { key: "Enter", press: () => expect(press("Enter")).toEqual({ kind: "open", task: ROWS[1] }) },
+    plan: {
+      key: "p",
+      press: () =>
+        expect(press("p")).toEqual({
+          kind: "act",
+          fields: { intent: "plan", id: "b", slug: "acme" },
+        }),
+    },
+    unplan: {
+      key: "p",
+      press: () =>
+        expect(press("p", ["b"])).toEqual({
+          kind: "act",
+          fields: { intent: "unplan", id: "b", slug: "acme" },
+        }),
+    },
+    up: {
+      key: "K",
+      press: () => expect(press("K", ["b"])).toEqual({ kind: "act", fields: { intent: "up", id: "b" } }),
+    },
+    down: {
+      key: "J",
+      press: () =>
+        expect(press("J", ["b"])).toEqual({ kind: "act", fields: { intent: "down", id: "b" } }),
+    },
+    forward: {
+      key: ">",
+      press: () =>
+        expect(press(">")).toEqual({
+          kind: "act",
+          fields: { intent: "move", id: "b", slug: "acme", status: "in_progress" },
+        }),
+    },
+    back: {
+      key: "<",
+      press: () =>
+        expect(press("<")).toEqual({
+          kind: "act",
+          fields: { intent: "move", id: "b", slug: "acme", status: "backlog" },
+        }),
+    },
+    finish: {
+      key: "x",
+      press: () =>
+        expect(press("x")).toEqual({
+          kind: "act",
+          fields: { intent: "finish", id: "b", slug: "acme" },
+        }),
+    },
+    // `n` is the offer that ends a batch, so the list ignores it. The offer
+    // binds it where it is drawn, which the render test below reads.
+    more: { key: "n", press: () => expect(press("n")).toBe(null) },
   };
 
   for (const [action, fired] of Object.entries(fires)) {
-    it(`fires ${action} on ${KEY_MAP[action as ActionName].key}`, fired);
+    it(`fires ${action} on ${fired.key}`, () => {
+      expect(KEY_MAP[action as ActionName].key).toBe(fired.key);
+      fired.press();
+    });
   }
 
   it("covers every act the map holds", () => {
@@ -140,8 +159,11 @@ describe("the hint a control carries", () => {
 
     // Up, Down, Plan and Finish, in the order the row draws them.
     expect(shortcuts(html)).toEqual(["Shift+K", "Shift+J", "p", "x"]);
-    expect(html).toContain("<kbd aria-hidden=\"true\"");
     expect(html).toContain("⇧K");
+    // The mark is the eye's, so a screen reader passes it by, and a phone
+    // never draws it: `pointer-fine:` is what hides it, and a typo there would
+    // hide every hint on every device instead.
+    expect(html).toContain('<kbd aria-hidden="true" class="ml-1 hidden pointer-fine:inline">');
   });
 
   it("turns the plan hint over with the verb, and keeps the key", () => {

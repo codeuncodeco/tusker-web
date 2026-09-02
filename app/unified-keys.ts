@@ -33,8 +33,14 @@ export type ListActs = {
   move: boolean;
 };
 
-/** Every act, which is what a board, a plan and a week give. */
+/** Every act, which is what plan mode gives: the plan is the order it owns. */
 export const ALL_ACTS: ListActs = { plan: true, step: true, move: true };
+
+/**
+ * Every act but the step, for a list whose order is derived: the board, the
+ * week, and plan mode's own To do and In progress groups. See ADR-0006.
+ */
+export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
 
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
@@ -69,7 +75,7 @@ export function pressed(
   // draws all five columns, so the key says so as well as the write. Taking a
   // task back out is never refused: plan mode holds the tasks finished today,
   // and `p` unplans one of those as the button does.
-  if (key === KEY_MAP.plan.key) {
+  if (key === KEY_MAP.plan.key || key === KEY_MAP.unplan.key) {
     if (!acts.plan) return null;
     const held = planned.has(task.id);
     if (!held && !isPlannable(task)) return null;

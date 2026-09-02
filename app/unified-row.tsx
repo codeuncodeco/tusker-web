@@ -127,7 +127,7 @@ export function UnifiedRow({
               name="intent"
               value="up"
               disabled={!moves.up}
-              aria-label={`Move ${task.title} ${KEY_MAP.up.label.toLowerCase()}`}
+              aria-label={`Move ${task.title} up`}
               {...up.keys}
               className="rounded border border-border px-1 text-xs disabled:opacity-30"
             >
@@ -137,7 +137,7 @@ export function UnifiedRow({
               name="intent"
               value="down"
               disabled={!moves.down}
-              aria-label={`Move ${task.title} ${KEY_MAP.down.label.toLowerCase()}`}
+              aria-label={`Move ${task.title} down`}
               {...down.keys}
               className="rounded border border-border px-1 text-xs disabled:opacity-30"
             >
