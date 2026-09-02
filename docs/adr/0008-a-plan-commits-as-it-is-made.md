@@ -1,5 +1,10 @@
 # A plan commits as it is made
 
+Amended by [ADR-0014](./0014-the-week-is-a-set-and-the-day-is-a-plan.md). The
+week set holds unfinished work now, so leftovers are a week rule and a plan
+starts empty every day. Everything below stands: the plan row is still written
+on every act, and an emptied plan is still not the same as no plan.
+
 Ticket #36 describes plan mode as three acts: pick the tasks, order them,
 commit. A commit at the end implies a draft in front of it — a list the browser
 holds while the person builds it, written to `plans` only when they press the
@@ -29,9 +34,3 @@ An emptied plan is not the same as no plan. The row stays, so the unified view
 does not offer to start a day the person already started. A board carries the
 Today chip only while the plan holds a task, because a chip that empties the
 board narrows to nothing.
-
-## Amended by ADR-0014
-
-The week set holds unfinished work now, so leftovers are a week rule and a plan
-starts empty every day. The rest of this ADR stands: the plan row is still
-written on every act, and an emptied plan is still not the same as no plan.
