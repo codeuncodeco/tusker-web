@@ -131,7 +131,7 @@ describe("the week a page speaks for", () => {
   it("draws the week Monday to Friday", async () => {
     const ada = await member("ada@example.test", "Ada");
 
-    expect((await weekPage(ada.cookie)).span).toBe("Mon 31 Aug – Fri 4 Sept");
+    expect((await weekPage(ada.cookie)).span).toMatch(/^Mon 31 Aug – Fri 4 Sept?$/);
   });
 
   it("is the week the path names, whatever week the browser is in", async () => {
@@ -277,6 +277,23 @@ describe("unpicking", () => {
 
     expect(ids(data, "week")).toEqual([]);
     expect(ids(data, "todo")).toEqual(["a"]);
+  });
+
+  it("touches the week's row, because unpicking is work on the week", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+
+    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await db
+      .prepare("UPDATE week_plans SET updated_at = '2000-01-01T00:00:00.000Z'")
+      .run();
+    await act(ada.cookie, { intent: "unplan", id: "a", slug: ada.org.slug });
+
+    const row = await db
+      .prepare("SELECT updated_at FROM week_plans WHERE user_id = ?")
+      .bind(ada.person.id)
+      .first<{ updated_at: string }>();
+    expect(row!.updated_at).not.toBe("2000-01-01T00:00:00.000Z");
   });
 
   it("leaves the week's row behind, because that row says the week was planned", async () => {

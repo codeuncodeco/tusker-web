@@ -92,7 +92,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Week({ loaderData }: Route.ComponentProps) {
-  const { orgs, groups, picked, week, span, named, day, done, ask } = loaderData;
+  const { orgs, groups, picked, week, span, day, done, ask } = loaderData;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -113,17 +113,17 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       <UnifiedAdd orgs={orgs} />
 
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Press <kbd>p</kbd> to pick a task for this week. The week says what you mean to
-        finish; the day says when. Every act is kept, so nothing waits on this tab.
+        Press <kbd>p</kbd> to pick a task for this week. The week says what you mean
+        to finish. The day says when. Every act is kept, so nothing waits on this tab.
       </p>
 
       <UnifiedList
         groups={groups}
         planned={new Set(picked)}
         day={day}
-        // A named week is the person's own address, so the browser leaves the
-        // day cookie alone rather than talking the page out of it.
-        namedDay={named}
+        // The page names a week and never a day, so the browser says which day
+        // it is in, named week and all: that day is what names an unnamed week,
+        // and the cookie is where the whole app reads it.
         // A week set has no order to keep, so no row steps here.
         verbs={VERBS}
       />

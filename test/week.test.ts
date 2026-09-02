@@ -50,7 +50,9 @@ describe("the days a week page draws", () => {
   });
 
   it("names the span a person reads", () => {
-    expect(weekSpan("2026-W36")).toBe("Mon 31 Aug – Fri 4 Sept");
+    // The month is abbreviated by the runtime's own tables, so "Sep" and
+    // "Sept" are both right and the shape is what matters.
+    expect(weekSpan("2026-W36")).toMatch(/^Mon 31 Aug – Fri 4 Sept?$/);
   });
 
   it("gives every day back the week it came from", () => {

@@ -42,10 +42,13 @@ export type LiveTask = {
  */
 export type Head = "today" | "week";
 
-/** The three groups, in the order the page draws them. The head comes first. */
-export const GROUPS = ["today", "in_progress", "todo"] as const;
+/**
+ * The two groups every cross-org list draws under its head, in page order.
+ * They are statuses, so a task falls into one by what it is.
+ */
+export const UNDER_HEAD = ["in_progress", "todo"] as const;
 
-export type GroupKey = (typeof GROUPS)[number] | Head;
+export type GroupKey = Head | (typeof UNDER_HEAD)[number];
 
 /** The heading each group carries. */
 export const GROUP_LABEL: Record<GroupKey, string> = {
@@ -90,15 +93,19 @@ export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "tod
   const inHead = new Set(picked);
 
   const held = picked.map((id) => byId.get(id)).filter((one) => one !== undefined);
-  const first = head === "today" ? held : held.sort(inOrder);
+  // A plan keeps the order it was given. A week set has none to keep, so it
+  // takes the sort every other cross-org list has.
+  const first = head === "week" ? [...held].sort(inOrder) : held;
   const rest = tasks.filter((one) => !inHead.has(one.id)).sort(inOrder);
-  const keys: GroupKey[] = [head, ...GROUPS.slice(1)];
 
-  return keys.map((key) => ({
-    key,
-    label: GROUP_LABEL[key],
-    tasks: key === head ? first : rest.filter((one) => one.status === key),
-  }));
+  return [
+    { key: head, label: GROUP_LABEL[head], tasks: first },
+    ...UNDER_HEAD.map((key) => ({
+      key,
+      label: GROUP_LABEL[key],
+      tasks: rest.filter((one) => one.status === key),
+    })),
+  ];
 }
 
 /** A dated task above an undated one, and the earlier date first. */

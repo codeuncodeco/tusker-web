@@ -78,7 +78,8 @@ export async function addToWeek(
  * Takes a block of tasks out of a week's set.
  *
  * The parent row stays, empty set and all: that row is what says the week was
- * planned, so emptying a set does not read as never having planned one.
+ * planned, so emptying a set does not read as never having planned one. It is
+ * touched, because unpicking is work on the week as much as picking is.
  */
 export async function removeFromWeek(
   db: D1Database,
@@ -89,13 +90,20 @@ export async function removeFromWeek(
   if (taskIds.length === 0) return;
 
   const holes = taskIds.map(() => "?").join(", ");
-  await db
-    .prepare(
-      `DELETE FROM week_plan_tasks
-       WHERE user_id = ? AND week = ? AND task_id IN (${holes})`,
-    )
-    .bind(personId, week, ...taskIds)
-    .run();
+  await db.batch([
+    db
+      .prepare(
+        `DELETE FROM week_plan_tasks
+         WHERE user_id = ? AND week = ? AND task_id IN (${holes})`,
+      )
+      .bind(personId, week, ...taskIds),
+    db
+      .prepare(
+        `UPDATE week_plans SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE user_id = ? AND week = ?`,
+      )
+      .bind(personId, week),
+  ]);
 }
 
 /** The picks of one week: what the week page's acts write. */
