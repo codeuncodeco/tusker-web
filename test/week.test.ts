@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysOfWeek, isWeek, localWeek, weekIn, weekOf, weekSpan } from "../app/week";
+import { daysOfWeek, isWeek, localWeek, weekBounds, weekIn, weekOf, weekSpan } from "../app/week";
 import { get } from "./routes";
 
 describe("the week a day sits in", () => {
@@ -35,6 +35,12 @@ describe("a week key", () => {
     expect(isWeek("2025-W53")).toBe(false);
     expect(isWeek("2026-09-01")).toBe(false);
     expect(isWeek("2026-w36")).toBe(false);
+  });
+});
+
+describe("the days a week holds", () => {
+  it("runs Monday to Sunday, whatever the page draws", () => {
+    expect(weekBounds("2026-W36")).toEqual({ monday: "2026-08-31", sunday: "2026-09-06" });
   });
 });
 

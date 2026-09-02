@@ -571,7 +571,7 @@ describe("plan mode keeps the list", () => {
       routeArgs(get("/me/plan", `${ada.cookie}; day=${DAY}`), {}),
     );
 
-    expect(data.groups.map((one) => one.key)).toEqual(["today", "in_progress", "todo"]);
+    expect(data.groups.map((one) => one.key)).toEqual(["today", "week", "in_progress", "todo"]);
     expect(data.groups.flatMap((one) => one.tasks.map((task) => task.id)).sort()).toEqual([
       "next",
       "now",

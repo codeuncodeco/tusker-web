@@ -6,7 +6,8 @@
  */
 
 import { batchOf, BATCH, type Batch } from "./focus";
-import { appendToPlan, readPlan, startPlan } from "./plans.server";
+import { planPicks, startDay } from "./picks.server";
+import { readPlan } from "./plans.server";
 import type { OrgSet } from "./scope.server";
 import { groupsFor, type GroupKey, type LiveTask } from "./unified";
 import { listUnified } from "./unified.server";
@@ -58,7 +59,7 @@ export async function holdBatch(
   focus: Focus,
 ): Promise<void> {
   if (focus.planned) return;
-  await startPlan(db, personId, day, focus.batch.tasks.map((one) => one.id));
+  await startDay(db, personId, day, focus.batch.tasks.map((one) => one.id));
 }
 
 /**
@@ -78,8 +79,8 @@ export async function takeMore(
   if (plan !== null && batchOf(inPlan).tasks.length > 0) return;
 
   const next = rest.slice(0, BATCH).map((one) => one.id);
-  if (plan === null) await startPlan(db, personId, day, next);
-  else await appendToPlan(db, personId, day, next);
+  if (plan === null) await startDay(db, personId, day, next);
+  else await planPicks(db, personId, day, false).add(next);
 }
 
 /** The plan in plan order, and every other live task in percentile order. */

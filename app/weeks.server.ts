@@ -7,8 +7,6 @@
  * leaves.
  */
 
-import type { Picks } from "./picks";
-
 /**
  * The task ids one person's week set holds, or null when they started no such
  * week.
@@ -106,16 +104,66 @@ export async function removeFromWeek(
   ]);
 }
 
-/** The picks of one week: what the week page's acts write. */
-export function weekPicks(
+/**
+ * The last week set before a week, or null when the person started no earlier
+ * week.
+ *
+ * The week it names is the last week that holds a set, so a fortnight away
+ * offers the week before that fortnight and not an empty one. A set for a
+ * later week says nothing about this one.
+ *
+ * The key sorts as text, which is the ISO key doing its work: `2026-W02`
+ * follows `2026-W01`, and a year turns over on its own.
+ */
+export async function lastWeekSetBefore(
   db: D1Database,
   personId: string,
   week: string,
-  onAdd: boolean,
-): Picks {
-  return {
-    onAdd,
-    add: (taskIds) => addToWeek(db, personId, week, taskIds),
-    remove: (taskIds) => removeFromWeek(db, personId, week, taskIds),
-  };
+): Promise<{ from: string; taskIds: string[] } | null> {
+  const row = await db
+    .prepare("SELECT week FROM week_plans WHERE user_id = ? AND week < ? ORDER BY week DESC LIMIT 1")
+    .bind(personId, week)
+    .first<{ week: string }>();
+  if (!row) return null;
+
+  return { from: row.week, taskIds: (await readWeekSet(db, personId, row.week)) ?? [] };
+}
+
+/**
+ * Starts a week with a set, and leaves a week already started alone.
+ *
+ * Both ways out of the leftovers prompt are this one write: carrying forward
+ * copies the unfinished members in, and starting clean writes the row with
+ * nothing in it. Either way the row is what says the week was planned, so the
+ * prompt is not raised again.
+ *
+ * A week the person already started keeps the set it holds, so a second press
+ * changes nothing.
+ */
+export async function startWeek(
+  db: D1Database,
+  personId: string,
+  week: string,
+  taskIds: string[],
+): Promise<void> {
+  const started = await db
+    .prepare(
+      `INSERT INTO week_plans (user_id, week) VALUES (?, ?)
+       ON CONFLICT (user_id, week) DO NOTHING`,
+    )
+    .bind(personId, week)
+    .run();
+  // The week was already planned, so its set is the person's and stands.
+  if (started.meta.changes === 0 || taskIds.length === 0) return;
+
+  await db.batch(
+    taskIds.map((taskId) =>
+      db
+        .prepare(
+          `INSERT INTO week_plan_tasks (user_id, week, task_id) VALUES (?, ?, ?)
+           ON CONFLICT (user_id, week, task_id) DO NOTHING`,
+        )
+        .bind(personId, week, taskId),
+    ),
+  );
 }
