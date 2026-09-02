@@ -6,9 +6,10 @@
  * and the next three appear only when this three are done.
  *
  * The batch draws from today's plan when a plan exists, in plan order. With no
- * plan it draws from the live set, in the order `/me` sorts it, and the first act
- * writes those three as the day's plan, which is what holds the batch still.
- * See ADR-0009.
+ * plan it draws from this week's set, and with no set either from the live
+ * set, both in the order `/me` sorts them. The first act writes those three as
+ * the day's plan, which is what holds the batch still.
+ * See ADR-0009 and ADR-0014.
  */
 
 import { cloudflareEnv } from "../context.server";
@@ -70,7 +71,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function Focus({ loaderData }: Route.ComponentProps) {
   const { focus, day, ask } = loaderData;
-  const { batch, planned, planEmpty, more } = focus;
+  const { batch, planned, planEmpty, weekEmpty, more } = focus;
   useLocalDay(day);
 
   return (
@@ -96,6 +97,10 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
         <p className="text-muted">
           Your plan for today is empty.
         </p>
+      ) : weekEmpty ? (
+        /* The week set is what focus draws from on a planless day, so an empty
+           one says so rather than reading as an empty week of work. */
+        <p className="text-muted">This week's set holds nothing left to work.</p>
       ) : planned ? (
         <p className="text-muted">That is the plan done.</p>
       ) : (

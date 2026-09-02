@@ -70,6 +70,15 @@ The week runs Monday to Friday on the week page. The five days are a fact about
 that page, not a rule in the data: a Saturday plan still works if a person
 addresses the day.
 
-The Week chip on a board is drawn whether or not the week holds a set, as the
-Today chip is: a chip that comes and goes teaches nobody the feature exists
-(ADR-0011). With an empty set it is a way to the week page and not a filter.
+The Week chip reads as the Today chip reads, board by board. The org board
+draws it whether or not the week holds a set, because a chip that comes and
+goes teaches nobody the feature exists (ADR-0011); with no set it is a way to
+the week page and not a filter. The unified board draws it only where the set
+holds a task, as it draws Today only where the plan holds one: that page sits
+under the header that already carries Week, so a chip that narrows nothing
+teaches nothing there.
+
+Focus reads the same distinction the two tables draw. With no plan it draws
+from the week set, and the live set steps in only where the person started no
+week at all. A week started and left empty draws an empty batch, and the page
+says so, because an empty set is a statement and not a gap.
