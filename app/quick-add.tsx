@@ -18,7 +18,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { FetcherWithComponents } from "react-router";
 
-import { fieldClass } from "./forms";
 import { isPagePress } from "./keys";
 
 /**
@@ -118,7 +117,14 @@ export function QuickAddBox({
   }, [draft.title]);
 
   return (
-    <Form method="post" className="flex flex-col gap-2" onKeyDown={onKeyDown}>
+    // The box reads as one card and not as three stacked boxes, so the form
+    // carries the chrome a card carries. Focus shows on the card, in the
+    // border a selected card takes: the fill and the focus stay two signals.
+    <Form
+      method="post"
+      className="flex flex-col gap-2 rounded border border-border bg-surface p-3 focus-within:border-fg"
+      onKeyDown={onKeyDown}
+    >
       <input type="hidden" name="intent" value="create" />
       {fields}
       {chip}
@@ -144,7 +150,9 @@ export function QuickAddBox({
           }}
           placeholder={label}
           aria-label={label}
-          className={`grow resize-none overflow-y-auto max-h-40 ${fieldClass}`}
+          // No border and no rectangle of its own: the fill alone says where
+          // the words go, and it reads as a well inside the card.
+          className="grow resize-none overflow-y-auto max-h-40 rounded bg-surface-2 px-3 py-2"
         />
         {picker}
       </div>

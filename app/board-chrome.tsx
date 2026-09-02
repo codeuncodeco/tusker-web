@@ -1,6 +1,6 @@
 /**
  * The controls a board carries in its header: the search box, the Today chip
- * and the links that turn a hidden column on.
+ * and the switches that draw a hidden column.
  *
  * The org board and the unified board draw the same five columns, so they draw
  * the same switches over them. Which columns each offers is the board's own
@@ -13,6 +13,7 @@ import { Form, Link, useSearchParams } from "react-router";
 
 import { flipped, STATUS_LABEL, type Status, type Toggles } from "./board";
 import { fieldClass } from "./forms";
+import { Square, SquareCheck } from "./icons";
 import { SEARCH_NAME, withoutSearch } from "./search";
 
 /**
@@ -76,14 +77,27 @@ export function TodayChip({ today, hasPlan }: { today: boolean; hasPlan: boolean
   );
 }
 
-/** The link that turns one hidden column on or off, keeping the others. */
-export function Toggle({ which, toggles }: { which: Status; toggles: Toggles }) {
+/**
+ * The column switch: a box that says whether one hidden column is drawn.
+ *
+ * It stays a link that flips a query parameter, so the address holds the
+ * board: no form, no script, no client state. The label is the column and
+ * holds no verb, because the box already says what the click does, so the link
+ * names the act to a screen reader instead.
+ */
+export function ColumnSwitch({ which, toggles }: { which: Status; toggles: Toggles }) {
   const [params] = useSearchParams();
   const on = toggles[which] ?? false;
+  const label = STATUS_LABEL[which];
 
   return (
-    <Link to={flipped(params, which, on)} className="underline">
-      {on ? "Hide" : "Show"} {STATUS_LABEL[which]}
+    <Link
+      to={flipped(params, which, on)}
+      aria-label={`${on ? "Hide" : "Show"} ${label}`}
+      className="inline-flex items-baseline gap-1.5 text-xs uppercase tracking-wide"
+    >
+      {on ? <SquareCheck /> : <Square />}
+      {label}
     </Link>
   );
 }

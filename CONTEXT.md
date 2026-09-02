@@ -178,11 +178,21 @@ _Avoid_: Closed, hidden
 
 **Sweep**:
 Archiving a whole column in one act. The Done and Cancelled columns carry the
-button while the board is narrowed, and it archives exactly what is on screen:
-whatever narrowed the column is the whole rule. A person archives the set they
-are looking at, which is what makes the sweep safe. An unnarrowed board carries
-no button, because a sweep of a whole column is a sweep of everything.
+button in their head, beside the name and the count, while the column holds a
+card. It archives exactly what is on screen: whatever narrowed the column is
+the whole rule. A person archives the set they are looking at, and that is what
+makes the sweep safe. Narrowing decides the set and never the button. The batch
+reports itself in a **Toast**, which holds the one undo.
 _Avoid_: Bulk archive, clear column
+
+**Toast**:
+One short message about an act that is already done, with at most one way to
+take it back. It is drawn over every page, one at a time, and it goes by itself
+after a short while or when a person sends it away. A batch is what needs one:
+a sweep takes several cards away at once, and the count is the only proof of
+what happened. The region is live, so a reader announces the message. The undo
+is a form button, so a keyboard reaches it.
+_Avoid_: Snackbar, notification, flash message
 
 **Archive screen**:
 One org's archived tasks as a flat list, newest archived first, at
@@ -408,6 +418,13 @@ board's chip then leads to the week page. The two narrowings are exclusive, so
 a board is narrowed by one, or by neither.
 _Avoid_: Week filter, this-week toggle
 
+**Column switch**:
+The control on a board that draws a column the board hides by default. It names
+the column and holds no verb: the box says whether the column is drawn. Backlog
+and Cancelled on the org board; Backlog, Done and Cancelled on the unified
+board.
+_Avoid_: Show link, column filter, toggle
+
 **Focus**:
 A mode that shows one batch of tasks and hides the rest until that batch is
 done, at `/me/focus`. It draws from the plan when a plan exists, from the week
@@ -422,18 +439,24 @@ task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
 
 **Header**:
-The one bar every signed-in page draws. It has a person half, for Tasks, Week,
-Plan and Focus, and an org half, for the current org and its pages. Both halves are
-always drawn, and the half a person stands in is marked. A control that comes
-and goes teaches nothing, so nothing in the header is drawn by rule.
+The one bar every signed-in page draws, in two rows. Row 1 names who and
+where: the wordmark, the current org and the account. Row 2 is every page as a
+button, in a person half for Tasks, Week, Plan and Focus and an org half for
+the current org's pages. Both halves are always drawn, and the page a person
+stands on is marked. `/account` stands in neither half, so it marks neither. A control
+that comes and goes teaches nothing, so nothing in the header is drawn by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 
 **Assignee filter**:
-The control on either board that narrows by who holds a task: mine,
-unassigned, or everyone. It is everyone by default, it lives in the address,
-and it narrows what the Today chip already left. An org of one member carries
-no filter. See ADR-0013.
+The select on the org board that narrows it to the tasks one member holds:
+`Anyone`, `Unassigned`, then each member in name order. `Anyone` is the start
+and narrows nothing. A member answers for a task they hold among others, and
+`Unassigned` answers for a task nobody holds. It lives in the address, it joins
+the remembered narrowing, and it narrows what the Today chip and the search
+already left. A personal org carries no filter, because it draws no assignee.
+The unified board carries none either: a member select there would name
+strangers. See ADR-0013 and ADR-0017.
 _Avoid_: My tasks toggle, owner filter
 
 **Search**:
@@ -447,7 +470,7 @@ character to find, not a wildcard. Nothing is ranked: the column order stands.
 _Avoid_: Full-text search, query, find
 
 **Remembered narrowing**:
-The search, and later the filters, a board was left with. It belongs to the
+The search and the assignee filter a board was left with. It belongs to the
 person, so the browser holds it, one entry per org. A board opened with no
 query at all gets it back in the address. A board opened with a query keeps
 that query as it stands, so a search cleared by hand stays cleared.
@@ -457,7 +480,8 @@ _Avoid_: Saved filter, sticky filter, last view
 To do and In progress, across every org one person belongs to, in percentile
 order. The unified board draws it as two of its five columns, and plan mode and
 focus draw it as a list. It is not narrowed to the tasks the person holds: the
-assignee filter does that, and the plan is where a person's own list lives.
+plan is where a person's own list lives, and the assignee filter narrows the org
+board.
 _Avoid_: My tasks, unified view
 
 **Card keys**:

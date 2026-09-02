@@ -80,7 +80,7 @@ export function inOrder(a: LiveTask, b: LiveTask): number {
 /**
  * The list a person reads, in group order.
  *
- * A task the head group holds is drawn there and nowhere else, so no task is
+ * A task a head group holds is drawn there and nowhere else, so no task is
  * drawn twice. A picked id no org answers for is left out: a task that was
  * archived or deleted drops out of the list rather than raising an error.
  *
@@ -89,17 +89,53 @@ export function inOrder(a: LiveTask, b: LiveTask): number {
  * cross-org list uses.
  */
 export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "today"): Group[] {
-  const byId = new Map(tasks.map((one) => [one.id, one]));
-  const inHead = new Set(picked);
+  return drawn(tasks, [{ key: head, ids: picked, ordered: head === "today" }]);
+}
 
-  const held = picked.map((id) => byId.get(id)).filter((one) => one !== undefined);
-  // A plan keeps the order it was given. A week set has none to keep, so it
-  // takes the sort every other cross-org list has.
-  const first = head === "week" ? [...held].sort(inOrder) : held;
+/**
+ * The groups plan mode draws: the plan, then this week's set, then the rest of
+ * the live set.
+ *
+ * Plan mode is a shelf and not a fence. The week set is what a person means to
+ * finish, so it is offered first, and everything else is offered under it: a
+ * Tuesday arrival is picked here in one act, and the pick puts it in the week
+ * as well. See ADR-0014, "A shelf, not a fence".
+ *
+ * A task the plan already holds is drawn in the plan and nowhere else, week
+ * member or not.
+ *
+ * The plan is drawn above the shelf. The shelf comes first of the lists a
+ * person picks from, which is what ADR-0014 asks for; the plan is not one of
+ * them. It is the thing being built, and it holds the one order on the page.
+ */
+export function planGroups(tasks: LiveTask[], plan: string[], members: string[]): Group[] {
+  const planned = new Set(plan);
+  return drawn(tasks, [
+    { key: "today", ids: plan, ordered: true },
+    { key: "week", ids: members.filter((id) => !planned.has(id)), ordered: false },
+  ]);
+}
+
+/**
+ * The head groups a page names, and under them the rest of the live set split
+ * by status.
+ *
+ * An unordered head takes the sort every cross-org list has, because the only
+ * order a person owns is a plan's.
+ */
+function drawn(
+  tasks: LiveTask[],
+  heads: { key: GroupKey; ids: string[]; ordered: boolean }[],
+): Group[] {
+  const byId = new Map(tasks.map((one) => [one.id, one]));
+  const inHead = new Set(heads.flatMap((head) => head.ids));
   const rest = tasks.filter((one) => !inHead.has(one.id)).sort(inOrder);
 
   return [
-    { key: head, label: GROUP_LABEL[head], tasks: first },
+    ...heads.map(({ key, ids, ordered }) => {
+      const held = ids.map((id) => byId.get(id)).filter((one) => one !== undefined);
+      return { key, label: GROUP_LABEL[key], tasks: ordered ? held : held.sort(inOrder) };
+    }),
     ...UNDER_HEAD.map((key) => ({
       key,
       label: GROUP_LABEL[key],

@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { Assignee } from "./assignees";
-import { fieldClass } from "./forms";
+import { smallFieldClass } from "./forms";
 
 export function AssigneePicker({
   members,
@@ -92,7 +92,7 @@ export function AssigneePicker({
             : `Assigned to ${holders.map((one) => one.name).join(", ")}`
         }
         onClick={() => setOpen((was) => !was)}
-        className={`flex items-center gap-1 uppercase tracking-wide ${fieldClass}`}
+        className={`flex items-center gap-1 uppercase tracking-wide ${smallFieldClass}`}
       >
         {holders.length === 0 ? (
           <span className="normal-case tracking-normal text-muted">Assign</span>

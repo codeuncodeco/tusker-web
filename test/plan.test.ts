@@ -114,7 +114,7 @@ describe("the candidate list", () => {
 
     const data = await planPage(ada.cookie);
 
-    expect(data.groups.map((one) => one.key)).toEqual(["today", "in_progress", "todo"]);
+    expect(data.groups.map((one) => one.key)).toEqual(["today", "week", "in_progress", "todo"]);
     expect(ids(data, "in_progress")).toEqual(["ours"]);
     expect(ids(data, "todo")).toEqual(["mine"]);
   });
@@ -173,15 +173,19 @@ describe("a task the plan holds", () => {
     expect(data.groups[0].tasks[0].finished).toBe(true);
   });
 
-  it("drops off the list once the day rolls over", async () => {
+  it("drops out of the day once it rolls over, and keeps its place in the week", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
 
     await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
     await act(ada.cookie, { intent: "finish", id: "a", slug: ada.org.slug });
+    // The next day of the same week: a new plan, and the one week set.
     const data = await planPage(ada.cookie, "2026-09-02");
 
-    expect(data.groups.every((one) => one.tasks.length === 0)).toBe(true);
+    expect(ids(data, "today")).toEqual([]);
+    // A finished member keeps its membership, struck through. See ADR-0014.
+    expect(ids(data, "week")).toEqual(["a"]);
+    expect(data.groups[1].tasks[0].finished).toBe(true);
   });
 
   it("drops out without an error once it is archived", async () => {
@@ -195,7 +199,7 @@ describe("a task the plan holds", () => {
     expect(data.groups.every((one) => one.tasks.length === 0)).toBe(true);
   });
 
-  it("comes back out of the plan, into the column its status names", async () => {
+  it("comes back out of the plan onto the week shelf it joined", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
 
@@ -203,8 +207,11 @@ describe("a task the plan holds", () => {
     await act(ada.cookie, { intent: "unplan", id: "a", slug: ada.org.slug });
     const data = await planPage(ada.cookie);
 
+    // Leaving a day is not leaving the week: the person still means to finish
+    // it, on some other day. See ADR-0014.
     expect(ids(data, "today")).toEqual([]);
-    expect(ids(data, "todo")).toEqual(["a"]);
+    expect(ids(data, "week")).toEqual(["a"]);
+    expect(ids(data, "todo")).toEqual([]);
   });
 });
 
@@ -268,7 +275,7 @@ describe("picking and ordering a day", () => {
 
     expect(await stored(ada.person.id)).toEqual([]);
     expect(ids(data, "today")).toEqual([]);
-    expect(ids(data, "todo")).toEqual(["a"]);
+    expect(ids(data, "week")).toEqual(["a"]);
   });
 
   it("refuses a form that names no act", async () => {
