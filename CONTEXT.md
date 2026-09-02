@@ -296,14 +296,17 @@ unfinished work waits. See ADR-0014.
 _Avoid_: Rollover, unfinished carry-over
 
 **Today chip**:
-The control on a board that narrows it to the tasks today's plan holds. A board
-with no plan for today carries no chip.
+The control on a board that narrows it to the tasks today's plan holds. Every
+board draws it, planned or not. A day with no plan holds nothing to narrow to,
+so the chip is then a way to plan mode: a control that comes and goes teaches
+nobody that plans exist. See ADR-0011.
 _Avoid_: Today filter, my-day toggle
 
 **Week chip**:
 The control on a board that narrows it to the tasks this week's set holds. It
-sits beside the Today chip, and the two are exclusive: a board draws one, or
-neither. A board with an empty week set carries no chip.
+sits beside the Today chip and reads the same way: every board draws it, and a
+week with an empty set makes it a way to the week page. The two narrowings are
+exclusive, so a board is narrowed by one, or by neither.
 _Avoid_: Week filter, this-week toggle
 
 **Focus**:

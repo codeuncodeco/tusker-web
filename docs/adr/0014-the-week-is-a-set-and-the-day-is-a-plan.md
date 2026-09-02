@@ -69,3 +69,7 @@ Membership is therefore always per named week, never a flag on the task.
 The week runs Monday to Friday on the week page. The five days are a fact about
 that page, not a rule in the data: a Saturday plan still works if a person
 addresses the day.
+
+The Week chip on a board is drawn whether or not the week holds a set, as the
+Today chip is: a chip that comes and goes teaches nobody the feature exists
+(ADR-0011). With an empty set it is a way to the week page and not a filter.
