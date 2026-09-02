@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { colorCss, colorOf, isColor, PALETTE, PALETTE_NAMES, readColor } from "../app/colors";
+import css from "../app/app.css?raw";
+import { colorCss, colorOf, isColor, PALETTE, readColor } from "../app/colors";
 
 describe("the colours Tusker draws", () => {
   it("takes a palette name, in any case", () => {
@@ -47,12 +48,18 @@ describe("the colour a person typed", () => {
 });
 
 describe("what a dot is painted with", () => {
-  it("resolves a palette name to its light value and its dark one", () => {
-    expect(colorCss("blue")).toBe("light-dark(#2563eb, #60a5fa)");
+  it("resolves a palette name to the token that holds its two values", () => {
+    expect(colorCss("blue")).toBe("var(--color-opt-blue)");
   });
 
   it("draws an exact colour as the person typed it", () => {
     expect(colorCss("#2563eb")).toBe("#2563eb");
+  });
+
+  it("falls back to grey for a name the palette no longer holds", () => {
+    // A colour outlives the palette that named it, so a row written before a
+    // rename must still draw a dot rather than throw the page away.
+    expect(colorCss("chartreuse")).toBe("var(--color-opt-grey)");
   });
 });
 
@@ -71,11 +78,14 @@ describe("the colour one value carries", () => {
 });
 
 describe("the palette", () => {
-  it("gives every name a light value and a dark one", () => {
-    for (const name of PALETTE_NAMES) {
-      expect(PALETTE[name].light).toMatch(/^#[0-9a-f]{6}$/);
-      expect(PALETTE[name].dark).toMatch(/^#[0-9a-f]{6}$/);
-      expect(colorCss(name)).toBe(`light-dark(${PALETTE[name].light}, ${PALETTE[name].dark})`);
+  it("holds the nine names, and nothing that looks like a colour", () => {
+    expect(PALETTE).toHaveLength(9);
+    for (const name of PALETTE) expect(name).toMatch(/^[a-z]+$/);
+  });
+
+  it("gives every name a token, so a name and its values cannot drift apart", () => {
+    for (const name of PALETTE) {
+      expect(css).toContain(`--color-opt-${name}: light-dark(`);
     }
   });
 });

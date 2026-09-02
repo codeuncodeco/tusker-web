@@ -29,11 +29,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export default function Home() {
   return (
     <main className="mx-auto flex flex-1 max-w-2xl flex-col justify-center gap-6 p-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Tusker</h1>
-      <p className="text-neutral-600 dark:text-neutral-400">
+      <h1 className="text-3xl tracking-tight">Tusker</h1>
+      <p className="text-muted">
         A keyboard-first task board for several orgs at once.
       </p>
-      <p className="text-neutral-600 dark:text-neutral-400">
+      <p className="text-muted">
         Tusker is invitation only. Ask a member of your organization for an invitation.
       </p>
       <p>

@@ -228,7 +228,10 @@ _Avoid_: Field colour, tag colour, client dot
 
 **Palette**:
 The closed set of named colours an option colour can name. A colour is a palette
-name or an exact colour, and nothing else.
+name or an exact colour, and nothing else. A name carries no hex: each one has a
+`--color-opt-<name>` design token that holds its light value and its dark one.
+A name the palette no longer holds draws grey, because a colour outlives the
+palette that named it.
 _Avoid_: Theme, swatch set
 
 **Refs key**:
@@ -387,3 +390,25 @@ order. The unified board draws it as two of its five columns, and plan mode and
 focus draw it as a list. It is not narrowed to the tasks the person holds: the
 assignee filter does that, and the plan is where a person's own list lives.
 _Avoid_: My tasks, unified view
+
+### Look
+
+**Design token**:
+One named colour or face that every screen draws through, declared in
+`@theme` in `app/app.css`. A colour token is a `light-dark()` pair, and
+`<html>` carries `color-scheme: light dark`, so the token flips itself. This
+is why no component carries a `dark:` variant, and why a raw Tailwind colour
+class in a component is a drift to fix and not a choice.
+_Avoid_: Theme variable, CSS custom property, design system
+
+**Ground**:
+What a token names when it names a background: `bg` for the page, `surface`
+for what sits on the page, and `surface-2` for what sits on that. A card is
+one step up from the page, and a chip on a card is one step up again.
+_Avoid_: Background colour, level, elevation
+
+**Accent**:
+`#ffc93f`, the one warm colour of the family. It has two jobs and no others:
+the `:focus-visible` outline, and the `::selection` background. Where else it
+earns its place is an open design question.
+_Avoid_: Brand colour, primary, highlight

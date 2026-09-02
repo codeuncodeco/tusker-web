@@ -143,7 +143,7 @@ export function UnifiedAdd({
           /* The chip that names a team org, because a task filed in one is on
              every member's board. The personal org stays quiet. */
           filing.kind === "team" ? (
-            <p className="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-amber-500">
               Adding to {filing.name}
             </p>
           ) : null
@@ -200,7 +200,7 @@ function UndoLine({
   return (
     <p
       role="status"
-      className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400"
+      className="flex items-center gap-3 text-muted"
     >
       <span className="grow">
         {added.ids.length === 1 ? "Added" : `Added ${added.ids.length} tasks`} to {org}

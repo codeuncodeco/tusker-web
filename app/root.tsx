@@ -20,7 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body className="h-full bg-white font-sans text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100">
+      <body className="h-full bg-bg font-sans text-sm text-fg antialiased">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -55,10 +55,10 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-semibold">{message}</h1>
-      <p className="mt-2 text-neutral-600 dark:text-neutral-400">{details}</p>
+      <h1 className="text-2xl">{message}</h1>
+      <p className="mt-2 text-muted">{details}</p>
       {stack ? (
-        <pre className="mt-6 overflow-x-auto rounded bg-neutral-100 p-4 text-xs dark:bg-neutral-900">
+        <pre className="mt-6 overflow-x-auto rounded bg-surface p-4 text-xs">
           <code>{stack}</code>
         </pre>
       ) : null}

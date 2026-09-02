@@ -1,6 +1,6 @@
 import { Form, Link } from "react-router";
 
-import { colorRows, PALETTE_NAMES, readColor, type ColorRow } from "../colors";
+import { colorRows, PALETTE, readColor, type ColorRow } from "../colors";
 import { listColors, setColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { Dot } from "../dot";
@@ -202,7 +202,7 @@ function check(
 /** The two boxes every field carries, on the declare form and on an edit. */
 function Flags({ field }: { field?: OrgField }) {
   return (
-    <span className="flex gap-4 text-sm">
+    <span className="flex gap-4">
       <label className="flex items-center gap-2">
         <input type="checkbox" name="show_on_card" value="1" defaultChecked={field?.show_on_card} />
         Show on the card
@@ -225,7 +225,7 @@ function RefPath({ base, field }: { base: string; field?: OrgField }) {
   return (
     <label className="flex flex-col gap-1">
       Refs path
-      <span className="text-sm text-neutral-500">
+      <span className="text-muted">
         The list this field reads, under {base || "the org app's base URL"}. It answers with{" "}
         {"{id, label}"} rows.
       </span>
@@ -242,13 +242,13 @@ function RefPath({ base, field }: { base: string; field?: OrgField }) {
 /** What the last pull of a reference field left in the cache, and a new pull. */
 function RefCache({ field, cached }: { field: OrgField; cached: number }) {
   return (
-    <Form method="post" className="flex items-baseline gap-3 text-sm">
+    <Form method="post" className="flex items-baseline gap-3">
       <input type="hidden" name="intent" value="refresh" />
       <input type="hidden" name="key" value={field.key} />
-      <button className="rounded border border-neutral-300 px-3 py-1 dark:border-neutral-700">
+      <button className="rounded border border-border px-3 py-1">
         Refresh options
       </button>
-      <span className="text-neutral-500">
+      <span className="text-muted">
         {field.refs_pulled_at === null
           ? "Never pulled. The picker shows an id box until a pull works."
           : `${cached} option${cached === 1 ? "" : "s"} cached, pulled ${field.refs_pulled_at}.`}
@@ -269,24 +269,24 @@ function RefColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">
+      <p className="text-muted">
         Nothing to colour yet. Refresh the options, and each one takes a colour here.
       </p>
     );
   }
 
   return (
-    <Form method="post" className="flex flex-col gap-2 text-sm">
+    <Form method="post" className="flex flex-col gap-2">
       <input type="hidden" name="intent" value="colors" />
       <input type="hidden" name="key" value={field.key} />
 
-      <span className="text-neutral-500">
+      <span className="text-muted">
         A colour draws as a dot on the card and beside the box on the task page. Type a palette
         name or an exact colour, for example blue or #2563eb. Empty draws plain.
       </span>
 
       <datalist id={list}>
-        {PALETTE_NAMES.map((name) => (
+        {PALETTE.map((name) => (
           <option key={name} value={name} />
         ))}
       </datalist>
@@ -297,7 +297,7 @@ function RefColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
             <Dot color={row.color} />
             <span className="w-48 truncate">
               {row.label}
-              {row.cached ? null : <span className="text-neutral-500"> (gone)</span>}
+              {row.cached ? null : <span className="text-muted"> (gone)</span>}
             </span>
             <input
               name={`${COLOR_BOX}${row.value}`}
@@ -311,7 +311,7 @@ function RefColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
         ))}
       </ul>
 
-      <button className="self-start rounded border border-neutral-300 px-3 py-1 dark:border-neutral-700">
+      <button className="self-start rounded border border-border px-3 py-1">
         Save colours
       </button>
     </Form>
@@ -335,10 +335,10 @@ function DeclaredField({
   colors: ColorRow[];
 }) {
   return (
-    <li className="flex flex-col gap-2 rounded border border-neutral-200 p-3 dark:border-neutral-800">
-      <span className="flex items-baseline gap-2 text-sm">
+    <li className="flex flex-col gap-2 rounded border border-border p-3">
+      <span className="flex items-baseline gap-2">
         <code>{field.key}</code>
-        <span className="text-neutral-500">{FIELD_TYPE_LABEL[field.type]}</span>
+        <span className="text-muted">{FIELD_TYPE_LABEL[field.type]}</span>
       </span>
 
       <Form method="post" className="flex flex-col gap-2">
@@ -353,7 +353,7 @@ function DeclaredField({
         {field.type === "select" ? (
           <label className="flex flex-col gap-1">
             Options, one per line
-            <span className="text-sm text-neutral-500">
+            <span className="text-muted">
               An option you drop empties the field on every task that held it.
             </span>
             <textarea
@@ -370,7 +370,7 @@ function DeclaredField({
         <Flags field={field} />
 
         <span className="flex gap-2">
-          <button className="rounded border border-neutral-300 px-3 py-1 text-sm dark:border-neutral-700">
+          <button className="rounded border border-border px-3 py-1">
             Save
           </button>
         </span>
@@ -386,7 +386,7 @@ function DeclaredField({
       <Form method="post">
         <input type="hidden" name="intent" value="remove" />
         <input type="hidden" name="key" value={field.key} />
-        <button className="text-sm text-red-700 underline dark:text-red-400">
+        <button className="text-danger underline">
           Remove {field.label}, and its value on every task
         </button>
       </Form>
@@ -402,9 +402,9 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
 
   return (
     <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Fields</h1>
+      <h1 className="text-2xl tracking-tight">Fields</h1>
 
-      <p className="text-neutral-600 dark:text-neutral-400">
+      <p className="text-muted">
         A field this org declares shows on every task of this org, and on no task of another one.
       </p>
 
@@ -420,8 +420,8 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
         ))}
       </ul>
 
-      <Form method="post" className="flex flex-col gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
-        <h2 className="text-lg font-medium">Declare a field</h2>
+      <Form method="post" className="flex flex-col gap-3 border-t border-border pt-6">
+        <h2 className="text-lg">Declare a field</h2>
         <input type="hidden" name="intent" value="declare" />
 
         <label className="flex flex-col gap-1">
@@ -442,14 +442,14 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
 
         <label className="flex flex-col gap-1">
           Options, one per line
-          <span className="text-sm text-neutral-500">A select reads these. The other types do not.</span>
+          <span className="text-muted">A select reads these. The other types do not.</span>
           <textarea name="options" rows={3} className={fieldClass} />
         </label>
 
         {linked ? (
           <RefPath base={app.refs_base_url} />
         ) : (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-muted">
             A reference field reads from this org's org app. Name its base URL and key in{" "}
             <Link to={`/o/${org.slug}/settings`} className="underline">
               settings
@@ -461,18 +461,18 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
         <Flags />
 
         {pulled !== null ? (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-muted">
             Pulled {pulled} option{pulled === 1 ? "" : "s"}.
           </p>
         ) : null}
 
         {error ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+          <p role="alert" className="text-danger">
             {error}
           </p>
         ) : null}
 
-        <button className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+        <button className="self-start rounded border border-border px-3 py-2">
           Declare
         </button>
       </Form>

@@ -55,20 +55,20 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
 
   return (
     <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
+      <h1 className="text-2xl tracking-tight">Members</h1>
 
       <ul className="flex flex-col gap-1">
         {members.map((member) => (
           <li key={member.id}>
             {member.name || member.email}{" "}
-            <span className="text-neutral-500">{member.email}</span>{" "}
-            <span className="text-xs uppercase tracking-wide text-neutral-500">{member.role}</span>
+            <span className="text-muted">{member.email}</span>{" "}
+            <span className="text-xs uppercase tracking-wide text-muted">{member.role}</span>
           </li>
         ))}
       </ul>
 
       {org.kind === "personal" ? (
-        <p className="text-neutral-600 dark:text-neutral-400">
+        <p className="text-muted">
           {PERSONAL_ORG}
         </p>
       ) : (
@@ -77,20 +77,20 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
             Invite by email
             <input name="email" type="email" required className={fieldClass} />
           </label>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-muted">
             An email no account holds gets one, and a mail with a link to sign in.
           </p>
 
           {actionData && "error" in actionData ? (
-            <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+            <p role="alert" className="text-danger">
               {actionData.error}
             </p>
           ) : null}
           {actionData && "ok" in actionData ? (
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">{actionData.ok}</p>
+            <p className="text-muted">{actionData.ok}</p>
           ) : null}
 
-          <button className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700">
+          <button className="self-start rounded border border-border px-3 py-2">
             Invite
           </button>
         </Form>
