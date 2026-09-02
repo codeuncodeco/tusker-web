@@ -1,14 +1,16 @@
 /**
- * The acts both cross-org lists make: make a task, put it in a day's plan, take
- * it out again, finish it, and take an add back.
+ * The acts every cross-org list makes: make a task, put it in the list the
+ * page picks into, take it out again, finish it, and take an add back.
  *
- * The unified board and plan mode draw the same tasks, so they are one set of
- * acts as well. A key and a button post the same fields to either route.
+ * The unified board, plan mode and the week page draw the same tasks, so they
+ * are one set of acts as well. A key and a button post the same fields to any
+ * of the three routes. Which list a pick lands in is the route's own business,
+ * and it says so with `Picks`.
  */
 
 import { readStatus, type Status } from "./board";
 import { decide, finishTask, moveAndAsk, promptFor } from "./decisions.server";
-import { appendToPlan, unplanTasks } from "./plans.server";
+import type { Picks } from "./picks";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { createTasks, deleteTasks, newTasksFrom, readTask, type Task } from "./tasks.server";
 import type { Added } from "./unified";
@@ -45,11 +47,11 @@ function scopeFrom(set: OrgSet, form: FormData): Scope {
 /**
  * The column an add names, or To do.
  *
- * Each box of the unified board names its own column. Plan mode's box names
- * none: an add there is a pick as well, and a pick is live work.
+ * Each box of the unified board names its own column. The box of a page that
+ * picks names none: an add there is a pick as well, and a pick is live work.
  */
-function statusFor(form: FormData, intoPlan: boolean): Status {
-  if (intoPlan || form.get("status") === null) return "todo";
+function statusFor(form: FormData, picked: boolean): Status {
+  if (picked || form.get("status") === null) return "todo";
   return readStatus(form);
 }
 
@@ -58,25 +60,24 @@ function statusFor(form: FormData, intoPlan: boolean): Status {
  * the box sits on.
  *
  * The tasks land at the top of the column and in list order, where a person
- * looks for the ones they just typed. Plan mode also puts every one of them at
- * the end of the day's plan, because there an add is a pick: a person who
- * pastes ten lines into their own plan asked for ten picks.
+ * looks for the ones they just typed. A page that picks also puts every one of
+ * them in its list, because there an add is a pick: a person who pastes ten
+ * lines into their own plan asked for ten picks.
  */
 async function addTasks(
   env: Env,
   request: Request,
   set: OrgSet,
-  day: string,
+  picks: Picks,
   form: FormData,
-  intoPlan: boolean,
 ): Promise<Acted> {
   const scope = scopeFrom(set, form);
   const typed = newTasksFrom(form);
   if ("error" in typed) return typed;
 
-  const status = statusFor(form, intoPlan);
+  const status = statusFor(form, picks.onAdd);
   const ids = await createTasks(env.DB, scope, { ...typed, status });
-  if (intoPlan) await appendToPlan(env.DB, set.personId, day, ids);
+  if (picks.onAdd) await picks.add(ids);
 
   // A marked task typed straight into Done is finished the moment it is made,
   // so it is asked now: no later move would ask it. One box is one prompt, so
@@ -91,13 +92,13 @@ async function addTasks(
 
 /**
  * Takes one add back: it deletes every row that add wrote and drops them all
- * from the day's plan.
+ * from the list the page picks into.
  *
  * One add is one act, so its undo is one act. Every id is read back through
  * the one-org scope first, so a list that names a task of another org writes
  * nothing at all and answers 404, rather than deleting the rows before it.
  */
-async function undoAdd(env: Env, set: OrgSet, day: string, form: FormData): Promise<Acted> {
+async function undoAdd(env: Env, set: OrgSet, picks: Picks, form: FormData): Promise<Acted> {
   const scope = scopeFrom(set, form);
   const ids = form.getAll("id").map(String).filter((id) => id !== "");
   if (ids.length === 0) throw new Response("Not found", { status: 404 });
@@ -106,7 +107,7 @@ async function undoAdd(env: Env, set: OrgSet, day: string, form: FormData): Prom
     if (!(await readTask(env.DB, scope, id))) throw new Response("Not found", { status: 404 });
   }
 
-  await unplanTasks(env.DB, set.personId, day, ids);
+  await picks.remove(ids);
   await deleteTasks(env.DB, scope, ids);
 
   return { ok: true };
@@ -134,17 +135,16 @@ export async function actOnTask(
   env: Env,
   request: Request,
   set: OrgSet,
-  day: string,
+  /** The list this page's picks land in: a day's plan, or a week's set. */
+  picks: Picks,
   form: FormData,
-  /** True where an add is also a pick: plan mode puts the task in the day. */
-  intoPlan = false,
 ): Promise<Acted | null> {
   const intent = String(form.get("intent") ?? "");
   // An add names an org and no task, so it proves its scope and stops here.
-  if (intent === "create") return addTasks(env, request, set, day, form, intoPlan);
+  if (intent === "create") return addTasks(env, request, set, picks, form);
   // Taking an add back is the one delete Tusker has. It names every row that
   // add made, so it stands apart as well. See ADR-0012.
-  if (intent === "undo") return undoAdd(env, set, day, form);
+  if (intent === "undo") return undoAdd(env, set, picks, form);
   if (!ACTS.some((act) => act === intent)) return null;
 
   // Every act names the org the task belongs to, and the row is read back
@@ -162,15 +162,15 @@ export async function actOnTask(
   }
 
   if (intent === "plan") {
-    // Picking a task for today is the act of taking it out of the backlog, so
-    // a person moves it to To do first. The write says so, not only the page.
+    // Picking a task is the act of taking it out of the backlog, so a person
+    // moves it to To do first. The write says so, not only the page.
     if (task.status !== "todo" && task.status !== "in_progress") {
-      throw new Response("Only a To do or In progress task can be planned.", { status: 400 });
+      throw new Response("Only a To do or In progress task can be picked.", { status: 400 });
     }
-    await appendToPlan(env.DB, set.personId, day, [taskId]);
+    await picks.add([taskId]);
   }
 
-  if (intent === "unplan") await unplanTasks(env.DB, set.personId, day, [taskId]);
+  if (intent === "unplan") await picks.remove([taskId]);
 
   // The prompt one of these pages raised, answered. It writes the decision and
   // gives the page back with the prompt gone.

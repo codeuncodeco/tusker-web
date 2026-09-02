@@ -25,7 +25,7 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import type { Leftovers } from "../leftovers";
 import { leftoversFor } from "../leftovers.server";
-import { movePlan, readPlan, startPlan } from "../plans.server";
+import { movePlan, planPicks, readPlan, startPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { groupsFor } from "../unified";
 import { UnifiedAdd } from "../unified-add";
@@ -124,7 +124,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     throw new Response("A plan is never rewritten after its day.", { status: 400 });
   }
 
-  const acted = await actOnTask(env, request, set, day, form, true);
+  // An add here is a pick as well, so the task goes to the end of the day.
+  const picks = planPicks(env.DB, set.personId, day, true);
+  const acted = await actOnTask(env, request, set, picks, form);
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
 
   return acted;

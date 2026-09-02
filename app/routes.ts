@@ -16,6 +16,10 @@ export default [
   layout("layouts/person.tsx", [
     route("me", "routes/me.tsx"),
     route("me/focus", "routes/me.focus.tsx"),
+    route("me/week", "routes/me.week.tsx"),
+    // The same page for a named week, so a person can read back a week they
+    // planned. A key no calendar holds is a 404.
+    route("me/week/:week", "routes/me.week.tsx", { id: "me-week-week" }),
     route("me/plan", "routes/me.plan.tsx"),
     // The same page for a named day, so a person can read back the day they
     // planned. One file, because two lists that sort differently go wrong.

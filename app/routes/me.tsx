@@ -14,7 +14,7 @@ import { held } from "../current-org";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
-import { readPlan } from "../plans.server";
+import { planPicks, readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { columnsFor, finishedSince, unifiedColumns, UNIFIED_TOGGLES } from "../unified";
 import { UnifiedBoard } from "../unified-board";
@@ -71,7 +71,9 @@ export async function action({ request, context }: Route.ActionArgs) {
   const set = await requireOrgSet(request, env);
 
   const form = await request.formData();
-  const acted = await actOnTask(env, request, set, dayOf(request), form);
+  const day = dayOf(request);
+  // A pick on the board is a pick for today, as the chip reads it.
+  const acted = await actOnTask(env, request, set, planPicks(env.DB, set.personId, day, false), form);
   if (!acted) throw new Response("That form does not name an action.", { status: 400 });
 
   return acted;
