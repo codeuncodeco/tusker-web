@@ -7,6 +7,8 @@
  * a board remembers lives in `remembered.ts`.
  */
 
+import { readTrimmed, without } from "./query";
+
 /** The name the search rides under in the address. */
 export const SEARCH_NAME = "q";
 
@@ -15,7 +17,7 @@ export const SEARCH_NAME = "q";
  * space and nothing else narrows nothing, as an empty one does.
  */
 export function readSearch(params: URLSearchParams): string {
-  return (params.get(SEARCH_NAME) ?? "").trim();
+  return readTrimmed(params, SEARCH_NAME);
 }
 
 /**
@@ -24,5 +26,5 @@ export function readSearch(params: URLSearchParams): string {
  * resetting the columns a person turned on.
  */
 export function withoutSearch(params: URLSearchParams): [string, string][] {
-  return [...params].filter(([name]) => name !== SEARCH_NAME);
+  return without(params, SEARCH_NAME);
 }
