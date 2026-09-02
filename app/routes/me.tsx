@@ -91,8 +91,8 @@ export default function Me({ loaderData }: Route.ComponentProps) {
   return (
     <main className="flex flex-1 flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Your tasks</h1>
-        <nav className="flex items-baseline gap-4 text-sm">
+        <h1 className="text-2xl tracking-tight">Your tasks</h1>
+        <nav className="flex items-baseline gap-4">
           {/* A person with no plan for today gets no chip: there is nothing
               to narrow to, and the header carries Plan on every page. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
@@ -105,7 +105,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       {/* The order in a column is derived, so the plan is where a person says
           what to work first. The header carries Plan on every page, so this
           line teaches the keystroke and links nothing. See ADR-0011. */}
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+      <p className="text-muted">
         Each column is in the order your boards give it. Press <kbd>p</kbd> on a task to put
         it in today's plan, which is where you say what to work first. Drag a card to another
         column, or press <kbd>&gt;</kbd> and <kbd>&lt;</kbd> to walk it along.

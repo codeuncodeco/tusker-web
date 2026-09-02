@@ -105,14 +105,14 @@ export function UnifiedBoard({
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(null);
           }}
           onDrop={(event) => onDrop(column.status, event)}
+          // The outline says where the card will land. It borrows the colour a
+          // selected card carries, because both mean "this one".
           className={`flex w-72 shrink-0 flex-col gap-3 rounded-lg border p-3 ${
-            over === column.status
-              ? "border-neutral-900 dark:border-neutral-200"
-              : "border-neutral-200 dark:border-neutral-800"
+            over === column.status ? "border-fg" : "border-border"
           }`}
         >
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-            {column.label} <span className="text-neutral-400">{column.tasks.length}</span>
+          <h2 className="uppercase tracking-wide text-muted">
+            {column.label} <span className="text-dim">{column.tasks.length}</span>
           </h2>
 
           {/* One box per column, and the column names the status. The picker
