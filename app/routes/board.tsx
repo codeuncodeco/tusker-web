@@ -7,11 +7,13 @@ import {
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
+  isFinished,
   readStatus,
   readToday,
   readToggles,
   type Status,
 } from "../board";
+import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { Toggle, TodayChip } from "../board-chrome";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask } from "../assignees.server";
@@ -89,6 +91,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const columns = columnsToShow(counts, toggles).map((status) => ({
     status,
     label: STATUS_LABEL[status],
+    // Only the finished columns sweep. Archive keeps finished work; live work
+    // belongs on the board.
+    sweeps: isFinished(status),
     tasks: shown
       .filter((task) => task.status === status)
       .map(
@@ -154,6 +159,21 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // The sweep of one column. The form carries the ids of the cards that were
+  // on screen, so the filters and the search that left them there decide the
+  // set: the server re-reads nothing and can archive nothing the person could
+  // not see.
+  if (intent === "archive") {
+    return { archived: await archiveTasks(env.DB, scope, readTaskIds(form)) };
+  }
+
+  // One undo for the whole batch. It names the ids the sweep changed, so a
+  // task already archived before the sweep stays archived.
+  if (intent === "restore") {
+    await restoreTasks(env.DB, scope, readTaskIds(form));
+    return { ok: true };
+  }
+
   // The prompt a finished card raised, answered.
   if (intent === "decide") return decide(env.DB, scope, request, form);
 
@@ -187,6 +207,52 @@ function QuickAdd({ status, label }: { status: Status; label: string }) {
   );
 }
 
+/**
+ * The sweep of one column, and the one undo that puts the batch back.
+ *
+ * The form carries the id of every card the column draws, so the sweep
+ * archives exactly what is on screen: the filters and the search that left
+ * these cards here are the whole rule, and the server adds nothing to it.
+ *
+ * The undo names the ids the sweep changed, and not the ids it was given, so a
+ * task somebody archived earlier is not restored by an undo of this sweep. One
+ * sweep is one act, so its undo is one act.
+ */
+function ColumnSweep({ label, cards }: { label: string; cards: Card[] }) {
+  const sweep = useFetcher<typeof action>();
+  const archived = sweep.data && "archived" in sweep.data ? sweep.data.archived : null;
+
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      {cards.length > 0 ? (
+        <sweep.Form method="post">
+          <input type="hidden" name="intent" value="archive" />
+          {cards.map((card) => (
+            <input key={card.id} type="hidden" name="id" value={card.id} />
+          ))}
+          <button
+            aria-label={`Archive ${cards.length} from ${label}`}
+            className="rounded border border-neutral-300 px-2 py-0.5 dark:border-neutral-700"
+          >
+            Archive {cards.length}
+          </button>
+        </sweep.Form>
+      ) : null}
+
+      {archived && archived.length > 0 ? (
+        <sweep.Form method="post" className="flex items-baseline gap-2 text-neutral-500">
+          <input type="hidden" name="intent" value="restore" />
+          {archived.map((id) => (
+            <input key={id} type="hidden" name="id" value={id} />
+          ))}
+          <span>Archived {archived.length}.</span>
+          <button className="underline">Undo</button>
+        </sweep.Form>
+      ) : null}
+    </div>
+  );
+}
+
 /** What a drag asks for: the card, its column, and the card it lands above. */
 type Move = (id: string, status: Status, before: string | null) => void;
 
@@ -214,6 +280,9 @@ function CardItem({
 }) {
   const card = cards[index];
   const post = useFetcher();
+  // Its own form, because a form posts one intent and a move is not an
+  // archive.
+  const archiver = useFetcher();
 
   // Up lands above the card overhead. Down lands above the card after the
   // next one, and an empty value names the bottom of the column.
@@ -295,6 +364,21 @@ function CardItem({
           ↓
         </button>
       </post.Form>
+
+      {/* One task, off the board and kept. It is offered where the work is
+          finished, because archive holds finished work. */}
+      {isFinished(status) ? (
+        <archiver.Form method="post">
+          <input type="hidden" name="intent" value="archive" />
+          <input type="hidden" name="id" value={card.id} />
+          <button
+            aria-label={`Archive ${card.title}`}
+            className="text-xs text-neutral-500 underline underline-offset-2"
+          >
+            Archive
+          </button>
+        </archiver.Form>
+      ) : null}
     </li>
   );
 }
@@ -347,6 +431,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             </h2>
 
             <QuickAdd status={column.status} label={column.label} />
+
+            {column.sweeps ? <ColumnSweep label={column.label} cards={column.tasks} /> : null}
 
             <ul className="flex flex-col gap-2">
               {column.tasks.map((card, index) => (

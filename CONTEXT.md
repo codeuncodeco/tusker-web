@@ -152,8 +152,25 @@ _Avoid_: Decision history, changelog
 
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled
-status.
+status, and it leaves the board, the unified board and every plan. Restoring it
+puts it back in the column it held. `tasks.archived_at` holds when it was
+archived, and the archive screen sorts by it.
 _Avoid_: Closed, hidden
+
+**Sweep**:
+Archiving a whole column in one act. The Done and Cancelled columns carry the
+button, and it archives exactly what is on screen: the filters and the search
+that left those cards there are the whole rule. A person archives the set they
+are looking at, which is what makes the sweep safe.
+_Avoid_: Bulk archive, clear column
+
+**Archive screen**:
+One org's archived tasks as a flat list, newest archived first, at
+`/o/:slug/archive`. It reads the same filters and search as the board, and it
+holds Cancelled tasks whatever the board's Cancelled toggle says. Archived work
+is a history a person scans, not a pipeline they rearrange, so it has no
+columns and no drag.
+_Avoid_: Archive board, history page
 
 **Finish time**:
 When the work was over: `tasks.finished_at`. A move into Done or Cancelled

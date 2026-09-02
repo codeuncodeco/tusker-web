@@ -32,6 +32,7 @@ export default [
     route("board", "routes/board.tsx"),
     route("fields", "routes/fields.tsx"),
     route("decisions", "routes/decisions.tsx"),
+    route("archive", "routes/archive.tsx"),
     route("t/:taskId", "routes/task.tsx"),
     route("members", "routes/members.tsx"),
     route("settings", "routes/settings.tsx"),

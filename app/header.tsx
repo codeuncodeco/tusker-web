@@ -20,6 +20,7 @@ import type { OrgHeld } from "./current-org";
 const INLINE = [
   { to: "board", label: "Board" },
   { to: "decisions", label: "Decisions" },
+  { to: "archive", label: "Archive" },
 ] as const;
 
 /** The rare admin pages, behind the Manage menu. */

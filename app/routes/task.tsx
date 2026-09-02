@@ -1,5 +1,6 @@
 import { Form, Link } from "react-router";
 
+import { archiveTasks, restoreTasks } from "../archive.server";
 import { assigneeOf, drawsAssignees, inNameOrder, type Assignee } from "../assignees";
 import { assigneesOf, readAssignees, setAssignees } from "../assignees.server";
 import { STATUSES, STATUS_LABEL, readStatus, type Status } from "../board";
@@ -55,6 +56,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       // The raw markdown. The page renders it, so what the browser holds is
       // what a person typed.
       description: task.description,
+      // Archive is a flag, not a status, so the page draws it beside the
+      // status rather than in it.
+      archived: task.archived === 1,
     },
     fields,
     /**
@@ -101,6 +105,16 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const form = await request.formData();
 
   const intent = String(form.get("intent") ?? "");
+
+  // One task, off the board and kept, or put back. Archive is a flag, so
+  // neither act touches the status the task holds.
+  if (intent === "archive" || intent === "restore") {
+    const flip = intent === "archive" ? archiveTasks : restoreTasks;
+    const changed = await flip(env.DB, scope, [params.taskId]);
+    // Nothing changed means the org holds no such task, or it is already the
+    // way the button asks for. The page reads back either way.
+    return { ok: changed.length > 0 };
+  }
 
   // The prompt the Finish button raised, answered.
   if (intent === "decide") return decide(env.DB, scope, request, form);
@@ -427,6 +441,19 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
         <h2 className="font-medium">Description</h2>
         <DescriptionBox text={task.description} />
       </section>
+
+      {/* Its own form, because archiving is one act and saving is another.
+          An archived task keeps its status, so this button says nothing about
+          the column it holds. */}
+      <Form method="post">
+        <button
+          name="intent"
+          value={task.archived ? "restore" : "archive"}
+          className="self-start rounded border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+        >
+          {task.archived ? "Restore" : "Archive"}
+        </button>
+      </Form>
 
       {/* Its own form, because finishing is one act and saving is another. */}
       {task.status === "done" || task.status === "cancelled" ? null : (
