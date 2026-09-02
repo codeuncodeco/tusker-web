@@ -10,7 +10,8 @@ import { descriptionBlocks, type DescriptionBlock } from "./description";
  * of HTML on screen comes from `renderInline`: a fenced block draws as text,
  * and no value of the description reaches the page as markup by another route.
  *
- * The textarea that edits the text is a separate ticket. This view only ticks.
+ * This view only reads and ticks. The textarea that edits the text sits in
+ * `description-box.tsx`, which draws this view when the box is shut.
  */
 export function DescriptionView({ text }: { text: string }) {
   const blocks = descriptionBlocks(text);
