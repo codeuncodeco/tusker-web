@@ -59,10 +59,12 @@ async function task(orgId: string, id: string, some: { status?: Status; position
 async function weekSet(personId: string, week: string, taskIds: string[]) {
   await db.batch([
     db.prepare("INSERT INTO week_plans (user_id, week) VALUES (?, ?)").bind(personId, week),
-    ...taskIds.map((id) =>
+    ...taskIds.map((id, at) =>
       db
-        .prepare("INSERT INTO week_plan_tasks (user_id, week, task_id) VALUES (?, ?, ?)")
-        .bind(personId, week, id),
+        .prepare(
+          "INSERT INTO week_plan_tasks (user_id, week, task_id, position) VALUES (?, ?, ?, ?)",
+        )
+        .bind(personId, week, id, at + 1),
     ),
   ]);
 }
@@ -87,7 +89,9 @@ async function stored(personId: string, week = WEEK) {
     .first();
   if (!started) return null;
   const { results } = await db
-    .prepare("SELECT task_id FROM week_plan_tasks WHERE user_id = ? AND week = ? ORDER BY task_id")
+    .prepare(
+      "SELECT task_id FROM week_plan_tasks WHERE user_id = ? AND week = ? ORDER BY position, task_id",
+    )
     .bind(personId, week)
     .all<{ task_id: string }>();
   return results.map((row) => row.task_id);
@@ -238,6 +242,19 @@ describe("carrying forward", () => {
     const data = await weekPage(ada.cookie);
     expect(data.leftovers).toBe(null);
     expect(data.picked).toEqual(["first", "second"]);
+  });
+
+  // Work ranked once is the same work, later. See ADR-0021.
+  it("keeps the order of the week it came from", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "last", { position: 1 });
+    await task(ada.org.id, "first", { position: 2 });
+    await weekSet(ada.person.id, LAST, ["first", "last"]);
+
+    await act(ada.cookie, { intent: "carry" });
+
+    expect(await stored(ada.person.id)).toEqual(["first", "last"]);
+    expect((await weekPage(ada.cookie)).picked).toEqual(["first", "last"]);
   });
 
   it("leaves the old set as its week left it, so a carried task is in both", async () => {

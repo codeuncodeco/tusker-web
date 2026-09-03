@@ -62,10 +62,12 @@ async function column(orgId: string, ...ids: string[]) {
 async function weekSet(personId: string, ids: string[], week = WEEK) {
   await db.batch([
     db.prepare("INSERT INTO week_plans (user_id, week) VALUES (?, ?)").bind(personId, week),
-    ...ids.map((id) =>
+    ...ids.map((id, at) =>
       db
-        .prepare("INSERT INTO week_plan_tasks (user_id, week, task_id) VALUES (?, ?, ?)")
-        .bind(personId, week, id),
+        .prepare(
+          "INSERT INTO week_plan_tasks (user_id, week, task_id, position) VALUES (?, ?, ?, ?)",
+        )
+        .bind(personId, week, id, at + 1),
     ),
   ]);
 }
@@ -192,26 +194,27 @@ describe("the batch with no plan", () => {
 });
 
 describe("the batch with no plan but a week set", () => {
-  it("is the first three of the week set, in percentile order", async () => {
+  it("is the first three of the week set, in week order", async () => {
     const ada = await member("ada@example.test", "Ada");
     await column(ada.org.id, "a", "b", "c", "d", "e");
     await weekSet(ada.person.id, ["e", "d", "c", "b"]);
 
     const data = await focus(ada.cookie);
 
-    // The set carries no order, so the page sorts it as `/me` does.
-    expect(batch(data)).toEqual(["b", "c", "d"]);
+    // The order is the person's own, so the three are the three they ranked
+    // first and not the three their columns happen to lead with. See ADR-0021.
+    expect(batch(data)).toEqual(["e", "d", "c"]);
     expect(data.focus.planned).toBe(false);
   });
 
-  it("draws In progress before To do, as the unified view does", async () => {
+  it("takes the week order over the status split, as a plan does", async () => {
     const ada = await member("ada@example.test", "Ada");
     const other = await team(ada.person.id, "codeuncode");
     await column(ada.org.id, "a", "b");
     await task(other.id, "now", { status: "in_progress" });
     await weekSet(ada.person.id, ["a", "b", "now"]);
 
-    expect(batch(await focus(ada.cookie))).toEqual(["now", "a", "b"]);
+    expect(batch(await focus(ada.cookie))).toEqual(["a", "b", "now"]);
   });
 
   it("leaves out a member no live task answers for", async () => {

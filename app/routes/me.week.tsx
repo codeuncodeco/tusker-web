@@ -5,9 +5,14 @@
  * it behaves like every other cross-org list: type a task straight into it,
  * undo that, finish one from it.
  *
- * The set carries no order. Membership is the whole statement, so the page
- * draws it in the sort every cross-org list has and gives no way to step a
- * row. The order of the work is the day's business. See ADR-0014.
+ * The set carries an order, and this page is where it is made: `J` and `K`
+ * step a member, `T` promotes one to the top, and every page that draws the
+ * set draws it in that order. No other order is on this page, so a step here
+ * is unambiguous. See ADR-0021, which amends ADR-0014.
+ *
+ * A pick claims a place at the top. A member finished this week sinks under
+ * the live ones as the page draws, and nothing is written for it: unfinishing
+ * a task gives it its rank back.
  *
  * A week with no set opens on the leftovers prompt: the unfinished members of
  * the last week that holds one, to carry forward or to leave. That offer is
@@ -34,7 +39,7 @@ import { actOnTask } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import { isWeek, weekIn, weekSpan } from "../week";
-import { readWeekSet, startWeek } from "../weeks.server";
+import { moveInWeek, readWeekSet, startWeek } from "../weeks.server";
 import type { Route } from "./+types/me.week";
 
 /** What the pick button reads here: a week is picked, and a day is planned. */
@@ -127,6 +132,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // A move reads no task row. It moves an id the set already holds, and an id
+  // the set does not hold moves nothing.
+  if (intent === "up" || intent === "down" || intent === "top") {
+    await moveInWeek(env.DB, set.personId, week, String(form.get("id") ?? ""), intent);
+    return { ok: true };
+  }
+
   // An add here is a pick as well, so the task joins the week it is typed into.
   // A task that leaves the set leaves this week's plans from today forward.
   const picks = weekPicks(env.DB, set.personId, week, true, dayOf(request));
@@ -167,7 +179,10 @@ export default function Week({ loaderData }: Route.ComponentProps) {
         // The page names a week and never a day, so the browser says which day
         // it is in, named week and all: that day is what names an unnamed week,
         // and the cookie is where the whole app reads it.
-        // A week set has no order to keep, so no row steps here.
+        //
+        // The set is the one order on this page, so it is the group whose rows
+        // move. See ADR-0021.
+        ordered="week"
         verbs={VERBS}
       />
 

@@ -20,6 +20,7 @@ export type ActionName =
   | "unplan"
   | "up"
   | "down"
+  | "top"
   | "forward"
   | "back"
   | "finish"
@@ -42,6 +43,9 @@ export const KEY_MAP: Record<ActionName, KeyRow> = {
   unplan: { key: "p", label: "Unplan" },
   up: { key: "K", label: "Up" },
   down: { key: "J", label: "Down" },
+  // The third of the family that moves a row. A press is a `KeyboardEvent.key`
+  // and nothing else, so the capital is the whole binding. See ADR-0021.
+  top: { key: "T", label: "Top" },
   forward: { key: ">", label: "Forward" },
   back: { key: "<", label: "Back" },
   finish: { key: "x", label: "Finish" },
