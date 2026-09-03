@@ -2,7 +2,7 @@
  * The unified board: one person's tasks across every org they belong to, in
  * the five columns the org board draws.
  *
- * A person who learns the board on one org meets the same page on all of them.
+ * A person who learns the org board meets the same page across all of them.
  * The layout is the org board's; the order is the unified sort, and it is
  * derived: no card is dragged into a place and no card steps. See ADR-0006,
  * "One order per column".

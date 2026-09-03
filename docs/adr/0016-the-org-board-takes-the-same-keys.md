@@ -16,8 +16,8 @@ bound none: it had a drag, a `<select>` and buttons.
 
 ADR-0011 makes the two axes peers, and the unified board is drawn as the org
 board on purpose, so that a person who learns one meets the other. A person who
-learned the board on `/me` met the same layout on an org board and none of the
-keys. The layout promised something the page then refused.
+learned the unified board on `/me` met the same layout on the org board and
+none of the keys. The layout promised something the page then refused.
 
 The keys are the same letters because they are the same acts. Nothing here is a
 new gesture: every key posts the `move` intent a control on the card already

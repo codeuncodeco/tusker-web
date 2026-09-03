@@ -6,11 +6,11 @@ The unified board takes a drag between columns. The drop target is the whole
 column, no insertion line is drawn between cards, and the drop writes `status`
 and nothing a person could call a place.
 
-The board had no drag at all. `CONTEXT.md` and three source files said so and
-cited ADR-0006, but ADR-0006 argues about **order**, and a move between columns
-is a **status** change. The card already carried a `<select>` that made the same
-write. So the board banned a gesture no decision had refused, while offering the
-same act by another control.
+The org board had no drag at all. `CONTEXT.md` and three source files said so
+and cited ADR-0006, but ADR-0006 argues about **order**, and a move between
+columns is a **status** change. The card already carried a `<select>` that made
+the same write. So the org board banned a gesture no decision had refused, while
+offering the same act by another control.
 
 ## Why the column and not the gap
 
