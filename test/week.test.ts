@@ -94,9 +94,11 @@ describe("the week as a person reads it", () => {
     expect(weekSpan("2026-W36", "2026-09-03")).toMatch(/^Mon 31 Aug – Fri 4 Sept?$/);
   });
 
-  it("keeps the year on the days outside this one", () => {
-    // The week that straddles New Year says which year each end is in.
-    expect(weekSpan("2026-W01", "2026-09-03")).toBe("Mon 29 Dec 2025 – Fri 2 Jan");
+  it("answers the year once, for the pair", () => {
+    // The week that straddles New Year says which year each end is in, and it
+    // says it at both ends: one end alone would leave the other to be guessed.
+    expect(weekSpan("2026-W01", "2026-09-03")).toBe("Mon 29 Dec 2025 – Fri 2 Jan 2026");
+    expect(weekSpan("2026-W01", "2025-12-31")).toBe("Mon 29 Dec 2025 – Fri 2 Jan 2026");
   });
 });
 
@@ -114,7 +116,9 @@ describe("the week a heading names", () => {
 
   it("carries the word over a year end", () => {
     // 2026-W01 opens on 29 December 2025, so "this week" spans two years.
-    expect(weekLabel("2026-W01", "2025-12-31")).toBe("This week, Mon 29 Dec – Fri 2 Jan 2026");
+    expect(weekLabel("2026-W01", "2025-12-31")).toBe(
+      "This week, Mon 29 Dec 2025 – Fri 2 Jan 2026",
+    );
     expect(weekLabel("2025-W52", "2025-12-31")).toBe("Last week, Mon 22 Dec – Fri 26 Dec");
   });
 });

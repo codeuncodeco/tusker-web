@@ -427,9 +427,9 @@ _Avoid_: Daily planner, plan builder
 The controls that carry the week page from one week to the next: the week
 before, the week after, and the way back to this week. The **week span** heads
 the page and links to the week's own address, so the walk and that link
-together are what make `/me/week/:week` reachable. A week that
-is over is read and not rewritten, so it draws no pick, no step and no box, and
-offers the **take** instead. This week and the weeks after it plan as they
+together are what make `/me/week/:week` reachable. A week that is over is read
+and not rewritten, so it draws no pick, no step and no box, and offers the
+**take** instead. This week and the weeks after it plan as they
 always did, and a week nobody started draws empty and offers what it always
 offers.
 _Avoid_: Week picker, week navigator
@@ -460,7 +460,7 @@ week" or "Next week" in front of the span where the week is one step from this
 one, as **Day name** puts "Today" in front of a date. The days are read in UTC,
 and the year is written only on an end outside the year the reader is in. The
 address and the stored key keep `YYYY-Www`: only the reading changes.
-_Avoid_: Week key, week label, week range
+_Avoid_: Week range, week dates
 
 **Leftovers**:
 The unfinished members of a week that is over. Two doorways reach them, the
@@ -481,9 +481,9 @@ _Avoid_: Rollover prompt
 The doorway a week that is over holds, and the one write it answers: its
 leftovers, fetched into the week the browser is in. A person asks for it, from
 that week's own page, as often as they like, and the button names the week the
-block lands in by its **week span**. The block lands on top of the target set and keeps its own
-order, because it is work a person went and fetched. Taking into a week with no
-set starts that week, as a carry does. See ADR-0014 and ADR-0021.
+block lands in by its **week span**. The block lands on top of the target set
+and keeps its own order, because it is work a person went and fetched. Taking
+into a week with no set starts that week, as a carry does. See ADR-0014 and ADR-0021.
 _Avoid_: Pull forward, re-carry
 
 **Today chip**:
@@ -527,8 +527,9 @@ button, in a person half for Tasks, Week, Plan and Focus and an org half for
 the current org's pages. Both halves are always drawn, and the page a person
 stands on is marked. A label names the destination and never what the page
 holds, so "Week" and "Plan" stand while those pages head with the week and the
-day they draw. `/account` stands in neither half, so it marks neither. A control
-that comes and goes teaches nothing, so nothing in the header is drawn by rule.
+day they draw. `/account` stands in neither half, so it marks neither. A
+control that comes and goes teaches nothing, so nothing in the header is drawn
+by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 

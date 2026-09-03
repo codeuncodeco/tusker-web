@@ -95,14 +95,14 @@ describe("the day a heading names", () => {
 });
 
 describe("the short day a span is written in", () => {
-  it("names the weekday and the date, and drops the year in this one", () => {
+  it("names the weekday and the date, short", () => {
     // The month is abbreviated by the runtime's own tables, so "Sep" and
     // "Sept" are both right and the shape is what matters.
-    expect(dayShort("2026-09-03", "2026-09-03")).toMatch(/^Thu 3 Sept?$/);
+    expect(dayShort("2026-09-03", false)).toMatch(/^Thu 3 Sept?$/);
   });
 
-  it("keeps the year outside this one, ahead and behind", () => {
-    expect(dayShort("2025-12-29", "2026-09-03")).toBe("Mon 29 Dec 2025");
-    expect(dayShort("2027-01-01", "2026-09-03")).toBe("Fri 1 Jan 2027");
+  it("writes the year where the span asks for one", () => {
+    expect(dayShort("2025-12-29", true)).toBe("Mon 29 Dec 2025");
+    expect(dayShort("2027-01-01", true)).toBe("Fri 1 Jan 2027");
   });
 });

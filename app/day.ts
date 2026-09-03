@@ -50,17 +50,21 @@ export function dayName(day: string, today: string): string {
 }
 
 /**
- * The short day a span is written in: "Mon 31 Aug". It drops and keeps the
- * year by the rule `dayName` uses, so a span that leaves this year says so.
+ * The short day a span is written in: "Mon 31 Aug", and "Mon 29 Dec 2025"
+ * where the span asks for the year.
+ *
+ * The caller says whether to write it, because a span reads as one thing: a
+ * year on one end alone would leave the other end to be guessed. `dayName`
+ * writes one day and answers the question itself.
  */
-export function dayShort(day: string, today: string): string {
+export function dayShort(day: string, year: boolean): string {
   // The weekday is written apart from the date for the reason `dayName` gives:
   // en-GB puts a comma between the two once the year joins them.
   const weekday = written(day, { weekday: "short" });
   const date = written(day, {
     day: "numeric",
     month: "short",
-    year: day.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric",
+    year: year ? "numeric" : undefined,
   });
   return `${weekday} ${date}`;
 }

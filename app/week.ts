@@ -91,8 +91,12 @@ export function weekBounds(week: string): { monday: string; sunday: string } {
  * writes the year and this one does not.
  */
 export function weekSpan(week: string, today: string): string {
-  const days = daysOfWeek(week);
-  return `${dayShort(days[0], today)} – ${dayShort(days[4], today)}`;
+  const [monday, , , , friday] = daysOfWeek(week);
+  // The span answers the year once, for the pair. A week that straddles New
+  // Year has an end in each, and a year on one end alone leaves the other to
+  // be guessed, so either end outside the reader's year writes both.
+  const year = ![monday, friday].every((day) => day.slice(0, 4) === today.slice(0, 4));
+  return `${dayShort(monday, year)} – ${dayShort(friday, year)}`;
 }
 
 /**

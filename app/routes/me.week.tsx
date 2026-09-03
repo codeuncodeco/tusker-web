@@ -238,7 +238,7 @@ export default function Week({ loaderData }: Route.ComponentProps) {
             {weekLabel(week, day)}
           </Link>
         </h1>
-        <WeekWalk day={day} prev={prev} next={next} onThisWeek={onThisWeek} />
+        <WeekWalk today={day} prev={prev} next={next} onThisWeek={onThisWeek} />
         {picked.length > 0 ? (
           <span className="tabular-nums text-muted">
             {done} of {picked.length} done
@@ -362,12 +362,12 @@ const STEP = "rounded border border-border px-2 text-muted";
  * – Fri 28 Aug" — because a screen reader says the label and not the arrow.
  */
 function WeekWalk({
-  day,
+  today,
   prev,
   next,
   onThisWeek,
 }: {
-  day: string;
+  today: string;
   prev: string;
   next: string;
   onThisWeek: boolean;
@@ -376,7 +376,7 @@ function WeekWalk({
     <nav aria-label="Week" className="flex items-baseline gap-2">
       <Link
         to={`/me/week/${prev}`}
-        aria-label={`The week before, ${weekSpan(prev, day)}`}
+        aria-label={`The week before, ${weekSpan(prev, today)}`}
         className={STEP}
       >
         ‹
@@ -384,7 +384,7 @@ function WeekWalk({
 
       <Link
         to={`/me/week/${next}`}
-        aria-label={`The week after, ${weekSpan(next, day)}`}
+        aria-label={`The week after, ${weekSpan(next, today)}`}
         className={STEP}
       >
         ›
