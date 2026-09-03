@@ -93,6 +93,10 @@ describe("the key each act binds", () => {
     // `n` is the offer that ends a batch, so the list ignores it. The offer
     // binds it where it is drawn, which the render test below reads.
     more: { key: "n", press: () => expect(press("n")).toBe(null) },
+    clear: {
+      key: "Escape",
+      press: () => expect(press("Escape")).toEqual({ kind: "cursor", id: null }),
+    },
   };
 
   for (const [action, fired] of Object.entries(fires)) {
@@ -104,6 +108,42 @@ describe("the key each act binds", () => {
 
   it("covers every act the map holds", () => {
     expect(Object.keys(fires).sort()).toEqual(Object.keys(KEY_MAP).sort());
+  });
+});
+
+describe("the empty cursor", () => {
+  /** What one press does on a list the cursor names no row of. */
+  function empty(key: string): Press | null {
+    return pressed(key, ROWS, new Set(), ALL_ACTS, null);
+  }
+
+  it("comes back from outside the list, in the way of the key", () => {
+    expect(empty(KEY_MAP.next.key)).toEqual({ kind: "cursor", id: "a" });
+    expect(empty(KEY_MAP.prev.key)).toEqual({ kind: "cursor", id: "b" });
+  });
+
+  it("leaves every key that needs a card alone", () => {
+    for (const key of [
+      KEY_MAP.open.key,
+      KEY_MAP.plan.key,
+      KEY_MAP.up.key,
+      KEY_MAP.down.key,
+      KEY_MAP.forward.key,
+      KEY_MAP.back.key,
+      KEY_MAP.finish.key,
+    ])
+      expect(empty(key)).toBe(null);
+  });
+
+  // The header menu and the decision prompt read Escape too, so a list with
+  // nothing to clear leaves the press to them.
+  it("answers nothing to Escape, which has nothing to clear", () => {
+    expect(empty(KEY_MAP.clear.key)).toBe(null);
+  });
+
+  it("has nothing to move on an empty list", () => {
+    expect(pressed(KEY_MAP.next.key, [], new Set(), ALL_ACTS, null)).toBe(null);
+    expect(pressed(KEY_MAP.prev.key, [], new Set(), ALL_ACTS, null)).toBe(null);
   });
 });
 

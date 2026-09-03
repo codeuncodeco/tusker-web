@@ -54,7 +54,8 @@ export const READ_ACTS: ListActs = { plan: false, step: false, move: true };
 
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
-  | { kind: "cursor"; id: string }
+  /** A card by id, or null where the press takes the cursor off the list. */
+  | { kind: "cursor"; id: string | null }
   | { kind: "open"; task: LiveTask }
   | { kind: "act"; fields: Record<string, string> };
 
@@ -74,10 +75,18 @@ export function pressed(
 
   // The cursor names a task, not a place in the list. A plan moves a row into
   // the plan group, and the cursor goes with it.
-  if (key === KEY_MAP.next.key)
-    return { kind: "cursor", id: rows[Math.min(at + 1, rows.length - 1)]?.id ?? "" };
+  //
+  // An empty cursor sits outside the list, so a move key brings it back in
+  // from the end the key comes from: `j` to the first row, `k` to the last.
+  if (key === KEY_MAP.next.key) return moved(at === -1 ? rows[0] : rows[Math.min(at + 1, rows.length - 1)]);
   if (key === KEY_MAP.prev.key)
-    return { kind: "cursor", id: rows[Math.max(at - 1, 0)]?.id ?? "" };
+    return moved(at === -1 ? rows[rows.length - 1] : rows[Math.max(at - 1, 0)]);
+
+  // Escape empties the cursor, so a person reading the page has no card named
+  // at them. A cursor already empty has nothing to clear, and the press stays
+  // the header menu's and the decision prompt's. See ADR-0015.
+  if (key === KEY_MAP.clear.key) return on === null ? null : { kind: "cursor", id: null };
+
   if (!task) return null;
   if (key === KEY_MAP.open.key) return { kind: "open", task };
 
@@ -118,6 +127,11 @@ export function pressed(
   return null;
 }
 
+/** The cursor on one row, or nothing where the list draws none. */
+function moved(task: LiveTask | undefined): Press | null {
+  return task ? { kind: "cursor", id: task.id } : null;
+}
+
 /**
  * Binds the keys to one flat list of tasks.
  */
@@ -126,7 +140,7 @@ export function useTaskKeys(
   planned: Set<string>,
   acts: ListActs,
   on: string | null,
-  setOn: (id: string) => void,
+  setOn: (id: string | null) => void,
   act: (fields: Record<string, string>) => void,
 ) {
   const navigate = useNavigate();

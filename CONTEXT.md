@@ -114,8 +114,9 @@ _Avoid_: Description editor, description form
 
 **List keys**:
 The keys a keyed list binds, in `app/unified-keys.ts`: `j` and `k` move the
-cursor, `Enter` opens, `p` plans, `x` finishes, `>` and `<` walk a task between
-columns, and `J` and `K` step a planned task through the plan. One table,
+cursor, `Escape` empties it, `Enter` opens, `p` plans, `x` finishes, `>` and
+`<` walk a task between columns, and `J` and `K` step a planned task through
+the plan. One table,
 `app/key-map.ts`, holds the key of every act, and one hook binds the list's
 own, so the board, the plan, the week and focus mode cannot drift apart. `n`
 takes three more, and the offer that ends a batch binds it where it is drawn. A page says which
@@ -515,9 +516,9 @@ _Avoid_: My tasks, unified view
 
 **Card keys**:
 What a press does to the card the cursor names, on the board, the unified
-board, plan mode and the week page. `j` and `k` move the cursor, `Enter` opens
-the task, `x` finishes it, `n` goes to the quick-add box, and `>` and `<` walk
-the card along the run. `p` plans or unplans, on the pages that draw a plan
+board, plan mode and the week page. `j` and `k` move the cursor, `Escape`
+empties it, `Enter` opens the task, `x` finishes it, `n` goes to the quick-add
+box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the pages that draw a plan
 control. `J` and `K` step a stored order: the org's on the board, the day's in
 plan mode. A step names the card and the way, never a place, because the page's
 copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Enter`, `x`, `n` and `d`,
@@ -526,10 +527,13 @@ posts, so no act is reachable by key alone. See ADR-0016.
 _Avoid_: Shortcuts, hotkeys, bindings
 
 **Cursor**:
-The card the keys act on. It names a card and not a place, so the card keeps
-the cursor while the page redraws around it. `j` and `k` move it, a click on a
-card body places it, and it starts on the first card the page draws. Focus mode
-draws three rows and gives no click. See ADR-0015.
+The card the keys act on, or no card at all. It names a card and not a place,
+so the card keeps the cursor while the page redraws around it. It starts empty,
+`Escape` empties it again, and `j` and `k` fill it: `j` takes the first card,
+`k` the last. A click on a card body places it. A card the page stops drawing
+takes the cursor with it, and every key that needs a card does nothing while
+the cursor is empty. Focus mode draws three rows and gives no click.
+See ADR-0015.
 _Avoid_: Selection, focus, highlight
 
 ### Look

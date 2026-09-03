@@ -46,8 +46,9 @@ export function UnifiedList({
 
   // One flat order, so `j` and `k` walk the page the way a person reads it.
   const rows = groups.flatMap((group) => group.tasks);
-  // The cursor starts at the top, and stays on its task while the list moves.
-  const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
+  // The cursor starts empty, and stays on its task while the list moves. A
+  // task the list stops drawing takes the cursor off with it. See ADR-0015.
+  const cursor = rows.some((one) => one.id === on) ? on : null;
 
   useLocalDay(day, !namedDay);
   // One of three constants, and never a fresh object: the hook re-binds the

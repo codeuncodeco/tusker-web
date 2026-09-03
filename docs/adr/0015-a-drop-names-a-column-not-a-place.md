@@ -56,6 +56,38 @@ The keys go to the unified board, plan mode and the week page. Focus mode keeps
 its two keys: the mode narrows what a person can do, and that is the point of
 it.
 
+## The cursor can be empty
+
+A click on a card places the cursor, and so the page had to start it somewhere.
+It started on the first card the page drew, which named a card at every person
+who only came to read. Nothing they had done chose that card, and the page had
+no way to un-choose it.
+
+So the cursor now starts empty, and `Escape` empties it again. `j` and `k` fill
+it from outside the list: `j` takes the first card and `k` the last, which is
+the way each key already walks. Every key that needs a card — `Enter`, `x`,
+`p`, `>`, `<`, `J`, `K` — answers nothing while the cursor is empty, because
+the guard that reads the card already refused a cursor that named none.
+
+The alternative was to keep the first-card start and let `Escape` clear it. It
+costs one press to undo a choice the page made for the person, on every load,
+and it leaves the read-only case wrong until they press. A start with nothing
+named says what is true: no card has been picked.
+
+Every keyed list takes this — both boards, plan mode, the week page and focus
+mode. The cursor is one idea and one name, so a page that started it differently
+would be a page a person has to learn twice.
+
+`Escape` is the press because it is what the rest of the app means by "out": it
+leaves the quick-add box, it shuts the header menu, it skips the decision
+prompt. A cursor that already names no card answers nothing, so the press falls
+through to the menu and the prompt as before.
+
+The clear is the one act with no control beside it. Every other key rides on a
+button, so no act is reachable by key alone (ADR-0016). A cleared cursor names
+no card, so there is no card for a button to sit on, and a button on the page
+chrome would name an act most people never want.
+
 ## Consequences
 
 A drop needs no server change. `/me` already served the `move` intent, so a drop
@@ -64,7 +96,8 @@ select always did.
 
 A click on a card body now places the keyboard cursor. `>` and `<` act on the
 cursor, and `j` was the only way to move it, so on a long column the keys would
-have been reachable near the top and nowhere else.
+have been reachable near the top and nowhere else. The cursor starts empty, so
+a person who has neither clicked nor pressed a key has no card named at them.
 
 The last member to drag still wins, with no merge and no lock, as ADR-0006 says.
 
