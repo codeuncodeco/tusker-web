@@ -1,9 +1,11 @@
 import { Form, redirect } from "react-router";
 
+import { PALETTE, readColor } from "../colors";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
+import { OrgDot } from "../org-chip";
 import { createOrgKey, listOrgKeys, revokeOrgKey } from "../org-keys.server";
-import { readOrgApp, renameOrg, setOrgApp, slugify } from "../orgs.server";
+import { readOrgApp, renameOrg, setOrgApp, setOrgColor, slugify } from "../orgs.server";
 import { isRefsBaseUrl } from "../refs";
 import { refreshOrgFields } from "../refs.server";
 import { requireScope } from "../scope.server";
@@ -17,7 +19,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug, context);
   return {
-    org: { slug: scope.org.slug, name: scope.org.name },
+    org: { slug: scope.org.slug, name: scope.org.name, color: scope.org.color },
     // The keys carry no plaintext, so this payload is safe in the browser.
     keys: await listOrgKeys(env.DB, scope),
     // The base URL is an address. The key is not here, only whether it is set.
@@ -57,6 +59,16 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // The save says what it did, because a paste that reached no field is
     // otherwise silent until a picker stops filling.
     return { app: await refreshOrgFields(env.DB, scope) };
+  }
+
+  if (intent === "color") {
+    // Any member may set it. Membership is the only permission check Tusker
+    // has, and the scope is that check. See ADR-0020.
+    const read = readColor(form.get("color"));
+    if ("error" in read) return { colorError: read.error };
+
+    await setOrgColor(env.DB, scope, read.color);
+    return { ok: true };
   }
 
   if (intent === "revoke-key") {
@@ -111,10 +123,75 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
         </button>
       </Form>
 
+      <ColorForm org={org} actionData={actionData} />
+
       <OrgAppForm app={app} actionData={actionData} />
 
       <Keys slug={org.slug} keys={keys} actionData={actionData} />
     </main>
+  );
+}
+
+/**
+ * The colour this org draws on a page that mixes several.
+ *
+ * The box takes a palette name or an exact colour, as the field colours do,
+ * and it is the same control: a labelled box with a `<datalist>` of the
+ * palette names. An empty box clears the colour, and the org draws grey. See
+ * ADR-0020.
+ */
+function ColorForm({
+  org,
+  actionData,
+}: {
+  org: Route.ComponentProps["loaderData"]["org"];
+  actionData: Route.ComponentProps["actionData"];
+}) {
+  return (
+    <section className="flex flex-col gap-3 border-t border-border pt-6">
+      <h2 className="text-lg tracking-tight">Colour</h2>
+      <p className="text-muted">
+        The dot beside this org's name on your board, your plan and your week, where tasks of every
+        org you belong to sit together. Any member can change it.
+      </p>
+
+      <datalist id="org-palette">
+        {PALETTE.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
+      <Form method="post" className="flex flex-col gap-3">
+        <input type="hidden" name="intent" value="color" />
+
+        <label className="flex flex-col gap-1">
+          <span className="flex items-center gap-2">
+            Colour
+            <OrgDot color={org.color} />
+          </span>
+          <span className="text-muted">
+            A palette name or an exact colour, for example blue or #2563eb. Empty draws grey.
+          </span>
+          <input
+            name="color"
+            list="org-palette"
+            defaultValue={org.color ?? ""}
+            placeholder="blue or #2563eb"
+            className={fieldClass}
+          />
+        </label>
+
+        {actionData && "colorError" in actionData && actionData.colorError ? (
+          <p role="alert" className="text-danger">
+            {actionData.colorError}
+          </p>
+        ) : null}
+
+        <button className="self-start rounded border border-border px-3 py-2">
+          Save the colour
+        </button>
+      </Form>
+    </section>
   );
 }
 

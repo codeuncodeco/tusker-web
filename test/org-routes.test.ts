@@ -274,3 +274,85 @@ describe("changing the slug", () => {
     expect(row?.slug).toBe("codeuncode");
   });
 });
+
+describe("the org colour", () => {
+  /** Ada, her org at /codeuncode, Bo in it, and Cy outside it. */
+  async function team() {
+    const ada = await member("ada@example.test", "Ada");
+    const bo = await member("bo@example.test", "Bo");
+    const cy = await member("cy@example.test", "Cy");
+    await send(newOrgRoute, "/orgs/new", ada.cookie, { name: "codeuncode", slug: "codeuncode" });
+    await send(membersRoute, "/o/codeuncode/members", ada.cookie, { email: "bo@example.test" }, { slug: "codeuncode" });
+    return { ada, bo, cy };
+  }
+
+  /** A post to the colour form of the settings page. */
+  function paint(cookie: string, color: string) {
+    return send(
+      settingsRoute,
+      "/o/codeuncode/settings",
+      cookie,
+      { intent: "color", color },
+      { slug: "codeuncode" },
+    );
+  }
+
+  /** The colour the row holds. */
+  async function held(): Promise<string | null> {
+    const row = await db
+      .prepare("SELECT color FROM orgs WHERE slug = 'codeuncode'")
+      .first<{ color: string | null }>();
+    return row?.color ?? null;
+  }
+
+  it("takes a palette name, and the settings page reads it back", async () => {
+    const { ada } = await team();
+
+    await paint(ada.cookie, "Teal");
+
+    expect(await held()).toBe("teal");
+    const page = await settingsRoute.loader(
+      routeArgs(get("/o/codeuncode/settings", ada.cookie), { slug: "codeuncode" }),
+    );
+    expect(page.org.color).toBe("teal");
+  });
+
+  it("lets any member set it, because membership is the only check", async () => {
+    const { bo } = await team();
+
+    await paint(bo.cookie, "pink");
+
+    expect(await held()).toBe("pink");
+  });
+
+  it("keeps a person outside the org out", async () => {
+    const { cy } = await team();
+    const before = await held();
+
+    const response = await caught(paint(cy.cookie, "pink"));
+
+    expect(response.status).toBe(404);
+    expect(await held()).toBe(before);
+  });
+
+  it("answers with readColor's own reason for a colour it cannot draw", async () => {
+    const { ada } = await team();
+    const before = await held();
+
+    const answer = await paint(ada.cookie, "chartreuse");
+
+    expect(answer).toEqual({
+      colorError:
+        "A colour is a palette name or an exact colour, for example blue or #2563eb. chartreuse is neither.",
+    });
+    expect(await held()).toBe(before);
+  });
+
+  it("clears the colour on an empty box, so the org draws grey", async () => {
+    const { ada } = await team();
+
+    await paint(ada.cookie, "  ");
+
+    expect(await held()).toBeNull();
+  });
+});

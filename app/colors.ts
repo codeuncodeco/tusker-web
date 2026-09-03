@@ -141,3 +141,24 @@ export function colorRows(
     ...rest.map((value) => ({ value, label: value, color: colors[value] ?? null, cached: false })),
   ];
 }
+
+/**
+ * The palette names an org can be assigned. Grey is what a colourless org
+ * already draws, so handing it out would say "somebody chose grey" when
+ * nobody chose at all.
+ */
+export const ASSIGNABLE = PALETTE.filter((name) => name !== "grey") as readonly PaletteName[];
+
+/**
+ * The colour a new org takes: the first assignable name no org of the person
+ * holds. Once the person holds them all it wraps round, by the count of every
+ * org they hold, so the ninth org repeats the first and the seventeenth
+ * repeats it again rather than piling on one name.
+ *
+ * This is a stored default a person overwrites, not a derived colour. See
+ * ADR-0020.
+ */
+export function nextColor(held: (string | null)[]): PaletteName {
+  const taken = new Set(held.filter((color): color is string => color !== null));
+  return ASSIGNABLE.find((name) => !taken.has(name)) ?? ASSIGNABLE[held.length % ASSIGNABLE.length];
+}

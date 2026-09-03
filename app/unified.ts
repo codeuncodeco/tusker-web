@@ -12,7 +12,7 @@ import { ALWAYS_SHOWN, STATUS_LABEL, type Status, type Toggles } from "./board";
 import type { Shown } from "./fields";
 
 /** The org a card names. It carries no id, because a screen reads this. */
-export type CardOrg = { slug: string; name: string };
+export type CardOrg = { slug: string; name: string; color: string | null };
 
 /** One task of any org, as the cross-org pages sort and draw them. */
 export type LiveTask = {

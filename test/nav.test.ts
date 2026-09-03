@@ -23,7 +23,7 @@ beforeEach(wipe);
 
 /** An org row as the header reads one. Only the four columns matter here. */
 function org(slug: string, kind: Org["kind"]): Org {
-  return { id: slug, slug, name: slug, kind, created_at: "2026-09-01" };
+  return { id: slug, slug, name: slug, kind, created_at: "2026-09-01", color: "blue" };
 }
 
 describe("the current org", () => {

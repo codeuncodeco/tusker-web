@@ -17,6 +17,7 @@ import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 
 import type { OrgHeld } from "./current-org";
+import { OrgDot } from "./org-chip";
 
 /** The pages of one org the header lists inline, in that order. */
 const INLINE = [
@@ -105,10 +106,16 @@ function Here({ to, here, children }: { to: string; here: boolean; children: Rea
  */
 function Menu({
   label,
+  mark,
   summaryClass = "",
   children,
 }: {
   label: React.ReactNode;
+  /**
+   * A mark drawn before the label, outside the truncating span, so a long org
+   * name clips and the dot stays. The org switcher draws its colour here.
+   */
+  mark?: React.ReactNode;
   /** What the summary looks like. Row 1 draws plain text; row 2 a button. */
   summaryClass?: string;
   children: React.ReactNode;
@@ -143,8 +150,9 @@ function Menu({
   return (
     <details ref={menu} className="relative">
       <summary
-        className={`flex cursor-pointer list-none items-baseline gap-1 whitespace-nowrap marker:content-none hover:underline ${summaryClass}`}
+        className={`flex cursor-pointer list-none items-center gap-1 whitespace-nowrap marker:content-none hover:underline ${summaryClass}`}
       >
+        {mark}
         <span className="max-w-48 truncate">{label}</span>
         <span aria-hidden="true">▾</span>
       </summary>
@@ -185,11 +193,22 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           Tusker
         </Link>
 
-        <Menu label={org ? org.name : "Orgs"}>
+        {/* The header takes the dot alone and no chip: a menu row is not a
+            chip, and row 1 already names one org and no other. */}
+        <Menu
+          label={org ? org.name : "Orgs"}
+          mark={org ? <OrgDot color={org.color} /> : null}
+        >
           {orgs.map((one) => (
-            <li key={one.slug} className="flex items-baseline gap-2">
-              <Link to={pageOf(one.slug, "board")} className="truncate hover:underline">
-                {one.name}
+            <li key={one.slug} className="flex min-w-0 items-center gap-2">
+              <Link
+                to={pageOf(one.slug, "board")}
+                className="flex min-w-0 items-center gap-1.5 hover:underline"
+              >
+                <OrgDot color={one.color} />
+                {/* The name truncates on its own, or the flex row would clip
+                    the dot before it clips the name. */}
+                <span className="truncate">{one.name}</span>
               </Link>
               {one.kind === "personal" ? (
                 <span className="shrink-0 text-xs uppercase tracking-wide text-muted">personal</span>

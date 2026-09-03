@@ -54,7 +54,7 @@ function board(columns: ReturnType<typeof column>[]): string {
 function card(id: string, slug: string, status: Status): LiveTask {
   return {
     id,
-    org: { slug, name: slug },
+    org: { slug, name: slug, color: "blue" },
     title: id,
     status,
     due_date: null,
@@ -69,8 +69,8 @@ function card(id: string, slug: string, status: Status): LiveTask {
 /** The unified board, drawn from the columns a loader would give it. */
 function unified(columns: { status: Status; label: string; tasks: LiveTask[] }[]): string {
   const orgs = [
-    { slug: "acme", name: "Acme", kind: "team" as const },
-    { slug: "ada", name: "Ada", kind: "personal" as const },
+    { slug: "acme", name: "Acme", kind: "team" as const, color: "blue" },
+    { slug: "ada", name: "Ada", kind: "personal" as const, color: "red" },
   ];
   const Stub = createRoutesStub([
     {

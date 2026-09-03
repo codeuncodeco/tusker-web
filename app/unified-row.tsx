@@ -4,6 +4,7 @@ import type { Status } from "./board";
 import { Dot } from "./dot";
 import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
+import { OrgChip } from "./org-chip";
 import type { LiveTask } from "./unified";
 
 /** The fields a pick or a finish posts, so a key and a button send the same thing. */
@@ -104,9 +105,7 @@ export function UnifiedRow({
         {task.title}
       </Link>
 
-      <span className="shrink-0 text-xs uppercase tracking-wide text-muted">
-        {task.org.name}
-      </span>
+      <OrgChip org={task.org} />
 
       <span className="flex min-w-0 flex-1 gap-1 truncate text-xs text-muted">
         {task.fields.map((field, at) => (

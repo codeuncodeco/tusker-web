@@ -21,6 +21,7 @@ import type { Assignee } from "./assignees";
 import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
 import { smallFieldClass } from "./forms";
+import { OrgChip } from "./org-chip";
 import { QuickAddBox, useAddKey, useQuickAddDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -154,8 +155,8 @@ export function UnifiedAdd({
           /* The chip that names a team org, because a task filed in one is on
              every member's board. The personal org stays quiet. */
           filing.kind === "team" ? (
-            <p className="text-xs font-medium uppercase tracking-wide text-amber-500">
-              Adding to {filing.name}
+            <p className="flex items-center gap-1.5 text-xs text-muted">
+              Adding to <OrgChip org={filing} />
             </p>
           ) : null
         }

@@ -7,7 +7,7 @@ import type { LiveTask } from "../app/unified";
 function live(id: string, finished = false): LiveTask {
   return {
     id,
-    org: { slug: "ada", name: "Ada" },
+    org: { slug: "ada", name: "Ada", color: "blue" },
     title: id,
     status: finished ? "done" : "todo",
     due_date: null,
