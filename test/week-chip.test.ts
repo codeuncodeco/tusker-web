@@ -60,10 +60,12 @@ async function team(slug: string, people: { id: string }[]) {
 async function weekSet(personId: string, taskIds: string[], week = WEEK) {
   await db.batch([
     db.prepare("INSERT INTO week_plans (user_id, week) VALUES (?, ?)").bind(personId, week),
-    ...taskIds.map((id) =>
+    ...taskIds.map((id, at) =>
       db
-        .prepare("INSERT INTO week_plan_tasks (user_id, week, task_id) VALUES (?, ?, ?)")
-        .bind(personId, week, id),
+        .prepare(
+          "INSERT INTO week_plan_tasks (user_id, week, task_id, position) VALUES (?, ?, ?, ?)",
+        )
+        .bind(personId, week, id, at + 1),
     ),
   ]);
 }
@@ -147,6 +149,21 @@ describe("the Week chip on the org board", () => {
 
     expect((await board(ada.cookie, ada.org.slug)).hasSet).toBe(false);
     expect((await board(ada.cookie, ada.org.slug, "", "2026-09-08")).hasSet).toBe(true);
+  });
+
+  // The week set carries an order of its own now, and a board still does not
+  // read it: a column holds one order, and it is the org's. See ADR-0006 and
+  // ADR-0021.
+  it("narrows a column and does not reorder it", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "top", { position: 1 });
+    await task(ada.org.id, "middle", { position: 2 });
+    await task(ada.org.id, "foot", { position: 3 });
+    await weekSet(ada.person.id, ["foot", "top"]);
+
+    const narrowed = await board(ada.cookie, ada.org.slug, "?week=1");
+
+    expect(drawn(narrowed)).toEqual(["top", "foot"]);
   });
 
   it("keeps the columns the board shows, so narrowing changes no shape", async () => {
@@ -235,6 +252,16 @@ describe("the Week chip on the unified board", () => {
 
     expect(data.week).toBe(true);
     expect(drawn(data).sort()).toEqual(["meant", "running"]);
+  });
+
+  it("narrows a column there too, and leaves its order alone", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "top", { position: 1 });
+    await task(ada.org.id, "middle", { position: 2 });
+    await task(ada.org.id, "foot", { position: 3 });
+    await weekSet(ada.person.id, ["foot", "top"]);
+
+    expect(drawn(await unified(ada.cookie, "?week=1"))).toEqual(["top", "foot"]);
   });
 
   it("draws no chip for a person with no set this week", async () => {

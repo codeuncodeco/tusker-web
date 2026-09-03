@@ -58,10 +58,12 @@ async function plan(personId: string, day: string, taskIds: string[]) {
 async function weekSet(personId: string, week: string, taskIds: string[]) {
   await db.batch([
     db.prepare("INSERT INTO week_plans (user_id, week) VALUES (?, ?)").bind(personId, week),
-    ...taskIds.map((id) =>
+    ...taskIds.map((id, at) =>
       db
-        .prepare("INSERT INTO week_plan_tasks (user_id, week, task_id) VALUES (?, ?, ?)")
-        .bind(personId, week, id),
+        .prepare(
+          "INSERT INTO week_plan_tasks (user_id, week, task_id, position) VALUES (?, ?, ?, ?)",
+        )
+        .bind(personId, week, id, at + 1),
     ),
   ]);
 }
@@ -99,6 +101,17 @@ async function planned(personId: string, day = WEDNESDAY) {
   return row ? (JSON.parse(row.task_ids) as string[]) : null;
 }
 
+/** The set one week holds, in the order the week ranks it. */
+async function weekOrder(personId: string, week = WEEK) {
+  const { results } = await db
+    .prepare(
+      "SELECT task_id FROM week_plan_tasks WHERE user_id = ? AND week = ? ORDER BY position, task_id",
+    )
+    .bind(personId, week)
+    .all<{ task_id: string }>();
+  return results.map((row) => row.task_id);
+}
+
 /** The set one week holds, or null where the person started no such week. */
 async function inWeek(personId: string, week = WEEK) {
   const started = await db
@@ -132,13 +145,23 @@ describe("the shelf plan mode draws", () => {
     expect(ids(data, "todo")).toEqual(["loose"]);
   });
 
-  it("draws the week set in percentile order", async () => {
+  it("draws the week set in week order, not in the order the columns sort", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "last", { position: 3 });
     await task(ada.org.id, "first", { position: 1 });
+    // The week ranked "last" first, and plan mode reads that rank. See ADR-0021.
     await weekSet(ada.person.id, WEEK, ["last", "first"]);
 
-    expect(ids(await planPage(ada.cookie), "week")).toEqual(["first", "last"]);
+    expect(ids(await planPage(ada.cookie), "week")).toEqual(["last", "first"]);
+  });
+
+  it("sinks a member finished this week under the live ones", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "done", { status: "done" });
+    await task(ada.org.id, "live");
+    await weekSet(ada.person.id, WEEK, ["done", "live"]);
+
+    expect(ids(await planPage(ada.cookie), "week")).toEqual(["live", "done"]);
   });
 
   it("draws the set of the week the day sits in, and not of this week", async () => {
@@ -239,6 +262,37 @@ describe("a pick from outside the week", () => {
 
     expect(await planned(ada.person.id)).toEqual([]);
     expect(await inWeek(ada.person.id)).toEqual(["a"]);
+  });
+});
+
+describe("where a write-back lands", () => {
+  // The plan already spoke for the task, so it makes no claim on the week and
+  // must not push down the work a person ranked by hand. See ADR-0021.
+  it("puts a task picked into a day at the foot of the week set", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ranked");
+    await task(ada.org.id, "urgent");
+    await weekSet(ada.person.id, WEEK, ["ranked"]);
+
+    await act(ada.cookie, { intent: "plan", id: "urgent", slug: ada.org.slug });
+
+    expect(await weekOrder(ada.person.id)).toEqual(["ranked", "urgent"]);
+  });
+
+  it("keeps a pasted block in the order it was typed", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ranked");
+    await weekSet(ada.person.id, WEEK, ["ranked"]);
+
+    await act(ada.cookie, {
+      intent: "create",
+      slug: ada.org.slug,
+      title: "first\nsecond\nthird",
+    });
+
+    const order = await weekOrder(ada.person.id);
+    expect(order[0]).toBe("ranked");
+    expect(order).toHaveLength(4);
   });
 });
 

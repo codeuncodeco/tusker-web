@@ -124,8 +124,16 @@ describe("the groups plan mode draws", () => {
     expect(groups.map((one) => one.key)).toEqual(["today", "week", "in_progress", "todo"]);
   });
 
-  it("draws the week set in percentile order, whatever order it arrives in", () => {
+  it("draws the week set in week order, whatever the columns sort like", () => {
     const tasks = [live({ id: "a", percentile: 0.9 }), live({ id: "b", percentile: 0.1 })];
+    const [, week] = planGroups(tasks, [], ["a", "b"]);
+    expect(week.tasks.map((one) => one.id)).toEqual(["a", "b"]);
+  });
+
+  // The week page sinks a finished member; a plan keeps one where the day put
+  // it. See ADR-0021.
+  it("sinks a finished member of the week set under the live ones", () => {
+    const tasks = [live({ id: "a", status: "done", finished: true }), live({ id: "b" })];
     const [, week] = planGroups(tasks, [], ["a", "b"]);
     expect(week.tasks.map((one) => one.id)).toEqual(["b", "a"]);
   });

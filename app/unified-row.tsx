@@ -67,10 +67,13 @@ export function UnifiedRow({
    */
   place?: () => void;
   /**
-   * Which way the row can step, in a list whose order a person owns. Nothing
-   * here leaves the arrows off, which is every list but the plan: that order is
-   * derived, and to say "this first" is to plan it. See ADR-0006, "One order per
-   * column".
+   * Which way the row can move, in a list whose order a person owns: the plan
+   * and the week set. Nothing here leaves the buttons off, which is every
+   * other list: that order is derived, and to say "this first" is to plan it.
+   * See ADR-0006, "One order per column", and ADR-0021.
+   *
+   * A promote is offered wherever a step up is, because the row on top is the
+   * one row already at the top.
    */
   moves?: { up: boolean; down: boolean };
   /** False where planning a task means nothing, which is focus mode. */
@@ -82,6 +85,7 @@ export function UnifiedRow({
   const plan = planFields(task, planned);
   const up = keyHint("up");
   const down = keyHint("down");
+  const top = keyHint("top");
   const pick = keyHint(planned ? "unplan" : "plan");
   const finish = keyHint("finish");
 
@@ -141,6 +145,19 @@ export function UnifiedRow({
               className="rounded border border-border px-1 text-xs disabled:opacity-30"
             >
               ↓{down.hint}
+            </button>
+            {/* The promote sits with the steps, because a key is part of the
+                control and not a sentence under the list. */}
+            <button
+              name="intent"
+              value="top"
+              disabled={!moves.up}
+              aria-label={`Move ${task.title} to the top`}
+              {...top.keys}
+              className="rounded border border-border px-1 text-xs disabled:opacity-30"
+            >
+              {KEY_MAP.top.label}
+              {top.hint}
             </button>
           </>
         ) : null}

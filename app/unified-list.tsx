@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { useLocalDay } from "./local-day";
-import type { Group, GroupKey } from "./unified";
+import type { Group, GroupKey, LiveTask } from "./unified";
 import { ALL_ACTS, NO_STEP_ACTS, READ_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
 
@@ -31,7 +31,10 @@ export function UnifiedList({
   day: string;
   /** True for a day the path named, which the browser must not talk out of. */
   namedDay?: boolean;
-  /** The group whose order belongs to the person, and so carries the steps. */
+  /**
+   * The group whose order belongs to the person, and so carries the steps and
+   * the promote: the plan on plan mode, and the set on a week page.
+   */
   ordered?: GroupKey | null;
   /** False where the list is read back: a day past its own takes no pick. */
   picks?: boolean;
@@ -46,6 +49,9 @@ export function UnifiedList({
 
   // One flat order, so `j` and `k` walk the page the way a person reads it.
   const rows = groups.flatMap((group) => group.tasks);
+  // The rows the page's own order ranks. It draws the move buttons and it
+  // binds `J`, `K` and `T`, so a key reaches no act a control withholds.
+  const ranked = rankedIn(groups.find((group) => group.key === ordered));
   // The cursor starts empty, and stays on its task while the list moves. A
   // task the list stops drawing takes the cursor off with it. See ADR-0015.
   const cursor = rows.some((one) => one.id === on) ? on : null;
@@ -54,8 +60,14 @@ export function UnifiedList({
   // One of three constants, and never a fresh object: the hook re-binds the
   // window on every change of what it is given.
   const acts = !picks ? READ_ACTS : ordered !== null ? ALL_ACTS : NO_STEP_ACTS;
-  useTaskKeys(rows, planned, acts, cursor, setOn, (fields) =>
-    post.submit(fields, { method: "post" }),
+  useTaskKeys(
+    rows,
+    planned,
+    acts,
+    cursor,
+    setOn,
+    (fields) => post.submit(fields, { method: "post" }),
+    new Set(ranked.map((one) => one.id)),
   );
 
   // The cursor follows the keys down a list longer than the window.
@@ -72,7 +84,7 @@ export function UnifiedList({
           </h2>
 
           <ul className="flex flex-col gap-2">
-            {group.tasks.map((task, at) => (
+            {group.tasks.map((task) => (
               <UnifiedRow
                 key={task.id}
                 task={task}
@@ -82,11 +94,7 @@ export function UnifiedList({
                 selected={cursor === task.id}
                 domId={`row-${task.id}`}
                 place={() => setOn(task.id)}
-                moves={
-                  group.key === ordered
-                    ? { up: at > 0, down: at < group.tasks.length - 1 }
-                    : undefined
-                }
+                moves={movesFor(ranked, task)}
               />
             ))}
           </ul>
@@ -94,4 +102,25 @@ export function UnifiedList({
       ))}
     </div>
   );
+}
+
+/**
+ * The rows one group ranks, in the order it ranks them, or none where the page
+ * owns no order at all.
+ *
+ * A group that sinks draws its finished rows under the live ones and never
+ * re-ranks them, so they are out of the order and the last live row is the
+ * last row that moves. A plan keeps a task finished today where the day put
+ * it, so there every row is ranked. See ADR-0021.
+ */
+function rankedIn(group: Group | undefined): LiveTask[] {
+  if (!group) return [];
+  return group.sinks ? group.tasks.filter((one) => !one.finished) : group.tasks;
+}
+
+/** Which way one row can move, or nothing for a row no order ranks. */
+function movesFor(ranked: LiveTask[], task: LiveTask): { up: boolean; down: boolean } | undefined {
+  const at = ranked.indexOf(task);
+  if (at === -1) return undefined;
+  return { up: at > 0, down: at < ranked.length - 1 };
 }

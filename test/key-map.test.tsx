@@ -66,6 +66,11 @@ describe("the key each act binds", () => {
       press: () =>
         expect(press("J", ["b"])).toEqual({ kind: "act", fields: { intent: "down", id: "b" } }),
     },
+    top: {
+      key: "T",
+      press: () =>
+        expect(press("T", ["b"])).toEqual({ kind: "act", fields: { intent: "top", id: "b" } }),
+    },
     forward: {
       key: ">",
       press: () =>
@@ -128,6 +133,7 @@ describe("the empty cursor", () => {
       KEY_MAP.plan.key,
       KEY_MAP.up.key,
       KEY_MAP.down.key,
+      KEY_MAP.top.key,
       KEY_MAP.forward.key,
       KEY_MAP.back.key,
       KEY_MAP.finish.key,
@@ -144,6 +150,29 @@ describe("the empty cursor", () => {
   it("has nothing to move on an empty list", () => {
     expect(pressed(KEY_MAP.next.key, [], new Set(), ALL_ACTS, null)).toBe(null);
     expect(pressed(KEY_MAP.prev.key, [], new Set(), ALL_ACTS, null)).toBe(null);
+  });
+});
+
+describe("the rows an order ranks", () => {
+  // Every key posts what a control posts, so a row the page draws no move
+  // button on answers none of the three keys. A week page draws none on a
+  // member finished this week. See ADR-0021.
+  it("answers no move on a row the order leaves out", () => {
+    for (const key of [KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key])
+      expect(pressed(key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["a"]))).toBe(null);
+  });
+
+  it("answers a move on a row it ranks", () => {
+    expect(pressed(KEY_MAP.top.key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["b"])))
+      .toEqual({ kind: "act", fields: { intent: "top", id: "b" } });
+  });
+
+  // Every other page ranks whatever it picked, so the picked set is the answer.
+  it("falls back to the picked set, which is every other page", () => {
+    expect(pressed(KEY_MAP.up.key, ROWS, new Set(["b"]), ALL_ACTS, "b")).toEqual({
+      kind: "act",
+      fields: { intent: "up", id: "b" },
+    });
   });
 });
 
@@ -165,15 +194,21 @@ describe("the acts a page withholds", () => {
     });
   });
 
-  it("answers nothing to a plan, a step or a move, which is focus mode", () => {
-    for (const key of [KEY_MAP.plan.key, KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.forward.key])
+  it("answers nothing to a plan, a move or a step, which is focus mode", () => {
+    for (const key of [
+      KEY_MAP.plan.key,
+      KEY_MAP.up.key,
+      KEY_MAP.down.key,
+      KEY_MAP.top.key,
+      KEY_MAP.forward.key,
+    ])
       expect(pressed(key, ROWS, new Set(["b"]), none, "b")).toBe(null);
   });
 
   // A day past its own reads back. The plan is not rewritten there, and the
   // task itself is live, so a move still moves it. See #66.
   it("answers nothing to a plan or a step on a list read back, and still moves", () => {
-    for (const key of [KEY_MAP.plan.key, KEY_MAP.up.key, KEY_MAP.down.key])
+    for (const key of [KEY_MAP.plan.key, KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key])
       expect(pressed(key, ROWS, new Set(["b"]), READ_ACTS, "b")).toBe(null);
 
     expect(pressed(KEY_MAP.forward.key, ROWS, new Set(["b"]), READ_ACTS, "b")).not.toBe(null);
@@ -216,8 +251,9 @@ describe("the hint a control carries", () => {
       </ul>,
     );
 
-    // Up, Down, Plan and Finish, in the order the row draws them.
-    expect(shortcuts(html)).toEqual(["Shift+K", "Shift+J", "p", "x"]);
+    // Up, Down, Top, Plan and Finish, in the order the row draws them. The
+    // promote is beside the steps, because a key is part of the control.
+    expect(shortcuts(html)).toEqual(["Shift+K", "Shift+J", "Shift+T", "p", "x"]);
     expect(html).toContain("⇧K");
     // The mark is the eye's, so a screen reader passes it by, and a phone
     // never draws it: `pointer-fine:` is what hides it, and a typo there would
@@ -225,6 +261,7 @@ describe("the hint a control carries", () => {
     expect(html).toContain('<kbd aria-hidden="true" class="ml-1 hidden pointer-fine:inline">');
   });
 
+  // No `moves`, so no step and no promote: the list ranks no row of its own.
   it("turns the plan hint over with the verb, and keeps the key", () => {
     const html = markup(
       <ul>

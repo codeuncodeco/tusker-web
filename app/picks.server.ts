@@ -9,6 +9,8 @@
  *   not a fence, so a Tuesday arrival is one act.
  * - A task taken out of a week set leaves that week's plans from today
  *   forward. Past days are never rewritten.
+ * - A pick on a week page claims a place at the top of the set. The write-back
+ *   from a day only records one, so it lands at the foot. See ADR-0021.
  *
  * See ADR-0014.
  */
@@ -28,7 +30,11 @@ export function planPicks(db: D1Database, personId: string, day: string, onAdd: 
       await appendToPlan(db, personId, day, taskIds);
       // The write-back. A task on a day is a task of that week, whether the
       // person picked it from the week set or met it on a Tuesday morning.
-      await addToWeek(db, personId, week, taskIds);
+      //
+      // It lands at the foot of the set. The plan already spoke for the task,
+      // so it makes no claim on the week, and it must not push down the work
+      // the person ranked there by hand. See ADR-0021.
+      await addToWeek(db, personId, week, taskIds, "bottom");
     },
     // Taking a task out of a day says nothing about the week: the person still
     // means to finish it, on some other day.
@@ -50,7 +56,7 @@ export async function startDay(
   taskIds: string[],
 ): Promise<void> {
   if (!(await startPlan(db, personId, day, taskIds))) return;
-  await addToWeek(db, personId, weekOf(day), taskIds);
+  await addToWeek(db, personId, weekOf(day), taskIds, "bottom");
 }
 
 /**
@@ -71,7 +77,10 @@ export function weekPicks(
 ): Picks {
   return {
     onAdd,
-    add: (taskIds) => addToWeek(db, personId, week, taskIds),
+    // A pick on the week page is a claim: it lands on top, where a person
+    // looks for the work they just named. A pasted block keeps its typed
+    // order, first line topmost. See ADR-0021.
+    add: (taskIds) => addToWeek(db, personId, week, taskIds, "top"),
     remove: async (taskIds) => {
       await removeFromWeek(db, personId, week, taskIds);
       const { monday, sunday } = weekBounds(week);
