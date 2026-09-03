@@ -175,8 +175,9 @@ function Menu({
  * The header, on every signed-in page.
  *
  * `orgs` is every org the person belongs to, personal first, and `org` is the
- * current one. A person who belongs to no org at all gets the org half as the
- * one link that can help them: New org.
+ * current one. The menu lists orgs and nothing else; New org lives on the
+ * account page. A person who belongs to no org gets no menu, because an empty
+ * menu says nothing.
  */
 export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
   const { pathname } = useLocation();
@@ -195,32 +196,29 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
 
         {/* The header takes the dot alone and no chip: a menu row is not a
             chip, and row 1 already names one org and no other. */}
-        <Menu
-          label={org ? org.name : "Orgs"}
-          mark={org ? <OrgDot color={org.color} /> : null}
-        >
-          {orgs.map((one) => (
-            <li key={one.slug} className="flex min-w-0 items-center gap-2">
-              <Link
-                to={pageOf(one.slug, "board")}
-                className="flex min-w-0 items-center gap-1.5 hover:underline"
-              >
-                <OrgDot color={one.color} />
-                {/* The name truncates on its own, or the flex row would clip
-                    the dot before it clips the name. */}
-                <span className="truncate">{one.name}</span>
-              </Link>
-              {one.kind === "personal" ? (
-                <span className="shrink-0 text-xs uppercase tracking-wide text-muted">personal</span>
-              ) : null}
-            </li>
-          ))}
-          <li className="border-t border-border pt-1">
-            <Link to="/orgs/new" className="hover:underline">
-              New org
-            </Link>
-          </li>
-        </Menu>
+        {orgs.length > 0 ? (
+          <Menu
+            label={org ? org.name : "Orgs"}
+            mark={org ? <OrgDot color={org.color} /> : null}
+          >
+            {orgs.map((one) => (
+              <li key={one.slug} className="flex min-w-0 items-center gap-2">
+                <Link
+                  to={pageOf(one.slug, "board")}
+                  className="flex min-w-0 items-center gap-1.5 hover:underline"
+                >
+                  <OrgDot color={one.color} />
+                  {/* The name truncates on its own, or the flex row would clip
+                      the dot before it clips the name. */}
+                  <span className="truncate">{one.name}</span>
+                </Link>
+                {one.kind === "personal" ? (
+                  <span className="shrink-0 text-xs uppercase tracking-wide text-muted">personal</span>
+                ) : null}
+              </li>
+            ))}
+          </Menu>
+        ) : null}
 
         <span className="ml-auto">
           <Here to="/account" here={pathname === "/account"}>
