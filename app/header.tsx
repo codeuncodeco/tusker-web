@@ -33,7 +33,13 @@ const MANAGE = [
   { to: "settings", label: "Settings" },
 ] as const;
 
-/** The pages of the person axis. Tasks is `/me` itself, so it matches exactly. */
+/**
+ * The pages of the person axis. Tasks is `/me` itself, so it matches exactly.
+ *
+ * A label names the destination and never what the page holds, which is why
+ * "Plan" and "Week" stand while those pages head with a day and a week. See
+ * #146.
+ */
 const PERSON = [
   { to: "/me", label: "Tasks", exact: true },
   { to: "/me/week", label: "Week", exact: false },

@@ -45,15 +45,19 @@ import { UnifiedAdd } from "../unified-add";
 import { actOnTask, TASK_ACTS } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
-import { isWeek, weekAfter, weekBefore, weekIn, weekSpan } from "../week";
+import { isWeek, weekAfter, weekBefore, weekIn, weekLabel, weekSpan } from "../week";
 import { addToWeek, moveInWeek, readWeekSet, startWeek } from "../weeks.server";
 import type { Route } from "./+types/me.week";
 
 /** What the pick button reads here: a week is picked, and a day is planned. */
 const VERBS = { pick: "Pick", drop: "Unpick" };
 
+/**
+ * The tab title names the week, span first: a row of tabs is read by its first
+ * words, and `2026-W36` is a key a person has to work out.
+ */
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [{ title: `Week ${loaderData.week} — Tusker` }];
+  return [{ title: `${weekSpan(loaderData.week, loaderData.day)} — Tusker` }];
 }
 
 /**
@@ -111,8 +115,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     /** The members of every team org, for the picker on the box. */
     members: await membersBySlug(env.DB, set),
     week,
-    /** The Monday and the Friday the page draws between. */
-    span: weekSpan(week),
     /** True for a week the path named, which the browser must not talk out of. */
     named: params.week !== undefined,
     /** True where the page may pick, step and add: a week that is over does none. */
@@ -122,7 +124,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     /** The two weeks the walk steps to. Every week of the calendar is one. */
     prev: weekBefore(week),
     next: weekAfter(week),
-    /** The day the browser is in, which is what names an unnamed week. */
+    /**
+     * The day the browser is in. It names an unnamed week, and it says what
+     * "This week" means and which year the reader is in.
+     */
     day: dayOf(request),
     /** What the last set leaves over, or null when there is nothing to offer. */
     leftovers,
@@ -207,7 +212,6 @@ export default function Week({ loaderData }: Route.ComponentProps) {
     groups,
     picked,
     week,
-    span,
     day,
     done,
     leftovers,
@@ -222,11 +226,19 @@ export default function Week({ loaderData }: Route.ComponentProps) {
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl tracking-tight">Your week</h1>
-        <WeekWalk week={week} prev={prev} next={next} onThisWeek={onThisWeek} />
-        {/* Monday to Friday. Five days is a fact about the page: the set holds
-            no day at all. */}
-        <span className="text-muted">{span}</span>
+        {/* The heading is the week itself. "Your week" said only what the nav
+            label says already, and `2026-W36` is the address and not a
+            reading. Monday to Friday: five days is a fact about the page, and
+            the set holds no day at all.
+
+            It links to its own address, because that address is the thing a
+            person keeps, and the walk beside it keeps only its steps. */}
+        <h1 className="text-2xl tracking-tight">
+          <Link to={`/me/week/${week}`} className="underline-offset-4 hover:underline">
+            {weekLabel(week, day)}
+          </Link>
+        </h1>
+        <WeekWalk today={day} prev={prev} next={next} onThisWeek={onThisWeek} />
         {picked.length > 0 ? (
           <span className="tabular-nums text-muted">
             {done} of {picked.length} done
@@ -241,9 +253,9 @@ export default function Week({ loaderData }: Route.ComponentProps) {
           week would leave a person asking which week that landed in. */}
       {canPick ? <UnifiedAdd orgs={orgs} members={members} /> : null}
 
-      {leftovers && <LeftoverPrompt leftovers={leftovers} />}
+      {leftovers && <LeftoverPrompt leftovers={leftovers} today={day} />}
 
-      {take && <TakePrompt week={week} take={take} />}
+      {take && <TakePrompt week={week} take={take} today={day} />}
 
       <UnifiedList
         groups={groups}
@@ -271,13 +283,13 @@ export default function Week({ loaderData }: Route.ComponentProps) {
  * or start clean. The prompt names the week it carries from, because the last
  * week that holds a set is not always the week before.
  */
-function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
+function LeftoverPrompt({ leftovers, today }: { leftovers: Leftovers; today: string }) {
   const count = leftovers.taskIds.length;
 
   return (
     <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
       <p className="grow">
-        {weekSpan(leftovers.from)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
+        {weekSpan(leftovers.from, today)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
       </p>
 
       <Form method="post" className="flex gap-2">
@@ -303,18 +315,26 @@ function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
  * The write touches the target week alone. This week keeps its memberships, so
  * a taken task is in both sets, exactly as a carried one is.
  */
-function TakePrompt({ week, take }: { week: string; take: { into: string; count: number } }) {
+function TakePrompt({
+  week,
+  take,
+  today,
+}: {
+  week: string;
+  take: { into: string; count: number };
+  today: string;
+}) {
   const { into, count } = take;
 
   return (
     <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
       <p className="grow">
-        {week} left {count} {count === 1 ? "task" : "tasks"} unfinished.
+        {weekSpan(week, today)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
       </p>
 
       <Form method="post">
         <button name="intent" value="take" className="rounded border border-border px-3 py-1">
-          Take {count === 1 ? "it" : "them"} into {into}
+          Take {count === 1 ? "it" : "them"} into {weekSpan(into, today)}
         </button>
       </Form>
     </section>
@@ -325,43 +345,48 @@ function TakePrompt({ week, take }: { week: string; take: { into: string; count:
 const STEP = "rounded border border-border px-2 text-muted";
 
 /**
- * The walk between weeks: the week before, this week as its own address, the
- * week after, and the way back to this week.
+ * The walk between weeks: the week before, the week after, and the way back to
+ * this week. The week itself is the heading, which is the link to its own
+ * address.
  *
- * The key is a link because the address is the thing a person keeps. `/me/week`
- * is whichever week the person is in, and `/me/week/2026-W35` is that week and
- * no other. Without these controls no person reaches the named page at all,
- * which is what the day walk answers for `/me/plan/:day`. See #66 and #142.
+ * `/me/week` is whichever week the person is in, and `/me/week/2026-W35` is
+ * that week and no other. Without these controls no person reaches the named
+ * page at all, which is what the day walk answers for `/me/plan/:day`. See #66
+ * and #142.
  *
  * The walk itself refuses nothing. A week that is over reads back, a week
  * ahead is planned, a week nobody started draws empty and offers what it
  * always offers, and the page says which of them it is.
+ *
+ * Each step is named the way a person reads it — "The week before, Mon 24 Aug
+ * – Fri 28 Aug" — because a screen reader says the label and not the arrow.
  */
 function WeekWalk({
-  week,
+  today,
   prev,
   next,
   onThisWeek,
 }: {
-  week: string;
+  today: string;
   prev: string;
   next: string;
   onThisWeek: boolean;
 }) {
   return (
     <nav aria-label="Week" className="flex items-baseline gap-2">
-      <Link to={`/me/week/${prev}`} aria-label={`The week before, ${prev}`} className={STEP}>
+      <Link
+        to={`/me/week/${prev}`}
+        aria-label={`The week before, ${weekSpan(prev, today)}`}
+        className={STEP}
+      >
         ‹
       </Link>
 
       <Link
-        to={`/me/week/${week}`}
-        className="tabular-nums text-muted underline-offset-2 hover:underline"
+        to={`/me/week/${next}`}
+        aria-label={`The week after, ${weekSpan(next, today)}`}
+        className={STEP}
       >
-        {week}
-      </Link>
-
-      <Link to={`/me/week/${next}`} aria-label={`The week after, ${next}`} className={STEP}>
         ›
       </Link>
 

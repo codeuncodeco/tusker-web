@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { dayAfter, dayBefore, dayLabel, dayName, dayOf, isDay, localDay } from "../app/day";
+import {
+  dayAfter,
+  dayBefore,
+  dayLabel,
+  dayName,
+  dayOf,
+  dayShort,
+  isDay,
+  localDay,
+} from "../app/day";
 import { get } from "./routes";
 
 describe("a day", () => {
@@ -82,5 +91,18 @@ describe("the day a heading names", () => {
   it("carries the word over a month end and a year end", () => {
     expect(dayLabel("2026-08-31", "2026-09-01")).toBe("Yesterday, Monday 31 August");
     expect(dayLabel("2026-01-01", "2025-12-31")).toBe("Tomorrow, Thursday 1 January 2026");
+  });
+});
+
+describe("the short day a span is written in", () => {
+  it("names the weekday and the date, short", () => {
+    // The month is abbreviated by the runtime's own tables, so "Sep" and
+    // "Sept" are both right and the shape is what matters.
+    expect(dayShort("2026-09-03", false)).toMatch(/^Thu 3 Sept?$/);
+  });
+
+  it("writes the year where the span asks for one", () => {
+    expect(dayShort("2025-12-29", true)).toBe("Mon 29 Dec 2025");
+    expect(dayShort("2027-01-01", true)).toBe("Fri 1 Jan 2027");
   });
 });

@@ -82,10 +82,40 @@ export function weekBounds(week: string): { monday: string; sunday: string } {
   return { monday: dayText(monday), sunday: dayText(sunday) };
 }
 
-/** The week as a person reads it: the Monday and the Friday that bound it. */
-export function weekSpan(week: string): string {
-  const days = daysOfWeek(week);
-  return `${dayShort(days[0])} – ${dayShort(days[4])}`;
+/**
+ * The week as a person reads it: the Monday and the Friday that bound it.
+ *
+ * `YYYY-Www` is the address and the stored key, and it is not a reading: a
+ * person works out which week 2026-W36 is, and reads "Mon 31 Aug – Fri 4 Sep"
+ * straight off. `today` says which year the reader is in, so a week outside it
+ * writes the year and this one does not.
+ */
+export function weekSpan(week: string, today: string): string {
+  const [monday, , , , friday] = daysOfWeek(week);
+  // The span answers the year once, for the pair. A week that straddles New
+  // Year has an end in each, and a year on one end alone leaves the other to
+  // be guessed, so either end outside the reader's year writes both.
+  const year = ![monday, friday].every((day) => day.slice(0, 4) === today.slice(0, 4));
+  return `${dayShort(monday, year)} – ${dayShort(friday, year)}`;
+}
+
+/**
+ * The week as a heading names it: the same span, behind the word a person
+ * counts by where there is one. "This week, Mon 31 Aug – Fri 4 Sep" says both
+ * the step and the week, as `dayLabel` says both for a day.
+ */
+export function weekLabel(week: string, today: string): string {
+  const near = nearWord(week, weekOf(today));
+  const span = weekSpan(week, today);
+  return near ? `${near}, ${span}` : span;
+}
+
+/** The word for a week within one step of this one, or null for every other. */
+function nearWord(week: string, thisWeek: string): string | null {
+  if (week === thisWeek) return "This week";
+  if (week === weekBefore(thisWeek)) return "Last week";
+  if (week === weekAfter(thisWeek)) return "Next week";
+  return null;
 }
 
 /**

@@ -149,10 +149,10 @@ describe("the week a page speaks for", () => {
     expect(data.named).toBe(false);
   });
 
-  it("draws the week Monday to Friday", async () => {
+  it("hands over the day the browser is in, which the heading reads the week by", async () => {
     const ada = await member("ada@example.test", "Ada");
 
-    expect((await weekPage(ada.cookie)).span).toMatch(/^Mon 31 Aug – Fri 4 Sept?$/);
+    expect((await weekPage(ada.cookie)).day).toBe(DAY);
   });
 
   it("is the week the path names, whatever week the browser is in", async () => {
