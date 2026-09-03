@@ -29,7 +29,7 @@
  * commitment the tab can lose is no commitment. See ADR-0008.
  */
 
-import { Form, Link } from "react-router";
+import { Form } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
@@ -37,14 +37,15 @@ import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { unfinishedOf, type Leftovers } from "../leftovers";
-import { leftoversFor } from "../leftovers.server";
+import { leftoversFor, unfinishedIn } from "../leftovers.server";
 import { weekPicks } from "../picks.server";
 import { requireOrgSet } from "../scope.server";
-import { groupsFor } from "../unified";
+import { groupsFor, pickedOnly } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { actOnTask, TASK_ACTS } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
+import { Walk } from "../walk";
 import { isWeek, weekAfter, weekBefore, weekIn, weekSpan } from "../week";
 import { addToWeek, moveInWeek, readWeekSet, startWeek } from "../weeks.server";
 import type { Route } from "./+types/me.week";
@@ -66,7 +67,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
  * it would also change what the next week reads as its last set. The loader
  * draws the acts by this, and the action refuses by it.
  */
-function canStart(request: Request, week: string): boolean {
+function canPickIn(request: Request, week: string): boolean {
   return week >= weekIn(request);
 }
 
@@ -85,7 +86,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const week = weekFor(request, params.week);
-  const canPick = canStart(request, week);
+  const canPick = canPickIn(request, week);
   const started = await readWeekSet(env.DB, set.personId, week);
   // The week's own set is named for the week and not for the org members the
   // box picks from, which the page also reads.
@@ -97,7 +98,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // keeps its membership and is drawn struck through. A member no org answers
   // for — archived, or in an org the person left — is left out of both.
   const tasks = await listUnified(env.DB, set, weekSet);
-  const groups = groupsFor(tasks, weekSet, "week");
+  // A week that is over draws its set alone. A list to pick from is noise
+  // there, because nothing on this page picks. `/me/plan/:day` draws its plan
+  // the same way. See #66.
+  const groups = canPick ? groupsFor(tasks, weekSet, "week") : pickedOnly(tasks, weekSet, "week");
   const inWeek = groups.find((group) => group.key === "week")!;
   // What a week that is over leaves behind. A member no org answers for is not
   // in `tasks`, so it is not offered here and not taken either.
@@ -153,11 +157,10 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // It is the one write a week that is over answers, and it is refused on
   // every other week: a take into the week already on screen is nothing.
   if (intent === "take") {
-    if (canStart(request, week)) {
+    if (canPickIn(request, week)) {
       throw new Response("A take fetches from a week that is over.", { status: 400 });
     }
-    const members = (await readWeekSet(env.DB, set.personId, week)) ?? [];
-    const taken = unfinishedOf(members, await listUnified(env.DB, set, members));
+    const taken = await unfinishedIn(env.DB, set, week);
     // The top of the target set: this is unfinished work a person went and
     // fetched, which is the most deliberate act on the page. The block keeps
     // the order this week ranked it in. See ADR-0021.
@@ -169,7 +172,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // the write says so too: a key, a stale tab and a hand-made post all land
   // here. A finish and a column move stand: the task is live wherever it is
   // drawn, and a record of the week is not a freeze of the work.
-  if (!TASK_ACTS.includes(intent) && !canStart(request, week)) {
+  if (!TASK_ACTS.includes(intent) && !canPickIn(request, week)) {
     throw new Response("A week set is never rewritten after its week.", { status: 400 });
   }
 
@@ -319,21 +322,13 @@ function TakePrompt({ week, take }: { week: string; take: { into: string; count:
   );
 }
 
-/** The look of one step of the walk, taken and untaken. */
-const STEP = "rounded border border-border px-2 text-muted";
-
 /**
  * The walk between weeks: the week before, this week as its own address, the
- * week after, and the way back to this week.
+ * week after, and the way back to this week. `app/walk.tsx` draws it, and plan
+ * mode draws the same walk over days.
  *
- * The key is a link because the address is the thing a person keeps.
- * `/me/week` is whichever week the person is in, and `/me/week/2026-W35` is
- * that week and no other. Without these controls no person reaches the named
- * page at all, which is what the day walk answers for `/me/plan/:day`. See #66.
- *
- * The walk itself refuses nothing. A week that is over reads back, a week
- * ahead is planned, a week nobody started draws empty and offers what it
- * always offers, and the page says which of them it is.
+ * A week that is over reads back, a week ahead is planned, and a week nobody
+ * started draws empty and offers what it always offers. See #142.
  */
 function WeekWalk({
   week,
@@ -347,28 +342,15 @@ function WeekWalk({
   onThisWeek: boolean;
 }) {
   return (
-    <nav aria-label="Week" className="flex items-baseline gap-2">
-      <Link to={`/me/week/${prev}`} aria-label={`The week before, ${prev}`} className={STEP}>
-        ‹
-      </Link>
-
-      <Link
-        to={`/me/week/${week}`}
-        className="tabular-nums text-muted underline-offset-2 hover:underline"
-      >
-        {week}
-      </Link>
-
-      <Link to={`/me/week/${next}`} aria-label={`The week after, ${next}`} className={STEP}>
-        ›
-      </Link>
-
-      {/* The one step home, from however far the walk went. */}
-      {onThisWeek ? null : (
-        <Link to="/me/week" className="text-muted underline-offset-2 hover:underline">
-          This week
-        </Link>
-      )}
-    </nav>
+    <Walk
+      label="Week"
+      here={week}
+      prev={prev}
+      next={next}
+      href={(key) => `/me/week/${key}`}
+      atHome={onThisWeek}
+      home="/me/week"
+      homeLabel="This week"
+    />
   );
 }

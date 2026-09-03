@@ -443,26 +443,27 @@ always did.
 _Avoid_: Date picker, day navigator
 
 **Leftovers**:
-The unfinished members of a week that is over. Two doorways reach them, and
-both copy the memberships and leave the old ones as they were, so a task is in
-both sets: a week set is never rewritten after its week. A day carries nothing:
-each plan starts empty, and the week set is where unfinished work waits. See
-ADR-0014.
+The unfinished members of a week that is over. Two doorways reach them, the
+**carry** and the **take**, and both copy the memberships and leave the old
+ones as they were, so a task is in both sets: a week set is never rewritten
+after its week. A day carries nothing: each plan starts empty, and the week set
+is where unfinished work waits. See ADR-0014.
 _Avoid_: Rollover, unfinished carry-over
 
 **Carry**:
-The offer a week with no set opens on: take the leftovers of the last week that
-holds a set, or start clean. It is made once, when the week opens, and the week
-it names is not always the week before. Either answer starts the week, so the
-offer is not made again.
+The doorway an unstarted week opens on: take the leftovers of the last week
+that holds a set, or start clean. It is offered once, when the week opens, and
+the week it names is not always the week before. Either answer starts the week,
+so the offer is not made again. See ADR-0014.
 _Avoid_: Rollover prompt
 
 **Take**:
-The one write a week that is over answers: its leftovers, fetched into the week
-the browser is in. It is asked for, from that week's own page, as often as a
-person likes, and the button names the week the block lands in. The block lands
-on top of the target set, keeping its own order: it is work a person went and
-fetched. Taking into a week with no set starts that week, as a carry does.
+The doorway a week that is over holds, and the one write it answers: its
+leftovers, fetched into the week the browser is in. A person asks for it, from
+that week's own page, as often as they like, and the button names the week the
+block lands in. The block lands on top of the target set and keeps its own
+order, because it is work a person went and fetched. Taking into a week with no
+set starts that week, as a carry does. See ADR-0014 and ADR-0021.
 _Avoid_: Pull forward, re-carry
 
 **Today chip**:

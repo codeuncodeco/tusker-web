@@ -32,8 +32,6 @@
  * not the same act — so it draws its plan alone. See #66.
  */
 
-import { Link } from "react-router";
-
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { dayAfter, dayBefore, dayOf, isDay } from "../day";
@@ -42,11 +40,12 @@ import { askedAcross } from "../decisions.server";
 import { planPicks } from "../picks.server";
 import { movePlan, readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
-import { planGroups, planOnly } from "../unified";
+import { pickedOnly, planGroups } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { actOnTask, TASK_ACTS } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
+import { Walk } from "../walk";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
 import type { Route } from "./+types/me.plan";
@@ -101,7 +100,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // was archived or deleted drops out rather than raising an error.
   // A day read back draws the plan alone: a shelf nothing can be picked from
   // is noise.
-  const groups = canPlan ? planGroups(tasks, plan ?? [], members) : planOnly(tasks, plan ?? []);
+  const groups = canPlan ? planGroups(tasks, plan ?? [], members) : pickedOnly(tasks, plan ?? []);
   const inPlan = groups.find((group) => group.key === "today")!;
 
   return {
@@ -197,20 +196,10 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
   );
 }
 
-/** The look of one step of the walk, taken and untaken. */
-const STEP = "rounded border border-border px-2 text-muted";
-
 /**
  * The walk between days: the day before, this day as its own address, the day
- * after, and the way back to today.
- *
- * The date is a link because the address is the thing a person keeps.
- * `/me/plan` is whichever day the person is in, and `/me/plan/2026-08-25` is
- * that day and no other, so a day worth reading again is a day worth linking
- * to. Without these controls no person reaches the dated page at all. See #66.
- *
- * The walk itself refuses nothing. A day before today reads back, a day after
- * it is planned ahead, and the page says which of the two it is.
+ * after, and the way back to today. `app/walk.tsx` draws it, and the week page
+ * draws the same walk over weeks. See #66.
  */
 function DayWalk({
   day,
@@ -224,28 +213,15 @@ function DayWalk({
   onToday: boolean;
 }) {
   return (
-    <nav aria-label="Day" className="flex items-baseline gap-2">
-      <Link to={`/me/plan/${prev}`} aria-label={`The day before, ${prev}`} className={STEP}>
-        ‹
-      </Link>
-
-      <Link
-        to={`/me/plan/${day}`}
-        className="tabular-nums text-muted underline-offset-2 hover:underline"
-      >
-        {day}
-      </Link>
-
-      <Link to={`/me/plan/${next}`} aria-label={`The day after, ${next}`} className={STEP}>
-        ›
-      </Link>
-
-      {/* The one step home, from however far the walk went. */}
-      {onToday ? null : (
-        <Link to="/me/plan" className="text-muted underline-offset-2 hover:underline">
-          Today
-        </Link>
-      )}
-    </nav>
+    <Walk
+      label="Day"
+      here={day}
+      prev={prev}
+      next={next}
+      href={(key) => `/me/plan/${key}`}
+      atHome={onToday}
+      home="/me/plan"
+      homeLabel="Today"
+    />
   );
 }

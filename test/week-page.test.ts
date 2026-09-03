@@ -678,6 +678,33 @@ describe("a week that is over", () => {
     expect((await weekPage(ada.cookie)).canPick).toBe(true);
   });
 
+  // A list to pick from is noise where nothing picks, as it is on a day read
+  // back at `/me/plan/:day`.
+  it("draws its set alone, and no candidate list under it", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+    await task(ada.org.id, "write");
+    await heldIn(ada.person.id, PAST, ["ship"]);
+
+    const data = await namedPage(ada.cookie, PAST);
+
+    expect(data.groups.map((one) => one.key)).toEqual(["week"]);
+    expect(ids(data, "week")).toEqual(["ship"]);
+  });
+
+  // The walk reaches a week nobody started, and that week offers what it
+  // always offers.
+  it("offers the carry on a week ahead that nobody started", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+    await heldIn(ada.person.id, PAST, ["ship"]);
+
+    const data = await namedPage(ada.cookie, "2026-W40");
+
+    expect(data.leftovers).toEqual({ from: PAST, taskIds: ["ship"] });
+    expect(ids(data, "week")).toEqual([]);
+  });
+
   /** Every act that writes the set, as a form posts it. `slug` is filled in. */
   const WRITES: Record<string, string>[] = [
     { intent: "plan", id: "ship", slug: "" },
