@@ -121,6 +121,20 @@ async function undoAdd(env: Env, set: OrgSet, picks: Picks, form: FormData): Pro
 }
 
 /**
+ * The acts that write the task and not the list a page picks into. A task is
+ * live whichever day or week is on screen, so these stand on a page read back.
+ *
+ * Every other act a form can name writes that list, and a page past its own
+ * time refuses them all. The list is this way round on purpose: an act added
+ * later is refused there until someone says it is safe.
+ *
+ * `/me/plan/:day` and `/me/week/:week` read the same constant, because the two
+ * pages read back by one rule. The keys and the buttons say the same thing
+ * from `READ_ACTS` in `app/unified-keys.ts`.
+ */
+export const TASK_ACTS = ["move", "finish", "decide"];
+
+/**
  * The acts this module answers for on a task a form names. `create` and `undo`
  * stand apart: they name an org and a list, not one task. Any other form is
  * the route's own.

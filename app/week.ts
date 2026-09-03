@@ -88,6 +88,27 @@ export function weekSpan(week: string): string {
   return `${dayShort(days[0])} – ${dayShort(days[4])}`;
 }
 
+/**
+ * The week before. The step moves the week's Monday by seven days and reads
+ * the week back, so a year turns over by the ISO rule and not by arithmetic on
+ * the key: 2026-W01 comes after 2025-W52, and 2026-W53 runs into 2027-W01.
+ */
+export function weekBefore(week: string): string {
+  return weekStepped(week, -7);
+}
+
+/** The week after, stepped the same way. */
+export function weekAfter(week: string): string {
+  return weekStepped(week, 7);
+}
+
+/** One week moved by whole weeks. `app/day.ts` steps a day; this steps a week. */
+function weekStepped(week: string, by: number): string {
+  const monday = mondayOf(week);
+  monday.setUTCDate(monday.getUTCDate() + by);
+  return weekOf(dayText(monday));
+}
+
 /** The Monday a week key opens on. */
 function mondayOf(week: string): Date {
   const said = WEEK.exec(week);
