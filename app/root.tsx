@@ -8,6 +8,7 @@ import {
 } from "react-router";
 
 import { AddingProvider } from "./adding";
+import { KeyedSurfaceProvider } from "./keyed-list";
 import type { Route } from "./+types/root";
 import { ToastProvider } from "./toast";
 import "./app.css";
@@ -35,10 +36,15 @@ export default function App() {
   // holds across a move between pages and dies on a reload. See ADR-0012.
   // One place a page raises a message about a batch it just ran, drawn over
   // every route. See #121.
+  // A page draws one keyed list or none, so one surface serves them all: it is
+  // where the list, the quick-add box and the decision prompt find each other.
+  // See ADR-0022.
   return (
     <AddingProvider>
       <ToastProvider>
-        <Outlet />
+        <KeyedSurfaceProvider>
+          <Outlet />
+        </KeyedSurfaceProvider>
       </ToastProvider>
     </AddingProvider>
   );

@@ -57,18 +57,18 @@ export function UnifiedList({
   const cursor = rows.some((one) => one.id === on) ? on : null;
 
   useLocalDay(day, !namedDay);
-  // One of three constants, and never a fresh object: the hook re-binds the
-  // window on every change of what it is given.
   const acts = !picks ? READ_ACTS : ordered !== null ? ALL_ACTS : NO_STEP_ACTS;
-  useTaskKeys(
+  // The keys are live while focus is in one of the lists below, and the props
+  // are what makes one of those a keyed list. See ADR-0022.
+  const keyed = useTaskKeys({
     rows,
     planned,
     acts,
-    cursor,
+    on: cursor,
     setOn,
-    (fields) => post.submit(fields, { method: "post" }),
-    new Set(ranked.map((one) => one.id)),
-  );
+    act: (fields) => post.submit(fields, { method: "post" }),
+    ranked: new Set(ranked.map((one) => one.id)),
+  });
 
   // The cursor follows the keys down a list longer than the window.
   useEffect(() => {
@@ -83,7 +83,9 @@ export function UnifiedList({
             {label(group)} <span className="text-dim">{group.tasks.length}</span>
           </h2>
 
-          <ul className="flex flex-col gap-2">
+          {/* The rows and nothing else: the box a page draws sits above this,
+              outside every keyed list. */}
+          <ul {...keyed(`${label(group)} tasks`)} className="flex flex-col gap-2">
             {group.tasks.map((task) => (
               <UnifiedRow
                 key={task.id}

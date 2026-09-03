@@ -490,7 +490,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // The keys post what the card's own controls post. The board hands them the
   // ids it draws, in board order, because a key that steps the order needs the
   // column the card sits in. See ADR-0016.
-  useBoardKeys(
+  // The keys are live while focus is in one of the card lists below, and the
+  // arrows cross the columns the letters walk. See ADR-0022.
+  const keyed = useBoardKeys(
     columns.map((column) => ({ status: column.status, ids: column.tasks.map((one) => one.id) })),
     org.slug,
     cursor,
@@ -557,8 +559,15 @@ export default function Board({ loaderData }: Route.ComponentProps) {
 
             {/* The heading, the box and the sweep stay pinned, and only this
                 scrolls. The gutter is reserved, so a full column is as wide as
-                an empty one, which is the point of the equal split. */}
-            <ul className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
+                an empty one, which is the point of the equal split.
+
+                This is the keyed list: the cards and nothing else. The box
+                stays outside it, so a typed word is never a press the page
+                reads. See ADR-0022. */}
+            <ul
+              {...keyed(`${column.label} tasks`)}
+              className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+            >
               {column.tasks.map((card, index) => (
                 <CardItem
                   key={card.id}

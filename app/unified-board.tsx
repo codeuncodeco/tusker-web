@@ -67,9 +67,18 @@ export function UnifiedBoard({
   useLocalDay(day);
   // Nothing here steps: the order in a column is derived, and to say "this
   // first" is to plan it. See ADR-0006, "One order per column".
-  useTaskKeys(rows, planned, NO_STEP_ACTS, cursor, setOn, (fields) =>
-    post.submit(fields, { method: "post" }),
-  );
+  //
+  // The columns come with the rows, because this is a board: the arrows cross
+  // the columns the letters walk. See ADR-0022.
+  const keyed = useTaskKeys({
+    rows,
+    planned,
+    acts: NO_STEP_ACTS,
+    on: cursor,
+    setOn,
+    act: (fields) => post.submit(fields, { method: "post" }),
+    columns: columns.map((column) => column.tasks.map((task) => task.id)),
+  });
 
   /**
    * A drop on a column, wherever in it the pointer let go. It posts the move
@@ -159,7 +168,12 @@ export function UnifiedBoard({
           {/* The heading and the box stay pinned, and only this scrolls. The
               gutter is reserved, so a full column is as wide as an empty one,
               which is the point of the equal split. */}
-          <ul className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
+          {/* The cards and nothing else: the box above is outside every keyed
+              list, so no press of a typed word is ever the page's. */}
+          <ul
+            {...keyed(`${column.label} tasks`)}
+            className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+          >
             {column.tasks.map((task, at) => (
               <UnifiedCard
                 key={task.id}

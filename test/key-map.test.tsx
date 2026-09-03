@@ -98,6 +98,9 @@ describe("the key each act binds", () => {
     // `n` is the offer that ends a batch, so the list ignores it. The offer
     // binds it where it is drawn, which the render test below reads.
     more: { key: "n", press: () => expect(press("n")).toBe(null) },
+    // The same letter, and the same answer here: `n` goes to the quick-add
+    // box, which the keyed list hands the press to. See ADR-0022.
+    add: { key: "n", press: () => expect(press("n")).toBe(null) },
     clear: {
       key: "Escape",
       press: () => expect(press("Escape")).toEqual({ kind: "cursor", id: null }),

@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useFetcher, useLocation, useNavigate } from "react-router";
 
 import type { Ask } from "./decisions.server";
+import { useKeyedFocus } from "./keyed-list";
 import { withoutPrompt } from "./decisions";
 import { fieldClass } from "./forms";
 
@@ -24,6 +25,17 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
   const { pathname, search } = useLocation();
   const closed = withoutPrompt(pathname, search);
   const raised = ask !== null;
+  const refocus = useKeyedFocus();
+
+  // The prompt covers the list and takes the focus off it, and the keys are
+  // live only where the focus is, so the prompt gives it back to the list it
+  // came from. A person who finished a task by key keeps pressing keys.
+  // See ADR-0022.
+  const was = useRef(false);
+  useEffect(() => {
+    if (was.current && !raised) refocus();
+    was.current = raised;
+  }, [raised, refocus]);
 
   // Esc skips, wherever the caret is: a person in the rationale box who wants
   // out means out.
