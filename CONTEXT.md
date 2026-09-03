@@ -34,7 +34,11 @@ page. An org with no colour draws grey. See ADR-0020.
 _Avoid_: Org theme, org tag, workspace colour
 
 **Member**:
-A person with access to an org. Membership is the only permission check.
+A person with access to an org. Membership is the only permission check, so a
+person taken out of an org stops reading its tasks at once. Their tasks stay,
+because the org owns them, and their assignments go with the membership. An org
+always keeps one owner: the last owner is neither removed nor demoted. Leaving
+is the same act on oneself. See ADR-0023.
 _Avoid_: Seat, collaborator
 
 **Account**:
@@ -118,7 +122,10 @@ cursor, `Escape` empties it, `Enter` opens, `p` plans, `x` finishes, `>` and
 `<` walk a task between columns, and `J` and `K` step a planned task through
 the plan. One table,
 `app/key-map.ts`, holds the key of every act, and one hook binds the list's
-own, so the board, the plan, the week and focus mode cannot drift apart. `n`
+own, so the board, the plan, the week and focus mode cannot drift apart. The
+keys are live while the focus is inside the **Keyed list** and nowhere else, and
+`ArrowDown` and `ArrowUp` alias `j` and `k` there. `app/keyed-list.tsx` is what
+binds them, and every list map calls it. `n`
 takes three more, and the offer that ends a batch binds it where it is drawn. A page says which
 acts it gives; the rest answer nothing. The peer of **Editor keys**: one is for
 a list and one is for a box, and `isPagePress` is the border between them.
@@ -448,10 +455,11 @@ _Avoid_: Daily planner, plan builder
 
 **Week walk**:
 The controls that carry the week page from one week to the next: the week
-before, the week after, the key itself as a link to its own address, and the
-way back to this week. It is what makes `/me/week/:week` reachable. A week that
-is over is read and not rewritten, so it draws no pick, no step and no box, and
-offers the **take** instead. This week and the weeks after it plan as they
+before, the week after, and the way back to this week. The **week span** heads
+the page and links to the week's own address, so the walk and that link
+together are what make `/me/week/:week` reachable. A week that is over is read
+and not rewritten, so it draws no pick, no step and no box, and offers the
+**take** instead. This week and the weeks after it plan as they
 always did, and a week nobody started draws empty and offers what it always
 offers.
 _Avoid_: Week picker, week navigator
@@ -474,6 +482,16 @@ UTC, so it is the day itself and not the reader's evening. The address and the
 stored day keep `YYYY-MM-DD`: only the reading changes.
 _Avoid_: Date string, formatted date
 
+**Week span**:
+The week as a person reads it: "Mon 31 Aug – Fri 4 Sep", the Monday and the
+Friday that bound it. It heads the week page and names its tab, because
+`2026-W36` is an address and not a reading. A heading puts "This week", "Last
+week" or "Next week" in front of the span where the week is one step from this
+one, as **Day name** puts "Today" in front of a date. The days are read in UTC,
+and the year is written only on an end outside the year the reader is in. The
+address and the stored key keep `YYYY-Www`: only the reading changes.
+_Avoid_: Week range, week dates
+
 **Leftovers**:
 The unfinished members of a week that is over. Two doorways reach them, the
 **carry** and the **take**, and both copy the memberships and leave the old
@@ -493,9 +511,9 @@ _Avoid_: Rollover prompt
 The doorway a week that is over holds, and the one write it answers: its
 leftovers, fetched into the week the browser is in. A person asks for it, from
 that week's own page, as often as they like, and the button names the week the
-block lands in. The block lands on top of the target set and keeps its own
-order, because it is work a person went and fetched. Taking into a week with no
-set starts that week, as a carry does. See ADR-0014 and ADR-0021.
+block lands in by its **week span**. The block lands on top of the target set
+and keeps its own order, because it is work a person went and fetched. Taking
+into a week with no set starts that week, as a carry does. See ADR-0014 and ADR-0021.
 _Avoid_: Pull forward, re-carry
 
 **Today chip**:
@@ -537,8 +555,11 @@ The one bar every signed-in page draws, in two rows. Row 1 names who and
 where: the wordmark, the current org and the account. Row 2 is every page as a
 button, in a person half for Tasks, Week, Plan and Focus and an org half for
 the current org's pages. Both halves are always drawn, and the page a person
-stands on is marked. `/account` stands in neither half, so it marks neither. A control
-that comes and goes teaches nothing, so nothing in the header is drawn by rule.
+stands on is marked. A label names the destination and never what the page
+holds, so "Week" and "Plan" stand while those pages head with the week and the
+day they draw. `/account` stands in neither half, so it marks neither. A
+control that comes and goes teaches nothing, so nothing in the header is drawn
+by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
 
@@ -592,14 +613,28 @@ drops a task from the batch. Every key posts what a control on the page posts,
 so no act is reachable by key alone. See ADR-0016.
 _Avoid_: Shortcuts, hotkeys, bindings
 
+**Keyed list**:
+The element that takes the focus, holds the cursor and binds the keys: one
+`<ul>` of rows, and nothing else inside it. It carries `tabindex="0"` and an
+`aria-label`, and no `role`. Its keys are live while the focus is inside it and
+dead everywhere else, which is what makes a single-character shortcut legal, and
+what lets the arrows move the cursor without taking page scroll away. It takes
+the focus once for each page it is drawn on, and it names no card in doing so.
+A board draws one per column, and the five share one cursor and one binding.
+A box is never inside one. See ADR-0022.
+_Avoid_: List container, keyed element, listbox
+
 **Cursor**:
-The card the keys act on, or no card at all. It names a card and not a place,
+The card the keys act on, or no card at all. It lives in the keyed list that
+holds it. It names a card and not a place,
 so the card keeps the cursor while the page redraws around it. It starts empty,
 `Escape` empties it again, and `j` and `k` fill it: `j` takes the first card,
-`k` the last. A click on a card body places it. A card the page stops drawing
+`k` the last, and `ArrowDown` and `ArrowUp` do the same. A click on a card body
+places it. On a board `ArrowLeft` and `ArrowRight` carry it across the columns,
+and `<` and `>` still move the card. A card the page stops drawing
 takes the cursor with it, and every key that needs a card does nothing while
 the cursor is empty. Focus mode draws three rows and gives no click.
-See ADR-0015.
+See ADR-0015 and ADR-0022.
 _Avoid_: Selection, focus, highlight
 
 ### Look

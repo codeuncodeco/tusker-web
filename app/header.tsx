@@ -33,7 +33,13 @@ const MANAGE = [
   { to: "settings", label: "Settings" },
 ] as const;
 
-/** The pages of the person axis. Tasks is `/me` itself, so it matches exactly. */
+/**
+ * The pages of the person axis. Tasks is `/me` itself, so it matches exactly.
+ *
+ * A label names the destination and never what the page holds, which is why
+ * "Plan" and "Week" stand while those pages head with a day and a week. See
+ * #146.
+ */
 const PERSON = [
   { to: "/me", label: "Tasks", exact: true },
   { to: "/me/week", label: "Week", exact: false },
@@ -134,9 +140,9 @@ function Menu({
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || !menu.current?.open) return;
-      // One press means one thing. The keyed lists read Escape on `window`,
-      // which is one step out from here, so shutting the menu stops the press
-      // before it can also empty the cursor. See ADR-0015.
+      // One press means one thing. A keyed list reads Escape on itself now, so
+      // a press made in this menu never reaches one; what this stops is every
+      // other listener above, the decision prompt's included. See ADR-0022.
       event.stopPropagation();
       close();
       // The summary takes the focus back, or the focus falls to the body and

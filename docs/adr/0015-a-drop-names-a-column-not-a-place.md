@@ -1,5 +1,10 @@
 # A drop names a column, not a place
 
+Amended by [ADR-0022](./0022-a-keyed-lists-keys-are-live-where-focus-is.md).
+"The keys are the first way" below stands, narrowed by one clause: the keys are
+live in the list that holds the focus, and not on the whole window. The empty
+cursor is unchanged, and so is every act a key posts.
+
 Extends [ADR-0006](./0006-one-order-per-column.md).
 
 The unified board takes a drag between columns. The drop target is the whole

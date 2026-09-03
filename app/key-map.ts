@@ -11,7 +11,7 @@
  * and a map that read them would stop being a map.
  */
 
-/** Every act a keyed list binds. */
+/** Every act a keyed list binds, whoever carries it out. */
 export type ActionName =
   | "next"
   | "prev"
@@ -25,18 +25,32 @@ export type ActionName =
   | "back"
   | "finish"
   | "more"
+  | "add"
   | "clear";
 
 export type KeyRow = {
   /** The press, as `KeyboardEvent.key` gives it. */
   key: string;
+  /**
+   * A second press that fires the same act. Only the cursor has one: the
+   * arrows are what a person reaches for to move a cursor, and they are the
+   * only scroll keys a keyboard-only person has, so a list that binds them
+   * must own them wherever it is drawn. See ADR-0022.
+   */
+  alias?: string;
   /** What the act reads where a control names it. */
   label: string;
 };
 
+/** True where one press fires an act: its key, or the arrow that aliases it. */
+export function fires(action: ActionName, key: string): boolean {
+  const row = KEY_MAP[action];
+  return key === row.key || key === row.alias;
+}
+
 export const KEY_MAP: Record<ActionName, KeyRow> = {
-  next: { key: "j", label: "Next" },
-  prev: { key: "k", label: "Previous" },
+  next: { key: "j", alias: "ArrowDown", label: "Next" },
+  prev: { key: "k", alias: "ArrowUp", label: "Previous" },
   open: { key: "Enter", label: "Open" },
   // Plan and unplan are one press: the page's list decides which way it turns.
   plan: { key: "p", label: "Plan" },
@@ -50,6 +64,11 @@ export const KEY_MAP: Record<ActionName, KeyRow> = {
   back: { key: "<", label: "Back" },
   finish: { key: "x", label: "Finish" },
   more: { key: "n", label: "Take three more" },
+  // The one act a keyed list does not do itself: it moves the focus to the
+  // quick-add box the surface draws. Focus mode draws no box and the offer
+  // that ends a batch takes `n` there, which is a collision older than this
+  // row and left standing. See ADR-0022.
+  add: { key: "n", label: "Add a task" },
   // The one act with no control to carry it: a cleared cursor names nothing,
   // so there is no card for a button to sit on. See ADR-0015.
   clear: { key: "Escape", label: "Clear cursor" },
