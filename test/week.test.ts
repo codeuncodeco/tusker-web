@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { daysOfWeek, isWeek, localWeek, weekBounds, weekIn, weekOf, weekSpan } from "../app/week";
+import {
+  daysOfWeek,
+  isWeek,
+  localWeek,
+  weekAfter,
+  weekBefore,
+  weekBounds,
+  weekIn,
+  weekOf,
+  weekSpan,
+} from "../app/week";
 import { get } from "./routes";
 
 describe("the week a day sits in", () => {
@@ -79,5 +89,24 @@ describe("the week a request speaks for", () => {
 
   it("falls back to the Worker's own week while the browser is silent", () => {
     expect(weekIn(get("/me/week"), new Date(2026, 8, 6, 23, 30))).toBe("2026-W36");
+  });
+});
+
+describe("the week before and the week after", () => {
+  it("steps one week either way", () => {
+    expect(weekBefore("2026-W36")).toBe("2026-W35");
+    expect(weekAfter("2026-W36")).toBe("2026-W37");
+  });
+
+  it("turns the year over on the key's own rule", () => {
+    // 2025 is a 52-week year, so week one of 2026 follows 2025-W52.
+    expect(weekBefore("2026-W01")).toBe("2025-W52");
+    // 2026 is a 53-week year, so its last week runs into 2027-W01.
+    expect(weekAfter("2026-W53")).toBe("2027-W01");
+  });
+
+  it("gives back a week a calendar holds, either way", () => {
+    expect(isWeek(weekBefore("2026-W01"))).toBe(true);
+    expect(isWeek(weekAfter("2026-W53"))).toBe(true);
   });
 });

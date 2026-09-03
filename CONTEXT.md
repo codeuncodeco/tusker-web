@@ -398,8 +398,10 @@ The page where a person builds a week set and puts it in order, at `/me/week`,
 and `/me/week/:week` for a named week. It draws the live set as a list, as plan
 mode does, with the quick-add box, and the week it names runs Monday to Friday.
 `J` and `K` step a member, `T` promotes one to the top, and the set is the one
-order on the page. Every pick and every step writes, as in plan mode. See
-ADR-0014 and ADR-0021.
+order on the page. Every pick and every step writes, as in plan mode. All of
+that is the week the person is in, and the weeks ahead of it: a week that is
+over is read, not rewritten, so the **week walk** to it draws its set alone and
+offers the **take**. See ADR-0014 and ADR-0021.
 _Avoid_: Weekly planner, week board
 
 **Plan**:
@@ -421,6 +423,16 @@ ahead of it. Reading a finished day back is not plan mode's act, so a **Day
 walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
 
+**Week walk**:
+The controls that carry the week page from one week to the next: the week
+before, the week after, the key itself as a link to its own address, and the
+way back to this week. It is what makes `/me/week/:week` reachable. A week that
+is over is read and not rewritten, so it draws no pick, no step and no box, and
+offers the **take** instead. This week and the weeks after it plan as they
+always did, and a week nobody started draws empty and offers what it always
+offers.
+_Avoid_: Week picker, week navigator
+
 **Day walk**:
 The controls that carry plan mode from one day to the next: the day before, the
 day after, the date itself as a link to its own address, and the way back to
@@ -431,13 +443,27 @@ always did.
 _Avoid_: Date picker, day navigator
 
 **Leftovers**:
-The tasks the last week set holds that are still unfinished. Opening the week
-page on a week with no set offers them: carry them forward, or start clean. A
-week set is never rewritten after its week, so carrying forward copies the
-memberships and leaves the old ones as they were, and a carried task is in both
-sets. A day carries nothing: each plan starts empty, and the week set is where
-unfinished work waits. See ADR-0014.
+The unfinished members of a week that is over. Two doorways reach them, and
+both copy the memberships and leave the old ones as they were, so a task is in
+both sets: a week set is never rewritten after its week. A day carries nothing:
+each plan starts empty, and the week set is where unfinished work waits. See
+ADR-0014.
 _Avoid_: Rollover, unfinished carry-over
+
+**Carry**:
+The offer a week with no set opens on: take the leftovers of the last week that
+holds a set, or start clean. It is made once, when the week opens, and the week
+it names is not always the week before. Either answer starts the week, so the
+offer is not made again.
+_Avoid_: Rollover prompt
+
+**Take**:
+The one write a week that is over answers: its leftovers, fetched into the week
+the browser is in. It is asked for, from that week's own page, as often as a
+person likes, and the button names the week the block lands in. The block lands
+on top of the target set, keeping its own order: it is work a person went and
+fetched. Taking into a week with no set starts that week, as a carry does.
+_Avoid_: Pull forward, re-carry
 
 **Today chip**:
 The control on a board that narrows it to the tasks today's plan holds. Both

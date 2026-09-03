@@ -104,6 +104,27 @@ async function stored(personId: string, week = WEEK) {
   return results.map((row) => row.task_id);
 }
 
+/** A week before the one the browser is in, which is read back and not built. */
+const PAST = "2026-W30";
+
+/** A set written straight into the store, so a past week can hold one. */
+async function heldIn(personId: string, week: string, taskIds: string[]) {
+  await db
+    .prepare("INSERT INTO week_plans (user_id, week) VALUES (?, ?)")
+    .bind(personId, week)
+    .run();
+  if (taskIds.length === 0) return;
+  await db.batch(
+    taskIds.map((id, at) =>
+      db
+        .prepare(
+          "INSERT INTO week_plan_tasks (user_id, week, task_id, position) VALUES (?, ?, ?, ?)",
+        )
+        .bind(personId, week, id, at + 1),
+    ),
+  );
+}
+
 /** The ids one add wrote, as the box reads them back. */
 function added(acted: unknown) {
   return (acted as { added: { ids: string[]; slug: string; text: string } }).added;
@@ -631,5 +652,159 @@ describe("a member finished this week", () => {
     // "c" reads past the finished "b" to the live "a" it sits under on screen.
     await act(ada.cookie, { intent: "up", id: "c" });
     expect(ids(await weekPage(ada.cookie), "week")).toEqual(["c", "a", "b"]);
+  });
+});
+
+/**
+ * A week that is over. See #142: a past week is read, not rewritten, and what
+ * it left unfinished is fetched into the week the person is in.
+ */
+describe("a week that is over", () => {
+  it("reads back, so the page draws no pick and no step", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+    await heldIn(ada.person.id, PAST, ["ship"]);
+
+    const data = await namedPage(ada.cookie, PAST);
+
+    expect(data.canPick).toBe(false);
+    expect(ids(data, "week")).toEqual(["ship"]);
+  });
+
+  it("plans as it always did while the week is still to come", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    expect((await namedPage(ada.cookie, "2026-W40")).canPick).toBe(true);
+    expect((await weekPage(ada.cookie)).canPick).toBe(true);
+  });
+
+  /** Every act that writes the set, as a form posts it. `slug` is filled in. */
+  const WRITES: Record<string, string>[] = [
+    { intent: "plan", id: "ship", slug: "" },
+    { intent: "unplan", id: "ship", slug: "" },
+    { intent: "up", id: "ship" },
+    { intent: "top", id: "ship" },
+    { intent: "create", title: "Ship it", slug: "" },
+    { intent: "carry" },
+    { intent: "clean" },
+  ];
+
+  for (const fields of WRITES) {
+    it(`refuses ${fields.intent}, whoever posts it`, async () => {
+      const ada = await member("ada@example.test", "Ada");
+      await task(ada.org.id, "ship");
+      await heldIn(ada.person.id, PAST, ["ship"]);
+
+      const response = await caught(
+        act(ada.cookie, { ...fields, slug: "slug" in fields ? ada.org.slug : "" }, { week: PAST }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(await stored(ada.person.id, PAST)).toEqual(["ship"]);
+    });
+  }
+
+  // The task is live wherever it is drawn, and a record of the week is not a
+  // freeze of the work.
+  it("still finishes a task and still moves one between columns", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "ship");
+    await task(ada.org.id, "write");
+    await heldIn(ada.person.id, PAST, ["ship", "write"]);
+
+    await act(ada.cookie, { intent: "finish", id: "ship", slug: ada.org.slug }, { week: PAST });
+    await act(
+      ada.cookie,
+      { intent: "move", id: "write", slug: ada.org.slug, status: "in_progress" },
+      { week: PAST },
+    );
+
+    const columns = await db.prepare("SELECT id, status FROM tasks ORDER BY id").all();
+    expect(columns.results).toEqual([
+      { id: "ship", status: "done" },
+      { id: "write", status: "in_progress" },
+    ]);
+  });
+});
+
+describe("the take", () => {
+  /** A past week holding two live tasks and one already finished. */
+  async function unfinished(ada: { person: { id: string }; org: { id: string } }) {
+    await task(ada.org.id, "a");
+    await task(ada.org.id, "b");
+    await task(ada.org.id, "done-one", { status: "done" });
+    await heldIn(ada.person.id, PAST, ["a", "b", "done-one"]);
+  }
+
+  it("names the count and the week the browser is in", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await unfinished(ada);
+
+    expect((await namedPage(ada.cookie, PAST)).take).toEqual({ into: WEEK, count: 2 });
+  });
+
+  it("offers nothing where the week left nothing unfinished", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "done-one", { status: "done" });
+    await heldIn(ada.person.id, PAST, ["done-one"]);
+
+    expect((await namedPage(ada.cookie, PAST)).take).toBeNull();
+  });
+
+  it("offers nothing on a week that is still to be worked", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+    await heldIn(ada.person.id, WEEK, ["a"]);
+
+    expect((await weekPage(ada.cookie)).take).toBeNull();
+  });
+
+  it("starts the week it takes into, as a carry does", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await unfinished(ada);
+
+    await act(ada.cookie, { intent: "take" }, { week: PAST });
+
+    expect(await stored(ada.person.id)).toEqual(["a", "b"]);
+  });
+
+  it("lands the block on top of the set already there, in its own order", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await unfinished(ada);
+    await task(ada.org.id, "z");
+    await act(ada.cookie, { intent: "plan", id: "z", slug: ada.org.slug });
+
+    await act(ada.cookie, { intent: "take" }, { week: PAST });
+
+    expect(await stored(ada.person.id)).toEqual(["a", "b", "z"]);
+  });
+
+  it("writes the target week alone, so a taken task is in both sets", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await unfinished(ada);
+
+    await act(ada.cookie, { intent: "take" }, { week: PAST });
+
+    expect(await stored(ada.person.id, PAST)).toEqual(["a", "b", "done-one"]);
+  });
+
+  it("leaves out a member no org answers for", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await unfinished(ada);
+    await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 'b'").run();
+
+    await act(ada.cookie, { intent: "take" }, { week: PAST });
+
+    expect(await stored(ada.person.id)).toEqual(["a"]);
+  });
+
+  it("is refused on a week the person is still working", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "a");
+    await heldIn(ada.person.id, WEEK, ["a"]);
+
+    const response = await caught(act(ada.cookie, { intent: "take" }));
+
+    expect(response.status).toBe(400);
   });
 });
