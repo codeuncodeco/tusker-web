@@ -203,7 +203,7 @@ export async function renameOrg(
   return "changed";
 }
 
-export type Member = { id: string; name: string; email: string; role: string };
+export type Member = { id: string; name: string; email: string; role: Role };
 
 /** Everybody in one org, owners first, then by the day they joined. */
 export async function listMembers(db: D1Database, orgId: string): Promise<Member[]> {
@@ -218,6 +218,120 @@ export async function listMembers(db: D1Database, orgId: string): Promise<Member
     .bind(orgId)
     .all<Member>();
   return results;
+}
+
+/** The two roles a membership row can hold. */
+export const ROLES = ["owner", "member"] as const;
+
+export type Role = (typeof ROLES)[number];
+
+/** True when a form named a role the column holds. */
+export function isRole(value: unknown): value is Role {
+  return ROLES.includes(value as Role);
+}
+
+/** One member of one org, or null for a person the org does not hold. */
+export async function memberOf(
+  db: D1Database,
+  orgId: string,
+  personId: string,
+): Promise<Member | null> {
+  return db
+    .prepare(
+      `SELECT u.id, u.name, u.email, m.role
+       FROM memberships m
+       JOIN "user" u ON u.id = m.user_id
+       WHERE m.org_id = ? AND m.user_id = ?`,
+    )
+    .bind(orgId, personId)
+    .first<Member>();
+}
+
+/**
+ * How many live tasks of the org one member holds: To do and In progress, not
+ * archived.
+ *
+ * The members page asks before it removes anybody, because the assignments go
+ * with the membership and nothing on screen says how many that is. The tasks
+ * themselves stay: they belong to the org, per ADR-0001.
+ */
+export async function heldLiveTasks(
+  db: D1Database,
+  scope: Scope,
+  personId: string,
+): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS held
+       FROM task_assignees a
+       JOIN tasks t ON t.id = a.task_id AND t.org_id = a.org_id
+       WHERE a.org_id = ? AND a.user_id = ?
+         AND t.archived = 0 AND t.status IN ('todo', 'in_progress')`,
+    )
+    .bind(scope.org.id, personId)
+    .first<{ held: number }>();
+  return row?.held ?? 0;
+}
+
+/** What became of an attempt to take a member out or to change their role. */
+export type MemberChange = "changed" | "last-owner" | "no-member";
+
+/**
+ * Takes one person out of one org. They lose the org at once, because
+ * membership is the only permission check.
+ *
+ * Their tasks stay and their assignments go: `task_assignees` names the
+ * membership, so the database drops the rows. See ADR-0013.
+ *
+ * The last owner of an org cannot be taken out, and the guard is in the
+ * statement rather than in a read before it, so two removals at once cannot
+ * leave an org with none.
+ */
+export async function removeMember(
+  db: D1Database,
+  scope: Scope,
+  personId: string,
+): Promise<MemberChange> {
+  if (!(await memberOf(db, scope.org.id, personId))) return "no-member";
+
+  const done = await db
+    .prepare(
+      `DELETE FROM memberships
+       WHERE org_id = ? AND user_id = ?
+         AND (role <> 'owner'
+              OR (SELECT COUNT(*) FROM memberships WHERE org_id = ? AND role = 'owner') > 1)`,
+    )
+    .bind(scope.org.id, personId, scope.org.id)
+    .run();
+
+  return done.meta.changes > 0 ? "changed" : "last-owner";
+}
+
+/**
+ * Gives one member of one org the other role. Promoting is always allowed, and
+ * demoting the last owner is refused by the same rule that keeps the removal
+ * from taking them: an org always keeps one owner.
+ */
+export async function setMemberRole(
+  db: D1Database,
+  scope: Scope,
+  personId: string,
+  role: Role,
+): Promise<MemberChange> {
+  if (!(await memberOf(db, scope.org.id, personId))) return "no-member";
+
+  const done = await db
+    .prepare(
+      `UPDATE memberships SET role = ?
+       WHERE org_id = ? AND user_id = ?
+         AND (? = 'owner'
+              OR role <> 'owner'
+              OR (SELECT COUNT(*) FROM memberships WHERE org_id = ? AND role = 'owner') > 1)`,
+    )
+    .bind(role, scope.org.id, personId, role, scope.org.id)
+    .run();
+
+  return done.meta.changes > 0 ? "changed" : "last-owner";
 }
 
 /** What became of an attempt to add somebody to an org. */
