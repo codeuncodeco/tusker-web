@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayAfter, dayBefore, dayOf, isDay, localDay } from "../app/day";
+import { dayAfter, dayBefore, dayLabel, dayName, dayOf, isDay, localDay } from "../app/day";
 import { get } from "./routes";
 
 describe("a day", () => {
@@ -49,5 +49,38 @@ describe("stepping to another day", () => {
   it("steps over a leap day", () => {
     expect(dayAfter("2028-02-28")).toBe("2028-02-29");
     expect(dayBefore("2028-03-01")).toBe("2028-02-29");
+  });
+});
+
+describe("the day as a person reads it", () => {
+  it("names the weekday and the date, and drops the year in this one", () => {
+    expect(dayName("2026-09-03", "2026-09-03")).toBe("Thursday 3 September");
+  });
+
+  it("keeps the year outside this one, ahead and behind", () => {
+    expect(dayName("2025-12-31", "2026-09-03")).toBe("Wednesday 31 December 2025");
+    expect(dayName("2027-01-01", "2026-09-03")).toBe("Friday 1 January 2027");
+  });
+
+  it("reads the weekday in UTC, so the name is the day itself", () => {
+    // Named from the day alone. No zone moves it to the evening before.
+    expect(dayName("2026-09-01", "2026-09-03")).toBe("Tuesday 1 September");
+  });
+});
+
+describe("the day a heading names", () => {
+  it("says today, yesterday and tomorrow as words, with the date after", () => {
+    expect(dayLabel("2026-09-03", "2026-09-03")).toBe("Today, Thursday 3 September");
+    expect(dayLabel("2026-09-02", "2026-09-03")).toBe("Yesterday, Wednesday 2 September");
+    expect(dayLabel("2026-09-04", "2026-09-03")).toBe("Tomorrow, Friday 4 September");
+  });
+
+  it("says the date alone for every other day", () => {
+    expect(dayLabel("2026-09-01", "2026-09-03")).toBe("Tuesday 1 September");
+  });
+
+  it("carries the word over a month end and a year end", () => {
+    expect(dayLabel("2026-08-31", "2026-09-01")).toBe("Yesterday, Monday 31 August");
+    expect(dayLabel("2026-01-01", "2025-12-31")).toBe("Tomorrow, Thursday 1 January 2026");
   });
 });

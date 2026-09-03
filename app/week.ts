@@ -12,7 +12,7 @@
  * New Year is named once and by one rule.
  */
 
-import { dayOf, localDay } from "./day";
+import { dayOf, dayShort, localDay } from "./day";
 
 /** The shape a week key takes. */
 const WEEK = /^(\d{4})-W(\d{2})$/;
@@ -85,17 +85,7 @@ export function weekBounds(week: string): { monday: string; sunday: string } {
 /** The week as a person reads it: the Monday and the Friday that bound it. */
 export function weekSpan(week: string): string {
   const days = daysOfWeek(week);
-  return `${dayLabel(days[0])} – ${dayLabel(days[4])}`;
-}
-
-/** One end of the span, as "Mon 31 Aug". Read in UTC, so the date is the day. */
-function dayLabel(day: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(`${day}T00:00:00Z`));
+  return `${dayShort(days[0])} – ${dayShort(days[4])}`;
 }
 
 /**

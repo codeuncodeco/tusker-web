@@ -29,7 +29,7 @@
  * commitment the tab can lose is no commitment. See ADR-0008.
  */
 
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
@@ -45,7 +45,6 @@ import { UnifiedAdd } from "../unified-add";
 import { actOnTask, TASK_ACTS } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
-import { Walk } from "../walk";
 import { isWeek, weekAfter, weekBefore, weekIn, weekSpan } from "../week";
 import { addToWeek, moveInWeek, readWeekSet, startWeek } from "../weeks.server";
 import type { Route } from "./+types/me.week";
@@ -322,13 +321,21 @@ function TakePrompt({ week, take }: { week: string; take: { into: string; count:
   );
 }
 
+/** The look of one step of the walk. */
+const STEP = "rounded border border-border px-2 text-muted";
+
 /**
  * The walk between weeks: the week before, this week as its own address, the
- * week after, and the way back to this week. `app/walk.tsx` draws it, and plan
- * mode draws the same walk over days.
+ * week after, and the way back to this week.
  *
- * A week that is over reads back, a week ahead is planned, and a week nobody
- * started draws empty and offers what it always offers. See #142.
+ * The key is a link because the address is the thing a person keeps. `/me/week`
+ * is whichever week the person is in, and `/me/week/2026-W35` is that week and
+ * no other. Without these controls no person reaches the named page at all,
+ * which is what the day walk answers for `/me/plan/:day`. See #66 and #142.
+ *
+ * The walk itself refuses nothing. A week that is over reads back, a week
+ * ahead is planned, a week nobody started draws empty and offers what it
+ * always offers, and the page says which of them it is.
  */
 function WeekWalk({
   week,
@@ -342,15 +349,28 @@ function WeekWalk({
   onThisWeek: boolean;
 }) {
   return (
-    <Walk
-      label="Week"
-      here={week}
-      prev={prev}
-      next={next}
-      href={(key) => `/me/week/${key}`}
-      atHome={onThisWeek}
-      home="/me/week"
-      homeLabel="This week"
-    />
+    <nav aria-label="Week" className="flex items-baseline gap-2">
+      <Link to={`/me/week/${prev}`} aria-label={`The week before, ${prev}`} className={STEP}>
+        ‹
+      </Link>
+
+      <Link
+        to={`/me/week/${week}`}
+        className="tabular-nums text-muted underline-offset-2 hover:underline"
+      >
+        {week}
+      </Link>
+
+      <Link to={`/me/week/${next}`} aria-label={`The week after, ${next}`} className={STEP}>
+        ›
+      </Link>
+
+      {/* The one step home, from however far the walk went. */}
+      {onThisWeek ? null : (
+        <Link to="/me/week" className="text-muted underline-offset-2 hover:underline">
+          This week
+        </Link>
+      )}
+    </nav>
   );
 }
