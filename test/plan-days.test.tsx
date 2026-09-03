@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
-import Plan from "../app/routes/me.plan";
+import Plan, { meta } from "../app/routes/me.plan";
 
 const DAY = "2026-09-01";
 
@@ -35,6 +35,7 @@ function page(some: { day?: string; prev?: string; next?: string; canPlan?: bool
     orgs: [],
     members: {},
     day,
+    today: DAY,
     named: !onToday,
     onToday,
     canAdd: onToday,
@@ -87,6 +88,36 @@ describe("the walk between days", () => {
 
   it("offers no way back to today from today", () => {
     expect(links(page({}))).not.toContain("/me/plan");
+  });
+});
+
+describe("the day the page names", () => {
+  it("heads the page with the word for today, and the date after it", () => {
+    expect(page({})).toContain("Today, Tuesday 1 September");
+  });
+
+  it("heads a day two steps back with its date alone", () => {
+    const html = page({ day: "2026-08-25", canPlan: false });
+
+    expect(html).toContain("Tuesday 25 August");
+    expect(html).not.toContain("Yesterday");
+  });
+
+  it("heads the day with a link to its own dated address", () => {
+    expect(page({})).toContain(`href="/me/plan/${DAY}"`);
+  });
+
+  it("names each step of the walk the way a person reads it", () => {
+    const html = page({ prev: "2026-08-31", next: "2026-09-02" });
+
+    expect(html).toContain("The day before, Monday 31 August");
+    expect(html).toContain("The day after, Wednesday 2 September");
+  });
+
+  it("names the day in the tab title, weekday first", () => {
+    const title = meta({ loaderData: { day: DAY, today: DAY } } as never);
+
+    expect(title).toEqual([{ title: "Tuesday 1 September — Tusker" }]);
   });
 });
 
