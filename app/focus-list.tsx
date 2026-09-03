@@ -34,12 +34,19 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
   // The cursor names a task, and starts empty, as it does on every other
   // keyed list. `j` reaches the first of the batch. See ADR-0015.
   const cursor = tasks.some((one) => one.id === on) ? on : null;
-  useTaskKeys(tasks, NO_PLAN, FOCUS_ACTS, cursor, setOn, (fields) =>
-    post.submit(fields, { method: "post" }),
-  );
+  const keyed = useTaskKeys({
+    rows: tasks,
+    planned: NO_PLAN,
+    acts: FOCUS_ACTS,
+    on: cursor,
+    setOn,
+    act: (fields) => post.submit(fields, { method: "post" }),
+  });
 
   return (
-    <ul className="flex flex-col gap-2">
+    // The batch is the keyed list, and focus mode draws no box at all, so `n`
+    // stays what the offer that ends a batch made it. See ADR-0022.
+    <ul {...keyed("Batch")} className="flex flex-col gap-2">
       {tasks.map((task) => (
         <UnifiedRow
           key={task.id}

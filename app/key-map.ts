@@ -30,13 +30,26 @@ export type ActionName =
 export type KeyRow = {
   /** The press, as `KeyboardEvent.key` gives it. */
   key: string;
+  /**
+   * A second press that fires the same act. Only the cursor has one: the
+   * arrows are what a person reaches for to move a cursor, and they are the
+   * only scroll keys a keyboard-only person has, so a list that binds them
+   * must own them wherever it is drawn. See ADR-0022.
+   */
+  alias?: string;
   /** What the act reads where a control names it. */
   label: string;
 };
 
+/** True where one press fires an act: its key, or the arrow that aliases it. */
+export function fires(action: ActionName, key: string): boolean {
+  const row = KEY_MAP[action];
+  return key === row.key || key === row.alias;
+}
+
 export const KEY_MAP: Record<ActionName, KeyRow> = {
-  next: { key: "j", label: "Next" },
-  prev: { key: "k", label: "Previous" },
+  next: { key: "j", alias: "ArrowDown", label: "Next" },
+  prev: { key: "k", alias: "ArrowUp", label: "Previous" },
   open: { key: "Enter", label: "Open" },
   // Plan and unplan are one press: the page's list decides which way it turns.
   plan: { key: "p", label: "Plan" },

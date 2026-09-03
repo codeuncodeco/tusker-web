@@ -16,12 +16,12 @@
  * and the letters are shared by decision. See ADR-0016.
  */
 
-import { useEffect } from "react";
 import { useNavigate } from "react-router";
 
 import { stepped } from "./board";
-import { KEY_MAP } from "./key-map";
-import { isPagePress } from "./keys";
+import { fires } from "./key-map";
+import { BOARD_ARROWS, LIST_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
+import { across } from "./keys";
 import { isPlannable, type LiveTask } from "./unified";
 import { finishFields, moveFields, planFields } from "./unified-row";
 
@@ -58,10 +58,10 @@ export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
 export const READ_ACTS: ListActs = { plan: false, step: false, move: true };
 
 /**
- * The three presses that move a row, and the intent each posts. The intent is
- * the act's own name, so the map is the whole binding.
+ * The three acts that move a row. The intent a press posts is the act's own
+ * name, so the list is the whole binding.
  */
-const MOVE_KEYS = (["up", "down", "top"] as const).map((act) => [act, KEY_MAP[act]] as const);
+const MOVE_ACTS = ["up", "down", "top"] as const;
 
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
@@ -94,24 +94,24 @@ export function pressed(
   //
   // An empty cursor sits outside the list, so a move key brings it back in
   // from the end the key comes from: `j` to the first row, `k` to the last.
-  if (key === KEY_MAP.next.key)
+  if (fires("next", key))
     return pick(at === -1 ? rows[0] : rows[Math.min(at + 1, rows.length - 1)]);
-  if (key === KEY_MAP.prev.key)
+  if (fires("prev", key))
     return pick(at === -1 ? rows[rows.length - 1] : rows[Math.max(at - 1, 0)]);
 
   // Escape empties the cursor, so a person reading the page has no card named
   // at them. A cursor already empty has nothing to clear, and the press falls
   // through to whatever else reads Escape. See ADR-0015.
-  if (key === KEY_MAP.clear.key) return on === null ? null : { kind: "cursor", id: null };
+  if (fires("clear", key)) return on === null ? null : { kind: "cursor", id: null };
 
   if (!task) return null;
-  if (key === KEY_MAP.open.key) return { kind: "open", task };
+  if (fires("open", key)) return { kind: "open", task };
 
   // Backlog is unplannable, and a finished task is nothing to plan. The board
   // draws all five columns, so the key says so as well as the write. Taking a
   // task back out is never refused: plan mode holds the tasks finished today,
   // and `p` unplans one of those as the button does.
-  if (key === KEY_MAP.plan.key || key === KEY_MAP.unplan.key) {
+  if (fires("plan", key) || fires("unplan", key)) {
     if (!acts.plan) return null;
     const held = planned.has(task.id);
     if (!held && !isPlannable(task)) return null;
@@ -125,24 +125,24 @@ export function pressed(
   // `ranked` is what the page draws the move buttons from, so a key reaches no
   // act a control withholds: a member finished this week is drawn out of the
   // order, and it answers none of the three.
-  const moves = MOVE_KEYS.find(([, row]) => row.key === key);
+  const moves = MOVE_ACTS.find((act) => fires(act, key));
   if (moves) {
     if (!acts.step || !ranked.has(task.id)) return null;
-    return { kind: "act", fields: { intent: moves[0], id: task.id } };
+    return { kind: "act", fields: { intent: moves, id: task.id } };
   }
 
   // `>` and `<` walk the card along the run and stop at both ends. They post
   // the move a drop posts and the select posts: a column, and no place inside
   // it. Cancelled is off the run. See ADR-0015.
-  if (key === KEY_MAP.forward.key || key === KEY_MAP.back.key) {
+  if (fires("forward", key) || fires("back", key)) {
     if (!acts.move) return null;
-    const to = stepped(task.status, key === KEY_MAP.forward.key ? 1 : -1);
+    const to = stepped(task.status, fires("forward", key) ? 1 : -1);
     if (!to) return null;
     return { kind: "act", fields: moveFields(task, to) };
   }
 
   // A task already finished has nothing left to finish.
-  if (key === KEY_MAP.finish.key) {
+  if (fires("finish", key)) {
     if (task.finished) return null;
     return { kind: "act", fields: finishFields(task) };
   }
@@ -156,36 +156,54 @@ function pick(task: LiveTask | undefined): Press | null {
 }
 
 /**
- * Binds the keys to one flat list of tasks.
+ * Binds the keys to one flat list of tasks, and answers with the props the
+ * elements that hold the rows take.
+ *
+ * The keys are live while focus is inside those elements and nowhere else, so
+ * a page draws them around its rows and around nothing else. See ADR-0022.
  */
-export function useTaskKeys(
-  rows: LiveTask[],
-  planned: Set<string>,
-  acts: ListActs,
-  on: string | null,
-  setOn: (id: string | null) => void,
-  act: (fields: Record<string, string>) => void,
+export function useTaskKeys({
+  rows,
+  planned,
+  acts,
+  on,
+  setOn,
+  act,
+  ranked = planned,
+  columns = null,
+}: {
+  rows: LiveTask[];
+  planned: Set<string>;
+  acts: ListActs;
+  on: string | null;
+  setOn: (id: string | null) => void;
+  act: (fields: Record<string, string>) => void;
   /** The rows the page's order ranks. See `pressed`. */
-  ranked: Set<string> = planned,
-) {
+  ranked?: Set<string>;
+  /**
+   * The ids each column draws, where the list is a board. The arrows cross
+   * them, and a list with one run of rows has none to cross.
+   */
+  columns?: string[][] | null;
+}): (label: string) => Keyed {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (!isPagePress(event)) return;
-
-      const press = pressed(event.key, rows, planned, acts, on, ranked);
-      if (!press) return;
-
-      if (press.kind === "cursor") setOn(press.id);
-      else if (press.kind === "open")
-        navigate(`/o/${press.task.org.slug}/t/${press.task.id}`);
-      else act(press.fields);
-
-      event.preventDefault();
+  return useKeyedList((key) => {
+    if (columns) {
+      const sideways = across(key, columns, on);
+      if (sideways) {
+        setOn(sideways);
+        return true;
+      }
     }
 
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [rows, planned, acts, on, setOn, act, navigate, ranked]);
+    const press = pressed(key, rows, planned, acts, on, ranked);
+    if (!press) return false;
+
+    if (press.kind === "cursor") setOn(press.id);
+    else if (press.kind === "open") navigate(`/o/${press.task.org.slug}/t/${press.task.id}`);
+    else act(press.fields);
+
+    return true;
+  }, columns ? BOARD_ARROWS : LIST_ARROWS);
 }

@@ -18,26 +18,28 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { FetcherWithComponents } from "react-router";
 
-import { isPagePress } from "./keys";
+import { useSurface } from "./keyed-list";
 
 /**
  * `n` focuses one box, so a page keyed for the board still adds a task without
  * the pointer. A page with several boxes gives the key to one of them, because
  * one key names one box: on a board that is the To do column.
+ *
+ * The press is the keyed list's, not the window's: `n` on a window is live on
+ * the whole page, and a speech-input user's next sentence lands in a task
+ * title. So the box says it is this surface's, and the list hands the focus
+ * over while it holds it. See ADR-0022.
  */
 export function useAddKey(box: RefObject<HTMLTextAreaElement | null>, bound: boolean) {
+  const surface = useSurface();
+
   useEffect(() => {
     if (!bound) return;
-
-    function onKey(event: KeyboardEvent) {
-      if (!isPagePress(event) || event.key !== "n") return;
-      box.current?.focus();
-      event.preventDefault();
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [box, bound]);
+    surface.box.current = box;
+    return () => {
+      if (surface.box.current === box) surface.box.current = null;
+    };
+  }, [box, bound, surface]);
 }
 
 /** The form a fetcher draws. It is the same shape whatever the fetcher answers. */

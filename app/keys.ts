@@ -20,3 +20,31 @@ export function isPagePress(event: KeyboardEvent): boolean {
   if (document.querySelector('[role="dialog"]')) return false;
   return !event.metaKey && !event.ctrlKey && !event.altKey;
 }
+
+/**
+ * The card the cursor lands on when a board arrow crosses a column, or nothing
+ * where there is none to land on.
+ *
+ * Arrows navigate and letters act: `ArrowLeft` and `ArrowRight` move the
+ * cursor, while `<` and `>` move the card. The cursor keeps its place down the
+ * column, and takes the last card of a shorter one. A column drawing nothing
+ * is walked past, because an empty column holds no card to stop on.
+ *
+ * The cursor comes back into a list from the end an arrow comes from, and up
+ * and down are the two ends a board has. So an empty cursor answers nothing
+ * here: `j`, `k` and their arrows are the way back in. See ADR-0022.
+ */
+export function across(key: string, columns: string[][], on: string | null): string | null {
+  const way = key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : 0;
+  if (!way || on === null) return null;
+
+  const at = columns.findIndex((ids) => ids.includes(on));
+  if (at === -1) return null;
+  const down = columns[at].indexOf(on);
+
+  for (let next = at + way; next >= 0 && next < columns.length; next += way) {
+    const ids = columns[next];
+    if (ids.length > 0) return ids[Math.min(down, ids.length - 1)];
+  }
+  return null;
+}
