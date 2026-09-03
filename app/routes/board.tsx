@@ -13,7 +13,6 @@ import { Link, useFetcher } from "react-router";
 
 import {
   BOARD_TOGGLES,
-  STATUSES,
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
@@ -316,11 +315,10 @@ type Move = (id: string, status: Status, before?: string | null) => void;
  * One card. It shows its rank, the way the extension did: the place the board
  * draws it in, counting from one. No row stores it.
  *
- * The select moves the card to another column, and the two arrows step it
- * inside one. Each sits in a form that posts on its own, so neither needs a
- * script. Tusker is keyboard first, so the drag is the second way, not the
- * only one: `>` and `<` post what the select posts, and `J` and `K` post what
- * the arrows post. See ADR-0016.
+ * The two arrows step the card inside its column, in a form that posts on its
+ * own, so it needs no script. Tusker is keyboard first, so the drag is the
+ * second way, not the only one: `>` and `<` move the card to another column,
+ * and `J` and `K` post what the arrows post. See ADR-0016.
  */
 function CardItem({
   cards,
@@ -347,7 +345,6 @@ function CardItem({
   place: () => void;
 }) {
   const card = cards[index];
-  const post = useFetcher();
   const step = useFetcher();
   // Its own form, because a form posts one intent and a step is not an
   // archive.
@@ -395,29 +392,6 @@ function CardItem({
       ) : null}
 
       <span className="flex gap-2">
-        {/* The select posts on its own, so a move needs no script. */}
-        <post.Form method="post" className="flex">
-          <input type="hidden" name="intent" value="move" />
-          <input type="hidden" name="id" value={card.id} />
-          <select
-            name="status"
-            aria-label={`Column for ${card.title}`}
-            defaultValue={status}
-            onChange={(event) => post.submit(event.currentTarget.form)}
-            className="rounded border border-border bg-transparent px-1 py-0.5 text-xs"
-          >
-            {STATUSES.map((one) => (
-              <option key={one} value={one}>
-                {STATUS_LABEL[one]}
-              </option>
-            ))}
-          </select>
-          {/* The submit the select needs when no script runs. */}
-          <button name="before" value="" className="sr-only">
-            Move
-          </button>
-        </post.Form>
-
         {/* The two arrows, which post what `J` and `K` post. A card at the top
             of its column cannot step up and one at the bottom cannot step
             down, and that is all the page decides: the place the step lands

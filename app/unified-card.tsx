@@ -5,19 +5,15 @@
  * draws it in, counting from one. No row stores it, and it drifts between
  * loads, because the percentile is an index over a column length that changes.
  *
- * The select carries no key hint: a native select draws no child markup, and
- * Tab and the arrows already work it.
- *
- * Three things move the card to another column: the select, the `>` and `<`
- * keys, and a drag onto the column. All three name a column and no place
- * inside it, because the order in a unified column is derived. There are no
- * arrows for the same reason: to say "this first" is to plan it. See ADR-0006,
- * "One order per column", and ADR-0015, "A drop names a column, not a place".
+ * Two things move the card to another column: the `>` and `<` keys, and a drag
+ * onto the column. Both name a column and no place inside it, because the
+ * order in a unified column is derived. There are no arrows for the same
+ * reason: to say "this first" is to plan it. See ADR-0006, "One order per
+ * column", and ADR-0015, "A drop names a column, not a place".
  */
 
 import { Link, useFetcher } from "react-router";
 
-import { STATUSES, STATUS_LABEL } from "./board";
 import { Dot } from "./dot";
 import { Initials } from "./initials";
 import { keyHint } from "./key-hint";
@@ -46,7 +42,6 @@ export function UnifiedCard({
    */
   place: () => void;
 }) {
-  const move = useFetcher();
   const plan = useFetcher();
   const fields = planFields(task, planned);
   const pick = keyHint(planned ? "unplan" : "plan");
@@ -100,28 +95,6 @@ export function UnifiedCard({
       </span>
 
       <span className="flex items-baseline gap-2">
-        {/* The select posts on its own, so a move needs no script. */}
-        <move.Form method="post" className="flex">
-          <input type="hidden" name="intent" value="move" />
-          <input type="hidden" name="id" value={task.id} />
-          <input type="hidden" name="slug" value={task.org.slug} />
-          <select
-            name="status"
-            aria-label={`Column for ${task.title}`}
-            defaultValue={task.status}
-            onChange={(event) => move.submit(event.currentTarget.form)}
-            className="rounded border border-border bg-transparent px-1 py-0.5 text-xs"
-          >
-            {STATUSES.map((one) => (
-              <option key={one} value={one}>
-                {STATUS_LABEL[one]}
-              </option>
-            ))}
-          </select>
-          {/* The submit the select needs when no script runs. */}
-          <button className="sr-only">Move</button>
-        </move.Form>
-
         {/* Backlog is unplannable and a finished task is nothing to plan, so
             those columns carry no button and `p` does nothing on them. */}
         {isPlannable(task) ? (
