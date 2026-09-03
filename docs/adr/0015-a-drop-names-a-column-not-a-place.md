@@ -74,6 +74,12 @@ costs one press to undo a choice the page made for the person, on every load,
 and it leaves the read-only case wrong until they press. A start with nothing
 named says what is true: no card has been picked.
 
+The empty state also catches the card the page stops drawing. The cursor named
+that card, the card is gone, and the first card it used to fall back to is a
+card nobody picked — the same wrong the start had. So the cursor empties, and
+the next `j` starts at the top. It costs one press after a finish, and it buys
+one rule for what the cursor names: a card a person picked, or no card.
+
 Every keyed list takes this — both boards, plan mode, the week page and focus
 mode. The cursor is one idea and one name, so a page that started it differently
 would be a page a person has to learn twice.

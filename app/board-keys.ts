@@ -52,8 +52,8 @@ export function boardPress(key: string, columns: KeyedColumn[], on: string | nul
   if (key === "k") return pick(at === -1 ? rows[rows.length - 1] : rows[Math.max(at - 1, 0)]);
 
   // Escape empties the cursor, so a person reading the board has no card named
-  // at them. A cursor already empty has nothing to clear, and the press stays
-  // the header menu's and the decision prompt's. See ADR-0015.
+  // at them. A cursor already empty has nothing to clear, and the press falls
+  // through to whatever else reads Escape. See ADR-0015.
   if (key === "Escape") return on === null ? null : { act: "on", id: null };
 
   // Every key left acts on the card the cursor names.

@@ -78,13 +78,14 @@ export function pressed(
   //
   // An empty cursor sits outside the list, so a move key brings it back in
   // from the end the key comes from: `j` to the first row, `k` to the last.
-  if (key === KEY_MAP.next.key) return moved(at === -1 ? rows[0] : rows[Math.min(at + 1, rows.length - 1)]);
+  if (key === KEY_MAP.next.key)
+    return pick(at === -1 ? rows[0] : rows[Math.min(at + 1, rows.length - 1)]);
   if (key === KEY_MAP.prev.key)
-    return moved(at === -1 ? rows[rows.length - 1] : rows[Math.max(at - 1, 0)]);
+    return pick(at === -1 ? rows[rows.length - 1] : rows[Math.max(at - 1, 0)]);
 
   // Escape empties the cursor, so a person reading the page has no card named
-  // at them. A cursor already empty has nothing to clear, and the press stays
-  // the header menu's and the decision prompt's. See ADR-0015.
+  // at them. A cursor already empty has nothing to clear, and the press falls
+  // through to whatever else reads Escape. See ADR-0015.
   if (key === KEY_MAP.clear.key) return on === null ? null : { kind: "cursor", id: null };
 
   if (!task) return null;
@@ -128,7 +129,7 @@ export function pressed(
 }
 
 /** The cursor on one row, or nothing where the list draws none. */
-function moved(task: LiveTask | undefined): Press | null {
+function pick(task: LiveTask | undefined): Press | null {
   return task ? { kind: "cursor", id: task.id } : null;
 }
 

@@ -3,7 +3,7 @@ import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import type { Status } from "../app/board";
-import { TakeMore } from "../app/focus-list";
+import { FocusList, TakeMore } from "../app/focus-list";
 import { KEY_MAP, type ActionName } from "../app/key-map";
 import type { LiveTask } from "../app/unified";
 import { ALL_ACTS, READ_ACTS, pressed, type Press } from "../app/unified-keys";
@@ -190,6 +190,17 @@ function markup(element: React.ReactNode): string {
 function shortcuts(html: string): string[] {
   return [...html.matchAll(/aria-keyshortcuts="([^"]*)"/g)].map((match) => match[1]);
 }
+
+describe("the cursor a page draws first", () => {
+  // The cursor starts empty, so a person who has neither clicked nor pressed
+  // a key has no card named at them. `aria-current` is what names one, and
+  // the mark a person sees is drawn beside it. See ADR-0015.
+  it("names no card until a person picks one", () => {
+    const html = markup(<FocusList tasks={ROWS} />);
+
+    expect(html).not.toContain("aria-current");
+  });
+});
 
 describe("the hint a control carries", () => {
   it("names the key of every act a row draws a button for", () => {

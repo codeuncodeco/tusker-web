@@ -9,11 +9,14 @@
 
 /**
  * True for a press the page can act on. A press in a box is the person's, and
- * so is one inside an open dialog: the decision prompt covers the list, so `x`
- * on its Skip button must not finish the task behind it.
+ * so is every press while a prompt is raised: the decision prompt covers the
+ * list, so `x` must not finish the task behind it, and `Escape` must skip the
+ * prompt and nothing else. The caret can sit outside the prompt, so the guard
+ * asks whether one is drawn and not where the press landed.
  */
 export function isPagePress(event: KeyboardEvent): boolean {
   const target = event.target as HTMLElement | null;
-  if (target?.closest('input, textarea, select, [role="dialog"]')) return false;
+  if (target?.closest("input, textarea, select")) return false;
+  if (document.querySelector('[role="dialog"]')) return false;
   return !event.metaKey && !event.ctrlKey && !event.altKey;
 }

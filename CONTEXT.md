@@ -521,7 +521,7 @@ empties it, `Enter` opens the task, `x` finishes it, `n` goes to the quick-add
 box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the pages that draw a plan
 control. `J` and `K` step a stored order: the org's on the board, the day's in
 plan mode. A step names the card and the way, never a place, because the page's
-copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Enter`, `x`, `n` and `d`,
+copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`,
 which drops a task from the batch. Every key posts what a control on the page
 posts, so no act is reachable by key alone. See ADR-0016.
 _Avoid_: Shortcuts, hotkeys, bindings
