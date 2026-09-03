@@ -12,18 +12,15 @@
  * column", and ADR-0015, "A drop names a column, not a place".
  */
 
-import { Link, useFetcher } from "react-router";
+import { Link } from "react-router";
 
 import { Dot } from "./dot";
 import { Initials } from "./initials";
-import { keyHint } from "./key-hint";
-import { isPlannable, type LiveTask } from "./unified";
-import { PLAN_VERBS, planFields } from "./unified-row";
+import { type LiveTask } from "./unified";
 
 export function UnifiedCard({
   task,
   rank,
-  planned,
   selected,
   domId,
   place,
@@ -31,8 +28,6 @@ export function UnifiedCard({
   task: LiveTask;
   /** The place the board draws the card in, counting from one. */
   rank: number;
-  /** True when the day's plan holds the task, which turns Plan into Unplan. */
-  planned: boolean;
   selected: boolean;
   domId: string;
   /**
@@ -42,10 +37,6 @@ export function UnifiedCard({
    */
   place: () => void;
 }) {
-  const plan = useFetcher();
-  const fields = planFields(task, planned);
-  const pick = keyHint(planned ? "unplan" : "plan");
-
   return (
     <li
       id={domId}
@@ -92,26 +83,6 @@ export function UnifiedCard({
           ))}
         </span>
         {task.due_date ? <span className="shrink-0 tabular-nums">{task.due_date}</span> : null}
-      </span>
-
-      <span className="flex items-baseline gap-2">
-        {/* Backlog is unplannable and a finished task is nothing to plan, so
-            those columns carry no button and `p` does nothing on them. */}
-        {isPlannable(task) ? (
-          <plan.Form method="post">
-            <input type="hidden" name="id" value={task.id} />
-            <input type="hidden" name="slug" value={task.org.slug} />
-            <button
-              name="intent"
-              value={fields.intent}
-              {...pick.keys}
-              className="rounded border border-border px-1.5 py-0.5 text-xs"
-            >
-              {planned ? PLAN_VERBS.drop : PLAN_VERBS.pick}
-              {pick.hint}
-            </button>
-          </plan.Form>
-        ) : null}
       </span>
     </li>
   );

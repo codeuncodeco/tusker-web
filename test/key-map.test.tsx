@@ -6,7 +6,6 @@ import type { Status } from "../app/board";
 import { TakeMore } from "../app/focus-list";
 import { KEY_MAP, type ActionName } from "../app/key-map";
 import type { LiveTask } from "../app/unified";
-import { UnifiedCard } from "../app/unified-card";
 import { ALL_ACTS, READ_ACTS, pressed, type Press } from "../app/unified-keys";
 import { UnifiedRow } from "../app/unified-row";
 
@@ -200,23 +199,6 @@ describe("the hint a control carries", () => {
     );
 
     expect(shortcuts(html)).toEqual(["x"]);
-  });
-
-  it("names the plan key on a card, and nothing on the select", () => {
-    const html = markup(
-      <ul>
-        <UnifiedCard
-          task={ROWS[0]}
-          rank={1}
-          planned={false}
-          selected={false}
-          domId="card-a"
-          place={() => {}}
-        />
-      </ul>,
-    );
-
-    expect(shortcuts(html)).toEqual(["p"]);
   });
 
   it("names the key on the offer that ends a batch", () => {

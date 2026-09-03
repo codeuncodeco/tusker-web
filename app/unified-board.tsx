@@ -164,7 +164,6 @@ export function UnifiedBoard({
                 key={task.id}
                 task={task}
                 rank={at + 1}
-                planned={planned.has(task.id)}
                 selected={cursor === task.id}
                 domId={`card-${task.id}`}
                 place={() => setOn(task.id)}
