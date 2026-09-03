@@ -529,7 +529,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
           >
             <div className="flex items-baseline gap-3">
-              <h2 className="uppercase tracking-wide text-muted">
+              <h2 className="font-mono uppercase tracking-wide text-muted">
                 {column.label} <span className="text-dim">{column.tasks.length}</span>
               </h2>
               {/* The sweep acts on the whole column, so it is column chrome.

@@ -126,7 +126,7 @@ export function UnifiedBoard({
           }`}
         >
           <div className="flex items-baseline gap-3">
-            <h2 className="uppercase tracking-wide text-muted">
+            <h2 className="font-mono uppercase tracking-wide text-muted">
               {column.label} <span className="text-dim">{column.tasks.length}</span>
             </h2>
             {/* The sweep acts on the whole column, so it is column chrome, and

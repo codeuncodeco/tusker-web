@@ -66,7 +66,7 @@ export function UnifiedList({
     <div ref={list} className="flex flex-col gap-6">
       {groups.map((group) => (
         <section key={group.key} className="flex flex-col gap-2">
-          <h2 className="uppercase tracking-wide text-muted">
+          <h2 className="font-mono uppercase tracking-wide text-muted">
             {label(group)} <span className="text-dim">{group.tasks.length}</span>
           </h2>
 
