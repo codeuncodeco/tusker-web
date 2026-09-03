@@ -167,8 +167,9 @@ function Menu({
  * The header, on every signed-in page.
  *
  * `orgs` is every org the person belongs to, personal first, and `org` is the
- * current one. A person who belongs to no org at all gets the org half as the
- * one link that can help them: New org.
+ * current one. The menu lists orgs and nothing else; New org lives on the
+ * account page. A person who belongs to no org gets no menu, because an empty
+ * menu says nothing.
  */
 export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
   const { pathname } = useLocation();
@@ -185,23 +186,20 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           Tusker
         </Link>
 
-        <Menu label={org ? org.name : "Orgs"}>
-          {orgs.map((one) => (
-            <li key={one.slug} className="flex items-baseline gap-2">
-              <Link to={pageOf(one.slug, "board")} className="truncate hover:underline">
-                {one.name}
-              </Link>
-              {one.kind === "personal" ? (
-                <span className="shrink-0 text-xs uppercase tracking-wide text-muted">personal</span>
-              ) : null}
-            </li>
-          ))}
-          <li className="border-t border-border pt-1">
-            <Link to="/orgs/new" className="hover:underline">
-              New org
-            </Link>
-          </li>
-        </Menu>
+        {orgs.length > 0 ? (
+          <Menu label={org ? org.name : "Orgs"}>
+            {orgs.map((one) => (
+              <li key={one.slug} className="flex items-baseline gap-2">
+                <Link to={pageOf(one.slug, "board")} className="truncate hover:underline">
+                  {one.name}
+                </Link>
+                {one.kind === "personal" ? (
+                  <span className="shrink-0 text-xs uppercase tracking-wide text-muted">personal</span>
+                ) : null}
+              </li>
+            ))}
+          </Menu>
+        ) : null}
 
         <span className="ml-auto">
           <Here to="/account" here={pathname === "/account"}>
