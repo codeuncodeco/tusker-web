@@ -180,8 +180,8 @@ _Avoid_: Decision history, changelog
 
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled
-status, and it leaves the board, the unified board and every plan. Restoring it
-puts it back in the column it held. `tasks.archived_at` holds when it was
+status, and it leaves the org board, the unified board and every plan. Restoring
+it puts it back in the column it held. `tasks.archived_at` holds when it was
 archived, and the archive screen sorts by it.
 _Avoid_: Closed, hidden
 
@@ -213,7 +213,7 @@ _Avoid_: Snackbar, notification, flash message
 One org's archived tasks as a flat list, newest archived first, at
 `/o/:slug/archive`. It is per org: there is no cross-org archive, so a **Sweep**
 of the unified board files into several, and its **Toast** links to each one. It
-carries the board's Today chip, and it holds Cancelled tasks whatever the
+carries the org board's Today chip, and it holds Cancelled tasks whatever that
 board's Cancelled toggle says. Archived work is a history a person scans, not a
 pipeline they rearrange, so it has no columns and no drag.
 _Avoid_: Archive board, history page
@@ -243,7 +243,8 @@ _Avoid_: Completed at, closed date
 **Order**:
 The sequence of tasks in a column. A column has one order, the org's, and any
 member can change it. Tusker has no priority levels. The sequence is the
-priority. One person's own order is the plan, not a second order of the board.
+priority. One person's own order is the plan, not a second order of the org
+board.
 See ADR-0006.
 _Avoid_: Priority
 
@@ -332,10 +333,20 @@ _Avoid_: Tasks endpoint, public API
 ### Views
 
 **Board**:
-The To do, In progress and Done columns for one org, with Backlog and Cancelled
-shown by rule. The order inside a column is the org's and it is stored, so this
-is the one board where a card is dragged into a place, and the one that binds
-`J` and `K`. See ADR-0016.
+A page that draws tasks as one column per status. Tusker has two, the **Org
+board** and the **Unified board**, and they are one page over two sets of rows:
+the same five columns, the same cards, the same keys. The bare word is right
+where one board is in view, or where the rule holds for both. Where the two
+stand together, name them.
+_Avoid_: Kanban, board view
+
+**Org board**:
+The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
+Backlog and Cancelled shown by rule. The order inside a column is the org's and
+it is stored, so this is the one board where a card is dragged into a place, and
+the one that binds `J` and `K`. It is the board that carries the assignee filter
+and the search, because both read one org's rows. See ADR-0016.
+_Avoid_: Team board, project board, the org's board
 
 **Unified board**:
 The same five columns across every org one person belongs to, at `/me`. A
@@ -529,16 +540,17 @@ board.
 _Avoid_: My tasks, unified view
 
 **Card keys**:
-What a press does to the card the cursor names, on the board, the unified
+What a press does to the card the cursor names, on the org board, the unified
 board, plan mode and the week page. `j` and `k` move the cursor, `Escape`
 empties it, `Enter` opens the task, `x` finishes it, `n` goes to the quick-add
-box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the pages that draw a plan
-control. `J` and `K` step a stored order, and `T` promotes a card to the top of
-one: the org's order on the board, the day's in plan mode, and the week's on the
-week page. A move names the card and the way, never a place, because the page's
-copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`,
-which drops a task from the batch. Every key posts what a control on the page
-posts, so no act is reachable by key alone. See ADR-0016.
+box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the
+pages that draw a plan control. `J` and `K` step a stored order, and `T`
+promotes a card to the top of one: the org's order on the org board, the day's
+in plan mode, and the week's on the week page. A move names the card and the
+way, never a place, because the page's copy of the order is one load old. Focus
+mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`, which
+drops a task from the batch. Every key posts what a control on the page posts,
+so no act is reachable by key alone. See ADR-0016.
 _Avoid_: Shortcuts, hotkeys, bindings
 
 **Cursor**:
