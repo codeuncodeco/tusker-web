@@ -79,7 +79,7 @@ export async function addToWeek(
 ): Promise<void> {
   if (taskIds.length === 0) return;
 
-  const set = await setPlaces(db, personId, week);
+  const set = await placesInSet(db, personId, week);
   const held = new Set(set.map((one) => one.taskId));
   const fresh = taskIds.filter((id) => !held.has(id));
   const places =
@@ -150,7 +150,7 @@ export async function moveInWeek(
   taskId: string,
   step: Step,
 ): Promise<void> {
-  const moved = movedInSet(await setPlaces(db, personId, week), taskId, step);
+  const moved = movedInSet(await placesInSet(db, personId, week), taskId, step);
   if (moved.length === 0) return;
 
   await db.batch([
@@ -174,7 +174,7 @@ export async function moveInWeek(
  * one the page draws under the live ones or not at all, so a step reads past
  * it rather than swapping a row a person cannot see move.
  */
-async function setPlaces(db: D1Database, personId: string, week: string): Promise<Member[]> {
+async function placesInSet(db: D1Database, personId: string, week: string): Promise<Member[]> {
   const { results } = await db
     .prepare(
       `SELECT week_plan_tasks.task_id, week_plan_tasks.position,

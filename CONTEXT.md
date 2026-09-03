@@ -415,9 +415,8 @@ day. Plan mode, focus and the unified board share the live set and the sort,
 and lay them out differently: a plan drawn from a Done column is nonsense. The
 week set comes first, in week order, and the rest of the live set under a
 heading below it. Plan mode reads that order and never writes it: the one order
-it owns is the plan's. Every pick and every step writes the plan row, so nothing
-waits on a tab and
-there is no Commit button. All of that is the day the person is in, and the days
+it owns is the plan's. Every pick and every step writes the plan row, so
+nothing waits on a tab and there is no Commit button. All of that is the day the person is in, and the days
 ahead of it. Reading a finished day back is not plan mode's act, so a **Day
 walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
@@ -525,8 +524,9 @@ What a press does to the card the cursor names, on the board, the unified
 board, plan mode and the week page. `j` and `k` move the cursor, `Escape`
 empties it, `Enter` opens the task, `x` finishes it, `n` goes to the quick-add
 box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the pages that draw a plan
-control. `J` and `K` step a stored order: the org's on the board, the day's in
-plan mode. A step names the card and the way, never a place, because the page's
+control. `J` and `K` step a stored order, and `T` promotes a card to the top of
+one: the org's order on the board, the day's in plan mode, and the week's on the
+week page. A move names the card and the way, never a place, because the page's
 copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`,
 which drops a task from the batch. Every key posts what a control on the page
 posts, so no act is reachable by key alone. See ADR-0016.

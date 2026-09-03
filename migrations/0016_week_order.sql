@@ -12,9 +12,9 @@
 -- renumbered.
 --
 -- A set that exists reshuffles once. The backfill is `rowid`, which is the
--- order the rows were written and near enough to nothing. Copying the
--- percentile window in would freeze one board's shape into a file that can
--- never change again.
+-- order the rows were written. That order means nothing, and it is the right
+-- kind of nothing: copying the percentile window in would freeze one day's
+-- board shape into a file that can never change again.
 ALTER TABLE week_plan_tasks ADD COLUMN position REAL NOT NULL DEFAULT 0;
 
 UPDATE week_plan_tasks SET position = rowid;

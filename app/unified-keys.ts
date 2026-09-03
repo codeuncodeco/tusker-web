@@ -80,6 +80,11 @@ export function pressed(
   planned: Set<string>,
   acts: ListActs,
   on: string | null,
+  /**
+   * The rows the page's order ranks, where that is narrower than the picked
+   * set. A week page ranks its live members and not the finished ones.
+   */
+  ranked: Set<string> = planned,
 ): Press | null {
   const at = rows.findIndex((one) => one.id === on);
   const task = rows[at];
@@ -114,11 +119,15 @@ export function pressed(
   }
 
   // A move is a move of the page's own order, so a task that order does not
-  // hold, and a page with no order of the person's own, have nothing to move.
+  // rank, and a page with no order of the person's own, have nothing to move.
   // The plan is one such order and a week set is the other. See ADR-0021.
+  //
+  // `ranked` is what the page draws the move buttons from, so a key reaches no
+  // act a control withholds: a member finished this week is drawn out of the
+  // order, and it answers none of the three.
   const moves = MOVE_KEYS.find(([, row]) => row.key === key);
   if (moves) {
-    if (!acts.step || !planned.has(task.id)) return null;
+    if (!acts.step || !ranked.has(task.id)) return null;
     return { kind: "act", fields: { intent: moves[0], id: task.id } };
   }
 
@@ -156,6 +165,8 @@ export function useTaskKeys(
   on: string | null,
   setOn: (id: string | null) => void,
   act: (fields: Record<string, string>) => void,
+  /** The rows the page's order ranks. See `pressed`. */
+  ranked: Set<string> = planned,
 ) {
   const navigate = useNavigate();
 
@@ -163,7 +174,7 @@ export function useTaskKeys(
     function onKey(event: KeyboardEvent) {
       if (!isPagePress(event)) return;
 
-      const press = pressed(event.key, rows, planned, acts, on);
+      const press = pressed(event.key, rows, planned, acts, on, ranked);
       if (!press) return;
 
       if (press.kind === "cursor") setOn(press.id);
@@ -176,5 +187,5 @@ export function useTaskKeys(
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, planned, acts, on, setOn, act, navigate]);
+  }, [rows, planned, acts, on, setOn, act, navigate, ranked]);
 }

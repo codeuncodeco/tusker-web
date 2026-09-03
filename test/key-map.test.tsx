@@ -153,6 +153,29 @@ describe("the empty cursor", () => {
   });
 });
 
+describe("the rows an order ranks", () => {
+  // Every key posts what a control posts, so a row the page draws no move
+  // button on answers none of the three keys. A week page draws none on a
+  // member finished this week. See ADR-0021.
+  it("answers no move on a row the order leaves out", () => {
+    for (const key of [KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key])
+      expect(pressed(key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["a"]))).toBe(null);
+  });
+
+  it("answers a move on a row it ranks", () => {
+    expect(pressed(KEY_MAP.top.key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["b"])))
+      .toEqual({ kind: "act", fields: { intent: "top", id: "b" } });
+  });
+
+  // Every other page ranks whatever it picked, so the picked set is the answer.
+  it("falls back to the picked set, which is every other page", () => {
+    expect(pressed(KEY_MAP.up.key, ROWS, new Set(["b"]), ALL_ACTS, "b")).toEqual({
+      kind: "act",
+      fields: { intent: "up", id: "b" },
+    });
+  });
+});
+
 describe("the acts a page withholds", () => {
   const none = { plan: false, step: false, move: false };
 

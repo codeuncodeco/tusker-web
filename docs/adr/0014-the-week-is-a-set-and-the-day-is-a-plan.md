@@ -2,10 +2,11 @@
 
 Amended by [ADR-0021](./0021-the-week-set-takes-an-order.md). The week set now
 carries an order of its own, and every page that draws it draws it in that
-order. Everything below stands: the set is still membership plus no day, the
-leftovers rule is unchanged, and the two tables and the week key are as they
-are described here. Only "The week says what, the day says when" is overtaken,
-and that section records why.
+order. The frame below stands: the set is still membership plus no day, the
+leftovers rule is unchanged, and the two tables and the week key are still the
+two tables and the week key. "The week says what, the day says when" is
+overtaken, and that section records why; the passages the order touches say so
+where they stand.
 
 A plan is one day long (ADR-0008). Everything a person has not placed on a day
 sits in the live set, which is To do and In progress across every org, so the
@@ -96,6 +97,6 @@ under the header that already carries Week, so a chip that narrows nothing
 teaches nothing there.
 
 Focus reads the same distinction the two tables draw. With no plan it draws
-from the week set, in week order, and the live set steps in only where the person started no
-week at all. A week started and left empty draws an empty batch, and the page
+from the week set, in week order. The live set steps in only where the person
+started no week at all. A week started and left empty draws an empty batch, and the page
 says so, because an empty set is a statement and not a gap.

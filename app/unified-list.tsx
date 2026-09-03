@@ -49,6 +49,9 @@ export function UnifiedList({
 
   // One flat order, so `j` and `k` walk the page the way a person reads it.
   const rows = groups.flatMap((group) => group.tasks);
+  // The rows the page's own order ranks. It draws the move buttons and it
+  // binds `J`, `K` and `T`, so a key reaches no act a control withholds.
+  const ranked = rankedIn(groups.find((group) => group.key === ordered));
   // The cursor starts empty, and stays on its task while the list moves. A
   // task the list stops drawing takes the cursor off with it. See ADR-0015.
   const cursor = rows.some((one) => one.id === on) ? on : null;
@@ -57,8 +60,14 @@ export function UnifiedList({
   // One of three constants, and never a fresh object: the hook re-binds the
   // window on every change of what it is given.
   const acts = !picks ? READ_ACTS : ordered !== null ? ALL_ACTS : NO_STEP_ACTS;
-  useTaskKeys(rows, planned, acts, cursor, setOn, (fields) =>
-    post.submit(fields, { method: "post" }),
+  useTaskKeys(
+    rows,
+    planned,
+    acts,
+    cursor,
+    setOn,
+    (fields) => post.submit(fields, { method: "post" }),
+    new Set(ranked.map((one) => one.id)),
   );
 
   // The cursor follows the keys down a list longer than the window.
@@ -85,7 +94,7 @@ export function UnifiedList({
                 selected={cursor === task.id}
                 domId={`row-${task.id}`}
                 place={() => setOn(task.id)}
-                moves={group.key === ordered ? movesFor(group, task) : undefined}
+                moves={movesFor(ranked, task)}
               />
             ))}
           </ul>
@@ -96,16 +105,21 @@ export function UnifiedList({
 }
 
 /**
- * Which way one row of the ordered group can move, or nothing where it cannot
- * move at all.
+ * The rows one group ranks, in the order it ranks them, or none where the page
+ * owns no order at all.
  *
- * A week page sinks its finished members under the live ones and never
- * re-ranks them, so there they carry no buttons and the last live row has
- * nothing below it. A plan keeps a task finished today where the day put it,
- * so every row of a plan moves. See ADR-0021.
+ * A group that sinks draws its finished rows under the live ones and never
+ * re-ranks them, so they are out of the order and the last live row is the
+ * last row that moves. A plan keeps a task finished today where the day put
+ * it, so there every row is ranked. See ADR-0021.
  */
-function movesFor(group: Group, task: LiveTask): { up: boolean; down: boolean } | undefined {
-  const ranked = group.key === "week" ? group.tasks.filter((one) => !one.finished) : group.tasks;
+function rankedIn(group: Group | undefined): LiveTask[] {
+  if (!group) return [];
+  return group.sinks ? group.tasks.filter((one) => !one.finished) : group.tasks;
+}
+
+/** Which way one row can move, or nothing for a row no order ranks. */
+function movesFor(ranked: LiveTask[], task: LiveTask): { up: boolean; down: boolean } | undefined {
   const at = ranked.indexOf(task);
   if (at === -1) return undefined;
   return { up: at > 0, down: at < ranked.length - 1 };

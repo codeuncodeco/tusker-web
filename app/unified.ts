@@ -62,7 +62,17 @@ export const GROUP_LABEL: Record<GroupKey, string> = {
   todo: "To do",
 };
 
-export type Group = { key: GroupKey; label: string; tasks: LiveTask[] };
+export type Group = {
+  key: GroupKey;
+  label: string;
+  tasks: LiveTask[];
+  /**
+   * True where the finished tasks are drawn under the live ones, and so are
+   * out of the order the person ranks. The list reads this to know which rows
+   * still move. See ADR-0021.
+   */
+  sinks: boolean;
+};
 
 /**
  * The order inside a group: percentile, due date, `created_at`, id. The tail
@@ -136,7 +146,7 @@ export function planOnly(tasks: LiveTask[], plan: string[]): Group[] {
 }
 
 /** How a page names one of its head groups. */
-type Named = {
+type HeadGroup = {
   key: GroupKey;
   /** The ids the page picked, in the order it means them to be read. */
   ids: string[];
@@ -152,7 +162,7 @@ type Named = {
  * every cross-org list has, because the only orders a person owns are a plan's
  * and a week set's.
  */
-function drawn(tasks: LiveTask[], heads: Named[]): Group[] {
+function drawn(tasks: LiveTask[], heads: HeadGroup[]): Group[] {
   const byId = new Map(tasks.map((one) => [one.id, one]));
   const inHead = new Set(heads.flatMap((one) => one.ids));
   const rest = tasks.filter((one) => !inHead.has(one.id)).sort(inOrder);
@@ -163,6 +173,7 @@ function drawn(tasks: LiveTask[], heads: Named[]): Group[] {
       key,
       label: GROUP_LABEL[key],
       tasks: rest.filter((one) => one.status === key),
+      sinks: false,
     })),
   ];
 }
@@ -178,12 +189,12 @@ function drawn(tasks: LiveTask[], heads: Named[]): Group[] {
  * page draws and unfinishing a task gives it its place back. A plan does not
  * sink: a task finished today stays where the day put it. See ADR-0021.
  */
-function head(byId: Map<string, LiveTask>, { key, ids, sinks }: Named): Group {
+function head(byId: Map<string, LiveTask>, { key, ids, sinks = false }: HeadGroup): Group {
   const rows = ids.map((id) => byId.get(id)).filter((one) => one !== undefined);
   const tasks = sinks
     ? [...rows.filter((one) => !one.finished), ...rows.filter((one) => one.finished)]
     : rows;
-  return { key, label: GROUP_LABEL[key], tasks };
+  return { key, label: GROUP_LABEL[key], tasks, sinks };
 }
 
 /** A dated task above an undated one, and the earlier date first. */
