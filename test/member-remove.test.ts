@@ -90,12 +90,25 @@ describe("removing a member", () => {
     expect(await membershipIds()).toContain(bo.person.id);
   });
 
+  it("counts a Backlog task, because that assignment drops just as quietly", async () => {
+    const { ada, bo } = await team();
+    await taskFor(ada.cookie, "Waiting", [bo.person.id]);
+    await db.prepare("UPDATE tasks SET status = 'backlog' WHERE title = 'Waiting'").run();
+
+    const answer = await onMembers(ada.cookie, "codeuncode", {
+      intent: "remove",
+      member: bo.person.id,
+    });
+
+    expect(answer).toMatchObject({ confirm: { tasks: 1 } });
+  });
+
   it("counts no task that is finished or archived", async () => {
     const { ada, bo } = await team();
     await taskFor(ada.cookie, "Held", [bo.person.id]);
-    await db
-      .prepare("UPDATE tasks SET status = 'done' WHERE title = 'Held'")
-      .run();
+    await taskFor(ada.cookie, "Filed", [bo.person.id]);
+    await db.prepare("UPDATE tasks SET status = 'done' WHERE title = 'Held'").run();
+    await db.prepare("UPDATE tasks SET archived = 1 WHERE title = 'Filed'").run();
 
     const answer = await onMembers(ada.cookie, "codeuncode", {
       intent: "remove",
@@ -252,7 +265,7 @@ describe("changing a role", () => {
       role: "admin",
     });
 
-    expect(answer).toEqual({ error: "A member is an owner or a member." });
+    expect(answer).toEqual({ error: "That is not a role Tusker holds." });
   });
 
   it("keeps a person outside the org out", async () => {

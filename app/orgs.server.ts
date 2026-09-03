@@ -1,3 +1,4 @@
+import { FINISHED_STATUSES } from "./board";
 import { nextColor, type PaletteName } from "./colors";
 import type { OrgApp } from "./refs";
 import type { ReadScope, Scope } from "./scope.server";
@@ -233,7 +234,7 @@ export function isRole(value: unknown): value is Role {
 /** One member of one org, or null for a person the org does not hold. */
 export async function memberOf(
   db: D1Database,
-  orgId: string,
+  scope: Scope,
   personId: string,
 ): Promise<Member | null> {
   return db
@@ -243,35 +244,47 @@ export async function memberOf(
        JOIN "user" u ON u.id = m.user_id
        WHERE m.org_id = ? AND m.user_id = ?`,
     )
-    .bind(orgId, personId)
+    .bind(scope.org.id, personId)
     .first<Member>();
 }
 
 /**
- * How many live tasks of the org one member holds: To do and In progress, not
- * archived.
+ * How many unfinished tasks of the org one member holds: everything but Done,
+ * Cancelled and the archive.
  *
  * The members page asks before it removes anybody, because the assignments go
- * with the membership and nothing on screen says how many that is. The tasks
- * themselves stay: they belong to the org, per ADR-0001.
+ * with the membership and nothing on screen says how many that is. The count
+ * reaches Backlog as well as the live set: an assignment there drops just as
+ * quietly. Finished work is left out, because nobody is waiting on it.
+ *
+ * The tasks themselves stay. They belong to the org, per ADR-0001.
  */
-export async function heldLiveTasks(
+export async function heldUnfinishedTasks(
   db: D1Database,
   scope: Scope,
   personId: string,
 ): Promise<number> {
+  const finished = FINISHED_STATUSES.map(() => "?").join(", ");
   const row = await db
     .prepare(
       `SELECT COUNT(*) AS held
        FROM task_assignees a
        JOIN tasks t ON t.id = a.task_id AND t.org_id = a.org_id
        WHERE a.org_id = ? AND a.user_id = ?
-         AND t.archived = 0 AND t.status IN ('todo', 'in_progress')`,
+         AND t.archived = 0 AND t.status NOT IN (${finished})`,
     )
-    .bind(scope.org.id, personId)
+    .bind(scope.org.id, personId, ...FINISHED_STATUSES)
     .first<{ held: number }>();
   return row?.held ?? 0;
 }
+
+/**
+ * The clause that keeps an org's last owner where they are. Both the removal
+ * and the demotion carry it, so the invariant is written once and cannot drift
+ * between the two. See ADR-0023.
+ */
+const KEEPS_AN_OWNER =
+  "(SELECT COUNT(*) FROM memberships WHERE org_id = ? AND role = 'owner') > 1";
 
 /** What became of an attempt to take a member out or to change their role. */
 export type MemberChange = "changed" | "last-owner" | "no-member";
@@ -292,19 +305,16 @@ export async function removeMember(
   scope: Scope,
   personId: string,
 ): Promise<MemberChange> {
-  if (!(await memberOf(db, scope.org.id, personId))) return "no-member";
-
   const done = await db
     .prepare(
       `DELETE FROM memberships
        WHERE org_id = ? AND user_id = ?
-         AND (role <> 'owner'
-              OR (SELECT COUNT(*) FROM memberships WHERE org_id = ? AND role = 'owner') > 1)`,
+         AND (role <> 'owner' OR ${KEEPS_AN_OWNER})`,
     )
     .bind(scope.org.id, personId, scope.org.id)
     .run();
 
-  return done.meta.changes > 0 ? "changed" : "last-owner";
+  return done.meta.changes > 0 ? "changed" : refusal(db, scope, personId);
 }
 
 /**
@@ -318,20 +328,25 @@ export async function setMemberRole(
   personId: string,
   role: Role,
 ): Promise<MemberChange> {
-  if (!(await memberOf(db, scope.org.id, personId))) return "no-member";
-
   const done = await db
     .prepare(
       `UPDATE memberships SET role = ?
        WHERE org_id = ? AND user_id = ?
-         AND (? = 'owner'
-              OR role <> 'owner'
-              OR (SELECT COUNT(*) FROM memberships WHERE org_id = ? AND role = 'owner') > 1)`,
+         AND (? = 'owner' OR role <> 'owner' OR ${KEEPS_AN_OWNER})`,
     )
     .bind(role, scope.org.id, personId, role, scope.org.id)
     .run();
 
-  return done.meta.changes > 0 ? "changed" : "last-owner";
+  return done.meta.changes > 0 ? "changed" : refusal(db, scope, personId);
+}
+
+/**
+ * Why a guarded write changed nothing: the last owner, or a membership that
+ * went between the read and the write. The guard is the same in both
+ * statements, so the reading of a no-op is too.
+ */
+async function refusal(db: D1Database, scope: Scope, personId: string): Promise<MemberChange> {
+  return (await memberOf(db, scope, personId)) ? "last-owner" : "no-member";
 }
 
 /** What became of an attempt to add somebody to an org. */

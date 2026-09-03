@@ -7,13 +7,14 @@ import { fieldClass } from "../forms";
 import { inviteToOrg } from "../invites.server";
 import { createMailer } from "../mail.server";
 import {
-  heldLiveTasks,
+  heldUnfinishedTasks,
   isRole,
   listMembers,
   memberOf,
   removeMember,
   setMemberRole,
   type Member,
+  type MemberChange,
 } from "../orgs.server";
 import { requireScope, type Scope } from "../scope.server";
 import type { Route } from "./+types/members";
@@ -21,9 +22,27 @@ import type { Route } from "./+types/members";
 /** A personal org holds one person, so it has no member to add or to remove. */
 const PERSONAL_ORG = "A personal org holds one person. Make another org to work with somebody else.";
 
-/** Why an org refuses to lose its last owner, whether by a removal or a demotion. */
-function lastOwner(org: { name: string }): string {
+/**
+ * Why an org refuses to lose its last owner, by a removal or by a demotion.
+ * See ADR-0023.
+ */
+function lastOwnerRefusal(org: { name: string }): string {
   return `${org.name} must keep one owner. Make somebody else an owner first.`;
+}
+
+/** The ask that stands between a Remove button and the write. */
+type Removal = { id: string; name: string; you: boolean; tasks: number };
+
+/** What a member write answers with, for the two that answer the same way. */
+function answer(done: MemberChange, scope: Scope, said: string) {
+  if (done === "last-owner") return { error: lastOwnerRefusal(scope.org) };
+  if (done === "no-member") return { error: noSuchMember(scope) };
+  return { ok: said };
+}
+
+/** What an org says about an id no membership of it answers for. */
+function noSuchMember(scope: Scope): string {
+  return `${scope.org.name} has no such member.`;
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -51,7 +70,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const intent = String(form.get("intent") ?? "invite");
 
   if (intent === "remove") return remove(env, scope, form);
-  if (intent === "role") return role(env, scope, form);
+  if (intent === "role") return changeRole(env, scope, form);
 
   const email = String(form.get("email") ?? "")
     .trim()
@@ -74,58 +93,54 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 /**
  * Takes one person out of the org, in two presses.
  *
- * The first press asks, and names how many live tasks are about to lose a
- * holder: the removal drops the assignments, and no other screen counts them.
+ * The first press asks, and names how many unfinished tasks are about to lose
+ * a holder: the removal drops the assignments, and no other screen counts them.
  * The second press carries `confirmed` and does the work.
  *
  * A person removing themselves lands on the unified board, because the page
  * they are standing on is one they no longer read.
  */
 async function remove(env: Env, scope: Scope, form: FormData) {
-  const member = await memberOf(env.DB, scope.org.id, String(form.get("member") ?? ""));
-  if (!member) return { error: `${scope.org.name} has no such member.` };
+  const member = await memberOf(env.DB, scope, String(form.get("member") ?? ""));
+  if (!member) return { error: noSuchMember(scope) };
 
   const you = member.id === scope.personId;
 
   if (!form.get("confirmed")) {
-    return {
-      confirm: {
-        id: member.id,
-        name: nameOf(member),
-        you,
-        tasks: await heldLiveTasks(env.DB, scope, member.id),
-      },
+    const confirm: Removal = {
+      id: member.id,
+      name: nameOf(member),
+      you,
+      tasks: await heldUnfinishedTasks(env.DB, scope, member.id),
     };
+    return { confirm };
   }
 
   const done = await removeMember(env.DB, scope, member.id);
-  if (done === "last-owner") return { error: lastOwner(scope.org) };
-  if (done === "no-member") return { error: `${scope.org.name} has no such member.` };
-
-  if (you) return redirect("/me");
-  return { ok: `${nameOf(member)} is out of ${scope.org.name}.` };
+  if (done === "changed" && you) return redirect("/me");
+  return answer(done, scope, `${nameOf(member)} is out of ${scope.org.name}.`);
 }
 
 /** Gives one member the other role, unless that would leave the org ownerless. */
-async function role(env: Env, scope: Scope, form: FormData) {
+async function changeRole(env: Env, scope: Scope, form: FormData) {
   const wanted = String(form.get("role") ?? "");
-  if (!isRole(wanted)) return { error: "A member is an owner or a member." };
+  if (!isRole(wanted)) return { error: "That is not a role Tusker holds." };
 
-  const member = await memberOf(env.DB, scope.org.id, String(form.get("member") ?? ""));
-  if (!member) return { error: `${scope.org.name} has no such member.` };
+  const member = await memberOf(env.DB, scope, String(form.get("member") ?? ""));
+  if (!member) return { error: noSuchMember(scope) };
 
   const done = await setMemberRole(env.DB, scope, member.id, wanted);
-  if (done === "last-owner") return { error: lastOwner(scope.org) };
-  if (done === "no-member") return { error: `${scope.org.name} has no such member.` };
-
   const said = wanted === "owner" ? "an owner" : "a member";
-  return { ok: `${nameOf(member)} is ${said} of ${scope.org.name} now.` };
+  return answer(done, scope, `${nameOf(member)} is ${said} of ${scope.org.name} now.`);
 }
 
 export default function Members({ loaderData, actionData }: Route.ComponentProps) {
   const { org, members, you } = loaderData;
   const team = org.kind === "team";
   const confirm = actionData && "confirm" in actionData ? actionData.confirm : null;
+  // One count for the whole list, because the answer is the org's and not the
+  // row's: it decides which single row draws no control.
+  const owners = members.filter((one) => one.role === "owner").length;
 
   return (
     <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
@@ -137,7 +152,14 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
             <span>{nameOf(member)}</span>
             <span className="text-muted">{member.email}</span>
             <span className="text-xs uppercase tracking-wide text-muted">{member.role}</span>
-            {team ? <MemberControls member={member} members={members} you={you} /> : null}
+            {team ? (
+              <MemberControls
+                member={member}
+                last={member.role === "owner" && owners === 1}
+                you={you}
+                org={org}
+              />
+            ) : null}
           </li>
         ))}
       </ul>
@@ -159,21 +181,22 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
 /**
  * The two controls one member's row carries: the other role, and the way out.
  *
- * The last owner gets neither. An org always keeps one owner, so drawing a
- * control that only ever answers with the same refusal teaches nothing.
+ * The last owner gets neither, and reads the refusal in their row instead. An
+ * org always keeps one owner, so a control whose one answer is that refusal
+ * teaches less than the sentence itself. See ADR-0023.
  */
 function MemberControls({
   member,
-  members,
+  last,
   you,
+  org,
 }: {
   member: Member;
-  members: Member[];
+  last: boolean;
   you: string;
+  org: { name: string };
 }) {
-  const owners = members.filter((one) => one.role === "owner").length;
-  const last = member.role === "owner" && owners === 1;
-  if (last) return <span className="text-muted">The last owner</span>;
+  if (last) return <span className="text-muted">{lastOwnerRefusal(org)}</span>;
 
   const other = member.role === "owner" ? "member" : "owner";
 
@@ -195,27 +218,21 @@ function MemberControls({
 }
 
 /**
- * The ask that stands between the Remove button and the write.
+ * The box the first press draws.
  *
- * It says how many live tasks lose a holder, because that is the part of the
- * removal nothing else on screen shows. The tasks themselves stay with the
+ * It says how many unfinished tasks lose a holder, because that is the part of
+ * the removal nothing else on screen shows. The tasks themselves stay with the
  * org, per ADR-0001, and the box says so.
  */
-function ConfirmRemoval({
-  confirm,
-  org,
-}: {
-  confirm: { id: string; name: string; you: boolean; tasks: number };
-  org: { name: string };
-}) {
+function ConfirmRemoval({ confirm, org }: { confirm: Removal; org: { name: string } }) {
   const holder = confirm.you ? "You hold" : `${confirm.name} holds`;
 
   return (
     <div role="alert" className="flex flex-col gap-3 rounded border border-border p-3">
       <p>
         {confirm.tasks === 0
-          ? `${holder} no live task of ${org.name}.`
-          : `${holder} ${confirm.tasks} live task${confirm.tasks === 1 ? "" : "s"} of ${org.name}. Those tasks stay, and they lose their holder.`}
+          ? `${holder} no unfinished task of ${org.name}.`
+          : `${holder} ${confirm.tasks} unfinished task${confirm.tasks === 1 ? "" : "s"} of ${org.name}. Those tasks stay, and they lose their holder.`}
       </p>
       <Form method="post">
         <input type="hidden" name="intent" value="remove" />

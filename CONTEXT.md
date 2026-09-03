@@ -38,7 +38,7 @@ A person with access to an org. Membership is the only permission check, so a
 person taken out of an org stops reading its tasks at once. Their tasks stay,
 because the org owns them, and their assignments go with the membership. An org
 always keeps one owner: the last owner is neither removed nor demoted. Leaving
-is the same act on oneself.
+is the same act on oneself. See ADR-0023.
 _Avoid_: Seat, collaborator
 
 **Account**:
