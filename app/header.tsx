@@ -13,6 +13,7 @@
  * is from the location, so no route has to say.
  */
 
+import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 
 import type { OrgHeld } from "./current-org";
@@ -97,6 +98,10 @@ function Here({ to, here, children }: { to: string; here: boolean; children: Rea
  *
  * The `▾` stays whatever the summary looks like: a dropdown with no affordance
  * is a trap.
+ *
+ * Script only closes it. A click outside and Esc close the menu, which every
+ * other menu does. With no script the menu still opens, and a second click on
+ * the summary still closes it.
  */
 function Menu({
   label,
@@ -108,12 +113,50 @@ function Menu({
   summaryClass?: string;
   children: React.ReactNode;
 }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const close = () => {
+      if (menu.current) menu.current.open = false;
+    };
+    // `pointerdown`, not `click`: the menu has to go before the thing under
+    // the pointer reacts.
+    const onPointerDown = (event: PointerEvent) => {
+      const it = menu.current;
+      if (it?.open && event.target instanceof Node && !it.contains(event.target)) close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !menu.current?.open) return;
+      close();
+      // The summary takes the focus back, or the focus falls to the body and
+      // the keyboard loses its place.
+      menu.current.querySelector("summary")?.focus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
   return (
-    <details className="relative">
-      <summary className={`cursor-pointer list-none marker:content-none hover:underline ${summaryClass}`}>
-        {label} <span aria-hidden="true">▾</span>
+    <details ref={menu} className="relative">
+      <summary
+        className={`flex cursor-pointer list-none items-baseline gap-1 whitespace-nowrap marker:content-none hover:underline ${summaryClass}`}
+      >
+        <span className="max-w-48 truncate">{label}</span>
+        <span aria-hidden="true">▾</span>
       </summary>
-      <ul className="absolute right-0 z-10 mt-1 flex min-w-40 flex-col gap-1 rounded border border-border bg-surface p-2 shadow-lg">
+      {/* The panel grows to its widest item (`w-max`) and stops at `max-w-72`.
+          A name longer than that clips; it does not wrap. */}
+      <ul
+        // A link inside keeps the page, so the menu has to close itself.
+        onClick={() => {
+          if (menu.current) menu.current.open = false;
+        }}
+        className="absolute right-0 z-10 mt-1 flex w-max min-w-40 max-w-72 flex-col gap-1 whitespace-nowrap rounded border border-border bg-surface p-2 shadow-lg"
+      >
         {children}
       </ul>
     </details>
@@ -144,12 +187,12 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
 
         <Menu label={org ? org.name : "Orgs"}>
           {orgs.map((one) => (
-            <li key={one.slug}>
-              <Link to={pageOf(one.slug, "board")} className="hover:underline">
+            <li key={one.slug} className="flex items-baseline gap-2">
+              <Link to={pageOf(one.slug, "board")} className="truncate hover:underline">
                 {one.name}
               </Link>
               {one.kind === "personal" ? (
-                <span className="ml-2 text-xs uppercase tracking-wide text-muted">personal</span>
+                <span className="shrink-0 text-xs uppercase tracking-wide text-muted">personal</span>
               ) : null}
             </li>
           ))}
