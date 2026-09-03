@@ -47,8 +47,8 @@ export type ListActs = {
 export const ALL_ACTS: ListActs = { plan: true, step: true, move: true };
 
 /**
- * Every act but the step, for a list whose order is derived: the board, and
- * plan mode's own To do and In progress groups. See ADR-0006.
+ * Every act but the step, for a list whose order is derived: the unified
+ * board, and plan mode's own To do and In progress groups. See ADR-0006.
  */
 export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
 
