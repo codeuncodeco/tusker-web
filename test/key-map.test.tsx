@@ -13,7 +13,7 @@ import { UnifiedRow } from "../app/unified-row";
 function live(id: string, some: { status?: Status; finished?: boolean } = {}): LiveTask {
   return {
     id,
-    org: { slug: "acme", name: "Acme" },
+    org: { slug: "acme", name: "Acme", color: "blue" },
     title: id,
     status: some.status ?? "todo",
     due_date: null,

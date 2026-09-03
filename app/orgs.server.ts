@@ -1,3 +1,4 @@
+import { nextColor, type PaletteName } from "./colors";
 import type { OrgApp } from "./refs";
 import type { ReadScope, Scope } from "./scope.server";
 
@@ -7,13 +8,26 @@ export type Org = {
   name: string;
   kind: "personal" | "team";
   created_at: string;
+  /**
+   * The colour this org draws wherever a page names it beside another org. It
+   * is a palette name or an exact colour, as an option colour is. Null means
+   * nobody chose, and such an org draws grey. See ADR-0020.
+   */
+  color: string | null;
 };
+
+/**
+ * Every column an `Org` holds, aliased `o`, so one read cannot drift from the
+ * next. Every query that answers with an `Org` selects this and nothing else,
+ * here and in `org-keys.server.ts`.
+ */
+export const ORG_COLUMNS = "o.id, o.slug, o.name, o.kind, o.created_at, o.color";
 
 /** The orgs one person is a member of, personal org first, then newest first. */
 export async function listOrgsForPerson(db: D1Database, personId: string): Promise<Org[]> {
   const { results } = await db
     .prepare(
-      `SELECT o.id, o.slug, o.name, o.kind, o.created_at
+      `SELECT ${ORG_COLUMNS}
        FROM orgs o
        JOIN memberships m ON m.org_id = o.id
        WHERE m.user_id = ?
@@ -38,7 +52,7 @@ export async function orgForMember(
 ): Promise<Org | null> {
   return db
     .prepare(
-      `SELECT o.id, o.slug, o.name, o.kind, o.created_at
+      `SELECT ${ORG_COLUMNS}
        FROM orgs o
        JOIN memberships m ON m.org_id = o.id
        WHERE o.slug = ? AND m.user_id = ?`,
@@ -61,6 +75,7 @@ export async function createPersonalOrg(
 ): Promise<Org> {
   const base = baseSlug(person.email);
   const name = person.name?.trim() || person.email;
+  const color = await assignedColor(db, person.id);
 
   for (let tries = 0; tries < 5; tries++) {
     const id = crypto.randomUUID();
@@ -69,8 +84,8 @@ export async function createPersonalOrg(
     try {
       await db.batch([
         db
-          .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'personal')")
-          .bind(id, slug, name),
+          .prepare("INSERT INTO orgs (id, slug, name, kind, color) VALUES (?, ?, ?, 'personal', ?)")
+          .bind(id, slug, name, color),
         db
           .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')")
           .bind(id, person.id),
@@ -81,7 +96,7 @@ export async function createPersonalOrg(
     }
 
     const org = await db
-      .prepare("SELECT id, slug, name, kind, created_at FROM orgs WHERE id = ?")
+      .prepare(`SELECT ${ORG_COLUMNS} FROM orgs o WHERE o.id = ?`)
       .bind(id)
       .first<Org>();
     if (!org) throw new Error("The personal org disappeared right after the insert.");
@@ -103,12 +118,13 @@ export async function createTeamOrg(
   team: { name: string; slug: string; personId: string },
 ): Promise<Org | null> {
   const id = crypto.randomUUID();
+  const color = await assignedColor(db, team.personId);
 
   try {
     await db.batch([
       db
-        .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'team')")
-        .bind(id, team.slug, team.name),
+        .prepare("INSERT INTO orgs (id, slug, name, kind, color) VALUES (?, ?, ?, 'team', ?)")
+        .bind(id, team.slug, team.name, color),
       db
         .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')")
         .bind(id, team.personId),
@@ -119,11 +135,48 @@ export async function createTeamOrg(
   }
 
   const org = await db
-    .prepare("SELECT id, slug, name, kind, created_at FROM orgs WHERE id = ?")
+    .prepare(`SELECT ${ORG_COLUMNS} FROM orgs o WHERE o.id = ?`)
     .bind(id)
     .first<Org>();
   if (!org) throw new Error("The org disappeared right after the insert.");
   return org;
+}
+
+/**
+ * The colour a new org of this person takes: the first palette name, grey
+ * excluded, that no org they already hold carries.
+ *
+ * The colour is assigned and not derived, because the set of orgs one person
+ * holds is small and a person overwrites the row from the settings page. See
+ * ADR-0020.
+ */
+async function assignedColor(db: D1Database, personId: string): Promise<PaletteName> {
+  const { results } = await db
+    .prepare(
+      `SELECT o.color
+       FROM orgs o
+       JOIN memberships m ON m.org_id = o.id
+       WHERE m.user_id = ?`,
+    )
+    .bind(personId)
+    .all<{ color: string | null }>();
+
+  return nextColor(results.map((row) => row.color));
+}
+
+/**
+ * Gives an org the colour a member chose. Null clears it, and the org draws
+ * grey again, because grey is drawn and never stored.
+ *
+ * Membership is the only permission check Tusker has, so the scope is the
+ * whole of it: any member may set the colour.
+ */
+export async function setOrgColor(
+  db: D1Database,
+  scope: Scope,
+  color: string | null,
+): Promise<void> {
+  await db.prepare("UPDATE orgs SET color = ? WHERE id = ?").bind(color, scope.org.id).run();
 }
 
 /** What became of an attempt to give an org another name or slug. */

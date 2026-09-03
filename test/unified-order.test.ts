@@ -15,7 +15,7 @@ import {
 /** A row with only the parts the sort reads named. */
 function live(some: Partial<LiveTask> & { id: string }): LiveTask {
   return {
-    org: { slug: "ada", name: "Ada" },
+    org: { slug: "ada", name: "Ada", color: "blue" },
     title: some.id,
     status: "todo",
     due_date: null,

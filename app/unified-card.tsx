@@ -16,6 +16,7 @@ import { Link } from "react-router";
 
 import { Dot } from "./dot";
 import { Initials } from "./initials";
+import { OrgChip } from "./org-chip";
 import { type LiveTask } from "./unified";
 
 export function UnifiedCard({
@@ -68,7 +69,9 @@ export function UnifiedCard({
         <Initials assignees={task.assignees} />
       </span>
 
-      <span className="text-xs uppercase tracking-wide text-muted">{task.org.name}</span>
+      <span className="flex">
+        <OrgChip org={task.org} />
+      </span>
 
       <span className="flex items-baseline gap-2 text-xs text-muted">
         {/* The field strip truncates before the due date does: the due date is

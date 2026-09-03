@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import css from "../app/app.css?raw";
-import { colorCss, colorOf, isColor, PALETTE, readColor } from "../app/colors";
+import {
+  ASSIGNABLE,
+  colorCss,
+  colorOf,
+  isColor,
+  nextColor,
+  PALETTE,
+  readColor,
+} from "../app/colors";
 
 describe("the colours Tusker draws", () => {
   it("takes a palette name, in any case", () => {
@@ -87,5 +95,32 @@ describe("the palette", () => {
     for (const name of PALETTE) {
       expect(css).toContain(`--color-opt-${name}: light-dark(`);
     }
+  });
+});
+
+describe("the colour a new org is assigned", () => {
+  it("never hands out grey, because grey is what no colour draws", () => {
+    expect(ASSIGNABLE).not.toContain("grey");
+    expect(ASSIGNABLE).toHaveLength(PALETTE.length - 1);
+  });
+
+  it("gives a person who holds no org the first name", () => {
+    expect(nextColor([])).toBe(ASSIGNABLE[0]);
+  });
+
+  it("skips every name the person already holds", () => {
+    expect(nextColor(["red"])).toBe("orange");
+    expect(nextColor(["orange", "red"])).toBe("amber");
+  });
+
+  it("counts a colourless org and an exact colour as no palette name", () => {
+    expect(nextColor([null])).toBe("red");
+    expect(nextColor(["#2563eb"])).toBe("red");
+  });
+
+  it("takes a name back only once the person holds them all", () => {
+    const all = [...ASSIGNABLE];
+    expect(nextColor(all)).toBe(ASSIGNABLE[0]);
+    expect(nextColor([...all, ASSIGNABLE[0]])).toBe(ASSIGNABLE[1]);
   });
 });

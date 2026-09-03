@@ -14,11 +14,11 @@ import type { Org } from "./orgs.server";
 export const ORG_COOKIE = "org";
 
 /** What the header needs of one org. It never carries an id. */
-export type OrgHeld = Pick<Org, "slug" | "name" | "kind">;
+export type OrgHeld = Pick<Org, "slug" | "name" | "kind" | "color">;
 
 /** One org, cut down to what the header draws. */
 export function held(org: Org): OrgHeld {
-  return { slug: org.slug, name: org.name, kind: org.kind };
+  return { slug: org.slug, name: org.name, kind: org.kind, color: org.color };
 }
 
 /** The org the cookie names, or null before the person has visited one. */

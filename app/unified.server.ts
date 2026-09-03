@@ -69,7 +69,9 @@ export async function listUnified(
   // for any one org's fields. Each read is scoped to its own org.
   const shown = await cardsByOrg(db, set);
   const held = await heldByTask(db, set);
-  const named = new Map(set.orgs.map((org) => [org.id, { slug: org.slug, name: org.name }]));
+  const named = new Map(
+    set.orgs.map((org) => [org.id, { slug: org.slug, name: org.name, color: org.color }]),
+  );
 
   return rows.map((row) => ({
     id: row.id,

@@ -25,6 +25,14 @@ rewrites it. A person who has visited none yet has their personal org.
 See ADR-0011.
 _Avoid_: Active org, selected org, org context
 
+**Org colour**:
+The colour one org carries, drawn wherever a page names that org beside
+another: the unified board, plan mode and the week page. It is a palette name
+or an exact colour, as an option colour is. A new org takes the first palette
+name no org of its maker holds, and any member changes it on the org's settings
+page. An org with no colour draws grey. See ADR-0020.
+_Avoid_: Org theme, org tag, workspace colour
+
 **Member**:
 A person with access to an org. Membership is the only permission check.
 _Avoid_: Seat, collaborator

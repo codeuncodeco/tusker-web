@@ -1,5 +1,5 @@
 import { hashKey, keyPreview, mintKey } from "./org-keys";
-import type { Org } from "./orgs.server";
+import { ORG_COLUMNS, type Org } from "./orgs.server";
 import type { Scope } from "./scope.server";
 
 /**
@@ -79,7 +79,7 @@ export async function revokeOrgKey(db: D1Database, scope: Scope, id: string): Pr
 export async function orgForKey(db: D1Database, key: string): Promise<Org | null> {
   return db
     .prepare(
-      `SELECT o.id, o.slug, o.name, o.kind, o.created_at
+      `SELECT ${ORG_COLUMNS}
        FROM org_keys k
        JOIN orgs o ON o.id = k.org_id
        WHERE k.hash = ? AND k.revoked_at IS NULL`,
