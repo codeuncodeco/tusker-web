@@ -30,15 +30,48 @@ export function localDay(at: Date = new Date()): string {
 }
 
 /**
- * The day as a person reads it: the weekday and the date. The weekday is read
- * in UTC, so the name is the day itself and not the reader's evening.
+ * The day as a person reads it: "Thursday 3 September". The weekday is read in
+ * UTC, so the name is the day itself and not the reader's evening.
+ *
+ * The year is dropped in the year the reader is in, and kept outside it: a
+ * plan in another year must say which. `today` is what says which year that
+ * is, so a page hands the day it speaks from.
  */
-export function dayName(day: string): string {
-  const weekday = new Intl.DateTimeFormat("en-GB", {
-    weekday: "long",
-    timeZone: "UTC",
-  }).format(new Date(`${day}T00:00:00Z`));
-  return `${weekday} ${day}`;
+export function dayName(day: string, today: string = localDay()): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  // The weekday is formatted apart from the date, because en-GB writes a comma
+  // between the two once the year joins them: "Thursday, 1 January 2026".
+  const weekday = format(at, { weekday: "long" });
+  const date = format(at, {
+    day: "numeric",
+    month: "long",
+    year: day.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric",
+  });
+  return `${weekday} ${date}`;
+}
+
+/** One date, written the way these pages write dates: British, and in UTC. */
+function format(at: Date, parts: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("en-GB", { ...parts, timeZone: "UTC" }).format(at);
+}
+
+/**
+ * The day as a heading names it: the same date, behind the word a person
+ * counts by where there is one. "Today, Thursday 3 September" says both the
+ * step and the day, and two steps back says the day alone.
+ */
+export function dayLabel(day: string, today: string = localDay()): string {
+  const near = nearWord(day, today);
+  const name = dayName(day, today);
+  return near ? `${near}, ${name}` : name;
+}
+
+/** The word for a day within one step of today, or null for every other day. */
+function nearWord(day: string, today: string): string | null {
+  if (day === today) return "Today";
+  if (day === dayBefore(today)) return "Yesterday";
+  if (day === dayAfter(today)) return "Tomorrow";
+  return null;
 }
 
 /**

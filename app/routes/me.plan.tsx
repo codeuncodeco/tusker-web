@@ -23,8 +23,9 @@
  * holds and no Commit button, because a plan the tab can lose is no plan. See
  * ADR-0008, "A plan commits as it is made".
  *
- * The page walks between days, and the date is a link to the day's own address:
- * `/me/plan/:day` is reachable by that walk and by nothing else. A day before
+ * The page is named for the day it holds, and that name is a link to the day's
+ * own address: `/me/plan/:day` is reachable by that link and by the walk beside
+ * it, and by nothing else. A day before
  * today reads back and does not edit — building a plan and reading one back are
  * not the same act — so it draws its plan alone. See #66.
  */
@@ -33,7 +34,7 @@ import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
-import { dayAfter, dayBefore, dayOf, isDay } from "../day";
+import { dayAfter, dayBefore, dayLabel, dayName, dayOf, isDay } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { planPicks } from "../picks.server";
@@ -48,8 +49,12 @@ import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
 import type { Route } from "./+types/me.plan";
 
+/**
+ * The tab title names the day, weekday first: a row of tabs is read by its
+ * first words, and "Thursday" is the part a person counts by.
+ */
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [{ title: `Plan ${loaderData.day} — Tusker` }];
+  return [{ title: `${dayName(loaderData.day, loaderData.today)} — Tusker` }];
 }
 
 /**
@@ -115,6 +120,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     /** The members of every team org, for the picker on the box. */
     members: await membersBySlug(env.DB, set),
     day,
+    /** The day the browser is in, which says what "Today" and this year mean. */
+    today: dayOf(request),
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
     /** True on the day the person is in. The walk offers no way home from there. */
@@ -169,14 +176,35 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
-  const { orgs, members, groups, planned, day, named, onToday, canAdd, canPlan, prev, next, ask } =
-    loaderData;
+  const {
+    orgs,
+    members,
+    groups,
+    planned,
+    day,
+    today,
+    named,
+    onToday,
+    canAdd,
+    canPlan,
+    prev,
+    next,
+    ask,
+  } = loaderData;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl tracking-tight">Your plan</h1>
-        <DayWalk day={day} prev={prev} next={next} onToday={onToday} />
+        {/* The heading is the day itself. "Your plan" said only what the nav
+            label says already, and the day is what a person came to read.
+            It links to its own dated address, because that address is the
+            thing a person keeps. See #66. */}
+        <h1 className="text-2xl tracking-tight">
+          <Link to={`/me/plan/${day}`} className="underline-offset-4 hover:underline">
+            {dayLabel(day, today)}
+          </Link>
+        </h1>
+        <DayWalk day={day} today={today} prev={prev} next={next} onToday={onToday} />
         {/* The one word that says why the page offers no pick and no step. */}
         {canPlan ? null : <span className="text-muted">Read only</span>}
       </header>
@@ -207,42 +235,47 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
 const STEP = "rounded border border-border px-2 text-muted";
 
 /**
- * The walk between days: the day before, this day as its own address, the day
- * after, and the way back to today.
+ * The walk between days: the day before, the day after, and the way back to
+ * today. The day itself is the heading, which is the link to its own address.
  *
- * The date is a link because the address is the thing a person keeps.
  * `/me/plan` is whichever day the person is in, and `/me/plan/2026-08-25` is
  * that day and no other, so a day worth reading again is a day worth linking
  * to. Without these controls no person reaches the dated page at all. See #66.
  *
  * The walk itself refuses nothing. A day before today reads back, a day after
  * it is planned ahead, and the page says which of the two it is.
+ *
+ * Each step is named the way a person reads it — "The day before, Wednesday 2
+ * September" — because a screen reader says the label and not the arrow.
  */
 function DayWalk({
   day,
+  today,
   prev,
   next,
   onToday,
 }: {
   day: string;
+  today: string;
   prev: string;
   next: string;
   onToday: boolean;
 }) {
   return (
     <nav aria-label="Day" className="flex items-baseline gap-2">
-      <Link to={`/me/plan/${prev}`} aria-label={`The day before, ${prev}`} className={STEP}>
+      <Link
+        to={`/me/plan/${prev}`}
+        aria-label={`The day before, ${dayName(prev, today)}`}
+        className={STEP}
+      >
         ‹
       </Link>
 
       <Link
-        to={`/me/plan/${day}`}
-        className="tabular-nums text-muted underline-offset-2 hover:underline"
+        to={`/me/plan/${next}`}
+        aria-label={`The day after, ${dayName(next, today)}`}
+        className={STEP}
       >
-        {day}
-      </Link>
-
-      <Link to={`/me/plan/${next}`} aria-label={`The day after, ${next}`} className={STEP}>
         ›
       </Link>
 
