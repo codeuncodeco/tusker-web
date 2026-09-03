@@ -1,7 +1,7 @@
 ---
 name: ship
 description: "Push a branch, sync it with main, resolve conflicts, and raise a PR."
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 1. Confirm the work is committed, and the branch is not `main`.
