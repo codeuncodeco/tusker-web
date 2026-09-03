@@ -335,12 +335,15 @@ _Avoid_: Tasks endpoint, public API
 The page a task was opened from, carried into the task URL as `from`. Every
 link into a task writes it: the board, the unified board, plan mode, focus
 mode, the week page, the decision log and the archive. The task page draws a
-back link to it and binds `Esc` to the same place, and a finish that raises
-the decision prompt keeps it. It is a path inside the app, so an origin that
-names another site is dropped, and a task opened from nowhere goes back to the
-org's board. It rides in the URL and not in a cookie, so a reload keeps it and
-two tabs cannot fight over it.
-_Avoid_: Referrer, back stack, return URL
+back link to it and binds `Esc` to the same place, and both replace the page
+rather than stack it. A finish that raises the decision prompt keeps the
+origin. An origin holds the query of the page it names, so a board narrowed to
+today comes back narrowed, and it drops the decision prompt, which is a raised
+prompt and not a view. It is a path inside the app, so an origin that names
+another site is dropped, and a task opened from nowhere goes back to the org's
+board. It rides in the URL and not in a cookie, so a reload keeps it and two
+tabs cannot fight over it.
+_Avoid_: Referrer, back stack, return URL, here
 
 **Board**:
 The To do, In progress and Done columns for one org, with Backlog and Cancelled

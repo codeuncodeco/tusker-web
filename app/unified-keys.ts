@@ -22,7 +22,7 @@ import { useNavigate } from "react-router";
 import { stepped } from "./board";
 import { KEY_MAP } from "./key-map";
 import { isPagePress } from "./keys";
-import { taskPath, useHere } from "./paths";
+import { taskPath, useOrigin } from "./paths";
 import { isPlannable, type LiveTask } from "./unified";
 import { finishFields, moveFields, planFields } from "./unified-row";
 
@@ -170,9 +170,7 @@ export function useTaskKeys(
   ranked: Set<string> = planned,
 ) {
   const navigate = useNavigate();
-  // `Enter` opens the task from this list, so the task page carries the list
-  // back. The link on the row carries the same thing.
-  const here = useHere();
+  const origin = useOrigin();
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -183,7 +181,7 @@ export function useTaskKeys(
 
       if (press.kind === "cursor") setOn(press.id);
       else if (press.kind === "open")
-        navigate(taskPath(press.task.org.slug, press.task.id, here));
+        navigate(taskPath(press.task.org.slug, press.task.id, origin));
       else act(press.fields);
 
       event.preventDefault();
@@ -191,5 +189,5 @@ export function useTaskKeys(
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, planned, acts, on, setOn, act, navigate, ranked, here]);
+  }, [rows, planned, acts, on, setOn, act, navigate, ranked, origin]);
 }

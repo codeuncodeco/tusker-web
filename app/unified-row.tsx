@@ -5,7 +5,7 @@ import { Dot } from "./dot";
 import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
 import { OrgChip } from "./org-chip";
-import { taskPath, useHere } from "./paths";
+import { taskPath, useOrigin } from "./paths";
 import type { LiveTask } from "./unified";
 
 /** The fields a pick or a finish posts, so a key and a button send the same thing. */
@@ -83,9 +83,7 @@ export function UnifiedRow({
   verbs?: Verbs;
 }) {
   const post = useFetcher();
-  // The list is where the person came from, so the link carries it and the
-  // task page gives it back.
-  const here = useHere();
+  const origin = useOrigin();
   const plan = planFields(task, planned);
   const up = keyHint("up");
   const down = keyHint("down");
@@ -105,7 +103,7 @@ export function UnifiedRow({
       }`}
     >
       <Link
-        to={taskPath(task.org.slug, task.id, here)}
+        to={taskPath(task.org.slug, task.id, origin)}
         className={`underline-offset-2 hover:underline ${
           task.finished ? "text-muted line-through" : ""
         }`}

@@ -42,7 +42,7 @@ import { Initials } from "../initials";
 import { QuickAddBox, useAddKey, useQuickAddDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
-import { taskPath, useHere } from "../paths";
+import { taskPath, useOrigin } from "../paths";
 import { readPlan } from "../plans.server";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
@@ -346,9 +346,7 @@ function CardItem({
   place: () => void;
 }) {
   const card = cards[index];
-  // The board is where the person came from, so the link carries it and the
-  // task page gives it back.
-  const here = useHere();
+  const origin = useOrigin();
   const step = useFetcher();
   // Its own form, because a form posts one intent and a step is not an
   // archive.
@@ -375,7 +373,7 @@ function CardItem({
     >
       <span className="flex items-baseline gap-2">
         <span className="tabular-nums text-dim">{index + 1}</span>
-        <Link to={taskPath(slug, card.id, here)} className="flex-1 underline-offset-2 hover:underline">
+        <Link to={taskPath(slug, card.id, origin)} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
         <Initials assignees={card.assignees} />

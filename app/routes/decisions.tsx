@@ -9,7 +9,7 @@ import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { listDecisions } from "../decisions.server";
-import { taskPath, useHere } from "../paths";
+import { taskPath, useOrigin } from "../paths";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/decisions";
 
@@ -29,9 +29,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export default function Decisions({ loaderData }: Route.ComponentProps) {
   const { org, decisions } = loaderData;
-  // The log is where the person came from, so a link out of it carries the
-  // log back.
-  const here = useHere();
+  const origin = useOrigin();
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -56,7 +54,7 @@ export default function Decisions({ loaderData }: Route.ComponentProps) {
                   <>
                     {" · "}
                     <Link
-                      to={taskPath(org.slug, decision.task.id, here)}
+                      to={taskPath(org.slug, decision.task.id, origin)}
                       className="underline underline-offset-2"
                     >
                       {decision.task.title}

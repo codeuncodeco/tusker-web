@@ -1,8 +1,8 @@
 /**
  * Where a task page came from, and how it goes back.
  *
- * `Enter` opens a task from four lists. The origin rides in the URL, so a
- * reload keeps it and two tabs cannot fight over it. See #65.
+ * `Enter` opens a task from four keyed lists. The origin rides in the URL, so
+ * a reload keeps it and two tabs cannot fight over it. See #65.
  */
 
 import { env } from "cloudflare:workers";
@@ -50,6 +50,24 @@ async function task(orgId: string, id: string, some: { status?: Status; decides?
     .bind(id, orgId, id, some.status ?? "todo", some.decides ? 1 : 0)
     .run();
   return id;
+}
+
+/** A post to one task page, on the URL the origin rides in. */
+function onTask(
+  cookie: string,
+  slug: string,
+  taskId: string,
+  query: string,
+  fields: Record<string, string>,
+) {
+  const request = post(`/o/${slug}/t/${taskId}${query}`, fields);
+  request.headers.set("cookie", cookie);
+  return taskRoute.action(routeArgs(request, { slug, taskId }));
+}
+
+/** The URL a redirect answered with. */
+function redirect(answer: unknown): URL {
+  return new URL((answer as Response).headers.get("location")!, "https://tusker.test");
 }
 
 /** One task page, as one person reads it. */
@@ -111,19 +129,36 @@ describe("the task page", () => {
     expect(page.back).toBe(`/o/${ada.org.slug}/board`);
   });
 
-  it("keeps the origin when a finish raises the decision prompt", async () => {
+  // The prompt is a place, so finishing a task redirects. That redirect is
+  // the one the page makes, and it must not lose the way back. See ADR-0010.
+  it("keeps the origin when the Finish button raises the decision prompt", async () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await task(ada.org.id, "t1", { decides: true });
 
-    const request = post(`/o/${ada.org.slug}/t/${id}?from=%2Fme`, { intent: "finish" });
-    request.headers.set("cookie", ada.cookie);
-    const answer = (await taskRoute.action(
-      routeArgs(request, { slug: ada.org.slug, taskId: id }),
-    )) as Response;
+    const answer = await onTask(ada.cookie, ada.org.slug, id, "?from=%2Fme", {
+      intent: "finish",
+    });
 
-    const location = new URL(answer.headers.get("location")!, "https://tusker.test");
-    expect(location.searchParams.get("from")).toBe("/me");
-    expect(location.searchParams.get("ask")).toBe(id);
+    const asked = redirect(answer);
+    expect(asked.searchParams.get("from")).toBe("/me");
+    expect(asked.searchParams.get("ask")).toBe(id);
+  });
+
+  // Saving the task with the status moved to Done is the same act, through
+  // `moveAndAsk`, and it redirects the same way.
+  it("keeps the origin when a save moves the task to Done", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const id = await task(ada.org.id, "t1", { decides: true });
+
+    const answer = await onTask(ada.cookie, ada.org.slug, id, "?from=%2Fme%2Fweek", {
+      title: "t1",
+      status: "done",
+      decides: "1",
+    });
+
+    const asked = redirect(answer);
+    expect(asked.searchParams.get("from")).toBe("/me/week");
+    expect(asked.searchParams.get("ask")).toBe(id);
   });
 });
 
@@ -171,6 +206,20 @@ describe("the link a list draws into a task", () => {
         <UnifiedCard task={live("a")} rank={1} selected={false} domId="card-a" place={() => {}} />
       </ul>,
       "/me?backlog=1",
+    );
+
+    expect(links(html)).toEqual(["/o/acme/t/a?from=%2Fme%3Fbacklog%3D1"]);
+  });
+
+  // The prompt is a raised prompt and not a view, so it is no part of the
+  // page a person goes back to. A task already finished is never asked about
+  // twice. See ADR-0010.
+  it("drops the decision prompt the list stands under", () => {
+    const html = markup(
+      <ul>
+        <UnifiedRow task={live("a")} planned={false} selected={false} domId="row-a" />
+      </ul>,
+      "/me?backlog=1&ask=b&org=acme",
     );
 
     expect(links(html)).toEqual(["/o/acme/t/a?from=%2Fme%3Fbacklog%3D1"]);

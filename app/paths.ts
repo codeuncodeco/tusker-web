@@ -1,5 +1,7 @@
 import { useLocation } from "react-router";
 
+import { withoutPrompt } from "./decisions";
+
 /**
  * A path inside the app, so a redirect cannot be pointed at another site.
  *
@@ -14,11 +16,11 @@ export function safeNext(value: unknown, fallback = "/me"): string {
 /**
  * The query key a task page carries its origin in.
  *
- * `Enter` opens a task from four lists, and the task page has to know which
- * one to give back. The origin travels in the URL and not in a cookie, so it
- * survives a reload and two tabs cannot fight over it.
+ * `Enter` opens a task from four keyed lists, and the task page has to know
+ * which one to give back. The origin travels in the URL and not in a cookie,
+ * so it survives a reload and two tabs cannot fight over it.
  */
-export const FROM = "from";
+const FROM = "from";
 
 /** One task, opened from the page named by `from`. */
 export function taskPath(slug: string, taskId: string, from?: string): string {
@@ -38,11 +40,15 @@ export function backPath(search: string, slug: string): string {
 }
 
 /**
- * The page a person stands on, path and query, as a link out of it records
- * the origin. The query stays: a board narrowed to today is the page they
- * came from, and it is the page they go back to.
+ * The origin a link out of this page records: the page the person stands on,
+ * path and query.
+ *
+ * The query stays, because a board narrowed to today is the page they came
+ * from and the page they go back to. The decision prompt is the one part that
+ * goes: it is a raised prompt and not a view, and a task already finished must
+ * not be asked about again on the way back. See ADR-0010.
  */
-export function useHere(): string {
+export function useOrigin(): string {
   const { pathname, search } = useLocation();
-  return `${pathname}${search}`;
+  return withoutPrompt(pathname, search);
 }
