@@ -20,13 +20,26 @@ describe("the cursor", () => {
     expect(boardPress("j", COLUMNS, "e")).toEqual({ act: "on", id: "e" });
   });
 
-  it("starts at the first card where it names none", () => {
+  it("comes back from outside the list, in the way of the key", () => {
     expect(boardPress("j", COLUMNS, null)).toEqual({ act: "on", id: "a" });
-    expect(boardPress("k", COLUMNS, null)).toEqual({ act: "on", id: "a" });
+    expect(boardPress("k", COLUMNS, null)).toEqual({ act: "on", id: "e" });
   });
 
   it("has nothing to move on an empty board", () => {
     expect(boardPress("j", [], null)).toBeNull();
+    expect(boardPress("k", [], null)).toBeNull();
+  });
+});
+
+describe("Escape", () => {
+  it("takes the cursor off the board", () => {
+    expect(boardPress("Escape", COLUMNS, "b")).toEqual({ act: "on", id: null });
+  });
+
+  // The header menu and the decision prompt read Escape too. A cursor that
+  // names no card has nothing to clear, so the press stays theirs.
+  it("answers nothing where the cursor already names none", () => {
+    expect(boardPress("Escape", COLUMNS, null)).toBeNull();
   });
 });
 

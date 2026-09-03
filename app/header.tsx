@@ -134,6 +134,10 @@ function Menu({
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || !menu.current?.open) return;
+      // One press means one thing. The keyed lists read Escape on `window`,
+      // which is one step out from here, so shutting the menu stops the press
+      // before it can also empty the cursor. See ADR-0015.
+      event.stopPropagation();
       close();
       // The summary takes the focus back, or the focus falls to the body and
       // the keyboard loses its place.

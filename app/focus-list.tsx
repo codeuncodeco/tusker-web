@@ -31,8 +31,9 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
   const post = useFetcher();
   const [on, setOn] = useState<string | null>(null);
 
-  // The cursor names a task, and starts on the first of the batch.
-  const cursor = tasks.some((one) => one.id === on) ? on : (tasks[0]?.id ?? null);
+  // The cursor names a task, and starts empty, as it does on every other
+  // keyed list. `j` reaches the first of the batch. See ADR-0015.
+  const cursor = tasks.some((one) => one.id === on) ? on : null;
   useTaskKeys(tasks, NO_PLAN, FOCUS_ACTS, cursor, setOn, (fields) =>
     post.submit(fields, { method: "post" }),
   );

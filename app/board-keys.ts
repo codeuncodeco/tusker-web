@@ -29,7 +29,8 @@ export type KeyedColumn = { status: Status; ids: string[] };
  * the step lands above. See ADR-0016.
  */
 export type Act =
-  | { act: "on"; id: string }
+  /** A card by id, or null where the press takes the cursor off the board. */
+  | { act: "on"; id: string | null }
   | { act: "open"; id: string }
   | { act: "move"; id: string; status: Status }
   | { act: "step"; id: string; way: "up" | "down" };
@@ -45,8 +46,15 @@ export function boardPress(key: string, columns: KeyedColumn[], on: string | nul
   const rows = columns.flatMap((column) => column.ids);
   const at = rows.indexOf(on ?? "");
 
-  if (key === "j") return pick(rows[Math.min(at + 1, rows.length - 1)]);
-  if (key === "k") return pick(rows[Math.max(at - 1, 0)]);
+  // An empty cursor sits outside the board, so a move key brings it back in
+  // from the end the key comes from: `j` to the first card, `k` to the last.
+  if (key === "j") return pick(at === -1 ? rows[0] : rows[Math.min(at + 1, rows.length - 1)]);
+  if (key === "k") return pick(at === -1 ? rows[rows.length - 1] : rows[Math.max(at - 1, 0)]);
+
+  // Escape empties the cursor, so a person reading the board has no card named
+  // at them. A cursor already empty has nothing to clear, and the press falls
+  // through to whatever else reads Escape. See ADR-0015.
+  if (key === "Escape") return on === null ? null : { act: "on", id: null };
 
   // Every key left acts on the card the cursor names.
   if (at === -1) return null;
@@ -96,7 +104,7 @@ export function useBoardKeys(
   columns: KeyedColumn[],
   slug: string,
   on: string | null,
-  setOn: (id: string) => void,
+  setOn: (id: string | null) => void,
   /** Posts a move to another column, which lands at the bottom of it. */
   move: (id: string, status: Status) => void,
   /** Posts a step up or down the card's own column. */

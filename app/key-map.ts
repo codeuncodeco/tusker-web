@@ -23,7 +23,8 @@ export type ActionName =
   | "forward"
   | "back"
   | "finish"
-  | "more";
+  | "more"
+  | "clear";
 
 export type KeyRow = {
   /** The press, as `KeyboardEvent.key` gives it. */
@@ -45,4 +46,7 @@ export const KEY_MAP: Record<ActionName, KeyRow> = {
   back: { key: "<", label: "Back" },
   finish: { key: "x", label: "Finish" },
   more: { key: "n", label: "Take three more" },
+  // The one act with no control to carry it: a cleared cursor names nothing,
+  // so there is no card for a button to sit on. See ADR-0015.
+  clear: { key: "Escape", label: "Clear cursor" },
 };

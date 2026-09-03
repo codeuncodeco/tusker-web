@@ -58,8 +58,9 @@ export function UnifiedBoard({
   // One flat order, so `j` and `k` walk the board column by column, the way a
   // person reads it.
   const rows = columns.flatMap((column) => column.tasks);
-  // The cursor starts at the top, and stays on its task while the board moves.
-  const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
+  // The cursor starts empty, and stays on its task while the board moves. A
+  // task the board stops drawing takes the cursor off with it. See ADR-0015.
+  const cursor = rows.some((one) => one.id === on) ? on : null;
 
   // The chip speaks for today, so the board must know which day that is where
   // the person is, not where the Worker runs.

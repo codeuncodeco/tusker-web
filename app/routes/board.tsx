@@ -445,10 +445,11 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
 
-  // The cursor starts on the first card the board draws, and stays on its own
-  // card while the board moves under it.
+  // The cursor starts empty, and stays on its own card while the board moves
+  // under it. A card the board stops drawing takes the cursor off with it.
+  // See ADR-0015.
   const rows = columns.flatMap((column) => column.tasks);
-  const cursor = rows.some((one) => one.id === on) ? on : (rows[0]?.id ?? null);
+  const cursor = rows.some((one) => one.id === on) ? on : null;
 
   // The chip speaks for today, so the board must know which day that is where
   // the person is, not where the Worker runs.
