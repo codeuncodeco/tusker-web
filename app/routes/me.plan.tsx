@@ -101,6 +101,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const set = await requireOrgSet(request, env);
 
   const day = dayFor(request, params.day);
+  // The day the browser is in, which every judgement here is made against.
+  const today = dayOf(request);
   const canPlan = canPlanOn(request, day);
   const plan = await readPlan(env.DB, set.personId, day);
   // The week the day sits in, whose set the page offers above everything else.
@@ -121,11 +123,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     members: await membersBySlug(env.DB, set),
     day,
     /** The day the browser is in, which says what "Today" and this year mean. */
-    today: dayOf(request),
+    today,
     /** True for a day the path named, which the browser must not talk out of. */
     named: params.day !== undefined,
     /** True on the day the person is in. The walk offers no way home from there. */
-    onToday: day === dayOf(request),
+    onToday: day === today,
     /** True where the box may add to this day, and so is drawn at all. */
     canAdd: canAddTo(request, day),
     /** True where the page may pick and step: a past day does neither. */
@@ -204,7 +206,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
             {dayLabel(day, today)}
           </Link>
         </h1>
-        <DayWalk day={day} today={today} prev={prev} next={next} onToday={onToday} />
+        <DayWalk today={today} prev={prev} next={next} onToday={onToday} />
         {/* The one word that says why the page offers no pick and no step. */}
         {canPlan ? null : <span className="text-muted">Read only</span>}
       </header>
@@ -249,13 +251,11 @@ const STEP = "rounded border border-border px-2 text-muted";
  * September" — because a screen reader says the label and not the arrow.
  */
 function DayWalk({
-  day,
   today,
   prev,
   next,
   onToday,
 }: {
-  day: string;
   today: string;
   prev: string;
   next: string;

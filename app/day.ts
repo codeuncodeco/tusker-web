@@ -33,16 +33,15 @@ export function localDay(at: Date = new Date()): string {
  * The day as a person reads it: "Thursday 3 September". The weekday is read in
  * UTC, so the name is the day itself and not the reader's evening.
  *
- * The year is dropped in the year the reader is in, and kept outside it: a
- * plan in another year must say which. `today` is what says which year that
- * is, so a page hands the day it speaks from.
+ * The name drops the year in the year the reader is in, and keeps it outside
+ * it: a plan in another year must say which. `today` says which year that is,
+ * so a page hands the day it speaks from and never the Worker's own.
  */
-export function dayName(day: string, today: string = localDay()): string {
-  const at = new Date(`${day}T00:00:00Z`);
-  // The weekday is formatted apart from the date, because en-GB writes a comma
+export function dayName(day: string, today: string): string {
+  // The weekday is written apart from the date, because en-GB puts a comma
   // between the two once the year joins them: "Thursday, 1 January 2026".
-  const weekday = format(at, { weekday: "long" });
-  const date = format(at, {
+  const weekday = written(day, { weekday: "long" });
+  const date = written(day, {
     day: "numeric",
     month: "long",
     year: day.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric",
@@ -50,9 +49,9 @@ export function dayName(day: string, today: string = localDay()): string {
   return `${weekday} ${date}`;
 }
 
-/** One date, written the way these pages write dates: British, and in UTC. */
-function format(at: Date, parts: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat("en-GB", { ...parts, timeZone: "UTC" }).format(at);
+/** The short day a span is written in: "Mon 31 Aug". */
+export function dayShort(day: string): string {
+  return written(day, { weekday: "short", day: "numeric", month: "short" });
 }
 
 /**
@@ -60,7 +59,7 @@ function format(at: Date, parts: Intl.DateTimeFormatOptions): string {
  * counts by where there is one. "Today, Thursday 3 September" says both the
  * step and the day, and two steps back says the day alone.
  */
-export function dayLabel(day: string, today: string = localDay()): string {
+export function dayLabel(day: string, today: string): string {
   const near = nearWord(day, today);
   const name = dayName(day, today);
   return near ? `${near}, ${name}` : name;
@@ -72,6 +71,12 @@ function nearWord(day: string, today: string): string | null {
   if (day === dayBefore(today)) return "Yesterday";
   if (day === dayAfter(today)) return "Tomorrow";
   return null;
+}
+
+/** One day written the way this app writes days: British, and read in UTC. */
+function written(day: string, parts: Intl.DateTimeFormatOptions): string {
+  const format = new Intl.DateTimeFormat("en-GB", { ...parts, timeZone: "UTC" });
+  return format.format(new Date(`${day}T00:00:00Z`));
 }
 
 /**

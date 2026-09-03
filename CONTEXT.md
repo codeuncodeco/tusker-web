@@ -418,12 +418,21 @@ _Avoid_: Daily planner, plan builder
 
 **Day walk**:
 The controls that carry plan mode from one day to the next: the day before, the
-day after, the date itself as a link to its own address, and the way back to
-today. It is what makes `/me/plan/:day` reachable. Building a plan and reading
-one back are not the same act, so a day before today draws its plan alone: no
-shelf, no pick, no step, and no add. Today and the days after it plan as they
-always did.
+day after, and the way back to today. The **day name** heads the page and links
+to the day's own address, so the walk and that link together are what make
+`/me/plan/:day` reachable. Building a plan and reading one back are not the same
+act, so a day before today draws its plan alone: no shelf, no pick, no step, and
+no add. Today and the days after it plan as they always did.
 _Avoid_: Date picker, day navigator
+
+**Day name**:
+The day as a person reads it: "Thursday 3 September". The weekday is the part a
+person counts by, so it comes first, and the year is written only outside the
+year the reader is in. A heading puts "Today", "Yesterday" or "Tomorrow" in
+front of the name where the day is one step from today. The name is read in
+UTC, so it is the day itself and not the reader's evening. The address and the
+stored day keep `YYYY-MM-DD`: only the reading changes.
+_Avoid_: Date string, formatted date
 
 **Leftovers**:
 The tasks the last week set holds that are still unfinished. Opening the week
