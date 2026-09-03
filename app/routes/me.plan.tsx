@@ -43,9 +43,9 @@ import { askedAcross } from "../decisions.server";
 import { planPicks } from "../picks.server";
 import { movePlan, readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
-import { planGroups, planOnly } from "../unified";
+import { pickedOnly, planGroups } from "../unified";
 import { UnifiedAdd } from "../unified-add";
-import { actOnTask } from "../unified-actions.server";
+import { actOnTask, TASK_ACTS } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import { weekOf } from "../week";
@@ -89,16 +89,6 @@ function canAddTo(request: Request, day: string): boolean {
   return day === dayOf(request);
 }
 
-/**
- * The acts that write the task and not the plan. A task is live whichever day
- * is on screen, so these stand on a day read back.
- *
- * Every other act a form can name writes the plan, and a day past its own
- * refuses them all. The list is this way round on purpose: an act added later
- * is refused there until someone says it is safe.
- */
-const TASK_ACTS = ["move", "finish", "decide"];
-
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const set = await requireOrgSet(request, env);
@@ -118,7 +108,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // was archived or deleted drops out rather than raising an error.
   // A day read back draws the plan alone: a shelf nothing can be picked from
   // is noise.
-  const groups = canPlan ? planGroups(tasks, plan ?? [], members) : planOnly(tasks, plan ?? []);
+  const groups = canPlan ? planGroups(tasks, plan ?? [], members) : pickedOnly(tasks, plan ?? []);
   const inPlan = groups.find((group) => group.key === "today")!;
 
   return {
