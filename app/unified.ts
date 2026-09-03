@@ -134,15 +134,19 @@ export function planGroups(tasks: LiveTask[], plan: string[], members: string[])
 }
 
 /**
- * The one group a day read back draws: its plan, in its order, and nothing
- * else.
+ * The one group a page read back draws: what it picked, in its own order, and
+ * nothing else.
  *
- * A plan is never rewritten after its day, so a shelf to pick from is noise
- * there. A picked id no org answers for is left out, as it is everywhere.
+ * A plan is never rewritten after its day and a week set is never rewritten
+ * after its week, so on either page a list to pick from is noise. A picked id
+ * no org answers for is left out, as it is everywhere.
+ *
+ * A week set sinks its finished members here as it does anywhere: reading a
+ * week back is what the sink is for.
  */
-export function planOnly(tasks: LiveTask[], plan: string[]): Group[] {
+export function pickedOnly(tasks: LiveTask[], picked: string[], key: Head = "today"): Group[] {
   const byId = new Map(tasks.map((one) => [one.id, one]));
-  return [head(byId, { key: "today", ids: plan })];
+  return [head(byId, { key, ids: picked, sinks: key === "week" })];
 }
 
 /** How a page names one of its head groups. */

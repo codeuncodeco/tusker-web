@@ -109,16 +109,26 @@ export function weekLabel(week: string, today: string): string {
 /** The word for a week within one step of this one, or null for every other. */
 function nearWord(week: string, thisWeek: string): string | null {
   if (week === thisWeek) return "This week";
-  if (week === weekStepped(thisWeek, -7)) return "Last week";
-  if (week === weekStepped(thisWeek, 7)) return "Next week";
+  if (week === weekBefore(thisWeek)) return "Last week";
+  if (week === weekAfter(thisWeek)) return "Next week";
   return null;
 }
 
 /**
- * One week moved by whole days. `app/day.ts` steps a day; this steps a week.
- * The Monday moves and the week is read back, so a year turns over by the ISO
- * rule: 2026-W01 follows 2025-W52, and 2026-W53 runs into 2027-W01.
+ * The week before. The step moves the week's Monday by seven days and reads
+ * the week back, so a year turns over by the ISO rule and not by arithmetic on
+ * the key: 2026-W01 comes after 2025-W52, and 2026-W53 runs into 2027-W01.
  */
+export function weekBefore(week: string): string {
+  return weekStepped(week, -7);
+}
+
+/** The week after, stepped the same way. */
+export function weekAfter(week: string): string {
+  return weekStepped(week, 7);
+}
+
+/** One week moved by whole weeks. `app/day.ts` steps a day; this steps a week. */
 function weekStepped(week: string, by: number): string {
   const monday = mondayOf(week);
   monday.setUTCDate(monday.getUTCDate() + by);

@@ -4,6 +4,8 @@ import {
   daysOfWeek,
   isWeek,
   localWeek,
+  weekAfter,
+  weekBefore,
   weekBounds,
   weekIn,
   weekLabel,
@@ -114,5 +116,24 @@ describe("the week a heading names", () => {
     // 2026-W01 opens on 29 December 2025, so "this week" spans two years.
     expect(weekLabel("2026-W01", "2025-12-31")).toBe("This week, Mon 29 Dec – Fri 2 Jan 2026");
     expect(weekLabel("2025-W52", "2025-12-31")).toBe("Last week, Mon 22 Dec – Fri 26 Dec");
+  });
+});
+
+describe("the week before and the week after", () => {
+  it("steps one week either way", () => {
+    expect(weekBefore("2026-W36")).toBe("2026-W35");
+    expect(weekAfter("2026-W36")).toBe("2026-W37");
+  });
+
+  it("turns the year over on the key's own rule", () => {
+    // 2025 is a 52-week year, so week one of 2026 follows 2025-W52.
+    expect(weekBefore("2026-W01")).toBe("2025-W52");
+    // 2026 is a 53-week year, so its last week runs into 2027-W01.
+    expect(weekAfter("2026-W53")).toBe("2027-W01");
+  });
+
+  it("gives back a week a calendar holds, either way", () => {
+    expect(isWeek(weekBefore("2026-W01"))).toBe(true);
+    expect(isWeek(weekAfter("2026-W53"))).toBe(true);
   });
 });
