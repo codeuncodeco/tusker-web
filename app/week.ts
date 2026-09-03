@@ -82,10 +82,47 @@ export function weekBounds(week: string): { monday: string; sunday: string } {
   return { monday: dayText(monday), sunday: dayText(sunday) };
 }
 
-/** The week as a person reads it: the Monday and the Friday that bound it. */
-export function weekSpan(week: string): string {
+/**
+ * The week as a person reads it: the Monday and the Friday that bound it.
+ *
+ * `YYYY-Www` is the address and the stored key, and it is not a reading: a
+ * person works out which week 2026-W36 is, and reads "Mon 31 Aug – Fri 4 Sep"
+ * straight off. `today` says which year the reader is in, so a week outside it
+ * writes the year and this one does not.
+ */
+export function weekSpan(week: string, today: string): string {
   const days = daysOfWeek(week);
-  return `${dayShort(days[0])} – ${dayShort(days[4])}`;
+  return `${dayShort(days[0], today)} – ${dayShort(days[4], today)}`;
+}
+
+/**
+ * The week as a heading names it: the same span, behind the word a person
+ * counts by where there is one. "This week, Mon 31 Aug – Fri 4 Sep" says both
+ * the step and the week, as `dayLabel` says both for a day.
+ */
+export function weekLabel(week: string, today: string): string {
+  const near = nearWord(week, weekOf(today));
+  const span = weekSpan(week, today);
+  return near ? `${near}, ${span}` : span;
+}
+
+/** The word for a week within one step of this one, or null for every other. */
+function nearWord(week: string, thisWeek: string): string | null {
+  if (week === thisWeek) return "This week";
+  if (week === weekStepped(thisWeek, -7)) return "Last week";
+  if (week === weekStepped(thisWeek, 7)) return "Next week";
+  return null;
+}
+
+/**
+ * One week moved by whole days. `app/day.ts` steps a day; this steps a week.
+ * The Monday moves and the week is read back, so a year turns over by the ISO
+ * rule: 2026-W01 follows 2025-W52, and 2026-W53 runs into 2027-W01.
+ */
+function weekStepped(week: string, by: number): string {
+  const monday = mondayOf(week);
+  monday.setUTCDate(monday.getUTCDate() + by);
+  return weekOf(dayText(monday));
 }
 
 /** The Monday a week key opens on. */

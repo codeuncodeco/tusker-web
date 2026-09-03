@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { daysOfWeek, isWeek, localWeek, weekBounds, weekIn, weekOf, weekSpan } from "../app/week";
+import {
+  daysOfWeek,
+  isWeek,
+  localWeek,
+  weekBounds,
+  weekIn,
+  weekLabel,
+  weekOf,
+  weekSpan,
+} from "../app/week";
 import { get } from "./routes";
 
 describe("the week a day sits in", () => {
@@ -55,12 +64,6 @@ describe("the days a week page draws", () => {
     ]);
   });
 
-  it("names the span a person reads", () => {
-    // The month is abbreviated by the runtime's own tables, so "Sep" and
-    // "Sept" are both right and the shape is what matters.
-    expect(weekSpan("2026-W36")).toMatch(/^Mon 31 Aug – Fri 4 Sept?$/);
-  });
-
   it("gives every day back the week it came from", () => {
     for (const day of daysOfWeek("2026-W01")) expect(weekOf(day)).toBe("2026-W01");
     for (const day of daysOfWeek("2026-W53")) expect(weekOf(day)).toBe("2026-W53");
@@ -79,5 +82,37 @@ describe("the week a request speaks for", () => {
 
   it("falls back to the Worker's own week while the browser is silent", () => {
     expect(weekIn(get("/me/week"), new Date(2026, 8, 6, 23, 30))).toBe("2026-W36");
+  });
+});
+
+describe("the week as a person reads it", () => {
+  it("names the Monday and the Friday, and drops the year in this one", () => {
+    // The month is abbreviated by the runtime's own tables, so "Sep" and
+    // "Sept" are both right and the shape is what matters.
+    expect(weekSpan("2026-W36", "2026-09-03")).toMatch(/^Mon 31 Aug – Fri 4 Sept?$/);
+  });
+
+  it("keeps the year on the days outside this one", () => {
+    // The week that straddles New Year says which year each end is in.
+    expect(weekSpan("2026-W01", "2026-09-03")).toBe("Mon 29 Dec 2025 – Fri 2 Jan");
+  });
+});
+
+describe("the week a heading names", () => {
+  it("says this week, last week and next week as words, with the span after", () => {
+    expect(weekLabel("2026-W36", "2026-09-03")).toMatch(/^This week, Mon 31 Aug – Fri 4 Sept?$/);
+    expect(weekLabel("2026-W35", "2026-09-03")).toMatch(/^Last week, Mon 24 Aug – Fri 28 Aug$/);
+    const next = weekLabel("2026-W37", "2026-09-03");
+    expect(next).toMatch(/^Next week, Mon 7 Sept? – Fri 11 Sept?$/);
+  });
+
+  it("says the span alone for every other week", () => {
+    expect(weekLabel("2026-W34", "2026-09-03")).toBe("Mon 17 Aug – Fri 21 Aug");
+  });
+
+  it("carries the word over a year end", () => {
+    // 2026-W01 opens on 29 December 2025, so "this week" spans two years.
+    expect(weekLabel("2026-W01", "2025-12-31")).toBe("This week, Mon 29 Dec – Fri 2 Jan 2026");
+    expect(weekLabel("2025-W52", "2025-12-31")).toBe("Last week, Mon 22 Dec – Fri 26 Dec");
   });
 });

@@ -33,7 +33,16 @@ const MANAGE = [
   { to: "settings", label: "Settings" },
 ] as const;
 
-/** The pages of the person axis. Tasks is `/me` itself, so it matches exactly. */
+/**
+ * The pages of the person axis. Tasks is `/me` itself, so it matches exactly.
+ *
+ * A label names the destination and never what the page holds. "Plan" and
+ * "Week" therefore stand while the pages read "Today, Thursday 3 September"
+ * and "This week, Mon 31 Aug – Fri 4 Sep": the walk carries either page to a
+ * day or a week that is not this one, and a label that said "Today" there
+ * would be wrong. The heading says which day or week, and the label says which
+ * page. That is why neither heading repeats its label any more. See #146.
+ */
 const PERSON = [
   { to: "/me", label: "Tasks", exact: true },
   { to: "/me/week", label: "Week", exact: false },

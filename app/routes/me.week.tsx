@@ -22,7 +22,7 @@
  * commitment the tab can lose is no commitment. See ADR-0008.
  */
 
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
@@ -38,15 +38,19 @@ import { UnifiedAdd } from "../unified-add";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
-import { isWeek, weekIn, weekSpan } from "../week";
+import { isWeek, weekIn, weekLabel, weekSpan } from "../week";
 import { moveInWeek, readWeekSet, startWeek } from "../weeks.server";
 import type { Route } from "./+types/me.week";
 
 /** What the pick button reads here: a week is picked, and a day is planned. */
 const VERBS = { pick: "Pick", drop: "Unpick" };
 
+/**
+ * The tab title names the week, span first: a row of tabs is read by its first
+ * words, and `2026-W36` is a key a person has to work out.
+ */
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [{ title: `Week ${loaderData.week} — Tusker` }];
+  return [{ title: `${weekSpan(loaderData.week, loaderData.day)} — Tusker` }];
 }
 
 /**
@@ -96,11 +100,12 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     /** The members of every team org, for the picker on the box. */
     members: await membersBySlug(env.DB, set),
     week,
-    /** The Monday and the Friday the page draws between. */
-    span: weekSpan(week),
     /** True for a week the path named, which the browser must not talk out of. */
     named: params.week !== undefined,
-    /** The day the browser is in, which is what names an unnamed week. */
+    /**
+     * The day the browser is in. It names an unnamed week, and it says what
+     * "This week" means and which year the reader is in.
+     */
     day: dayOf(request),
     /** What the last set leaves over, or null when there is nothing to offer. */
     leftovers,
@@ -150,16 +155,23 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function Week({ loaderData }: Route.ComponentProps) {
-  const { orgs, members, groups, picked, week, span, day, done, leftovers, ask } = loaderData;
+  const { orgs, members, groups, picked, week, day, done, leftovers, ask } = loaderData;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl tracking-tight">Your week</h1>
-        <span className="tabular-nums text-muted">{week}</span>
-        {/* Monday to Friday. Five days is a fact about the page: the set holds
-            no day at all. */}
-        <span className="text-muted">{span}</span>
+        {/* The heading is the week itself. "Your week" said only what the nav
+            label says already, and `2026-W36` is the address and not a
+            reading. Monday to Friday: five days is a fact about the page, and
+            the set holds no day at all.
+
+            It links to its own dated address, because that address is the
+            thing a person keeps. */}
+        <h1 className="text-2xl tracking-tight">
+          <Link to={`/me/week/${week}`} className="underline-offset-4 hover:underline">
+            {weekLabel(week, day)}
+          </Link>
+        </h1>
         {picked.length > 0 ? (
           <span className="tabular-nums text-muted">
             {done} of {picked.length} done
@@ -170,7 +182,7 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       {/* An add here is a pick: the task joins the week, like any other. */}
       <UnifiedAdd orgs={orgs} members={members} />
 
-      {leftovers && <LeftoverPrompt leftovers={leftovers} />}
+      {leftovers && <LeftoverPrompt leftovers={leftovers} today={day} />}
 
       <UnifiedList
         groups={groups}
@@ -196,13 +208,13 @@ export default function Week({ loaderData }: Route.ComponentProps) {
  * or start clean. The prompt names the week it carries from, because the last
  * week that holds a set is not always the week before.
  */
-function LeftoverPrompt({ leftovers }: { leftovers: Leftovers }) {
+function LeftoverPrompt({ leftovers, today }: { leftovers: Leftovers; today: string }) {
   const count = leftovers.taskIds.length;
 
   return (
     <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
       <p className="grow">
-        {weekSpan(leftovers.from)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
+        {weekSpan(leftovers.from, today)} left {count} {count === 1 ? "task" : "tasks"} unfinished.
       </p>
 
       <Form method="post" className="flex gap-2">

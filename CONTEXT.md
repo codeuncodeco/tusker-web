@@ -439,6 +439,16 @@ UTC, so it is the day itself and not the reader's evening. The address and the
 stored day keep `YYYY-MM-DD`: only the reading changes.
 _Avoid_: Date string, formatted date
 
+**Week span**:
+The week as a person reads it: "Mon 31 Aug – Fri 4 Sep", the Monday and the
+Friday that bound it. It heads the week page and names its tab, because
+`2026-W36` is an address and not a reading. A heading puts "This week", "Last
+week" or "Next week" in front of the span where the week is one step from this
+one, as **Day name** puts "Today" in front of a date. The days are read in UTC,
+and the year is written only on an end outside the year the reader is in. The
+address and the stored key keep `YYYY-Www`: only the reading changes.
+_Avoid_: Week key, week label, week range
+
 **Leftovers**:
 The tasks the last week set holds that are still unfinished. Opening the week
 page on a week with no set offers them: carry them forward, or start clean. A
@@ -487,7 +497,9 @@ The one bar every signed-in page draws, in two rows. Row 1 names who and
 where: the wordmark, the current org and the account. Row 2 is every page as a
 button, in a person half for Tasks, Week, Plan and Focus and an org half for
 the current org's pages. Both halves are always drawn, and the page a person
-stands on is marked. `/account` stands in neither half, so it marks neither. A control
+stands on is marked. A label names the destination and never what the page
+holds, so "Week" and "Plan" stand while those pages head with the week and the
+day they draw. `/account` stands in neither half, so it marks neither. A control
 that comes and goes teaches nothing, so nothing in the header is drawn by rule.
 See ADR-0011.
 _Avoid_: Chrome, nav bar, top bar
