@@ -29,15 +29,10 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { useLocation } from "react-router";
 
+import { fires } from "./key-map";
 import { isPagePress } from "./keys";
-
-/**
- * The key that leaves the list for the surface's quick-add box. It is not a
- * list act, so it is not in `app/key-map.ts`: it names a box, and the list
- * only hands the press over.
- */
-export const ADD_KEY = "n";
 
 /** The arrows a list swallows: they move the cursor, so they never scroll. */
 export const LIST_ARROWS = ["ArrowUp", "ArrowDown"] as const;
@@ -47,7 +42,7 @@ export const BOARD_ARROWS = [...LIST_ARROWS, "ArrowLeft", "ArrowRight"] as const
 
 /**
  * One page's keyed surface: the list that holds the keys, and the quick-add
- * box `n` hands the press to.
+ * box `n` moves the focus to.
  *
  * The two are drawn by components that never meet — a route puts the box above
  * the list, and a board puts one on every column — so the surface is where
@@ -61,13 +56,16 @@ type Surface = {
 
 const SurfaceContext = createContext<Surface | null>(null);
 
-/** What a page outside a provider reads: a surface with nothing on it. */
+/**
+ * What a page outside a provider reads: a surface with nothing on it. A test
+ * that renders one list on its own has no provider, and so has this.
+ */
 const NONE: Surface = { list: { current: null }, box: { current: null } };
 
 /**
  * The surface every page has, mounted once. A page draws one keyed list or
  * none, so one surface serves the whole app and a move between pages empties
- * it: the list and the box both let go as they unmount.
+ * it: the list and the box both release it as they unmount.
  */
 export function KeyedSurfaceProvider({ children }: { children: ReactNode }) {
   const list = useRef<HTMLElement | null>(null);
@@ -93,6 +91,7 @@ export type Keyed = {
   "aria-label": string;
   ref: (node: HTMLElement | null) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
+  onFocus: (event: React.FocusEvent<HTMLElement>) => void;
 };
 
 /**
@@ -109,32 +108,47 @@ export function useKeyedList(
   swallow: readonly string[],
 ): (label: string) => Keyed {
   const surface = useSurface();
-  // Every element this list binds, in the order they were drawn. The first is
-  // the one that takes the focus, and the one a prompt gives it back to.
+  const { pathname } = useLocation();
+  // Every element this list binds, in the order the page draws them. The first
+  // is the one that takes the focus when the page arrives.
   const nodes = useRef<HTMLElement[]>([]);
+  // The path the focus was taken for. One page draws one keyed list, so the
+  // path is what says this is another list and not the same one redrawn.
+  const taken = useRef<string | null>(null);
 
   const ref = useCallback(
     (node: HTMLElement | null) => {
       if (!node) return;
-      nodes.current = [...nodes.current, node];
-      surface.list.current = nodes.current[0];
+      // In page order, and not in the order the refs arrived: a column drawn
+      // again after a toggle registers last and is still not the first list.
+      nodes.current = [...nodes.current, node].sort((one, next) =>
+        one.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      );
+      surface.list.current ??= nodes.current[0];
 
       return () => {
         nodes.current = nodes.current.filter((one) => one !== node);
-        surface.list.current = nodes.current[0] ?? null;
+        if (surface.list.current === node) surface.list.current = nodes.current[0] ?? null;
       };
     },
     [surface],
   );
 
-  // On mount and never again, so a client-side navigation into a keyed page
-  // arms the keys as a load does, and a fetcher answering does not pull the
-  // focus out of the button a person is working. The refs are attached by the
-  // time this runs. The container is focused and no card is: a card would make
-  // a screen reader announce a task nobody asked for. See ADR-0022.
+  // Once for every page, and never on a re-render of the same one: a fetcher
+  // answering must not pull the focus out of the button a person is working,
+  // and a walk to another day is a page that has to arm its own keys. The
+  // container is focused and no card is: a card would make a screen reader
+  // announce a task nobody asked for. See ADR-0022.
+  //
+  // It reads after every render, because a list draws nothing until its rows
+  // are there, and the first element to arrive is the one to focus.
   useEffect(() => {
-    nodes.current[0]?.focus({ preventScroll: true });
-  }, []);
+    if (taken.current === pathname) return;
+    const first = nodes.current[0];
+    if (!first) return;
+    taken.current = pathname;
+    first.focus({ preventScroll: true });
+  });
 
   function onKeyDown(event: React.KeyboardEvent<HTMLElement>) {
     if (!isPagePress(event.nativeEvent)) return;
@@ -148,7 +162,7 @@ export function useKeyedList(
     // surface draws. A page with no box, which is focus mode, keeps its own
     // meaning for the press.
     const box = surface.box.current?.current;
-    if (event.key === ADD_KEY && box) {
+    if (fires("add", event.key) && box) {
       box.focus();
       event.preventDefault();
       return;
@@ -157,5 +171,11 @@ export function useKeyedList(
     if (swallow.includes(event.key)) event.preventDefault();
   }
 
-  return (label) => ({ tabIndex: 0, "aria-label": label, ref, onKeyDown });
+  // The list the focus is in is the list a prompt gives it back to, which on
+  // a board is the column the person was working and not the first one.
+  function onFocus(event: React.FocusEvent<HTMLElement>) {
+    surface.list.current = event.currentTarget;
+  }
+
+  return (label) => ({ tabIndex: 0, "aria-label": label, ref, onKeyDown, onFocus });
 }

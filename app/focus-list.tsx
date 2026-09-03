@@ -67,6 +67,11 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
  * It shows only where the batch holds no unfinished task, because that is the
  * whole rule of focus mode. Taking them is an act, never automatic: the end of
  * a batch is where a person stops.
+ *
+ * `n` stays on the window here, and it is the one key that does. The offer is
+ * drawn where the batch is empty, which is where focus mode draws no list at
+ * all, so there is no keyed list to hold the focus and read the press. See
+ * ADR-0022.
  */
 export function TakeMore() {
   const post = useFetcher();

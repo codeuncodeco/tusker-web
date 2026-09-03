@@ -1,5 +1,10 @@
 # The org board takes the same keys
 
+Amended by [ADR-0022](./0022-a-keyed-lists-keys-are-live-where-focus-is.md).
+The board's keys are now live only in the list that holds the focus, and the
+letters below are read from `app/key-map.ts`. The two maps still stay apart:
+what a press means on this board, and what it posts, is still this board's own.
+
 Extends [ADR-0011](./0011-the-person-axis-and-the-org-axis-are-peers.md) and
 [ADR-0015](./0015-a-drop-names-a-column-not-a-place.md).
 

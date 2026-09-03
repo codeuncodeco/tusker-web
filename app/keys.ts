@@ -8,8 +8,13 @@
  */
 
 /**
- * True for a press the page can act on. A press in a box is the person's, and
- * so is every press while a prompt is raised: the decision prompt covers the
+ * True for a press the page can act on. A keyed list holds no box, so the box
+ * guard reads for the two listeners still on the window — the decision prompt
+ * and the offer that ends a batch — and for a box a page draws inside a list by
+ * mistake. See ADR-0022.
+ *
+ * A press in a box is the person's, and so is every press while a prompt is
+ * raised: the decision prompt covers the
  * list, so `x` must not finish the task behind it, and `Escape` must skip the
  * prompt and nothing else. The caret can sit outside the prompt, so the guard
  * asks whether one is drawn and not where the press landed.
@@ -27,8 +32,9 @@ export function isPagePress(event: KeyboardEvent): boolean {
  *
  * Arrows navigate and letters act: `ArrowLeft` and `ArrowRight` move the
  * cursor, while `<` and `>` move the card. The cursor keeps its place down the
- * column, and takes the last card of a shorter one. A column drawing nothing
- * is walked past, because an empty column holds no card to stop on.
+ * column, and takes the last card of a shorter one. The cursor passes a column
+ * that draws nothing, because an empty column holds no card to stop on. Tab is
+ * how a person reaches that column.
  *
  * The cursor comes back into a list from the end an arrow comes from, and up
  * and down are the two ends a board has. So an empty cursor answers nothing

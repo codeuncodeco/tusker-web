@@ -27,8 +27,8 @@ import { useSurface } from "./keyed-list";
  *
  * The press is the keyed list's, not the window's: `n` on a window is live on
  * the whole page, and a speech-input user's next sentence lands in a task
- * title. So the box says it is this surface's, and the list hands the focus
- * over while it holds it. See ADR-0022.
+ * title. So the box says it is this surface's, and the list moves the focus to
+ * it while the list holds the focus. See ADR-0022.
  */
 export function useAddKey(box: RefObject<HTMLTextAreaElement | null>, bound: boolean) {
   const surface = useSurface();

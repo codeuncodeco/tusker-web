@@ -1,8 +1,8 @@
 /**
  * The keys the org board binds: `j` and `k` move, `Enter` opens, `x` finishes,
  * `>` and `<` walk the card between columns, and `J` and `K` step it inside
- * one. `n` belongs to the quick-add box: the list reads the press and hands
- * the focus over, because the box is outside the list. See ADR-0022.
+ * one. `n` belongs to the quick-add box: the list reads the press and moves the
+ * focus to the box, because the box is outside the list. See ADR-0022.
  *
  * The org board is the one board where the order inside a column is the org's
  * and stored, so `J` and `K` step that order here and on no person-axis page.

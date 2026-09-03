@@ -120,7 +120,8 @@ the plan. One table,
 `app/key-map.ts`, holds the key of every act, and one hook binds the list's
 own, so the board, the plan, the week and focus mode cannot drift apart. The
 keys are live while the focus is inside the **Keyed list** and nowhere else, and
-`ArrowDown` and `ArrowUp` alias `j` and `k` there. `n`
+`ArrowDown` and `ArrowUp` alias `j` and `k` there. `app/keyed-list.tsx` is what
+binds them, and every list map calls it. `n`
 takes three more, and the offer that ends a batch binds it where it is drawn. A page says which
 acts it gives; the rest answer nothing. The peer of **Editor keys**: one is for
 a list and one is for a box, and `isPagePress` is the border between them.
@@ -549,9 +550,9 @@ The element that takes the focus, holds the cursor and binds the keys: one
 `aria-label`, and no `role`. Its keys are live while the focus is inside it and
 dead everywhere else, which is what makes a single-character shortcut legal, and
 what lets the arrows move the cursor without taking page scroll away. It takes
-the focus when the page draws, and it names no card while doing it. A board
-draws one per column, and the five share one cursor and one binding. A box is
-never inside one. See ADR-0022.
+the focus once for each page it is drawn on, and it names no card in doing so.
+A board draws one per column, and the five share one cursor and one binding.
+A box is never inside one. See ADR-0022.
 _Avoid_: List container, keyed element, listbox
 
 **Cursor**:
@@ -561,7 +562,7 @@ so the card keeps the cursor while the page redraws around it. It starts empty,
 `Escape` empties it again, and `j` and `k` fill it: `j` takes the first card,
 `k` the last, and `ArrowDown` and `ArrowUp` do the same. A click on a card body
 places it. On a board `ArrowLeft` and `ArrowRight` carry it across the columns,
-while `<` and `>` go on moving the card. A card the page stops drawing
+and `<` and `>` still move the card. A card the page stops drawing
 takes the cursor with it, and every key that needs a card does nothing while
 the cursor is empty. Focus mode draws three rows and gives no click.
 See ADR-0015 and ADR-0022.

@@ -28,8 +28,9 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
   const refocus = useKeyedFocus();
 
   // The prompt covers the list and takes the focus off it, and the keys are
-  // live only where the focus is, so the prompt gives it back. A person who
-  // finished a task by key goes on pressing keys. See ADR-0022.
+  // live only where the focus is, so the prompt gives it back to the list it
+  // came from. A person who finished a task by key keeps pressing keys.
+  // See ADR-0022.
   const was = useRef(false);
   useEffect(() => {
     if (was.current && !raised) refocus();

@@ -11,7 +11,7 @@
  * and a map that read them would stop being a map.
  */
 
-/** Every act a keyed list binds. */
+/** Every act a keyed list binds, whoever carries it out. */
 export type ActionName =
   | "next"
   | "prev"
@@ -25,6 +25,7 @@ export type ActionName =
   | "back"
   | "finish"
   | "more"
+  | "add"
   | "clear";
 
 export type KeyRow = {
@@ -63,6 +64,11 @@ export const KEY_MAP: Record<ActionName, KeyRow> = {
   back: { key: "<", label: "Back" },
   finish: { key: "x", label: "Finish" },
   more: { key: "n", label: "Take three more" },
+  // The one act a keyed list does not do itself: it moves the focus to the
+  // quick-add box the surface draws. Focus mode draws no box and the offer
+  // that ends a batch takes `n` there, which is a collision older than this
+  // row and left standing. See ADR-0022.
+  add: { key: "n", label: "Add a task" },
   // The one act with no control to carry it: a cleared cursor names nothing,
   // so there is no card for a button to sit on. See ADR-0015.
   clear: { key: "Escape", label: "Clear cursor" },
