@@ -384,18 +384,22 @@ so its undo is one act. It is the only delete Tusker has. See ADR-0012.
 _Avoid_: Trash, revert
 
 **Week set**:
-The tasks one person means to finish in one named week. It is membership and
-nothing else: no order, no day. The week set says what, and the plan says when.
-It belongs to the person and can hold tasks from several orgs. Membership is
-always per named week, so a task is in the set of week 36 and not "in the week
-set". See ADR-0014.
+The tasks one person means to finish in one named week, in the order they mean
+to take them. It holds no day: the week set says what and how it ranks, and the
+plan says when. A pick lands on top, a task written back from a day lands at the
+foot, and a member finished this week sinks under the live ones and keeps its
+rank. It belongs to the person and can hold tasks from several orgs. Membership
+is always per named week, so a task is in the set of week 36 and not "in the
+week set". See ADR-0014 and ADR-0021.
 _Avoid_: Week plan, weekly backlog, commitment
 
 **Week page**:
-The page where a person builds a week set, at `/me/week`, and `/me/week/:week`
-for a named week. It draws the live set as a list, as plan mode does, with the
-quick-add box, and the week it names runs Monday to Friday. Every pick writes,
-as in plan mode. See ADR-0014.
+The page where a person builds a week set and puts it in order, at `/me/week`,
+and `/me/week/:week` for a named week. It draws the live set as a list, as plan
+mode does, with the quick-add box, and the week it names runs Monday to Friday.
+`J` and `K` step a member, `T` promotes one to the top, and the set is the one
+order on the page. Every pick and every step writes, as in plan mode. See
+ADR-0014 and ADR-0021.
 _Avoid_: Weekly planner, week board
 
 **Plan**:
@@ -409,8 +413,10 @@ The page where a person builds a plan: pick the tasks, order them, keep them.
 It draws the live set as a list, at `/me/plan`, and `/me/plan/:day` for a named
 day. Plan mode, focus and the unified board share the live set and the sort,
 and lay them out differently: a plan drawn from a Done column is nonsense. The
-week set comes first, and the rest of the live set under a heading below it.
-Every pick and every step writes the plan row, so nothing waits on a tab and
+week set comes first, in week order, and the rest of the live set under a
+heading below it. Plan mode reads that order and never writes it: the one order
+it owns is the plan's. Every pick and every step writes the plan row, so nothing
+waits on a tab and
 there is no Commit button. All of that is the day the person is in, and the days
 ahead of it. Reading a finished day back is not plan mode's act, so a **Day
 walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.

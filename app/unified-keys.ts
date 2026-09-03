@@ -2,9 +2,10 @@
  * The keys every cross-org list binds, and the one place that binds them.
  *
  * `j` and `k` move, `Enter` opens, `p` plans, `x` finishes, `>` and `<` walk
- * the card between columns, and `J` and `K` step a planned task through the
- * plan. The keys themselves live in `app/key-map.ts`; the guards live here,
- * because a guard reads the task, the plan set and the page's acts.
+ * the card between columns, and `J`, `K` and `T` move a picked row through the
+ * order the page owns. The keys themselves live in `app/key-map.ts`; the
+ * guards live here, because a guard reads the task, the picked set and the
+ * page's acts.
  *
  * The unified board, plan mode, the week and focus mode draw the same tasks in
  * different layouts, so one hook serves all four. Tusker is keyboard first, so
@@ -31,7 +32,11 @@ import { finishFields, moveFields, planFields } from "./unified-row";
 export type ListActs = {
   /** True where `p` puts a task in the page's list, or takes it back out. */
   plan: boolean;
-  /** True where the page gives the person an order of their own to step. */
+  /**
+   * True where the page gives the person an order of their own to move: `J`
+   * and `K` step a row, and `T` promotes one. One flag carries all three,
+   * because they are one family and a page owns an order or it does not.
+   */
   step: boolean;
   /** True where `>` and `<` walk a task between columns. */
   move: boolean;
@@ -41,8 +46,8 @@ export type ListActs = {
 export const ALL_ACTS: ListActs = { plan: true, step: true, move: true };
 
 /**
- * Every act but the step, for a list whose order is derived: the board, the
- * week, and plan mode's own To do and In progress groups. See ADR-0006.
+ * Every act but the step, for a list whose order is derived: the board, and
+ * plan mode's own To do and In progress groups. See ADR-0006.
  */
 export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
 
@@ -51,6 +56,12 @@ export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
  * past its own. The task itself is live, so a finish and a move stand.
  */
 export const READ_ACTS: ListActs = { plan: false, step: false, move: true };
+
+/**
+ * The three presses that move a row, and the intent each posts. The intent is
+ * the act's own name, so the map is the whole binding.
+ */
+const MOVE_KEYS = (["up", "down", "top"] as const).map((act) => [act, KEY_MAP[act]] as const);
 
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
@@ -102,11 +113,13 @@ export function pressed(
     return { kind: "act", fields: planFields(task, held) };
   }
 
-  // A step is a step of the plan, so a task the plan does not hold, and a page
-  // with no order of the person's own, have nothing to step.
-  if (key === KEY_MAP.up.key || key === KEY_MAP.down.key) {
+  // A move is a move of the page's own order, so a task that order does not
+  // hold, and a page with no order of the person's own, have nothing to move.
+  // The plan is one such order and a week set is the other. See ADR-0021.
+  const moves = MOVE_KEYS.find(([, row]) => row.key === key);
+  if (moves) {
     if (!acts.step || !planned.has(task.id)) return null;
-    return { kind: "act", fields: { intent: key === KEY_MAP.up.key ? "up" : "down", id: task.id } };
+    return { kind: "act", fields: { intent: moves[0], id: task.id } };
   }
 
   // `>` and `<` walk the card along the run and stop at both ends. They post

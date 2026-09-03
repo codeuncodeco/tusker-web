@@ -23,6 +23,9 @@
  * holds and no Commit button, because a plan the tab can lose is no plan. See
  * ADR-0008, "A plan commits as it is made".
  *
+ * The shelf is drawn in week order and never rewritten here: the one order
+ * this page owns is the plan's. See ADR-0021.
+ *
  * The page walks between days, and the date is a link to the day's own address:
  * `/me/plan/:day` is reachable by that walk and by nothing else. A day before
  * today reads back and does not edit — building a plan and reading one back are
@@ -98,13 +101,14 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const day = dayFor(request, params.day);
   const canPlan = canPlanOn(request, day);
   const plan = await readPlan(env.DB, set.personId, day);
-  // The week the day sits in, whose set the page offers above everything else.
-  // A day read back is offered nothing, because it picks nothing.
+  // The week the day sits in, whose set the page offers above everything else,
+  // in the order the week page gave it. A day read back is offered nothing,
+  // because it picks nothing.
   const members = canPlan ? ((await readWeekSet(env.DB, set.personId, weekOf(day))) ?? []) : [];
   const tasks = await listUnified(env.DB, set, [...new Set([...(plan ?? []), ...members])]);
   // The first group holds the plan in plan order, and the second the week set
-  // in percentile order. A picked id no org answers for is left out, so a task
-  // that was archived or deleted drops out rather than raising an error.
+  // in week order. A picked id no org answers for is left out, so a task that
+  // was archived or deleted drops out rather than raising an error.
   // A day read back draws the plan alone: a shelf nothing can be picked from
   // is noise.
   const groups = canPlan ? planGroups(tasks, plan ?? [], members) : planOnly(tasks, plan ?? []);
@@ -153,9 +157,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     throw new Response("A task is made on the day it is thought of.", { status: 400 });
   }
 
-  // A step reads no task row. It moves an id the plan already holds, and an id
+  // A move reads no task row. It moves an id the plan already holds, and an id
   // the plan does not hold moves nothing.
-  if (intent === "up" || intent === "down") {
+  if (intent === "up" || intent === "down" || intent === "top") {
     await movePlan(env.DB, set.personId, day, String(form.get("id") ?? ""), intent);
     return { ok: true };
   }

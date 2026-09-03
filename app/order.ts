@@ -37,3 +37,18 @@ export function placesAbove(first: number | null, count: number): number[] {
   const base = first ?? STEP;
   return Array.from({ length: count }, (_, at) => base - STEP * (count - at));
 }
+
+/**
+ * The positions a block of new cards takes at the foot of a column, in the
+ * order they were typed: the first line gets the lowest position, so the block
+ * reads down the page as it was written.
+ *
+ * `last` is the position of the card that was at the foot, or null for an
+ * empty column. Nothing is under the foot of a column, so the block always has
+ * room and no renumber is needed. One card gives the same answer as
+ * `between(last, null)`.
+ */
+export function placesBelow(last: number | null, count: number): number[] {
+  const base = last ?? -STEP;
+  return Array.from({ length: count }, (_, at) => base + STEP * (at + 1));
+}

@@ -7,6 +7,9 @@
  * The three lists it reads, in order: today's plan, this week's set, and the
  * live set. Each is read only where the one before it is not there at all: an
  * empty set is not the same as no set. See ADR-0014.
+ *
+ * The first two carry an order of the person's own, so the batch is cut from
+ * the head of the list they ranked. See ADR-0021.
  */
 
 import { batchOf, BATCH, type Batch } from "./focus";
@@ -35,8 +38,8 @@ export type Focus = {
  * The batch a person is on, and what surrounds it.
  *
  * The batch draws from today's plan when a plan exists, in plan order. With no
- * plan it draws from this week's set, and with no set either from the live
- * set, both in the order `/me` sorts them.
+ * plan it draws from this week's set, in week order, and with no set either
+ * from the live set, in the order `/me` sorts it.
  */
 export async function readFocus(
   db: D1Database,
@@ -118,15 +121,15 @@ async function focusSource(
   const { inPlan, rest } = await bothLists(db, set, plan);
   if (plan !== null) return { planned: true, source: inPlan, rest, empty: inPlan.length === 0 };
 
-  // The set carries no order, so its members draw in the order `/me` sorts
-  // them, which is the order `rest` already holds. A member no live task
-  // answers for — finished, archived, or back in the backlog — is not work,
-  // so it is not in the list either.
+  // The set carries its own order, so the first three are the three the week
+  // page ranked first, and not the three one org column happens to lead with.
+  // A member no live task answers for — finished, archived, or back in the
+  // backlog — is not work, so it is not in the list either. See ADR-0021.
   const members = await readWeekSet(db, personId, weekOf(day));
   if (members === null) return { planned: false, source: rest, rest, empty: false };
 
-  const held = new Set(members);
-  const inWeek = rest.filter((one) => held.has(one.id));
+  const live = new Map(rest.map((one) => [one.id, one]));
+  const inWeek = members.map((id) => live.get(id)).filter((one) => one !== undefined);
   return { planned: false, source: inWeek, rest, empty: inWeek.length === 0 };
 }
 

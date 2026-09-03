@@ -261,8 +261,24 @@ describe("picking and ordering a day", () => {
     await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
     await act(ada.cookie, { intent: "up", id: "a" });
     await act(ada.cookie, { intent: "down", id: "a" });
+    await act(ada.cookie, { intent: "top", id: "a" });
 
     expect(await stored(ada.person.id)).toEqual(["a"]);
+  });
+
+  // `T` binds wherever a page owns an order, so plan mode takes it as the
+  // week page does. See ADR-0021.
+  it("promotes a picked task to the top of the plan", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    for (const [at, id] of ["a", "b", "c"].entries()) {
+      await task(ada.org.id, id, { position: at + 1 });
+      await act(ada.cookie, { intent: "plan", id, slug: ada.org.slug });
+    }
+
+    await act(ada.cookie, { intent: "top", id: "c" });
+
+    expect(await stored(ada.person.id)).toEqual(["c", "a", "b"]);
+    expect(ids(await planPage(ada.cookie), "today")).toEqual(["c", "a", "b"]);
   });
 
   it("takes a picked task back out", async () => {
@@ -592,12 +608,14 @@ describe("a day past its own", () => {
     expect(await stored(ada.person.id, "2026-09-02")).toEqual(["a"]);
   });
 
-  it("refuses a step, and leaves the order as the day left it", async () => {
+  it("refuses a step and a promote, and leaves the order as the day left it", async () => {
     const ada = await planned();
 
-    const response = await caught(actOn(ada.cookie, PAST, { intent: "up", id: "b" }));
+    for (const intent of ["up", "top"]) {
+      const response = await caught(actOn(ada.cookie, PAST, { intent, id: "b" }));
+      expect(response.status).toBe(400);
+    }
 
-    expect(response.status).toBe(400);
     expect(await stored(ada.person.id, PAST)).toEqual(["a", "b"]);
   });
 

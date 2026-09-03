@@ -23,3 +23,17 @@ describe("moving a task inside a plan", () => {
     expect(moveInPlan(["a", "b"], "c", "up")).toEqual(["a", "b"]);
   });
 });
+
+describe("promoting a task to the top of a plan", () => {
+  it("puts the task first and shifts down everything it passed", () => {
+    expect(moveInPlan(["a", "b", "c"], "c", "top")).toEqual(["c", "a", "b"]);
+  });
+
+  it("leaves the task already on top where it is", () => {
+    expect(moveInPlan(["a", "b"], "a", "top")).toEqual(["a", "b"]);
+  });
+
+  it("leaves a plan that does not hold the task alone", () => {
+    expect(moveInPlan(["a", "b"], "c", "top")).toEqual(["a", "b"]);
+  });
+});

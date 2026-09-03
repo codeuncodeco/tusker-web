@@ -32,7 +32,11 @@ export type LiveTask = {
   fields: Shown[];
   /** The members who hold the task. A personal org draws none. See ADR-0013. */
   assignees: Assignee[];
-  /** True for a planned task already finished. It stays in Today, struck through. */
+  /**
+   * True for a picked task already finished. It stays in the list that holds
+   * it, struck through: in Today where the day put it, and under the live
+   * members on a week page.
+   */
   finished: boolean;
 };
 
@@ -84,12 +88,11 @@ export function inOrder(a: LiveTask, b: LiveTask): number {
  * drawn twice. A picked id no org answers for is left out: a task that was
  * archived or deleted drops out of the list rather than raising an error.
  *
- * A plan keeps the order it was given, because that order is the whole value
- * of a plan. A week set has none, so it is drawn in the sort every other
- * cross-org list uses.
+ * Both head groups keep the order they were given, because that order is the
+ * whole value of a plan and, since ADR-0021, of a week set as well.
  */
 export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "today"): Group[] {
-  return drawn(tasks, [{ key: head, ids: picked, ordered: head === "today" }]);
+  return drawn(tasks, [{ key: head, ids: picked, sinks: head === "week" }]);
 }
 
 /**
@@ -107,12 +110,16 @@ export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "tod
  * The plan is drawn above the shelf. The shelf comes first of the lists a
  * person picks from, which is what ADR-0014 asks for; the plan is not one of
  * them. It is the thing being built, and it holds the one order on the page.
+ *
+ * The shelf is drawn in week order, which is the order the week page made.
+ * Plan mode reads that order and never writes it: the one order it owns is the
+ * plan's. See ADR-0021.
  */
 export function planGroups(tasks: LiveTask[], plan: string[], members: string[]): Group[] {
   const planned = new Set(plan);
   return drawn(tasks, [
-    { key: "today", ids: plan, ordered: true },
-    { key: "week", ids: members.filter((id) => !planned.has(id)), ordered: false },
+    { key: "today", ids: plan },
+    { key: "week", ids: members.filter((id) => !planned.has(id)), sinks: true },
   ]);
 }
 
@@ -124,26 +131,34 @@ export function planGroups(tasks: LiveTask[], plan: string[], members: string[])
  * there. A picked id no org answers for is left out, as it is everywhere.
  */
 export function planOnly(tasks: LiveTask[], plan: string[]): Group[] {
-  return [head(new Map(tasks.map((one) => [one.id, one])), "today", plan, true)];
+  const byId = new Map(tasks.map((one) => [one.id, one]));
+  return [head(byId, { key: "today", ids: plan })];
 }
+
+/** How a page names one of its head groups. */
+type Named = {
+  key: GroupKey;
+  /** The ids the page picked, in the order it means them to be read. */
+  ids: string[];
+  /** True where a finished member sinks under the live ones as the group draws. */
+  sinks?: boolean;
+};
 
 /**
  * The head groups a page names, and under them the rest of the live set split
  * by status.
  *
- * An unordered head takes the sort every cross-org list has, because the only
- * order a person owns is a plan's.
+ * A head group keeps the order it was given. The groups under it take the sort
+ * every cross-org list has, because the only orders a person owns are a plan's
+ * and a week set's.
  */
-function drawn(
-  tasks: LiveTask[],
-  heads: { key: GroupKey; ids: string[]; ordered: boolean }[],
-): Group[] {
+function drawn(tasks: LiveTask[], heads: Named[]): Group[] {
   const byId = new Map(tasks.map((one) => [one.id, one]));
-  const inHead = new Set(heads.flatMap((head) => head.ids));
+  const inHead = new Set(heads.flatMap((one) => one.ids));
   const rest = tasks.filter((one) => !inHead.has(one.id)).sort(inOrder);
 
   return [
-    ...heads.map(({ key, ids, ordered }) => head(byId, key, ids, ordered)),
+    ...heads.map((named) => head(byId, named)),
     ...UNDER_HEAD.map((key) => ({
       key,
       label: GROUP_LABEL[key],
@@ -157,15 +172,18 @@ function drawn(
  *
  * An id no org answers for is left out here and nowhere else, so a task that
  * was archived or deleted drops out of every list by one rule.
+ *
+ * A group that sinks draws its finished members under its live ones, each half
+ * keeping its rank. Nothing is written on a finish, so the sink happens as the
+ * page draws and unfinishing a task gives it its place back. A plan does not
+ * sink: a task finished today stays where the day put it. See ADR-0021.
  */
-function head(
-  byId: Map<string, LiveTask>,
-  key: GroupKey,
-  ids: string[],
-  ordered: boolean,
-): Group {
-  const held = ids.map((id) => byId.get(id)).filter((one) => one !== undefined);
-  return { key, label: GROUP_LABEL[key], tasks: ordered ? held : held.sort(inOrder) };
+function head(byId: Map<string, LiveTask>, { key, ids, sinks }: Named): Group {
+  const rows = ids.map((id) => byId.get(id)).filter((one) => one !== undefined);
+  const tasks = sinks
+    ? [...rows.filter((one) => !one.finished), ...rows.filter((one) => one.finished)]
+    : rows;
+  return { key, label: GROUP_LABEL[key], tasks };
 }
 
 /** A dated task above an undated one, and the earlier date first. */

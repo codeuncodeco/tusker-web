@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { useLocalDay } from "./local-day";
-import type { Group, GroupKey } from "./unified";
+import type { Group, GroupKey, LiveTask } from "./unified";
 import { ALL_ACTS, NO_STEP_ACTS, READ_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
 
@@ -31,7 +31,10 @@ export function UnifiedList({
   day: string;
   /** True for a day the path named, which the browser must not talk out of. */
   namedDay?: boolean;
-  /** The group whose order belongs to the person, and so carries the steps. */
+  /**
+   * The group whose order belongs to the person, and so carries the steps and
+   * the promote: the plan on plan mode, and the set on a week page.
+   */
   ordered?: GroupKey | null;
   /** False where the list is read back: a day past its own takes no pick. */
   picks?: boolean;
@@ -72,7 +75,7 @@ export function UnifiedList({
           </h2>
 
           <ul className="flex flex-col gap-2">
-            {group.tasks.map((task, at) => (
+            {group.tasks.map((task) => (
               <UnifiedRow
                 key={task.id}
                 task={task}
@@ -82,11 +85,7 @@ export function UnifiedList({
                 selected={cursor === task.id}
                 domId={`row-${task.id}`}
                 place={() => setOn(task.id)}
-                moves={
-                  group.key === ordered
-                    ? { up: at > 0, down: at < group.tasks.length - 1 }
-                    : undefined
-                }
+                moves={group.key === ordered ? movesFor(group, task) : undefined}
               />
             ))}
           </ul>
@@ -94,4 +93,20 @@ export function UnifiedList({
       ))}
     </div>
   );
+}
+
+/**
+ * Which way one row of the ordered group can move, or nothing where it cannot
+ * move at all.
+ *
+ * A week page sinks its finished members under the live ones and never
+ * re-ranks them, so there they carry no buttons and the last live row has
+ * nothing below it. A plan keeps a task finished today where the day put it,
+ * so every row of a plan moves. See ADR-0021.
+ */
+function movesFor(group: Group, task: LiveTask): { up: boolean; down: boolean } | undefined {
+  const ranked = group.key === "week" ? group.tasks.filter((one) => !one.finished) : group.tasks;
+  const at = ranked.indexOf(task);
+  if (at === -1) return undefined;
+  return { up: at > 0, down: at < ranked.length - 1 };
 }
