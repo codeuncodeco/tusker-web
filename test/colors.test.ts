@@ -4,6 +4,7 @@ import css from "../app/app.css?raw";
 import {
   ASSIGNABLE,
   colorCss,
+  colorHex,
   colorOf,
   isColor,
   nextColor,
@@ -122,5 +123,21 @@ describe("the colour a new org is assigned", () => {
     const all = [...ASSIGNABLE];
     expect(nextColor(all)).toBe(ASSIGNABLE[0]);
     expect(nextColor([...all, ASSIGNABLE[0]])).toBe(ASSIGNABLE[1]);
+  });
+});
+
+describe("the hex a colour picker opens on", () => {
+  it("seeds a palette name with the light value the token holds", () => {
+    expect(css).toContain(`--color-opt-blue: light-dark(${colorHex("blue")},`);
+  });
+
+  it("keeps an exact colour, and writes a short one in full", () => {
+    expect(colorHex("#2563eb")).toBe("#2563eb");
+    expect(colorHex("#abc")).toBe("#aabbcc");
+  });
+
+  it("seeds no colour, and a name the palette dropped, with grey", () => {
+    expect(colorHex(null)).toBe(colorHex("grey"));
+    expect(colorHex("chartreuse")).toBe(colorHex("grey"));
   });
 });
