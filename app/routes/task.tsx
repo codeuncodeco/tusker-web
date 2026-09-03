@@ -3,6 +3,7 @@ import { Form, Link } from "react-router";
 import { archiveTasks, restoreTasks } from "../archive.server";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesOf, membersOf, readAssignees, setAssignees } from "../assignees.server";
+import { BackLink } from "../back-link";
 import { STATUSES, STATUS_LABEL, isFinished, readStatus, type Status } from "../board";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
@@ -14,6 +15,7 @@ import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
+import { backPath } from "../paths";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
 import {
@@ -44,6 +46,12 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   return {
     org: { slug: scope.org.slug, name: scope.org.name },
+    /**
+     * The list this task was opened from, as the `from` query names it, and
+     * the org's board for a task opened from nowhere. The back link and `Esc`
+     * both follow it. See `app/paths.ts`.
+     */
+    back: backPath(new URL(request.url).search, scope.org.slug),
     task: {
       id: task.id,
       title: task.title,
@@ -370,13 +378,15 @@ function MetadataAside({
 }
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, fields, refs, colors, members, assignees, ask } = loaderData;
+  const { org, task, back, fields, refs, colors, members, assignees, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
 
   return (
     // Wider than the other pages under the org layout: the aside sits beside
     // the task, so the two columns need the room.
     <main className="mx-auto flex max-w-4xl flex-1 flex-col gap-6 p-8">
+      {/* The way back to the list `Enter` opened the task from. */}
+      <BackLink to={back} />
       <h1 className="text-2xl tracking-tight">{task.title}</h1>
 
       <Form method="post" key={task.id} className="flex flex-col gap-6 sm:flex-row">

@@ -16,6 +16,7 @@ import { useNavigate } from "react-router";
 
 import { isFinished, stepped, type Status } from "./board";
 import { isPagePress } from "./keys";
+import { taskPath, useHere } from "./paths";
 
 /** One column as the keys read it: its status, and the ids it draws in order. */
 export type KeyedColumn = { status: Status; ids: string[] };
@@ -111,6 +112,9 @@ export function useBoardKeys(
   step: (id: string, way: "up" | "down") => void,
 ) {
   const navigate = useNavigate();
+  // `Enter` opens the task from the board, so the task page carries the board
+  // back. The link on the card carries the same thing.
+  const here = useHere();
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -121,7 +125,7 @@ export function useBoardKeys(
       // Both posts put the cursor on the card they move, so the person can see
       // where it landed and keep working it by key.
       if (act.act === "on") setOn(act.id);
-      else if (act.act === "open") navigate(`/o/${slug}/t/${act.id}`);
+      else if (act.act === "open") navigate(taskPath(slug, act.id, here));
       else if (act.act === "move") move(act.id, act.status);
       else step(act.id, act.way);
 
@@ -130,5 +134,5 @@ export function useBoardKeys(
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [columns, slug, on, setOn, move, step, navigate]);
+  }, [columns, slug, on, setOn, move, step, navigate, here]);
 }
