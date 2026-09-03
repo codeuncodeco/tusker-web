@@ -162,3 +162,38 @@ export function nextColor(held: (string | null)[]): PaletteName {
   const taken = new Set(held.filter((color): color is string => color !== null));
   return ASSIGNABLE.find((name) => !taken.has(name)) ?? ASSIGNABLE[held.length % ASSIGNABLE.length];
 }
+
+/**
+ * The light value of every palette name, as `app/app.css` holds it.
+ *
+ * A native colour picker takes a hex value and nothing else, so a screen that
+ * offers one seeds it with this when the org holds a palette name. Only the
+ * light value is here: the picker draws one swatch, not two.
+ */
+const SWATCH: Record<PaletteName, string> = {
+  grey: "#6f6c60",
+  red: "#c5535f",
+  orange: "#e8743b",
+  amber: "#d9a200",
+  green: "#19a979",
+  teal: "#13a4b4",
+  blue: "#5b6ef5",
+  purple: "#945ecf",
+  pink: "#cf5f92",
+};
+
+/**
+ * The hex a colour picker opens on. An exact colour is its own seed. A palette
+ * name, and a colour no palette names, seed the swatch the value draws today.
+ *
+ * The answer is always `#rrggbb`. A picker reads no other form, and `#abc`
+ * would open it on black.
+ */
+export function colorHex(color: string | null): string {
+  if (color === null) return SWATCH[FALLBACK];
+  if (!color.startsWith("#")) return SWATCH[isPaletteName(color) ? color : FALLBACK];
+  const hex = color.slice(1);
+  return hex.length === 3
+    ? `#${[...hex].map((digit) => digit + digit).join("")}`
+    : `#${hex.toLowerCase()}`;
+}
