@@ -1,6 +1,6 @@
 import { Form, redirect } from "react-router";
 
-import { PALETTE, readColor } from "../colors";
+import { colorHex, readColor } from "../colors";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
 import { OrgDot } from "../org-chip";
@@ -135,10 +135,14 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
 /**
  * The colour this org draws on a page that mixes several.
  *
- * The box takes a palette name or an exact colour, as the field colours do,
- * and it is the same control: a labelled box with a `<datalist>` of the
- * palette names. An empty box clears the colour, and the org draws grey. See
+ * The control is the browser's own colour picker, so a person chooses a colour
+ * rather than spelling one. It always answers an exact colour, and it cannot
+ * answer nothing, so Clear is its own button: it posts an empty box, which the
+ * action already reads as no colour. An org with no colour draws grey. See
  * ADR-0020.
+ *
+ * An org that already holds a palette name keeps it until somebody saves. The
+ * picker opens on the swatch that name draws.
  */
 function ColorForm({
   org,
@@ -155,42 +159,44 @@ function ColorForm({
         org you belong to sit together. Any member can change it.
       </p>
 
-      <datalist id="org-palette">
-        {PALETTE.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
+      <div className="flex items-end gap-2">
+        <Form method="post" className="flex items-end gap-2">
+          <input type="hidden" name="intent" value="color" />
 
-      <Form method="post" className="flex flex-col gap-3">
-        <input type="hidden" name="intent" value="color" />
+          <label className="flex flex-col gap-1">
+            <span className="flex items-center gap-2">
+              Colour
+              <OrgDot color={org.color} />
+            </span>
+            <input
+              type="color"
+              name="color"
+              defaultValue={colorHex(org.color)}
+              className="h-10 w-16 cursor-pointer rounded border border-border bg-transparent p-1"
+            />
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="flex items-center gap-2">
-            Colour
-            <OrgDot color={org.color} />
-          </span>
-          <span className="text-muted">
-            A palette name or an exact colour, for example blue or #2563eb. Empty draws grey.
-          </span>
-          <input
-            name="color"
-            list="org-palette"
-            defaultValue={org.color ?? ""}
-            placeholder="blue or #2563eb"
-            className={fieldClass}
-          />
-        </label>
+          <button className="rounded border border-border px-3 py-2">
+            Save the colour
+          </button>
+        </Form>
 
-        {actionData && "colorError" in actionData && actionData.colorError ? (
-          <p role="alert" className="text-danger">
-            {actionData.colorError}
-          </p>
+        {org.color ? (
+          <Form method="post">
+            <input type="hidden" name="intent" value="color" />
+            <input type="hidden" name="color" value="" />
+            <button className="rounded border border-border px-3 py-2 text-muted">
+              Clear
+            </button>
+          </Form>
         ) : null}
+      </div>
 
-        <button className="self-start rounded border border-border px-3 py-2">
-          Save the colour
-        </button>
-      </Form>
+      {actionData && "colorError" in actionData && actionData.colorError ? (
+        <p role="alert" className="text-danger">
+          {actionData.colorError}
+        </p>
+      ) : null}
     </section>
   );
 }

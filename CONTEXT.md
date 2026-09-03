@@ -183,8 +183,8 @@ _Avoid_: Decision history, changelog
 
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled
-status, and it leaves the board, the unified board and every plan. Restoring it
-puts it back in the column it held. `tasks.archived_at` holds when it was
+status, and it leaves the org board, the unified board and every plan. Restoring
+it puts it back in the column it held. `tasks.archived_at` holds when it was
 archived, and the archive screen sorts by it.
 _Avoid_: Closed, hidden
 
@@ -216,7 +216,7 @@ _Avoid_: Snackbar, notification, flash message
 One org's archived tasks as a flat list, newest archived first, at
 `/o/:slug/archive`. It is per org: there is no cross-org archive, so a **Sweep**
 of the unified board files into several, and its **Toast** links to each one. It
-carries the board's Today chip, and it holds Cancelled tasks whatever the
+carries the org board's Today chip, and it holds Cancelled tasks whatever that
 board's Cancelled toggle says. Archived work is a history a person scans, not a
 pipeline they rearrange, so it has no columns and no drag.
 _Avoid_: Archive board, history page
@@ -246,8 +246,8 @@ _Avoid_: Completed at, closed date
 **Order**:
 The sequence of tasks in a column. A column has one order, the org's, and any
 member can change it. Tusker has no priority levels. The sequence is the
-priority. One person's own order is the plan, not a second order of the board.
-See ADR-0006.
+priority. One person's own order is the plan, not a second order of the org
+board. See ADR-0006.
 _Avoid_: Priority
 
 **Position**:
@@ -335,23 +335,32 @@ _Avoid_: Tasks endpoint, public API
 ### Views
 
 **Board**:
-The To do, In progress and Done columns for one org, with Backlog and Cancelled
-shown by rule. The order inside a column is the org's and it is stored, so this
-is the one board where a card is dragged into a place, and the one that binds
-`J` and `K`. See ADR-0016.
+A page that draws tasks as one column per status. Tusker has two, the **Org
+board** and the **Unified board**. They are one page over two sets of rows: the
+same five columns, the same cards, and the same keys except the two that step a
+stored order. The bare word is right where one board is in view, or where the
+rule holds for both. Where the two stand together, name them.
+_Avoid_: Kanban, board view
+
+**Org board**:
+The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
+Backlog and Cancelled shown by rule. The order inside a column is the org's and
+it is stored, so this is the one board where a card is dragged into a place, and
+the one that binds `J` and `K`. See ADR-0016.
+_Avoid_: Team board, project board, the org's board
 
 **Unified board**:
-The same five columns across every org one person belongs to, at `/me`. A
-person who learns the board on one org meets the same page on all of them.
-Done is drawn on every load, empty or not. The board draws work in hand and
-where it ended, and where work ended is never a request. See ADR-0018. Backlog
-and Cancelled are switches here, the same two the org board offers. Backlog
-takes no rule here, because the org board's rule reads "this person holds no
-live task anywhere" and is therefore dead. Done and Cancelled cap to the last
-seven days of finish time. Inside a column the order is percentile order, and
-it is derived: no card is dragged into a place and no card steps. A card still
-moves between columns, because a column is a status: by drag, by key or by the
-card's select. See ADR-0015.
+The same five columns across every org one person belongs to, at `/me`. A person
+who learns the org board meets the same page across all of them. Done is drawn
+on every load, empty or not. The board draws work in hand and where it ended,
+and where work ended is never a request. See ADR-0018. Backlog and Cancelled are
+switches here, the same two the org board offers. Backlog takes no rule here,
+because the org board's rule reads "this person holds no live task anywhere" and
+is therefore dead. Done and Cancelled cap to the last seven days of finish time.
+Inside a column the order is percentile order, and it is derived: no card is
+dragged into a place and no card steps. A card still moves between columns,
+because a column is a status: by drag, by key or by the card's select. See
+ADR-0015.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
@@ -401,8 +410,10 @@ The page where a person builds a week set and puts it in order, at `/me/week`,
 and `/me/week/:week` for a named week. It draws the live set as a list, as plan
 mode does, with the quick-add box, and the week it names runs Monday to Friday.
 `J` and `K` step a member, `T` promotes one to the top, and the set is the one
-order on the page. Every pick and every step writes, as in plan mode. See
-ADR-0014 and ADR-0021.
+order on the page. Every pick and every step writes, as in plan mode. All of
+that is the week the person is in, and the weeks ahead of it: a week that is
+over is read, not rewritten, so the **week walk** to it draws its set alone and
+offers the **take**. See ADR-0014 and ADR-0021.
 _Avoid_: Weekly planner, week board
 
 **Plan**:
@@ -424,6 +435,16 @@ ahead of it. Reading a finished day back is not plan mode's act, so a **Day
 walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
 
+**Week walk**:
+The controls that carry the week page from one week to the next: the week
+before, the week after, the key itself as a link to its own address, and the
+way back to this week. It is what makes `/me/week/:week` reachable. A week that
+is over is read and not rewritten, so it draws no pick, no step and no box, and
+offers the **take** instead. This week and the weeks after it plan as they
+always did, and a week nobody started draws empty and offers what it always
+offers.
+_Avoid_: Week picker, week navigator
+
 **Day walk**:
 The controls that carry plan mode from one day to the next: the day before, the
 day after, and the way back to today. The **day name** heads the page and links
@@ -443,13 +464,28 @@ stored day keep `YYYY-MM-DD`: only the reading changes.
 _Avoid_: Date string, formatted date
 
 **Leftovers**:
-The tasks the last week set holds that are still unfinished. Opening the week
-page on a week with no set offers them: carry them forward, or start clean. A
-week set is never rewritten after its week, so carrying forward copies the
-memberships and leaves the old ones as they were, and a carried task is in both
-sets. A day carries nothing: each plan starts empty, and the week set is where
-unfinished work waits. See ADR-0014.
+The unfinished members of a week that is over. Two doorways reach them, the
+**carry** and the **take**, and both copy the memberships and leave the old
+ones as they were, so a task is in both sets: a week set is never rewritten
+after its week. A day carries nothing: each plan starts empty, and the week set
+is where unfinished work waits. See ADR-0014.
 _Avoid_: Rollover, unfinished carry-over
+
+**Carry**:
+The doorway an unstarted week opens on: take the leftovers of the last week
+that holds a set, or start clean. It is offered once, when the week opens, and
+the week it names is not always the week before. Either answer starts the week,
+so the offer is not made again. See ADR-0014.
+_Avoid_: Rollover prompt
+
+**Take**:
+The doorway a week that is over holds, and the one write it answers: its
+leftovers, fetched into the week the browser is in. A person asks for it, from
+that week's own page, as often as they like, and the button names the week the
+block lands in. The block lands on top of the target set and keeps its own
+order, because it is work a person went and fetched. Taking into a week with no
+set starts that week, as a carry does. See ADR-0014 and ADR-0021.
+_Avoid_: Pull forward, re-carry
 
 **Today chip**:
 The control on a board that narrows it to the tasks today's plan holds. Both
@@ -517,8 +553,8 @@ character to find, not a wildcard. Nothing is ranked: the column order stands.
 _Avoid_: Full-text search, query, find
 
 **Remembered narrowing**:
-The search and the assignee filter a board was left with. It belongs to the
-person, so the browser holds it, one entry per org. A board opened with no
+The search and the assignee filter an org board was left with. It belongs to
+the person, so the browser holds it, one entry per org. A board opened with no
 query at all gets it back in the address. A board opened with a query keeps
 that query as it stands, so a search cleared by hand stays cleared.
 _Avoid_: Saved filter, sticky filter, last view
@@ -532,16 +568,17 @@ board.
 _Avoid_: My tasks, unified view
 
 **Card keys**:
-What a press does to the card the cursor names, on the board, the unified
+What a press does to the card the cursor names, on the org board, the unified
 board, plan mode and the week page. `j` and `k` move the cursor, `Escape`
 empties it, `Enter` opens the task, `x` finishes it, `n` goes to the quick-add
-box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the pages that draw a plan
-control. `J` and `K` step a stored order, and `T` promotes a card to the top of
-one: the org's order on the board, the day's in plan mode, and the week's on the
-week page. A move names the card and the way, never a place, because the page's
-copy of the order is one load old. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`,
-which drops a task from the batch. Every key posts what a control on the page
-posts, so no act is reachable by key alone. See ADR-0016.
+box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the
+pages that draw a plan control. `J` and `K` step a stored order, and `T`
+promotes a card to the top of one: the org's order on the org board, the day's
+in plan mode, and the week's on the week page. A move names the card and the
+way, never a place, because the page's copy of the order is one load old. Focus
+mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`, which
+drops a task from the batch. Every key posts what a control on the page posts,
+so no act is reachable by key alone. See ADR-0016.
 _Avoid_: Shortcuts, hotkeys, bindings
 
 **Keyed list**:
