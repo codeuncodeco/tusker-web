@@ -43,16 +43,23 @@
   --color-accent: light-dark(#ffc93f, #ffc93f);
   --color-accent-ink: light-dark(#1a1400, #1a1400);
   --color-danger: light-dark(#d4503e, #d4503e);
+}
 
-  /* The option colours, one token per palette name. They are prefixed because
-     a bare `--color-amber` would sit beside Tailwind's `amber` ramp and mean
-     something else. The names stored in `org_field_colors` stay bare.
+/* The option colours, one token per palette name. They are prefixed because a
+   bare `--color-amber` would sit beside Tailwind's `amber` ramp and mean
+   something else. The names stored in `org_field_colors` stay bare.
 
-     The light column is the extension's. The dark column is derived, because
-     the extension gives one value per colour and never checked it against its
-     own near-black ground. A dot is 8px, so it needs more separation from the
-     ground than a large area does. Each dark value holds at least 6.9:1 on
-     `#16150f`, and `#8f9df8`, the weakest, holds 7.3:1. */
+   They sit on `:root` and not in `@theme`, because nothing builds a utility
+   from them: a dot names one in an inline `style`, through `colorCss`. Tailwind
+   drops a theme token no utility asks for, and such a token draws a dot with no
+   colour at all. `:root` keeps every name whether a utility names it or not.
+
+   The light column is the extension's. The dark column is derived, because the
+   extension gives one value per colour and never checked it against its own
+   near-black ground. A dot is 8px, so it needs more separation from the ground
+   than a large area does. Each dark value holds at least 6.9:1 on `#16150f`,
+   and `#8f9df8`, the weakest, holds 7.3:1. */
+:root {
   --color-opt-grey: light-dark(#6f6c60, #a8a496);
   --color-opt-red: light-dark(#c5535f, #e8848d);
   --color-opt-orange: light-dark(#e8743b, #f09a6e);

@@ -97,6 +97,16 @@ describe("the palette", () => {
       expect(css).toContain(`--color-opt-${name}: light-dark(`);
     }
   });
+
+  // Tailwind drops a token in `@theme` that no utility names, and nothing
+  // builds a utility from these: a dot names one in an inline `style`. A token
+  // dropped from the build draws a dot with no colour at all, which is what
+  // sent the org chip out colourless. The tokens therefore sit on `:root`.
+  it("holds every token outside `@theme`, so the build cannot drop one", () => {
+    const theme = css.slice(css.indexOf("@theme {"));
+    const inTheme = theme.slice(0, theme.indexOf("\n}"));
+    expect(inTheme).not.toContain("--color-opt-");
+  });
 });
 
 describe("the colour a new org is assigned", () => {
