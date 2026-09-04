@@ -71,6 +71,11 @@ describe("the key each act binds", () => {
       press: () =>
         expect(press("T", ["b"])).toEqual({ kind: "act", fields: { intent: "top", id: "b" } }),
     },
+    bottom: {
+      key: "B",
+      press: () =>
+        expect(press("B", ["b"])).toEqual({ kind: "act", fields: { intent: "bottom", id: "b" } }),
+    },
     forward: {
       key: ">",
       press: () =>
@@ -137,6 +142,7 @@ describe("the empty cursor", () => {
       KEY_MAP.up.key,
       KEY_MAP.down.key,
       KEY_MAP.top.key,
+      KEY_MAP.bottom.key,
       KEY_MAP.forward.key,
       KEY_MAP.back.key,
       KEY_MAP.finish.key,
@@ -161,7 +167,7 @@ describe("the rows an order ranks", () => {
   // button on answers none of the three keys. A week page draws none on a
   // member finished this week. See ADR-0021.
   it("answers no move on a row the order leaves out", () => {
-    for (const key of [KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key])
+    for (const key of [KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key, KEY_MAP.bottom.key])
       expect(pressed(key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["a"]))).toBe(null);
   });
 
@@ -203,6 +209,7 @@ describe("the acts a page withholds", () => {
       KEY_MAP.up.key,
       KEY_MAP.down.key,
       KEY_MAP.top.key,
+      KEY_MAP.bottom.key,
       KEY_MAP.forward.key,
     ])
       expect(pressed(key, ROWS, new Set(["b"]), none, "b")).toBe(null);
@@ -211,7 +218,13 @@ describe("the acts a page withholds", () => {
   // A day past its own reads back. The plan is not rewritten there, and the
   // task itself is live, so a move still moves it. See #66.
   it("answers nothing to a plan or a step on a list read back, and still moves", () => {
-    for (const key of [KEY_MAP.plan.key, KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key])
+    for (const key of [
+      KEY_MAP.plan.key,
+      KEY_MAP.up.key,
+      KEY_MAP.down.key,
+      KEY_MAP.top.key,
+      KEY_MAP.bottom.key,
+    ])
       expect(pressed(key, ROWS, new Set(["b"]), READ_ACTS, "b")).toBe(null);
 
     expect(pressed(KEY_MAP.forward.key, ROWS, new Set(["b"]), READ_ACTS, "b")).not.toBe(null);
@@ -254,14 +267,35 @@ describe("the hint a control carries", () => {
       </ul>,
     );
 
-    // Up, Down, Top, Plan and Finish, in the order the row draws them. The
-    // promote is beside the steps, because a key is part of the control.
-    expect(shortcuts(html)).toEqual(["Shift+K", "Shift+J", "Shift+T", "p", "x"]);
+    // Up, Down, Top, Bottom, Plan and Finish, in the order the row draws them.
+    // The promote and the sink are beside the steps, because a key is part of
+    // the control.
+    expect(shortcuts(html)).toEqual(["Shift+K", "Shift+J", "Shift+T", "Shift+B", "p", "x"]);
     expect(html).toContain("⇧K");
     // The mark is the eye's, so a screen reader passes it by, and a phone
     // never draws it: `pointer-fine:` is what hides it, and a typo there would
     // hide every hint on every device instead.
     expect(html).toContain('<kbd aria-hidden="true" class="ml-1 hidden pointer-fine:inline">');
+  });
+
+  // The last ranked row has nowhere below it, so the two buttons that go down
+  // are refused there, as Up and Top are on the first row.
+  it("disables the sink on the last row, as it disables the step", () => {
+    const html = markup(
+      <ul>
+        <UnifiedRow
+          task={ROWS[0]}
+          planned={false}
+          selected={false}
+          domId="row-a"
+          moves={{ up: true, down: false }}
+        />
+      </ul>,
+    );
+
+    expect(html).toMatch(/value="down" disabled=""/);
+    expect(html).toMatch(/value="bottom" disabled=""/);
+    expect(html).not.toMatch(/value="top" disabled=""/);
   });
 
   // No `moves`, so no step and no promote: the list ranks no row of its own.

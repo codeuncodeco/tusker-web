@@ -73,8 +73,9 @@ export function UnifiedRow({
    * other list: that order is derived, and to say "this first" is to plan it.
    * See ADR-0006, "One order per column", and ADR-0021.
    *
-   * A promote is offered wherever a step up is, because the row on top is the
-   * one row already at the top.
+   * A promote is offered wherever a step up is, and a sink wherever a step
+   * down is: the row on top is the one row already at the top, and the last
+   * row the one row already at the foot.
    */
   moves?: { up: boolean; down: boolean };
   /** False where planning a task means nothing, which is focus mode. */
@@ -88,6 +89,7 @@ export function UnifiedRow({
   const up = keyHint("up");
   const down = keyHint("down");
   const top = keyHint("top");
+  const bottom = keyHint("bottom");
   const pick = keyHint(planned ? "unplan" : "plan");
   const finish = keyHint("finish");
 
@@ -148,8 +150,8 @@ export function UnifiedRow({
             >
               ↓{down.hint}
             </button>
-            {/* The promote sits with the steps, because a key is part of the
-                control and not a sentence under the list. */}
+            {/* The promote and the sink sit with the steps, because a key is
+                part of the control and not a sentence under the list. */}
             <button
               name="intent"
               value="top"
@@ -160,6 +162,17 @@ export function UnifiedRow({
             >
               {KEY_MAP.top.label}
               {top.hint}
+            </button>
+            <button
+              name="intent"
+              value="bottom"
+              disabled={!moves.down}
+              aria-label={`Move ${task.title} to the bottom`}
+              {...bottom.keys}
+              className="rounded border border-border px-1 text-xs disabled:opacity-30"
+            >
+              {KEY_MAP.bottom.label}
+              {bottom.hint}
             </button>
           </>
         ) : null}

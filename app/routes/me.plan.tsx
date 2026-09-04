@@ -41,6 +41,7 @@ import { dayAfter, dayBefore, dayLabel, dayName, dayOf, isDay } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { planPicks } from "../picks.server";
+import { isStep } from "../plan";
 import { movePlan, readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { pickedOnly, planGroups } from "../unified";
@@ -158,7 +159,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   // A move reads no task row. It moves an id the plan already holds, and an id
   // the plan does not hold moves nothing.
-  if (intent === "up" || intent === "down" || intent === "top") {
+  if (isStep(intent)) {
     await movePlan(env.DB, set.personId, day, String(form.get("id") ?? ""), intent);
     return { ok: true };
   }

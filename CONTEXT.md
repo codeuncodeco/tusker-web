@@ -427,8 +427,8 @@ _Avoid_: Week plan, weekly backlog, commitment
 The page where a person builds a week set and puts it in order, at `/me/week`,
 and `/me/week/:week` for a named week. It draws the live set as a list, as plan
 mode does, with the quick-add box, and the week it names runs Monday to Friday.
-`J` and `K` step a member, `T` promotes one to the top, and the set is the one
-order on the page. Every pick and every step writes, as in plan mode. All of
+`J` and `K` step a member, `T` promotes one to the top, `B` sinks one to the
+foot, and the set is the one order on the page. Every pick and every step writes, as in plan mode. All of
 that is the week the person is in, and the weeks ahead of it: a week that is
 over is read, not rewritten, so the **week walk** to it draws its set alone and
 offers the **take**. See ADR-0014 and ADR-0021.
@@ -604,9 +604,9 @@ What a press does to the card the cursor names, on the org board, the unified
 board, plan mode and the week page. `j` and `k` move the cursor, `Escape`
 empties it, `Enter` opens the task, `x` finishes it, `n` goes to the quick-add
 box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the
-pages that draw a plan control. `J` and `K` step a stored order, and `T`
-promotes a card to the top of one: the org's order on the org board, the day's
-in plan mode, and the week's on the week page. A move names the card and the
+pages that draw a plan control. `J` and `K` step a stored order, and `T` and
+`B` send a card to the top or the foot of one: the org's order on the org
+board, the day's in plan mode, and the week's on the week page. A move names the card and the
 way, never a place, because the page's copy of the order is one load old. Focus
 mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`, which
 drops a task from the batch. Every key posts what a control on the page posts,
