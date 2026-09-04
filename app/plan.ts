@@ -1,36 +1,55 @@
 /**
  * A plan is the tasks one person chose for one day, in the order they mean to
  * work them. This module holds the rules that order needs: a task moves one
- * place at a time, or it goes to the top.
+ * place at a time, or it goes to one end of the list.
  *
  * The order is the whole value of a plan, so it is the plan that reorders, not
  * the task. One step at a time is what the board does inside a column, and the
  * two lists move the same way.
  *
- * The week set moves the same three ways, over positions rather than over an
+ * The week set moves the same four ways, over positions rather than over an
  * array. See `app/week-order.ts` and ADR-0021.
  */
 
-/** How a row moves: one place either way, or all the way to the top. */
-export type Step = "up" | "down" | "top";
+/** How a row moves: one place either way, or all the way to one end. */
+export type Step = "up" | "down" | "top" | "bottom";
 
 /**
- * The plan with one task one place further up or down, or at the top of it.
+ * The four steps, in the order a row draws their controls. It is the whole
+ * family in one place: a page reads a posted intent against it, and the keys
+ * read a press against it, so a fifth step binds here and nowhere else.
+ */
+export const STEPS = ["up", "down", "top", "bottom"] as const;
+
+/** True where one posted intent names a step. */
+export function isStep(intent: string): intent is Step {
+  return (STEPS as readonly string[]).includes(intent);
+}
+
+/**
+ * The plan with one task one place further up or down, or at one end of it.
  *
- * A step off either end, a promote of the task already on top, and a task the
- * plan does not hold, answer with the order that came in, the same array. A
- * caller reads that as "nothing moved" and writes no row. A person who presses
- * the key once more than the list allows means nothing by it.
+ * A step off either end, a promote of the task already on top, a move to the
+ * foot of the task already there, and a task the plan does not hold, answer
+ * with the
+ * order that came in, the same array. A caller reads that as "nothing moved"
+ * and writes no row. A person who presses the key once more than the list
+ * allows means nothing by it.
  */
 export function moveInPlan(order: string[], taskId: string, step: Step): string[] {
   const at = order.indexOf(taskId);
   if (at === -1) return order;
 
-  // A promote crosses the whole list, so it is not a swap: every task above
-  // the one moved shifts down a place, and the rest stand.
+  // A move to either end crosses the whole list, so it is not a swap: every
+  // task the one moved passed shifts a place, and the rest stand.
   if (step === "top") {
     if (at === 0) return order;
     return [taskId, ...order.filter((one) => one !== taskId)];
+  }
+
+  if (step === "bottom") {
+    if (at === order.length - 1) return order;
+    return [...order.filter((one) => one !== taskId), taskId];
   }
 
   const to = step === "up" ? at - 1 : at + 1;

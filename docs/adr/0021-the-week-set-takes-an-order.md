@@ -1,5 +1,8 @@
 # The week set takes an order
 
+Amended in place by #156: `B` joined the key family, and the paragraph under
+"The key" that refused a demote was rewritten. Everything else here stands.
+
 Amends [ADR-0014](./0014-the-week-is-a-set-and-the-day-is-a-plan.md). The week
 set is still membership plus no day, and every other rule there stands. What
 changes is one sentence: the set now carries an order of its own, and every page
@@ -68,7 +71,16 @@ wherever a page owns an order, which is the week page and plan mode both. The
 buttons draw beside the step buttons, because a key is part of the control and
 not a sentence under the list.
 
-There is no demote. Only two things go to the foot, and both are automatic.
+`B` sends the row to the foot, and it joined the family later (#156). This ADR
+first said there was no demote, because the two things that go to the foot are
+automatic. That reads the foot as a place the machine writes, and it is also a
+place a person means: a plan of fourteen had no way to send row 2 out of the way
+in one press. `B` is the same one row and one guard as `T`, and it is refused
+where `T` is refused. Its button is disabled on the last ranked row, as `T` is
+on the first.
+
+There is still no move to a named place. That is a drag, and the order is a
+statement about the week, not a coordinate.
 
 ## Consequences
 

@@ -2,10 +2,10 @@
  * The keys every cross-org list binds, and the one place that binds them.
  *
  * `j` and `k` move, `Enter` opens, `p` plans, `x` finishes, `>` and `<` walk
- * the card between columns, and `J`, `K` and `T` move a picked row through the
- * order the page owns. The keys themselves live in `app/key-map.ts`; the
- * guards live here, because a guard reads the task, the picked set and the
- * page's acts.
+ * the card between columns, and `J`, `K`, `T` and `B` move a picked row
+ * through the order the page owns. The keys themselves live in
+ * `app/key-map.ts`; the guards live here, because a guard reads the task, the
+ * picked set and the page's acts.
  *
  * The unified board, plan mode, the week and focus mode draw the same tasks in
  * different layouts, so one hook serves all four. Tusker is keyboard first, so
@@ -23,6 +23,7 @@ import { fires } from "./key-map";
 import { BOARD_ARROWS, LIST_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
 import { taskPath, useOrigin } from "./paths";
+import { STEPS } from "./plan";
 import { isPlannable, type LiveTask } from "./unified";
 import { finishFields, moveFields, planFields } from "./unified-row";
 
@@ -35,8 +36,10 @@ export type ListActs = {
   plan: boolean;
   /**
    * True where the page gives the person an order of their own to move: `J`
-   * and `K` step a row, and `T` promotes one. One flag carries all three,
-   * because they are one family and a page owns an order or it does not.
+   * and `K` step a row, `T` promotes one and `B` sends one to the foot. One
+   * flag carries
+   * all four, because they are one family and a page owns an order or it does
+   * not.
    */
   step: boolean;
   /** True where `>` and `<` walk a task between columns. */
@@ -57,12 +60,6 @@ export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
  * past its own. The task itself is live, so a finish and a move stand.
  */
 export const READ_ACTS: ListActs = { plan: false, step: false, move: true };
-
-/**
- * The three acts that move a row. The intent a press posts is the act's own
- * name, so the list is the whole binding.
- */
-const MOVE_ACTS = ["up", "down", "top"] as const;
 
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
@@ -125,8 +122,11 @@ export function pressed(
   //
   // `ranked` is what the page draws the move buttons from, so a key reaches no
   // act a control withholds: a member finished this week is drawn out of the
-  // order, and it answers none of the three.
-  const moves = MOVE_ACTS.find((act) => fires(act, key));
+  // order, and it answers none of the four.
+  //
+  // The intent a press posts is the step's own name, so `STEPS` is the whole
+  // binding.
+  const moves = STEPS.find((step) => fires(step, key));
   if (moves) {
     if (!acts.step || !ranked.has(task.id)) return null;
     return { kind: "act", fields: { intent: moves, id: task.id } };

@@ -37,3 +37,17 @@ describe("promoting a task to the top of a plan", () => {
     expect(moveInPlan(["a", "b"], "c", "top")).toEqual(["a", "b"]);
   });
 });
+
+describe("sinking a task to the foot of a plan", () => {
+  it("puts the task last and shifts up everything it passed", () => {
+    expect(moveInPlan(["a", "b", "c"], "a", "bottom")).toEqual(["b", "c", "a"]);
+  });
+
+  it("leaves the task already at the foot where it is", () => {
+    expect(moveInPlan(["a", "b"], "b", "bottom")).toEqual(["a", "b"]);
+  });
+
+  it("leaves a plan that does not hold the task alone", () => {
+    expect(moveInPlan(["a", "b"], "c", "bottom")).toEqual(["a", "b"]);
+  });
+});

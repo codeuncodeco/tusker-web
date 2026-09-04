@@ -573,6 +573,24 @@ describe("the order the week set holds", () => {
     expect(ids(await weekPage(ada.cookie), "week")).toEqual(["c", "a", "b"]);
   });
 
+  it("sinks a member to the foot", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await ranked(ada.cookie, ada.org.slug, ada.org.id);
+
+    await act(ada.cookie, { intent: "bottom", id: "a" });
+
+    expect(ids(await weekPage(ada.cookie), "week")).toEqual(["b", "c", "a"]);
+  });
+
+  it("writes no row for a sink of the member already at the foot", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await ranked(ada.cookie, ada.org.slug, ada.org.id);
+
+    await act(ada.cookie, { intent: "bottom", id: "c" });
+
+    expect(await stored(ada.person.id)).toEqual(["a", "b", "c"]);
+  });
+
   it("moves nothing for a task the set does not hold", async () => {
     const ada = await member("ada@example.test", "Ada");
     await ranked(ada.cookie, ada.org.slug, ada.org.id);
@@ -711,6 +729,7 @@ describe("a week that is over", () => {
     { intent: "unplan", id: "ship", slug: "" },
     { intent: "up", id: "ship" },
     { intent: "top", id: "ship" },
+    { intent: "bottom", id: "ship" },
     { intent: "create", title: "Ship it", slug: "" },
     { intent: "carry" },
     { intent: "clean" },

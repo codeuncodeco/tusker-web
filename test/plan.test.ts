@@ -262,6 +262,7 @@ describe("picking and ordering a day", () => {
     await act(ada.cookie, { intent: "up", id: "a" });
     await act(ada.cookie, { intent: "down", id: "a" });
     await act(ada.cookie, { intent: "top", id: "a" });
+    await act(ada.cookie, { intent: "bottom", id: "a" });
 
     expect(await stored(ada.person.id)).toEqual(["a"]);
   });
@@ -279,6 +280,21 @@ describe("picking and ordering a day", () => {
 
     expect(await stored(ada.person.id)).toEqual(["c", "a", "b"]);
     expect(ids(await planPage(ada.cookie), "today")).toEqual(["c", "a", "b"]);
+  });
+
+  // `B` binds wherever `T` does: a plan of fourteen needs a way to send row 2
+  // out of the way in one press. See #156.
+  it("sinks a picked task to the foot of the plan", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    for (const [at, id] of ["a", "b", "c"].entries()) {
+      await task(ada.org.id, id, { position: at + 1 });
+      await act(ada.cookie, { intent: "plan", id, slug: ada.org.slug });
+    }
+
+    await act(ada.cookie, { intent: "bottom", id: "a" });
+
+    expect(await stored(ada.person.id)).toEqual(["b", "c", "a"]);
+    expect(ids(await planPage(ada.cookie), "today")).toEqual(["b", "c", "a"]);
   });
 
   it("takes a picked task back out", async () => {
@@ -608,10 +624,10 @@ describe("a day past its own", () => {
     expect(await stored(ada.person.id, "2026-09-02")).toEqual(["a"]);
   });
 
-  it("refuses a step and a promote, and leaves the order as the day left it", async () => {
+  it("refuses a step, a promote and a sink, and leaves the order as the day left it", async () => {
     const ada = await planned();
 
-    for (const intent of ["up", "top"]) {
+    for (const intent of ["up", "top", "bottom"]) {
       const response = await caught(actOn(ada.cookie, PAST, { intent, id: "b" }));
       expect(response.status).toBe(400);
     }
