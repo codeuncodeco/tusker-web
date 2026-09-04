@@ -73,9 +73,9 @@ export function UnifiedRow({
    * other list: that order is derived, and to say "this first" is to plan it.
    * See ADR-0006, "One order per column", and ADR-0021.
    *
-   * A promote is offered wherever a step up is, and a sink wherever a step
-   * down is: the row on top is the one row already at the top, and the last
-   * row the one row already at the foot.
+   * A promote is offered wherever a step up is, and a move to the foot
+   * wherever a step down is: the row on top is the one row already at the top,
+   * and the last row the one row already at the foot.
    */
   moves?: { up: boolean; down: boolean };
   /** False where planning a task means nothing, which is focus mode. */
@@ -150,8 +150,8 @@ export function UnifiedRow({
             >
               ↓{down.hint}
             </button>
-            {/* The promote and the sink sit with the steps, because a key is
-                part of the control and not a sentence under the list. */}
+            {/* The two moves that cross the list sit with the steps, because
+                a key is part of the control and not a sentence under it. */}
             <button
               name="intent"
               value="top"

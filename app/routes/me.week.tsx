@@ -7,8 +7,8 @@
  *
  * The set carries an order, and this page is where it is made: `J` and `K`
  * step a member, `T` promotes one to the top, `B` sinks one to the foot, and
- * every page that draws the set draws it in that order. No other order is on this page, so a step here
- * is unambiguous. See ADR-0021, which amends ADR-0014.
+ * every page that draws the set draws it in that order. No other order is on
+ * this page, so a step here is unambiguous. See ADR-0021, which amends ADR-0014.
  *
  * A pick claims a place at the top. A member finished this week sinks under
  * the live ones as the page draws, and nothing is written for it: unfinishing

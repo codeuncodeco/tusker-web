@@ -119,8 +119,8 @@ _Avoid_: Description editor, description form
 **List keys**:
 The keys a keyed list binds, in `app/unified-keys.ts`: `j` and `k` move the
 cursor, `Escape` empties it, `Enter` opens, `p` plans, `x` finishes, `>` and
-`<` walk a task between columns, and `J` and `K` step a planned task through
-the plan. One table,
+`<` walk a task between columns, `J` and `K` step a planned task through the
+plan, and `T` and `B` send one to either end of it. One table,
 `app/key-map.ts`, holds the key of every act, and one hook binds the list's
 own, so the board, the plan, the week and focus mode cannot drift apart. The
 keys are live while the focus is inside the **Keyed list** and nowhere else, and
@@ -427,11 +427,12 @@ _Avoid_: Week plan, weekly backlog, commitment
 The page where a person builds a week set and puts it in order, at `/me/week`,
 and `/me/week/:week` for a named week. It draws the live set as a list, as plan
 mode does, with the quick-add box, and the week it names runs Monday to Friday.
-`J` and `K` step a member, `T` promotes one to the top, `B` sinks one to the
-foot, and the set is the one order on the page. Every pick and every step writes, as in plan mode. All of
-that is the week the person is in, and the weeks ahead of it: a week that is
-over is read, not rewritten, so the **week walk** to it draws its set alone and
-offers the **take**. See ADR-0014 and ADR-0021.
+`J` and `K` step a member, `T` promotes one to the top and `B` sends one to the
+foot, and the set is the one order on the page. Every pick and every step
+writes, as in plan mode. All of that is the week the person is in, and the
+weeks ahead of it: a week that is over is read, not rewritten, so the **week
+walk** to it draws its set alone and offers the **take**. See ADR-0014 and
+ADR-0021.
 _Avoid_: Weekly planner, week board
 
 **Plan**:
@@ -604,13 +605,14 @@ What a press does to the card the cursor names, on the org board, the unified
 board, plan mode and the week page. `j` and `k` move the cursor, `Escape`
 empties it, `Enter` opens the task, `x` finishes it, `n` goes to the quick-add
 box, and `>` and `<` walk the card along the run. `p` plans or unplans, on the
-pages that draw a plan control. `J` and `K` step a stored order, and `T` and
-`B` send a card to the top or the foot of one: the org's order on the org
-board, the day's in plan mode, and the week's on the week page. A move names the card and the
-way, never a place, because the page's copy of the order is one load old. Focus
-mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and `d`, which
-drops a task from the batch. Every key posts what a control on the page posts,
-so no act is reachable by key alone. See ADR-0016.
+pages that draw a plan control. `J` and `K` step a stored order: the org's on
+the org board, the day's in plan mode, and the week's on the week page. `T` and
+`B` send a card to the top or the foot of one, on the two pages that hold an
+order of the person's own: plan mode and the week page. A move names the card
+and the way, never a place, because the page's copy of the order is one load
+old. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and
+`d`, which drops a task from the batch. Every key posts what a control
+on the page posts, so no act is reachable by key alone. See ADR-0016.
 _Avoid_: Shortcuts, hotkeys, bindings
 
 **Keyed list**:

@@ -14,19 +14,24 @@
 /** How a row moves: one place either way, or all the way to one end. */
 export type Step = "up" | "down" | "top" | "bottom";
 
-/** The four steps, which is what a page reads a posted intent against. */
-export const STEPS: Step[] = ["up", "down", "top", "bottom"];
+/**
+ * The four steps, in the order a row draws their controls. It is the whole
+ * family in one place: a page reads a posted intent against it, and the keys
+ * read a press against it, so a fifth step binds here and nowhere else.
+ */
+export const STEPS = ["up", "down", "top", "bottom"] as const;
 
 /** True where one posted intent names a step. */
 export function isStep(intent: string): intent is Step {
-  return (STEPS as string[]).includes(intent);
+  return (STEPS as readonly string[]).includes(intent);
 }
 
 /**
  * The plan with one task one place further up or down, or at one end of it.
  *
- * A step off either end, a promote of the task already on top, a sink of the
- * task already at the foot, and a task the plan does not hold, answer with the
+ * A step off either end, a promote of the task already on top, a move to the
+ * foot of the task already there, and a task the plan does not hold, answer
+ * with the
  * order that came in, the same array. A caller reads that as "nothing moved"
  * and writes no row. A person who presses the key once more than the list
  * allows means nothing by it.
@@ -35,7 +40,7 @@ export function moveInPlan(order: string[], taskId: string, step: Step): string[
   const at = order.indexOf(taskId);
   if (at === -1) return order;
 
-  // A promote and a sink cross the whole list, so neither is a swap: every
+  // A move to either end crosses the whole list, so it is not a swap: every
   // task the one moved passed shifts a place, and the rest stand.
   if (step === "top") {
     if (at === 0) return order;
