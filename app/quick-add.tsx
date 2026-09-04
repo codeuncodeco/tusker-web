@@ -131,46 +131,49 @@ export function QuickAddBox({
       {fields}
       {chip}
 
-      <div className="flex flex-wrap gap-2">
-        <textarea
-          ref={(field) => {
-            box.current = field;
-            if (titleRef) titleRef.current = field;
-          }}
-          name="title"
-          required
-          rows={1}
-          value={draft.title}
-          onChange={(event) => draft.setTitle(event.target.value)}
-          onKeyDown={(event) => {
-            // Enter posts, as it did while this was an input. Shift+Enter
-            // makes a line, and a paste brings its own. A key pressed while an
-            // input method is composing belongs to that method.
-            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
-            event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
-          }}
-          placeholder={label}
-          aria-label={label}
-          // No border and no rectangle of its own: the fill alone says where
-          // the words go, and it reads as a well inside the card.
-          className="grow resize-none overflow-y-auto max-h-40 rounded bg-surface-2 px-3 py-2"
-        />
-        {picker}
-      </div>
+      <textarea
+        ref={(field) => {
+          box.current = field;
+          if (titleRef) titleRef.current = field;
+        }}
+        name="title"
+        required
+        rows={1}
+        value={draft.title}
+        onChange={(event) => draft.setTitle(event.target.value)}
+        onKeyDown={(event) => {
+          // Enter posts, as it did while this was an input. Shift+Enter
+          // makes a line, and a paste brings its own. A key pressed while an
+          // input method is composing belongs to that method.
+          if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          event.currentTarget.form?.requestSubmit();
+        }}
+        placeholder={label}
+        aria-label={label}
+        // No border and no rectangle of its own: the fill alone says where
+        // the words go, and it reads as a well inside the card.
+        className="resize-none overflow-y-auto max-h-40 rounded bg-surface-2 px-3 py-2"
+      />
 
-      {/* Off by default. Most tasks decide nothing, and a prompt people
-          learn to dismiss is how a log goes empty. See ADR-0010. */}
-      <label className="flex items-center gap-2 text-xs text-muted">
-        <input
-          type="checkbox"
-          name="decides"
-          value="1"
-          checked={draft.decides}
-          onChange={(event) => draft.setDecides(event.target.checked)}
-        />
-        Holds a decision
-      </label>
+      {/* The picker and the decision box share one line, and wrap when the
+          card is too narrow to hold both. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        {picker}
+
+        {/* Off by default. Most tasks decide nothing, and a prompt people
+            learn to dismiss is how a log goes empty. See ADR-0010. */}
+        <label className="flex items-center gap-2 text-xs text-muted">
+          <input
+            type="checkbox"
+            name="decides"
+            value="1"
+            checked={draft.decides}
+            onChange={(event) => draft.setDecides(event.target.checked)}
+          />
+          Holds a decision
+        </label>
+      </div>
 
       <button className="sr-only">Add</button>
 
