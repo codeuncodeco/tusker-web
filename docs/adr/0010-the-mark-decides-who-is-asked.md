@@ -60,16 +60,3 @@ to be wrong: a missing record is recoverable, and a log nobody reads is not.
 
 A finish answers with a redirect rather than with data. Every finishing route
 hands back a `Response`, and a fetcher that posts one follows it.
-
-## Later: the log is the second door
-
-Ticket #158 answers the forgotten mark. The decision log takes a box of its
-own, with the same two fields, and it writes a decision with no task.
-
-This does not touch the prompt. The prompt still hangs off the finish, still
-asks only about marked tasks, and still keeps its once-only guard, which is a
-guard on a task. A direct write has no task, so it takes a function of its own
-and not a flag on the one the prompt calls.
-
-So a forgotten mark is now recoverable. A person who decided something no task
-holds writes it where the decisions are read.

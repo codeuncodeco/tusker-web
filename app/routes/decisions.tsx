@@ -8,8 +8,8 @@
 import { Form, Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
+import { DecisionFields } from "../decision-fields";
 import { listDecisions, recordDecision } from "../decisions.server";
-import { fieldClass } from "../forms";
 import { taskPath, useOrigin } from "../paths";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/decisions";
@@ -32,36 +32,34 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug, context);
 
-  return recordDecision(env.DB, scope, await request.formData());
+  const form = await request.formData();
+  if (String(form.get("intent") ?? "") !== "record") {
+    throw new Response("That form does not name an action.", { status: 400 });
+  }
+
+  return recordDecision(env.DB, scope, request, form);
 }
 
 export default function Decisions({ loaderData, actionData }: Route.ComponentProps) {
   const { org, decisions } = loaderData;
   const origin = useOrigin();
-  const error = actionData?.error;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
       <h1 className="text-2xl tracking-tight">Decisions</h1>
 
-      {/* The other door. The prompt catches a decision a task produced; this
-          catches one no task did. See ADR-0010. */}
+      {/* The decision box. The prompt catches a decision a task produced, and
+          this catches one no task did. See ADR-0024. */}
       <Form method="post" className="flex flex-col gap-3 rounded border border-border p-4">
-        <label className="flex flex-col gap-1">
-          Title
-          <input name="title" required placeholder="What was decided" className={fieldClass} />
-        </label>
+        <input type="hidden" name="intent" value="record" />
 
-        <label className="flex flex-col gap-1">
-          Rationale
-          <textarea name="rationale" rows={3} className={fieldClass} />
-        </label>
-
-        {error ? (
-          <p role="alert" className="text-danger">
-            {error}
-          </p>
-        ) : null}
+        <DecisionFields
+          placeholder="What was decided"
+          rows={3}
+          title={actionData?.title}
+          rationale={actionData?.rationale}
+          error={actionData?.error}
+        />
 
         <div>
           <button className="rounded border border-border px-3 py-2">Keep it</button>

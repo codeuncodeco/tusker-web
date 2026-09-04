@@ -183,9 +183,15 @@ _Avoid_: Decision dialog, done modal
 **Decision log**:
 One org's decisions, newest first, at `/o/:slug/decisions`. A line with no task
 is a record still standing after the work is gone, or one no task ever produced.
-The page is also the second door in: a box at the top takes a title and a
-rationale, and writes a decision with no task. See ADR-0010.
+The page carries the decision box, so it is where a decision is read and where
+one is written by hand. See ADR-0024.
 _Avoid_: Decision history, changelog
+
+**Decision box**:
+The box at the top of the decision log. It takes the same two fields as the
+decision prompt, and writes a decision with no task. It is the way in for a
+decision no task produced, and for one on a task nobody marked. See ADR-0024.
+_Avoid_: Manual decision, decision form
 
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled

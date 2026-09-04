@@ -114,7 +114,7 @@ function log(cookie: string, slug: string) {
 
 /** A post to the decision log, which is where a decision with no task is written. */
 function onLog(cookie: string, slug: string, fields: Record<string, string>) {
-  const request = post(`/o/${slug}/decisions`, fields);
+  const request = post(`/o/${slug}/decisions`, { intent: "record", ...fields });
   request.headers.set("cookie", cookie);
   return logRoute.action(routeArgs(request, { slug }));
 }
@@ -558,7 +558,7 @@ describe("writing a decision on the log itself", () => {
     expect(written.rationale).toBe("");
   });
 
-  it("refuses an empty title, and keeps the words the person typed", async () => {
+  it("refuses an empty title, and gives back the words the person typed", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     const answer = await onLog(ada.cookie, ada.org.slug, {
@@ -566,7 +566,24 @@ describe("writing a decision on the log itself", () => {
       rationale: "The test is green.",
     });
 
-    expect(answer).toEqual({ error: "A decision needs a title." });
+    expect(answer).toEqual({
+      error: "A decision needs a title.",
+      title: "  ",
+      rationale: "The test is green.",
+    });
+    expect(await rows()).toEqual([]);
+  });
+
+  it("refuses a post that names no action", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const request = post(`/o/${ada.org.slug}/decisions`, { title: "Ship on Friday" });
+    request.headers.set("cookie", ada.cookie);
+    const response = await caught(
+      logRoute.action(routeArgs(request, { slug: ada.org.slug })) as Promise<unknown>,
+    );
+
+    expect(response.status).toBe(400);
     expect(await rows()).toEqual([]);
   });
 
