@@ -25,6 +25,7 @@ import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
 import { useLocalDay } from "../local-day";
+import { taskPath, useOrigin } from "../paths";
 import { readPlan } from "../plans.server";
 import { refLabels } from "../refs.server";
 import { requireScope } from "../scope.server";
@@ -122,6 +123,7 @@ function Restore({ id, title }: { id: string; title: string }) {
 
 export default function Archive({ loaderData }: Route.ComponentProps) {
   const { org, lines, today, hasPlan, day } = loaderData;
+  const origin = useOrigin();
 
   useLocalDay(day);
 
@@ -150,7 +152,7 @@ export default function Archive({ loaderData }: Route.ComponentProps) {
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border border-border p-3"
             >
               <Link
-                to={`/o/${org.slug}/t/${line.id}`}
+                to={taskPath(org.slug, line.id, origin)}
                 className="flex-1 underline-offset-2 hover:underline"
               >
                 {line.title}

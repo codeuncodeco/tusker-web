@@ -19,6 +19,7 @@ import { isFinished, stepped, type Status } from "./board";
 import { fires } from "./key-map";
 import { BOARD_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
+import { taskPath, useOrigin } from "./paths";
 
 /** One column as the keys read it: its status, and the ids it draws in order. */
 export type KeyedColumn = { status: Status; ids: string[] };
@@ -118,6 +119,7 @@ export function useBoardKeys(
   step: (id: string, way: "up" | "down") => void,
 ): (label: string) => Keyed {
   const navigate = useNavigate();
+  const origin = useOrigin();
 
   return useKeyedList((key) => {
     const sideways = across(
@@ -136,7 +138,7 @@ export function useBoardKeys(
     // Both posts put the cursor on the card they move, so the person can see
     // where it landed and keep working it by key.
     if (act.act === "on") setOn(act.id);
-    else if (act.act === "open") navigate(`/o/${slug}/t/${act.id}`);
+    else if (act.act === "open") navigate(taskPath(slug, act.id, origin));
     else if (act.act === "move") move(act.id, act.status);
     else step(act.id, act.way);
 

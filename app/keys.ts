@@ -9,9 +9,13 @@
 
 /**
  * True for a press the page can act on. A keyed list holds no box, so the box
- * guard reads for the two listeners still on the window — the decision prompt
- * and the offer that ends a batch — and for a box a page draws inside a list by
- * mistake. See ADR-0022.
+ * guard reads for the three listeners still on the window — the decision
+ * prompt, the offer that ends a batch, and the task page's way back — and for a
+ * box a page draws inside a list by mistake. See ADR-0022.
+ *
+ * All three are `Escape`, which 2.1.4 does not reach: it names a single
+ * character key, and Escape is not one. A page that draws no list has nowhere
+ * else to bind it.
  *
  * A press in a box is the person's, and so is every press while a prompt is
  * raised: the decision prompt covers the

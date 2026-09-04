@@ -15,8 +15,12 @@ function shifted(key: string): boolean {
   return key.length === 1 && key !== key.toLowerCase();
 }
 
-/** The press as the eye reads it. */
+/**
+ * The press as the eye reads it. `Escape` is the one press with a short name
+ * everybody already writes, and the decision prompt writes it that way.
+ */
 function seen(key: string): string {
+  if (key === "Escape") return "Esc";
   return shifted(key) ? `⇧${key}` : key;
 }
 
@@ -34,8 +38,14 @@ function spoken(key: string): string {
  * keyboard. The attribute stays either way: it is read, not seen.
  */
 export function keyHint(action: ActionName) {
-  const { key } = KEY_MAP[action];
+  return keyMark(KEY_MAP[action].key);
+}
 
+/**
+ * The same, for a press no list act names: the task page's `Esc`. One press
+ * is drawn one way, wherever the control sits.
+ */
+export function keyMark(key: string) {
   return {
     keys: { "aria-keyshortcuts": spoken(key) },
     hint: (
