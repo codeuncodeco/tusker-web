@@ -112,6 +112,13 @@ function log(cookie: string, slug: string) {
   return logRoute.loader(routeArgs(get(`/o/${slug}/decisions`, cookie), { slug }));
 }
 
+/** A post to the decision log, which is where a decision with no task is written. */
+function onLog(cookie: string, slug: string, fields: Record<string, string>) {
+  const request = post(`/o/${slug}/decisions`, fields);
+  request.headers.set("cookie", cookie);
+  return logRoute.action(routeArgs(request, { slug }));
+}
+
 /** The query string a redirect answered with. */
 function query(response: unknown): URLSearchParams {
   const location = (response as Response).headers.get("location")!;
@@ -504,6 +511,70 @@ describe("saving a decision", () => {
         title: "Not mine to make",
       }),
     );
+
+    expect(response.status).toBe(404);
+    expect(await rows()).toEqual([]);
+  });
+});
+
+describe("writing a decision on the log itself", () => {
+  it("writes it to the org, with no task, named by the person who decided", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const response = await onLog(ada.cookie, ada.org.slug, {
+      title: "Ship on Friday",
+      rationale: "Nobody made a task of it.",
+    });
+
+    expect((response as Response).headers.get("location")).toBe(`/o/${ada.org.slug}/decisions`);
+    const [written] = await rows();
+    expect(written.org_id).toBe(ada.org.id);
+    expect(written.task_id).toBe(null);
+    expect(written.title).toBe("Ship on Friday");
+    expect(written.rationale).toBe("Nobody made a task of it.");
+    const row = await db
+      .prepare("SELECT decided_by FROM decisions")
+      .first<{ decided_by: string }>();
+    expect(row!.decided_by).toBe(ada.person.id);
+  });
+
+  it("reads back in the log as a line with no task", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    await onLog(ada.cookie, ada.org.slug, { title: "Ship on Friday" });
+
+    const { decisions } = await log(ada.cookie, ada.org.slug);
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].title).toBe("Ship on Friday");
+    expect(decisions[0].task).toBe(null);
+  });
+
+  it("takes an empty rationale", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    await onLog(ada.cookie, ada.org.slug, { title: "Ship on Friday" });
+
+    const [written] = await rows();
+    expect(written.rationale).toBe("");
+  });
+
+  it("refuses an empty title, and keeps the words the person typed", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const answer = await onLog(ada.cookie, ada.org.slug, {
+      title: "  ",
+      rationale: "The test is green.",
+    });
+
+    expect(answer).toEqual({ error: "A decision needs a title." });
+    expect(await rows()).toEqual([]);
+  });
+
+  it("is a 404 for a person the org does not hold", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const bob = await member("bob@example.test", "Bob");
+
+    const response = await caught(onLog(ada.cookie, bob.org.slug, { title: "Not mine to make" }));
 
     expect(response.status).toBe(404);
     expect(await rows()).toEqual([]);

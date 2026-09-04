@@ -183,6 +183,41 @@ export async function decide(
 }
 
 /**
+ * Writes a decision the log itself asked for: one no task produced.
+ *
+ * The prompt is the door a finish opens, and this is the other door. It takes
+ * a function of its own rather than a flag on `decide()`, because the
+ * once-only guard `decide()` keeps is a guard on a task, and there is no task
+ * here. An empty title is an error the box shows, by the same rule.
+ */
+export async function recordDecision(
+  db: D1Database,
+  scope: Scope,
+  form: FormData,
+): Promise<Response | { error: string }> {
+  const title = String(form.get("title") ?? "").trim();
+  if (!title) return { error: "A decision needs a title." };
+
+  await db
+    .prepare(
+      `INSERT INTO decisions (id, org_id, task_id, decided_by, title, rationale)
+       VALUES (?, ?, NULL, ?, ?, ?)`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      scope.org.id,
+      scope.personId,
+      title,
+      String(form.get("rationale") ?? "").trim(),
+    )
+    .run();
+
+  // Post, then redirect: the page reloads with the new line at the top and the
+  // box empty, and a reload does not write the decision again.
+  return redirect(`/o/${scope.org.slug}/decisions`);
+}
+
+/**
  * One org's decisions, newest first.
  *
  * `rowid` breaks a tie, so two decisions written in the same millisecond still

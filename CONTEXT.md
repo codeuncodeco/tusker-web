@@ -182,7 +182,9 @@ _Avoid_: Decision dialog, done modal
 
 **Decision log**:
 One org's decisions, newest first, at `/o/:slug/decisions`. A line with no task
-is a record still standing after the work is gone.
+is a record still standing after the work is gone, or one no task ever produced.
+The page is also the second door in: a box at the top takes a title and a
+rationale, and writes a decision with no task. See ADR-0010.
 _Avoid_: Decision history, changelog
 
 **Archive**:
