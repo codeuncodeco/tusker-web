@@ -9,6 +9,7 @@ import { Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { listDecisions } from "../decisions.server";
+import { taskPath, useOrigin } from "../paths";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/decisions";
 
@@ -28,6 +29,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export default function Decisions({ loaderData }: Route.ComponentProps) {
   const { org, decisions } = loaderData;
+  const origin = useOrigin();
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -52,7 +54,7 @@ export default function Decisions({ loaderData }: Route.ComponentProps) {
                   <>
                     {" · "}
                     <Link
-                      to={`/o/${org.slug}/t/${decision.task.id}`}
+                      to={taskPath(org.slug, decision.task.id, origin)}
                       className="underline underline-offset-2"
                     >
                       {decision.task.title}

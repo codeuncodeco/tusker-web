@@ -22,6 +22,7 @@ import { stepped } from "./board";
 import { fires } from "./key-map";
 import { BOARD_ARROWS, LIST_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
+import { taskPath, useOrigin } from "./paths";
 import { isPlannable, type LiveTask } from "./unified";
 import { finishFields, moveFields, planFields } from "./unified-row";
 
@@ -187,6 +188,7 @@ export function useTaskKeys({
   columns?: string[][] | null;
 }): (label: string) => Keyed {
   const navigate = useNavigate();
+  const origin = useOrigin();
 
   return useKeyedList((key) => {
     if (columns) {
@@ -201,7 +203,8 @@ export function useTaskKeys({
     if (!press) return false;
 
     if (press.kind === "cursor") setOn(press.id);
-    else if (press.kind === "open") navigate(`/o/${press.task.org.slug}/t/${press.task.id}`);
+    else if (press.kind === "open")
+      navigate(taskPath(press.task.org.slug, press.task.id, origin));
     else act(press.fields);
 
     return true;

@@ -17,6 +17,7 @@ import { Link } from "react-router";
 import { Dot } from "./dot";
 import { Initials } from "./initials";
 import { OrgChip } from "./org-chip";
+import { taskPath, useOrigin } from "./paths";
 import { type LiveTask } from "./unified";
 
 export function UnifiedCard({
@@ -38,6 +39,8 @@ export function UnifiedCard({
    */
   place: () => void;
 }) {
+  const origin = useOrigin();
+
   return (
     <li
       id={domId}
@@ -56,7 +59,7 @@ export function UnifiedCard({
       <span className="flex items-baseline gap-2">
         <span className="tabular-nums text-dim">{rank}</span>
         <Link
-          to={`/o/${task.org.slug}/t/${task.id}`}
+          to={taskPath(task.org.slug, task.id, origin)}
           // A link drags itself, and its own drag carries a URL and no task
           // id. The card is what drags, so the title gives the gesture up.
           draggable={false}
