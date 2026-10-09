@@ -191,8 +191,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const assigned = await readAssignees(env.DB, scope, form);
     if ("error" in assigned) return assigned;
     await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
-    // The box sets no decision mark, so a task it makes into Done raises no
-    // prompt. See ADR-0010.
     return { ok: true };
   }
 
@@ -466,9 +464,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
-      {/* The top row: the box on the left and the filters on the right, on
-          one line where the width allows. The header's org select is this
-          page's heading. See ADR-0029. */}
+      {/* The board's top row: the box on the left and the filters on the
+          right, on one line where the width allows. The header's org select
+          is this page's heading. See ADR-0029. */}
       <header className="flex flex-wrap items-start gap-x-6 gap-y-3">
         {/* One box for the board, outside every keyed list, so a typed word is
             never a press the page reads. See ADR-0022. */}

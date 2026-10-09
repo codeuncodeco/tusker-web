@@ -213,8 +213,9 @@ export function QuickAddBox({
         }`}
       />
 
-      {/* The controls share one line, and wrap when the box is too narrow
-          to hold them. A box with none, as an org of one has, draws no line. */}
+      {/* The pickers share one line, and wrap when the box is too narrow to
+          hold them. A box with no picker, as an org of one has, draws no
+          line. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden">{picker}</div>
 
       <button className="sr-only">Add</button>

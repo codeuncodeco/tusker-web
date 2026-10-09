@@ -68,7 +68,6 @@ export const NO_ORG_PICKED = "Pick an org to add to.";
  */
 async function addTasks(
   env: Env,
-  request: Request,
   set: OrgSet,
   picks: Picks,
   form: FormData,
@@ -92,9 +91,6 @@ async function addTasks(
   const ids = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
   if (picks.onAdd) await picks.add(ids);
 
-  // The box sets no decision mark, so a task it makes into Done raises no
-  // prompt. See ADR-0010.
-  //
   // The box keeps the words as they were typed, so an add into the wrong org
   // is filed again rather than typed again. See ADR-0012.
   return { added: { ids, slug: scope.org.slug, text: typed.text } };
@@ -165,7 +161,7 @@ export async function actOnTask(
 ): Promise<Acted | null> {
   const intent = String(form.get("intent") ?? "");
   // An add names an org and no task, so it proves its scope and stops here.
-  if (intent === "create") return addTasks(env, request, set, picks, form);
+  if (intent === "create") return addTasks(env, set, picks, form);
   // Taking an add back is the one delete Tusker has. It names every row that
   // add made, so it stands apart as well. See ADR-0012.
   if (intent === "undo") return undoAdd(env, set, picks, form);
