@@ -23,7 +23,13 @@ buttons. It has none now.
 The `up`, `down`, `top` and `bottom` intents stay on the server, because the
 keys post them.
 
-Buttons that do not reorder stay: Plan, Finish, Archive, the status select.
+Buttons that do not reorder stay: Plan, Finish, the status select.
+
+*Amended by #182.* This line named Archive too. The org board card's Archive
+button is gone, because a control never adds a line to a card, and Archive was
+the one control that took a line of its own. Archive is still reachable without
+a keyboard: one task from its own page, and several by narrowing the column
+and sweeping it. No key archives one card.
 
 ## What stays
 

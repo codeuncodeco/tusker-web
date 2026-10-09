@@ -28,7 +28,7 @@ import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { AssigneeFilter, ColumnSwitch, SearchBox, TodayChip, WeekChip } from "../board-chrome";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
-import { DragCopy, DragLists, DropList, useDragItem, type Drop } from "../drag-lists";
+import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
 import { useBoardKeys } from "../board-keys";
 import { ANYONE, keeps, readAssignee } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
@@ -318,9 +318,13 @@ type Move = (id: string, status: Status, before?: string | null) => void;
  * One card. It shows its rank, the way the extension did: the place the board
  * draws it in, counting from one. No row stores it.
  *
- * A card carries no reorder button. A drag places it, and the keys step it:
- * `>` and `<` move the card to another column, and `J` and `K` step it inside
- * its column. See ADR-0016 and ADR-0026.
+ * A card carries no reorder button. A drag from its grip places it, and the
+ * keys step it: `>` and `<` move the card to another column, and `J` and `K`
+ * step it inside its column. See ADR-0016 and ADR-0026.
+ *
+ * It carries no Archive button either: a control never adds a line to a card.
+ * One task is archived from its own page, or by narrowing the column and
+ * sweeping it. See ADR-0026.
  *
  * The rank reads the order the drag holds, so a card dragged in from another
  * column counts its new place.
@@ -328,7 +332,6 @@ type Move = (id: string, status: Status, before?: string | null) => void;
 function CardItem({
   cards,
   index,
-  status,
   slug,
   selected,
   domId,
@@ -336,7 +339,6 @@ function CardItem({
 }: {
   cards: Card[];
   index: number;
-  status: Status;
   slug: string;
   selected: boolean;
   domId: string;
@@ -350,7 +352,6 @@ function CardItem({
   const card = cards[index];
   const origin = useOrigin();
   const drag = useDragItem(card.id);
-  const archiver = useFetcher();
 
   return (
     <li
@@ -359,19 +360,17 @@ function CardItem({
       onClick={place}
       ref={drag.ref}
       style={drag.style}
-      {...drag.listeners}
       // The card being dragged stays faded where it will land, and the copy
       // under the pointer is the one that moves.
-      className={`flex cursor-grab flex-col gap-2 rounded border p-3 shadow-sm ${
+      className={`flex flex-col gap-2 rounded border p-3 shadow-sm ${
         selected ? "border-fg bg-surface-2" : "border-border bg-surface"
       } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
+        <Grip grip={drag.grip} />
         <span className="tabular-nums text-dim">{index + 1}</span>
         <Link
           to={taskPath(slug, card.id, origin)}
-          // A link drags itself, natively, and that would end the card's drag.
-          draggable={false}
           className="flex-1 underline-offset-2 hover:underline"
         >
           {card.title}
@@ -379,12 +378,13 @@ function CardItem({
         <Initials assignees={card.assignees} />
       </span>
 
+      {/* One line: a pill that does not fit is cut off, and never wraps. */}
       {card.fields.length > 0 ? (
-        <ul className="flex flex-wrap gap-2 text-xs text-muted">
+        <ul className="flex gap-2 overflow-hidden text-xs text-muted">
           {card.fields.map((field) => (
             <li
               key={field.key}
-              className="flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5"
+              className="flex items-center gap-1 whitespace-nowrap rounded bg-surface-2 px-1.5 py-0.5"
             >
               <Dot color={field.color} />
               <span className="text-dim">{field.label}</span> {field.value}
@@ -393,20 +393,6 @@ function CardItem({
         </ul>
       ) : null}
 
-      {/* One task, off the board and kept. It is offered where the work is
-          finished, because archive holds finished work. */}
-      {isFinished(status) ? (
-        <archiver.Form method="post">
-          <input type="hidden" name="intent" value="archive" />
-          <input type="hidden" name="id" value={card.id} />
-          <button
-            aria-label={`Archive ${card.title}`}
-            className="text-xs text-muted underline underline-offset-2"
-          >
-            Archive
-          </button>
-        </archiver.Form>
-      ) : null}
     </li>
   );
 }
@@ -571,7 +557,6 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                         key={card.id}
                         cards={drawn}
                         index={index}
-                        status={column.status}
                         slug={org.slug}
                         selected={cursor === card.id}
                         domId={`card-${card.id}`}
