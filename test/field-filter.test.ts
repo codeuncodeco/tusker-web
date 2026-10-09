@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterFields, keepsFields, readFieldFilters } from "../app/field-filter";
+import { filterableFields, keepsFields, readFieldValues } from "../app/field-filter";
 import type { FieldType, OrgField } from "../app/fields";
 import { narrowingOf } from "../app/remembered";
 
@@ -31,11 +31,11 @@ describe("the fields a board draws a filter for", () => {
       field("trail", "reference"),
       field("stage", "select", false),
     ];
-    expect(filterFields(fields).map((one) => one.key)).toEqual(["client", "trail"]);
+    expect(filterableFields(fields).map((one) => one.key)).toEqual(["client", "trail"]);
   });
 
   it("draws none for a text or a date field, which has no list to pick from", () => {
-    expect(filterFields([field("note", "text"), field("due", "date")])).toEqual([]);
+    expect(filterableFields([field("note", "text"), field("due", "date")])).toEqual([]);
   });
 });
 
@@ -43,21 +43,21 @@ describe("the values the address holds", () => {
   const fields = [field("client", "select"), field("trail", "reference")];
 
   it("reads each filter under the name the task API reads", () => {
-    expect(readFieldFilters(query("field.client=Acme&field.trail=t-1"), fields)).toEqual({
+    expect(readFieldValues(query("field.client=Acme&field.trail=t-1"), fields)).toEqual({
       client: "Acme",
       trail: "t-1",
     });
   });
 
   it("drops an empty value and the space around a value", () => {
-    expect(readFieldFilters(query("field.client=&field.trail=%20t-1%20"), fields)).toEqual({
+    expect(readFieldValues(query("field.client=&field.trail=%20t-1%20"), fields)).toEqual({
       trail: "t-1",
     });
   });
 
   it("ignores a field the org does not mark filterable, or does not declare", () => {
     const declared = [field("client", "select", false)];
-    expect(readFieldFilters(query("field.client=Acme&field.gone=x"), declared)).toEqual({});
+    expect(readFieldValues(query("field.client=Acme&field.gone=x"), declared)).toEqual({});
   });
 });
 

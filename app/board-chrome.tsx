@@ -128,7 +128,7 @@ export function AssigneeFilter({ assignee, members }: { assignee: string; member
  *
  * It is a GET form, as the assignee filter is, under the name the task API
  * reads, `field.<key>`. The rest of the query rides along as hidden fields, so
- * picking a client keeps the search, the member and every other field filter.
+ * picking a value keeps the search, the member and every other field filter.
  */
 export function FieldFilterSelect({ filter }: { filter: FieldFilter }) {
   const name = fieldName(filter.key);

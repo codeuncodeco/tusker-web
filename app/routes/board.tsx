@@ -48,11 +48,11 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, promptFor } from "../decisions.server";
 import { Dot } from "../dot";
 import {
-  fieldFilters,
+  filterSelects,
   fieldName,
   keepsFields,
   narrowedData,
-  readFieldFilters,
+  readFieldValues,
   type FieldFilter,
 } from "../field-filter";
 import { shownOnCard, type Shown } from "../fields";
@@ -121,7 +121,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // narrows by. A value for a field that draws no select is ignored, so an old
   // link still opens. A reference offers its cached refs, read for the whole
   // org in one go.
-  const fieldValues = readFieldFilters(query, declared);
+  const fieldValues = readFieldValues(query, declared);
   const refs = await refOptionsOfOrg(env.DB, scope);
   // The two chips narrow the board to today's plan, or to this week's set. A
   // null plan is a day the person has not planned, and then the chip leads to
@@ -186,7 +186,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     /** The value the select holds, so a reload draws the filter it ran. */
     assignee,
     /** One select per filterable field, each holding the value it narrows by. */
-    filters: fieldFilters(declared, fieldValues, refs),
+    filters: filterSelects(declared, fieldValues, refs),
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan: held.size > 0,
@@ -214,8 +214,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // box keeps the words, so nothing typed is lost. See ADR-0013.
     const assigned = await readAssignees(env.DB, scope, form);
     if ("error" in assigned) return assigned;
-    // The board's field filters ride along, so a task added to a board
-    // narrowed to one client gets that client.
+    // The board's field filters ride along. See `QuickAdd`.
     const data = narrowedData(await listFields(env.DB, scope), form);
     await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids, data });
     return { ok: true };
@@ -289,7 +288,7 @@ export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args
  *
  * The box takes the board's narrowing, as the extension did: a board narrowed
  * to one member starts the picker with that member, and a board narrowed to
- * one client gives every task the box makes that client.
+ * one field value gives every task the box makes that value.
  *
  * `n` focuses the box and Escape gives the board its keys back, as they do on
  * the unified board.
@@ -325,9 +324,8 @@ function QuickAdd({
       error={error}
       titleRef={box}
       bare
-      // The board's field filters ride along, so a task added to a board
-      // narrowed to one client gets that client. The action reads them
-      // against the org's declarations.
+      // The active field filters, which the action reads against the org's
+      // declarations.
       fields={filters
         .filter((one) => one.value)
         .map((one) => (

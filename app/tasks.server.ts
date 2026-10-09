@@ -1,7 +1,7 @@
 import { isFinished, isStatus, stepInColumn, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
-import { FIELD_PREFIX } from "./field-filter";
 import { tickBox } from "./description";
+import { fieldKeyOf } from "./field-filter";
 import { listFields } from "./fields.server";
 import { between, placesAbove } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
@@ -668,13 +668,15 @@ export async function readTaskFilter(
     statuses.push(value);
   }
 
-  const asked = [...query.keys()].filter((name) => name.startsWith(FIELD_PREFIX));
+  const asked = [...query.keys()].flatMap((name) => {
+    const key = fieldKeyOf(name);
+    return key === null ? [] : [{ name, key }];
+  });
   if (asked.length === 0) return { statuses, fields: [] };
 
   const declared = new Set((await listFields(db, scope)).map((field) => field.key));
   const fields = [];
-  for (const name of asked) {
-    const key = name.slice(FIELD_PREFIX.length);
+  for (const { name, key } of asked) {
     if (!declared.has(key)) return { error: `${scope.org.name} declares no field called ${key}.` };
 
     const value = query.get(name) ?? "";

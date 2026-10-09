@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { ANYONE, ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
-import { FIELD_PREFIX } from "./field-filter";
+import { fieldKeyOf } from "./field-filter";
 import { readSearch, SEARCH_NAME } from "./search";
 
 /** Where one board keeps the narrowing it was left with. */
@@ -38,7 +38,7 @@ export function narrowingOf(params: URLSearchParams): string {
   // the loader ignores the ones the org no longer offers.
   for (const [name, value] of params) {
     const kept = value.trim();
-    if (name.startsWith(FIELD_PREFIX) && kept) narrowing.set(name, kept);
+    if (fieldKeyOf(name) !== null && kept) narrowing.set(name, kept);
   }
   return narrowing.toString();
 }

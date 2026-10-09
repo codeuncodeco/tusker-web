@@ -2,7 +2,7 @@
  * The org board's field filters: one select per field the org marks
  * filterable, each one more narrowing beside the search and the assignee
  * filter. Each rides in the query string under the name the task API reads,
- * `field.<key>`, so one address rule serves both. See ADR-0017.
+ * `field.<key>`, so one address rule serves both. See ADR-0029.
  *
  * Only a field with a closed list of values draws a filter: a select reads its
  * options, and a reference reads its cached refs. A text or a date field has
@@ -14,6 +14,7 @@
  */
 
 import { readValue, type OrgField } from "./fields";
+import type { RefOption } from "./refs";
 import { readTrimmed } from "./query";
 
 /** What every field filter's name starts with, in the address and the task API. */
@@ -24,8 +25,17 @@ export function fieldName(key: string): string {
   return `${FIELD_PREFIX}${key}`;
 }
 
+/**
+ * The field key a name of the address narrows by, or null for a name that is
+ * not a field filter. The board, its memory and the task API all read the
+ * address through this.
+ */
+export function fieldKeyOf(name: string): string | null {
+  return name.startsWith(FIELD_PREFIX) ? name.slice(FIELD_PREFIX.length) : null;
+}
+
 /** The fields the board draws a filter for, in the order the org declared them. */
-export function filterFields(fields: OrgField[]): OrgField[] {
+export function filterableFields(fields: OrgField[]): OrgField[] {
   return fields.filter(
     (field) => field.filterable && (field.type === "select" || field.type === "reference"),
   );
@@ -38,12 +48,12 @@ export function filterFields(fields: OrgField[]): OrgField[] {
  * filterable, or no longer declares, is ignored: an old link or a remembered
  * board still opens, and narrows by what the board still offers.
  */
-export function readFieldFilters(
+export function readFieldValues(
   params: URLSearchParams,
   fields: OrgField[],
 ): Record<string, string> {
   const filters: Record<string, string> = {};
-  for (const field of filterFields(fields)) {
+  for (const field of filterableFields(fields)) {
     const value = readTrimmed(params, fieldName(field.key));
     if (value) filters[field.key] = value;
   }
@@ -63,7 +73,7 @@ export function keepsFields(
 }
 
 /** One value a filter offers: what the address carries, and what a person reads. */
-export type Choice = { value: string; label: string };
+type Choice = { value: string; label: string };
 
 /** What the top row draws one field's select with. */
 export type FieldFilter = {
@@ -83,12 +93,12 @@ export type FieldFilter = {
  * by is always offered, even where the list no longer holds it: a select that
  * read Any over a narrowed board would hide the narrowing.
  */
-export function fieldFilters(
+export function filterSelects(
   fields: OrgField[],
   filters: Record<string, string>,
-  refs: Record<string, { id: string; label: string }[]>,
+  refs: Record<string, RefOption[]>,
 ): FieldFilter[] {
-  return filterFields(fields).map((field) => {
+  return filterableFields(fields).map((field) => {
     const options =
       field.type === "select"
         ? field.options.map((one) => ({ value: one, label: one }))
@@ -111,7 +121,7 @@ export function fieldFilters(
  */
 export function narrowedData(fields: OrgField[], form: FormData): Record<string, string> {
   const data: Record<string, string> = {};
-  for (const field of filterFields(fields)) {
+  for (const field of filterableFields(fields)) {
     const read = readValue(field, form.get(fieldName(field.key)));
     if ("value" in read && read.value !== null) data[field.key] = read.value;
   }
