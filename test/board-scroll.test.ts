@@ -1,11 +1,10 @@
 /**
- * How a board scrolls, read off the two board sources.
+ * How a board scrolls. See #191.
  *
  * The page scrolls and no column does, and from `sm` up the header and the Top
- * row stick. That is layout and nothing else: no loader answers differently and
- * no row changes, so there is nothing to assert against a rendered page that is
- * not already a class string. These read the files, as `design-tokens.test.ts`
- * does, and a manual check at three widths covers the rest. See #191.
+ * row stick. That is layout, so most of these read class strings: off the two
+ * board sources, as `design-tokens.test.ts` does, or off the markup of the
+ * header and the Top row. A manual check at three widths covers the rest.
  */
 
 import { createElement } from "react";
@@ -14,7 +13,7 @@ import { StaticRouter } from "react-router";
 import { expect, it } from "vitest";
 
 import { Header } from "../app/header";
-import { covered } from "../app/top-row";
+import { covered, TopRow, TopRowBox } from "../app/top-row";
 
 const sources = import.meta.glob("../app/**/*.tsx", {
   query: "?raw",
@@ -84,35 +83,39 @@ it("leaves no page asking for a frame", () => {
   expect(declaring).toEqual([]);
 });
 
-/** The two board pages, which draw the Top row. */
-const PAGES = ["routes/board.tsx", "routes/me.tsx"];
-
-/** The class names of one page's Top row, the element that carries `data-top-row`. */
-function topRow(name: string): string[] {
-  const found = /<header\s+data-top-row\s+className="([^"]*)"/.exec(sourceOf(name));
-  if (!found) throw new Error(`No Top row in ${name}`);
+/** The class names of the outermost element in some markup. */
+function classesIn(markup: string): string[] {
+  const found = /^<\w+[^>]* class="([^"]*)"/.exec(markup);
+  if (!found) throw new Error(`No class in ${markup}`);
   return found[1].split(/\s+/);
 }
+
+it("draws the Top row on both board pages", () => {
+  for (const page of ["routes/board.tsx", "routes/me.tsx"]) {
+    expect([page, /<TopRow>/.test(sourceOf(page)), /<TopRowBox>/.test(sourceOf(page))]).toEqual([
+      page,
+      true,
+      true,
+    ]);
+  }
+});
 
 it("sticks the Top row under the header from sm up, with a border under it", () => {
   // The header is `h-16`, so the row sticks at `top-16`. Below `sm` nothing
   // sticks, so every sticky class is `sm:`-prefixed.
-  for (const page of PAGES) {
-    const row = topRow(page);
-    for (const one of ["sm:sticky", "sm:top-16", "border-b", "border-border", "bg-bg"]) {
-      expect([page, one, row.includes(one)]).toEqual([page, one, true]);
-    }
-    expect([page, row.includes("sticky")]).toEqual([page, false]);
+  const markup = renderToStaticMarkup(createElement(TopRow, null, "x"));
+  // The cursor finds the row by this, to keep a card clear of it.
+  expect(markup).toMatch(/^<header data-top-row/);
+  const row = classesIn(markup);
+  for (const one of ["sm:sticky", "sm:top-16", "border-b", "border-border", "bg-bg"]) {
+    expect([one, row.includes(one)]).toEqual([one, true]);
   }
+  expect(row.includes("sticky")).toBe(false);
 });
 
-it("gives the add box half the Top row at sm and a third at lg", () => {
-  for (const page of PAGES) {
-    const box = classWith(page, "sm:w-1/2").split(/\s+/);
-    expect([page, box.includes("w-full"), box.includes("lg:w-1/3")]).toEqual([page, true, true]);
-    const bounds = box.filter((one) => /^(min-w|max-w)-/.test(one));
-    expect([page, bounds]).toEqual([page, []]);
-  }
+it("gives the quick-add box all the Top row on a phone, half at sm and a third at lg", () => {
+  const box = classesIn(renderToStaticMarkup(createElement(TopRowBox, null, "x")));
+  expect(box).toEqual(["w-full", "sm:w-1/2", "lg:w-1/3"]);
 });
 
 /** The org the header names on an org page. */
@@ -124,9 +127,7 @@ function headerAt(pathname: string): string[] {
   const markup = renderToStaticMarkup(
     createElement(StaticRouter, { location: pathname }, createElement(Header, { orgs: [], org })),
   );
-  const found = /<header class="([^"]*)"/.exec(markup);
-  if (!found) throw new Error(`No header at ${pathname}`);
-  return found[1].split(/\s+/);
+  return classesIn(markup);
 }
 
 it("sticks the header from sm up on both boards, as tall as the Top row's offset", () => {

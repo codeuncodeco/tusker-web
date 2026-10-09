@@ -32,6 +32,7 @@ import { restoreAcross, sweepAcross } from "../sweep.server";
 import { columnsFor, finishedSince, unifiedColumns } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { UnifiedBoard } from "../unified-board";
+import { TopRow, TopRowBox } from "../top-row";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
 import { weekOf } from "../week";
@@ -130,24 +131,13 @@ export default function Me({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-8">
-      {/* The Top row: the box on the left and the filters on the right, on
-          one line where the width allows. The header's org select is this
-          page's heading. See ADR-0029.
-
-          From `sm` up it sticks under the header, which is `h-16`, and the
-          border under it sticks with it. It takes the page's pad as its own
-          and spans the page's width, so a card scrolls under a solid row and
-          not into a gap above it. See #191. */}
-      <header
-        data-top-row
-        className="-mx-8 -mt-8 flex flex-wrap items-start gap-x-6 gap-y-3 border-b border-border bg-bg px-8 pb-6 pt-8 sm:sticky sm:top-16 sm:z-10"
-      >
+      <TopRow>
         {/* One box for the board, outside every keyed list, so no press of a
             typed word is ever the page's. The picker starts with no org every
             time. See ADR-0012 and ADR-0027. */}
-        <div className="w-full sm:w-1/2 lg:w-1/3">
+        <TopRowBox>
           <UnifiedAdd orgs={orgs} members={members} label="Add to To do" bare />
-        </div>
+        </TopRowBox>
         {/* No search box here to stand as tall as the title, so the switches
             drop to the title's text line. They take the rest of the row, and
             wrap under the box where they do not fit beside it. */}
@@ -161,7 +151,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
             <ColumnSwitch key={which} which={which} toggles={toggles} />
           ))}
         </nav>
-      </header>
+      </TopRow>
 
       <UnifiedBoard
         columns={columns}
