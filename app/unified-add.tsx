@@ -116,7 +116,7 @@ export function UnifiedAdd({
     const form = new FormData();
     form.append("intent", "undo");
     form.append("slug", one.slug);
-    for (const id of one.ids) form.append("id", id);
+    for (const id of one.ids) form.append("id", String(id));
     undo.submit(form, { method: "post" });
 
     setLast(null);

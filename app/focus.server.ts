@@ -20,6 +20,7 @@ import { groupsFor, type GroupKey, type LiveTask } from "./unified";
 import { listUnified } from "./unified.server";
 import { weekOf } from "./week";
 import { readWeekSet } from "./weeks.server";
+import type { TaskId } from "./task-number";
 
 export type Focus = {
   /** The three tasks on the screen, and what they hide. */
@@ -137,7 +138,7 @@ async function focusSource(
 async function bothLists(
   db: D1Database,
   set: OrgSet,
-  plan: string[] | null,
+  plan: TaskId[] | null,
 ): Promise<{ inPlan: LiveTask[]; rest: LiveTask[] }> {
   const tasks = await listUnified(db, set, plan ?? []);
   const groups = groupsFor(tasks, plan ?? []);

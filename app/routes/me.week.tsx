@@ -51,6 +51,7 @@ import { UnifiedList } from "../unified-list";
 import { isWeek, weekAfter, weekBefore, weekIn, weekLabel, weekSpan } from "../week";
 import { addToWeek, moveInWeek, readWeekSet, startWeek } from "../weeks.server";
 import type { Route } from "./+types/me.week";
+import { readTaskId } from "../task-number";
 
 /** What the pick button reads here: a week is picked, and a day is planned. */
 const VERBS = { pick: "Pick", drop: "Unpick" };
@@ -194,7 +195,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // A move reads no task row. It moves an id the set already holds, and an id
   // the set does not hold moves nothing.
   if (isStep(intent)) {
-    await moveInWeek(env.DB, set.personId, week, String(form.get("id") ?? ""), intent);
+    const id = readTaskId(form.get("id"));
+    if (id !== null) await moveInWeek(env.DB, set.personId, week, id, intent);
     return { ok: true };
   }
 

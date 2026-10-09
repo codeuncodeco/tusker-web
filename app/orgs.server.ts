@@ -2,6 +2,7 @@ import { FINISHED_STATUSES } from "./board";
 import { nextColor, type PaletteName } from "./colors";
 import type { OrgApp } from "./refs";
 import type { ReadScope, Scope } from "./scope.server";
+import type { TaskId } from "./task-number";
 
 export type Org = {
   id: string;
@@ -70,6 +71,30 @@ export async function orgForMember(
        WHERE o.slug = ? AND m.user_id = ?`,
     )
     .bind(slug, personId)
+    .first<Org>();
+}
+
+/**
+ * The org that holds one task, where the person is a member of it, or null.
+ *
+ * A task number names no org, so the task page finds the org from the task.
+ * A task in an org the person is not in, a deleted task and a number never
+ * handed out all answer null, so a caller cannot tell them apart. See ADR-0030.
+ */
+export async function orgOfTask(
+  db: D1Database,
+  taskId: TaskId,
+  personId: string,
+): Promise<Org | null> {
+  return db
+    .prepare(
+      `SELECT ${ORG_COLUMNS}
+       FROM tasks t
+       JOIN orgs o ON o.id = t.org_id
+       JOIN memberships m ON m.org_id = o.id
+       WHERE t.id = ? AND m.user_id = ?`,
+    )
+    .bind(taskId, personId)
     .first<Org>();
 }
 

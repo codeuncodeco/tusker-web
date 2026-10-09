@@ -43,7 +43,7 @@ function page(
     org: { slug: "acme", name: "Acme" },
     back: "/o/acme/board",
     task: {
-      id: "t1",
+      id: 12,
       title: "Pack the tent",
       status,
       due_date: "2026-12-01",
@@ -61,8 +61,8 @@ function page(
     ask: null,
   };
   const props = { loaderData, actionData: undefined } as unknown as React.ComponentProps<typeof Task>;
-  const Stub = createRoutesStub([{ path: "/o/:slug/t/:taskId", Component: () => <Task {...props} /> }]);
-  return renderToStaticMarkup(<Stub initialEntries={["/o/acme/t/t1"]} />);
+  const Stub = createRoutesStub([{ path: "/t/:n", Component: () => <Task {...props} /> }]);
+  return renderToStaticMarkup(<Stub initialEntries={["/t/12"]} />);
 }
 
 /** The markup of the task aside alone. */
@@ -87,8 +87,12 @@ describe("an open task", () => {
     const html = page();
 
     expect(html.match(/name="title"/g)).toHaveLength(1);
-    expect(html).toMatch(/<h1[^>]*><input[^>]*aria-label="Title"/);
+    expect(html).toMatch(/<h1[^>]*><span[^>]*>#12<\/span><input[^>]*aria-label="Title"/);
     expect(html).not.toContain(">Title<");
+  });
+
+  it("draws the task's number before the title in the heading", () => {
+    expect(page()).toMatch(/<h1[^>]*><span[^>]*>#12<\/span>/);
   });
 
   it("draws no Edit button, and a placeholder for an empty description", () => {
@@ -183,7 +187,7 @@ describe("a finished task", () => {
   it("draws the title as a plain heading and no Save", () => {
     const html = page({ status: "done" });
 
-    expect(html).toContain("<h1");
+    expect(html).toMatch(/<h1[^>]*><span[^>]*>#12<\/span><span[^>]*>Pack the tent<\/span><\/h1>/);
     expect(html).not.toContain('name="title"');
     expect(html).not.toContain(">Save<");
   });

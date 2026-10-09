@@ -7,6 +7,7 @@ import { ASK } from "../app/decisions";
 import * as boardRoute from "../app/routes/board";
 import * as meRoute from "../app/routes/me";
 import * as taskRoute from "../app/routes/task";
+import type { TaskId } from "../app/task-number";
 import { addMember } from "../app/orgs.server";
 import { member } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
@@ -31,20 +32,20 @@ async function team(slug: string, people: { id: string }[]) {
 }
 
 /** A task, placed by hand so a test can state the column it wants. */
-async function task(orgId: string, id: string, some: { status?: Status; decides?: boolean } = {}) {
+async function task(orgId: string, id: TaskId, some: { status?: Status; decides?: boolean } = {}) {
   await db
     .prepare(
       "INSERT INTO tasks (id, org_id, title, status, position, decides) VALUES (?, ?, ?, ?, 1, ?)",
     )
-    .bind(id, orgId, id, some.status ?? "todo", some.decides ? 1 : 0)
+    .bind(id, orgId, "walk", some.status ?? "todo", some.decides ? 1 : 0)
     .run();
   return id;
 }
 
 /** A save of the task page, signed by the cookie. */
-function save(cookie: string, slug: string, taskId: string, fields: Record<string, string>) {
+function save(cookie: string, taskId: TaskId, fields: Record<string, string>) {
   const body = new FormData();
-  for (const [name, value] of Object.entries({ title: taskId, status: "todo", ...fields })) {
+  for (const [name, value] of Object.entries({ title: "walk", status: "todo", ...fields })) {
     body.append(name, value);
   }
   // Several assignees are several values under one name, as the checkboxes
@@ -54,19 +55,17 @@ function save(cookie: string, slug: string, taskId: string, fields: Record<strin
     for (const id of fields.assignees.split(",").filter(Boolean)) body.append("assignee", id);
   }
 
-  const request = new Request(`https://tusker.test/o/${slug}/t/${taskId}`, {
+  const request = new Request(`https://tusker.test/t/${taskId}`, {
     method: "POST",
     body,
   });
   request.headers.set("cookie", cookie);
-  return taskRoute.action(routeArgs(request, { slug, taskId }));
+  return taskRoute.action(routeArgs(request, { n: String(taskId) }));
 }
 
 /** The task page, as one person reads it. */
-function taskPage(cookie: string, slug: string, taskId: string) {
-  return taskRoute.loader(
-    routeArgs(get(`/o/${slug}/t/${taskId}`, cookie), { slug, taskId }),
-  );
+function taskPage(cookie: string, taskId: TaskId) {
+  return taskRoute.loader(routeArgs(get(`/t/${taskId}`, cookie), { n: String(taskId) }));
 }
 
 /** The board, as one person reads it. */
@@ -75,7 +74,7 @@ function board(cookie: string, slug: string) {
 }
 
 /** The user ids `task_assignees` holds for one task. */
-async function heldBy(taskId: string): Promise<string[]> {
+async function heldBy(taskId: TaskId): Promise<string[]> {
   const { results } = await db
     .prepare("SELECT user_id FROM task_assignees WHERE task_id = ? ORDER BY user_id")
     .bind(taskId)
@@ -100,16 +99,16 @@ describe("the metadata aside", () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const grace = await member("grace@tusker.test", "Grace Hopper");
     const org = await team("hikes", [ada.person, grace.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    const saved = await save(ada.cookie, org.slug, id, {
+    const saved = await save(ada.cookie, id, {
       due_date: "2026-09-20",
       status: "in_progress",
       assignees: `${ada.person.id},${grace.person.id}`,
     });
     expect(saved).toEqual({ ok: true });
 
-    const page = await taskPage(ada.cookie, org.slug, id);
+    const page = await taskPage(ada.cookie, id);
     expect(page.task.status).toBe("in_progress");
     expect(page.task.due_date).toBe("2026-09-20");
     expect(page.assignees.map((one) => one.name)).toEqual(["Ada Lovelace", "Grace Hopper"]);
@@ -119,15 +118,15 @@ describe("the metadata aside", () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const grace = await member("grace@tusker.test", "Grace Hopper");
     const org = await team("hikes", [ada.person, grace.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    await save(ada.cookie, org.slug, id, { assignees: `${ada.person.id},${grace.person.id}` });
-    await save(ada.cookie, org.slug, id, { assignees: grace.person.id });
+    await save(ada.cookie, id, { assignees: `${ada.person.id},${grace.person.id}` });
+    await save(ada.cookie, id, { assignees: grace.person.id });
 
     expect(await heldBy(id)).toEqual([grace.person.id]);
 
     // Every box unticked posts no name, and the task goes back to unassigned.
-    await save(ada.cookie, org.slug, id, { assignees: "" });
+    await save(ada.cookie, id, { assignees: "" });
     expect(await heldBy(id)).toEqual([]);
   });
 
@@ -136,10 +135,10 @@ describe("the metadata aside", () => {
     // A second member, because an org of one draws no picker to leave alone.
     const grace = await member("grace@tusker.test", "Grace Hopper");
     const org = await team("hikes", [ada.person, grace.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    await save(ada.cookie, org.slug, id, { assignees: ada.person.id });
-    await save(ada.cookie, org.slug, id, { title: "A new title" });
+    await save(ada.cookie, id, { assignees: ada.person.id });
+    await save(ada.cookie, id, { title: "A new title" });
 
     expect(await heldBy(id)).toEqual([ada.person.id]);
   });
@@ -147,21 +146,21 @@ describe("the metadata aside", () => {
   it("empties the due date when the box is cleared", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const org = await team("hikes", [ada.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    await save(ada.cookie, org.slug, id, { due_date: "2026-09-20" });
-    await save(ada.cookie, org.slug, id, { due_date: "" });
+    await save(ada.cookie, id, { due_date: "2026-09-20" });
+    await save(ada.cookie, id, { due_date: "" });
 
-    const page = await taskPage(ada.cookie, org.slug, id);
+    const page = await taskPage(ada.cookie, id);
     expect(page.task.due_date).toBeNull();
   });
 
   it("refuses a date no calendar holds", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const org = await team("hikes", [ada.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    expect(await save(ada.cookie, org.slug, id, { due_date: "2026-13-01" })).toEqual({
+    expect(await save(ada.cookie, id, { due_date: "2026-13-01" })).toEqual({
       error: "A due date is a date, as 2026-08-31.",
     });
   });
@@ -172,37 +171,37 @@ describe("the metadata aside", () => {
     const cy = await member("cy@tusker.test", "Cy Young");
     const hikes = await team("hikes", [ada.person, cy.person]);
     await team("boats", [grace.person]);
-    const id = await task(hikes.id, "walk");
+    const id = await task(hikes.id, 1);
 
-    const saved = await save(ada.cookie, hikes.slug, id, {
+    const saved = await save(ada.cookie, id, {
       title: "A new title",
       assignees: grace.person.id,
     });
     expect(saved).toEqual({ error: "hikes has no such member. Pick from the list." });
 
     expect(await heldBy(id)).toEqual([]);
-    const page = await taskPage(ada.cookie, hikes.slug, id);
+    const page = await taskPage(ada.cookie, id);
     expect(page.task.title).toBe("walk");
   });
 
   it("raises the decision prompt when the status moves a marked task to Done", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const org = await team("hikes", [ada.person]);
-    const id = await task(org.id, "walk", { decides: true });
+    const id = await task(org.id, 1, { decides: true });
 
     // The mark is a box on the same form, so a save that keeps it ticked posts it.
-    const answer = await caught(save(ada.cookie, org.slug, id, { status: "done", decides: "1" }));
+    const answer = await caught(save(ada.cookie, id, { status: "done", decides: "1" }));
     expect(answer.status).toBe(302);
-    expect(new URL(answer.headers.get("location")!, "https://tusker.test").searchParams.get(ASK)).toBe(id);
+    expect(new URL(answer.headers.get("location")!, "https://tusker.test").searchParams.get(ASK)).toBe(String(id));
   });
 
   it("asks nothing of a finished task, because its save is refused", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const org = await team("hikes", [ada.person]);
-    const id = await task(org.id, "walk", { decides: true, status: "done" });
+    const id = await task(org.id, 1, { decides: true, status: "done" });
 
     // A finished task is reopened before it is saved. See #164.
-    const answer = await caught(save(ada.cookie, org.slug, id, { status: "done", decides: "1" }));
+    const answer = await caught(save(ada.cookie, id, { status: "done", decides: "1" }));
     expect(answer.status).toBe(409);
   });
 
@@ -211,7 +210,7 @@ describe("the metadata aside", () => {
     const grace = await member("grace@tusker.test", "Grace Hopper");
     const hikes = await team("hikes", [ada.person]);
     const boats = await team("boats", [grace.person]);
-    const id = await task(hikes.id, "walk");
+    const id = await task(hikes.id, 1);
 
     // The route never writes this row. The keys say so anyway, so the rule
     // does not rest on every caller remembering it. See ADR-0013.
@@ -229,9 +228,9 @@ describe("the metadata aside", () => {
     // A third member, so the org still draws assignees once Grace is out.
     const cy = await member("cy@tusker.test", "Cy Young");
     const org = await team("hikes", [ada.person, grace.person, cy.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    await save(ada.cookie, org.slug, id, { assignees: `${ada.person.id},${grace.person.id}` });
+    await save(ada.cookie, id, { assignees: `${ada.person.id},${grace.person.id}` });
 
     await db
       .prepare("DELETE FROM memberships WHERE org_id = ? AND user_id = ?")
@@ -239,15 +238,15 @@ describe("the metadata aside", () => {
       .run();
 
     expect(await heldBy(id)).toEqual([ada.person.id]);
-    const page = await taskPage(ada.cookie, org.slug, id);
+    const page = await taskPage(ada.cookie, id);
     expect(page.assignees.map((one) => one.name)).toEqual(["Ada Lovelace"]);
   });
 
   it("draws no picker in an org of one member", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
-    const id = await task(ada.org.id, "walk");
+    const id = await task(ada.org.id, 1);
 
-    const page = await taskPage(ada.cookie, ada.org.slug, id);
+    const page = await taskPage(ada.cookie, id);
     expect(page.members).toEqual([]);
     expect(page.assignees).toEqual([]);
   });
@@ -256,9 +255,9 @@ describe("the metadata aside", () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const grace = await member("grace@tusker.test", "Grace Hopper");
     await addMember(db, ada.org.id, "grace@tusker.test");
-    const id = await task(ada.org.id, "walk");
+    const id = await task(ada.org.id, 1);
 
-    const page = await taskPage(ada.cookie, ada.org.slug, id);
+    const page = await taskPage(ada.cookie, id);
     expect(page.members.map((one) => one.id).sort()).toEqual([ada.person.id, grace.person.id].sort());
   });
 });
@@ -268,9 +267,9 @@ describe("a card", () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const grace = await member("grace@tusker.test", "Grace Hopper");
     const org = await team("hikes", [ada.person, grace.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    await save(ada.cookie, org.slug, id, { assignees: `${ada.person.id},${grace.person.id}` });
+    await save(ada.cookie, id, { assignees: `${ada.person.id},${grace.person.id}` });
 
     const page = await board(ada.cookie, org.slug);
     const todo = page.columns.find((column) => column.status === "todo")!;
@@ -279,7 +278,7 @@ describe("a card", () => {
 
   it("draws none in an org of one member", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
-    const id = await task(ada.org.id, "walk");
+    const id = await task(ada.org.id, 1);
 
     const page = await board(ada.cookie, ada.org.slug);
     const todo = page.columns.find((column) => column.status === "todo")!;
@@ -291,9 +290,9 @@ describe("a due date set on the task page", () => {
   it("shows on the unified board card", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const org = await team("hikes", [ada.person]);
-    const id = await task(org.id, "walk");
+    const id = await task(org.id, 1);
 
-    await save(ada.cookie, org.slug, id, { due_date: "2026-09-20" });
+    await save(ada.cookie, id, { due_date: "2026-09-20" });
 
     const request = get("/me");
     request.headers.set("cookie", `${ada.cookie}; day=${DAY}`);

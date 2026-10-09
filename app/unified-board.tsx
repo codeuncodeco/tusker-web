@@ -33,6 +33,7 @@ import { columnsFor, type Column } from "./unified";
 import { UnifiedCard } from "./unified-card";
 import { NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
 import { moveFields } from "./unified-row";
+import type { TaskId } from "./task-number";
 
 export function UnifiedBoard({
   columns: answered,
@@ -44,7 +45,7 @@ export function UnifiedBoard({
   /** Every org the person belongs to, for the org on a card and the swept toast's links. */
   orgs: OrgHeld[];
   /** The task ids the day's plan holds, which turn Plan into Unplan. */
-  planned: Set<string>;
+  planned: Set<TaskId>;
   day: string;
 }) {
   // The board as the server holds it, with every post still in flight laid
@@ -63,7 +64,7 @@ export function UnifiedBoard({
   const planned = new Set(drawn.picked);
   // A post per press, so every press of a burst is drawn.
   const post = usePost();
-  const [on, setOn] = useState<string | null>(null);
+  const [on, setOn] = useState<TaskId | null>(null);
   // The name of every org, for the archive links the swept toast carries. It
   // is made once, because the sweep re-binds its effect on a new object.
   const names = useMemo(

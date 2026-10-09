@@ -10,9 +10,10 @@
 import { archiveTasks, restoreTasks } from "./archive.server";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { byOrg, type SweepResult, type Swept } from "./sweep";
+import type { TaskId } from "./task-number";
 
 /** The write one org takes: the sweep's, or its undo's. */
-type Write = (db: D1Database, scope: Scope, taskIds: string[]) => Promise<string[]>;
+type Write = (db: D1Database, scope: Scope, taskIds: TaskId[]) => Promise<TaskId[]>;
 
 /** Archives the cards a sweep named, one org at a time. */
 export function sweepAcross(db: D1Database, set: OrgSet, cards: Swept[]): Promise<SweepResult> {

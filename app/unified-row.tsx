@@ -7,10 +7,11 @@ import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
 import { taskPath, useOrigin } from "./paths";
 import type { LiveTask } from "./unified";
+import type { TaskId } from "./task-number";
 
 /** The fields a pick or a finish posts, so a key and a button send the same thing. */
 export function planFields(task: LiveTask, planned: boolean) {
-  return { intent: planned ? "unplan" : "plan", id: task.id, slug: task.org.slug };
+  return { intent: planned ? "unplan" : "plan", id: String(task.id), slug: task.org.slug };
 }
 
 /**
@@ -26,13 +27,13 @@ export const PLAN_VERBS: Verbs = { pick: KEY_MAP.plan.label, drop: KEY_MAP.unpla
  * it lands above. The `>` and `<` keys name no card, and the task lands at the
  * bottom of its org. A drop on the unified board names the card. See ADR-0025.
  */
-export function moveFields(task: LiveTask, status: Status, before: string | null = null) {
-  const move = { intent: "move", id: task.id, slug: task.org.slug, status };
-  return before === null ? move : { ...move, before };
+export function moveFields(task: LiveTask, status: Status, before: TaskId | null = null) {
+  const move = { intent: "move", id: String(task.id), slug: task.org.slug, status };
+  return before === null ? move : { ...move, before: String(before) };
 }
 
 export function finishFields(task: LiveTask) {
-  return { intent: "finish", id: task.id, slug: task.org.slug };
+  return { intent: "finish", id: String(task.id), slug: task.org.slug };
 }
 
 /**
@@ -123,7 +124,7 @@ export function UnifiedRow({
       <span className={`flex items-baseline gap-x-3 ${moves ? "flex-wrap gap-y-1" : ""}`}>
         {drags ? <Grip grip={drag.grip} /> : null}
         <Link
-          to={taskPath(task.org.slug, task.id, origin)}
+          to={taskPath(task.id, origin)}
           className={`min-w-0 flex-1 underline-offset-2 hover:underline ${
             task.finished ? "text-muted line-through" : ""
           }`}

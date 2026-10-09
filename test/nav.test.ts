@@ -263,9 +263,15 @@ describe("the header", () => {
   });
 
   it("reads the org of every org page", () => {
-    for (const path of ["/o/acme/board", "/o/acme/decisions", "/o/acme/t/one", "/o/acme/settings"]) {
+    for (const path of ["/o/acme/board", "/o/acme/decisions", "/t/12", "/o/acme/settings"]) {
       expect(picked(headerAt(path, [ada, acme], acme))).toBe("acme");
     }
+  });
+
+  it("calls a task page Task, though its path names no org", () => {
+    const markup = headerAt("/t/12", [ada, acme], acme);
+
+    expect(markup).toMatch(/>Task</);
   });
 
   it("lists All, then every org, in a form that works with no script", () => {

@@ -30,16 +30,16 @@ async function team(personId: string, slug: string) {
 }
 
 /** A task, placed by hand so a test can state the column order it wants. */
-async function task(orgId: string, id: string, some: { status?: Status; position?: number } = {}) {
+async function task(orgId: string, id: number, some: { status?: Status; position?: number } = {}) {
   await db
     .prepare("INSERT INTO tasks (id, org_id, title, status, position) VALUES (?, ?, ?, ?, ?)")
-    .bind(id, orgId, id, some.status ?? "todo", some.position ?? 1)
+    .bind(id, orgId, String(id), some.status ?? "todo", some.position ?? 1)
     .run();
   return id;
 }
 
 /** A week one person planned, written as that week left it. */
-async function weekSet(personId: string, week: string, taskIds: string[]) {
+async function weekSet(personId: string, week: string, taskIds: number[]) {
   await db.batch([
     db.prepare("INSERT INTO week_plans (user_id, week) VALUES (?, ?)").bind(personId, week),
     ...taskIds.map((id, at) =>
@@ -76,49 +76,49 @@ async function stored(personId: string, week = WEEK) {
       "SELECT task_id FROM week_plan_tasks WHERE user_id = ? AND week = ? ORDER BY position, task_id",
     )
     .bind(personId, week)
-    .all<{ task_id: string }>();
+    .all<{ task_id: number }>();
   return results.map((row) => row.task_id);
 }
 
 describe("the prompt", () => {
   it("offers the unfinished members of the last week set", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await task(ada.org.id, "b", { position: 2 });
-    await weekSet(ada.person.id, LAST, ["a", "b"]);
+    await task(ada.org.id, 1);
+    await task(ada.org.id, 2, { position: 2 });
+    await weekSet(ada.person.id, LAST, [1, 2]);
 
     const data = await weekPage(ada.cookie);
 
-    expect(data.leftovers).toEqual({ from: LAST, taskIds: ["a", "b"] });
+    expect(data.leftovers).toEqual({ from: LAST, taskIds: [1, 2] });
   });
 
   it("names the week it carries from, which is not always the week before", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, BEFORE, ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, BEFORE, [1]);
 
     expect((await weekPage(ada.cookie)).leftovers?.from).toBe(BEFORE);
   });
 
   it("is absent when the last week left nothing unfinished", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a", { status: "done" });
-    await weekSet(ada.person.id, LAST, ["a"]);
+    await task(ada.org.id, 1, { status: "done" });
+    await weekSet(ada.person.id, LAST, [1]);
 
     expect((await weekPage(ada.cookie)).leftovers).toBe(null);
   });
 
   it("is absent when the person planned no earlier week", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
+    await task(ada.org.id, 1);
 
     expect((await weekPage(ada.cookie)).leftovers).toBe(null);
   });
 
   it("is absent once this week holds a row, however empty the set is", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, LAST, ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, LAST, [1]);
     await weekSet(ada.person.id, WEEK, []);
 
     expect((await weekPage(ada.cookie)).leftovers).toBe(null);
@@ -126,26 +126,26 @@ describe("the prompt", () => {
 
   it("reads the last week that holds a set, not the week before this one", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await task(ada.org.id, "b", { position: 2 });
-    await weekSet(ada.person.id, BEFORE, ["b"]);
-    await weekSet(ada.person.id, LAST, ["a"]);
+    await task(ada.org.id, 1);
+    await task(ada.org.id, 2, { position: 2 });
+    await weekSet(ada.person.id, BEFORE, [2]);
+    await weekSet(ada.person.id, LAST, [1]);
 
-    expect((await weekPage(ada.cookie)).leftovers).toEqual({ from: LAST, taskIds: ["a"] });
+    expect((await weekPage(ada.cookie)).leftovers).toEqual({ from: LAST, taskIds: [1] });
   });
 
   it("says nothing about a set for a later week", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, "2026-W37", ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, "2026-W37", [1]);
 
     expect((await weekPage(ada.cookie)).leftovers).toBe(null);
   });
 
   it("is absent on a week that is over, which is never rewritten", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, BEFORE, ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, BEFORE, [1]);
 
     const data = await weekRoute.loader(
       routeArgs(get(`/me/week/${LAST}`, `${ada.cookie}; day=${DAY}`), { week: LAST }),
@@ -156,56 +156,56 @@ describe("the prompt", () => {
 
   it("is raised on a week the path names as it is on this one", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, LAST, ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, LAST, [1]);
 
     const data = await weekRoute.loader(
       routeArgs(get("/me/week/2026-W37", `${ada.cookie}; day=${DAY}`), { week: "2026-W37" }),
     );
 
-    expect(data.leftovers).toEqual({ from: LAST, taskIds: ["a"] });
+    expect(data.leftovers).toEqual({ from: LAST, taskIds: [1] });
   });
 });
 
 describe("what a leftover is", () => {
   it("skips a task now Done or Cancelled, and keeps the rest", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "done", { status: "done" });
-    await task(ada.org.id, "dropped", { status: "cancelled" });
-    await task(ada.org.id, "working", { status: "in_progress" });
-    await task(ada.org.id, "open", { position: 2 });
-    await weekSet(ada.person.id, LAST, ["done", "open", "dropped", "working"]);
+    await task(ada.org.id, 6, { status: "done" });
+    await task(ada.org.id, 16, { status: "cancelled" });
+    await task(ada.org.id, 10, { status: "in_progress" });
+    await task(ada.org.id, 7, { position: 2 });
+    await weekSet(ada.person.id, LAST, [6, 7, 16, 10]);
 
-    expect((await weekPage(ada.cookie)).leftovers?.taskIds).toEqual(["open", "working"]);
+    expect((await weekPage(ada.cookie)).leftovers?.taskIds).toEqual([7, 10]);
   });
 
   it("skips a task that was archived or deleted", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "gone");
-    await task(ada.org.id, "filed", { position: 2 });
-    await task(ada.org.id, "open", { position: 3 });
-    await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 'filed'").run();
-    await weekSet(ada.person.id, LAST, ["gone", "filed", "open"]);
-    await db.prepare("DELETE FROM tasks WHERE id = 'gone'").run();
+    await task(ada.org.id, 8);
+    await task(ada.org.id, 9, { position: 2 });
+    await task(ada.org.id, 7, { position: 3 });
+    await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 9").run();
+    await weekSet(ada.person.id, LAST, [8, 9, 7]);
+    await db.prepare("DELETE FROM tasks WHERE id = 8").run();
 
-    expect((await weekPage(ada.cookie)).leftovers?.taskIds).toEqual(["open"]);
+    expect((await weekPage(ada.cookie)).leftovers?.taskIds).toEqual([7]);
   });
 
   it("holds tasks of every org the person belongs to", async () => {
     const ada = await member("ada@example.test", "Ada");
     const other = await team(ada.person.id, "codeuncode");
-    await task(other.id, "ours");
-    await task(ada.org.id, "mine");
-    await weekSet(ada.person.id, LAST, ["ours", "mine"]);
+    await task(other.id, 13);
+    await task(ada.org.id, 12);
+    await weekSet(ada.person.id, LAST, [13, 12]);
 
-    expect((await weekPage(ada.cookie)).leftovers?.taskIds.sort()).toEqual(["mine", "ours"]);
+    expect((await weekPage(ada.cookie)).leftovers?.taskIds.sort((x, y) => x - y)).toEqual([12, 13]);
   });
 
   it("says nothing about another person's week", async () => {
     const ada = await member("ada@example.test", "Ada");
     const bob = await member("bob@example.test", "Bob");
-    await task(bob.org.id, "theirs");
-    await weekSet(bob.person.id, LAST, ["theirs"]);
+    await task(bob.org.id, 14);
+    await weekSet(bob.person.id, LAST, [14]);
 
     expect((await weekPage(ada.cookie)).leftovers).toBe(null);
   });
@@ -214,48 +214,48 @@ describe("what a leftover is", () => {
 describe("carrying forward", () => {
   it("copies the unfinished members into this week's set", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "first");
-    await task(ada.org.id, "second", { position: 2 });
-    await task(ada.org.id, "done", { status: "done", position: 3 });
-    await weekSet(ada.person.id, LAST, ["first", "done", "second"]);
+    await task(ada.org.id, 3);
+    await task(ada.org.id, 4, { position: 2 });
+    await task(ada.org.id, 6, { status: "done", position: 3 });
+    await weekSet(ada.person.id, LAST, [3, 6, 4]);
 
     await act(ada.cookie, { intent: "carry" });
 
-    expect(await stored(ada.person.id)).toEqual(["first", "second"]);
+    expect(await stored(ada.person.id)).toEqual([3, 4]);
     const data = await weekPage(ada.cookie);
     expect(data.leftovers).toBe(null);
-    expect(data.picked).toEqual(["first", "second"]);
+    expect(data.picked).toEqual([3, 4]);
   });
 
   // Work ranked once is the same work, later. See ADR-0021.
   it("keeps the order of the week it came from", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "last", { position: 1 });
-    await task(ada.org.id, "first", { position: 2 });
-    await weekSet(ada.person.id, LAST, ["first", "last"]);
+    await task(ada.org.id, 5, { position: 1 });
+    await task(ada.org.id, 3, { position: 2 });
+    await weekSet(ada.person.id, LAST, [3, 5]);
 
     await act(ada.cookie, { intent: "carry" });
 
-    expect(await stored(ada.person.id)).toEqual(["first", "last"]);
-    expect((await weekPage(ada.cookie)).picked).toEqual(["first", "last"]);
+    expect(await stored(ada.person.id)).toEqual([3, 5]);
+    expect((await weekPage(ada.cookie)).picked).toEqual([3, 5]);
   });
 
   it("leaves the old set as its week left it, so a carried task is in both", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "done", { status: "done" });
-    await task(ada.org.id, "open", { position: 2 });
-    await weekSet(ada.person.id, LAST, ["done", "open"]);
+    await task(ada.org.id, 6, { status: "done" });
+    await task(ada.org.id, 7, { position: 2 });
+    await weekSet(ada.person.id, LAST, [6, 7]);
 
     await act(ada.cookie, { intent: "carry" });
-    await act(ada.cookie, { intent: "unplan", id: "open", slug: ada.org.slug });
+    await act(ada.cookie, { intent: "unplan", id: "7", slug: ada.org.slug });
 
-    expect(await stored(ada.person.id, LAST)).toEqual(["done", "open"]);
+    expect(await stored(ada.person.id, LAST)).toEqual([6, 7]);
   });
 
   it("writes an empty set when the old week left nothing to carry", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "done", { status: "done" });
-    await weekSet(ada.person.id, LAST, ["done"]);
+    await task(ada.org.id, 6, { status: "done" });
+    await weekSet(ada.person.id, LAST, [6]);
 
     await act(ada.cookie, { intent: "carry" });
 
@@ -264,36 +264,36 @@ describe("carrying forward", () => {
 
   it("skips a task archived or deleted since the old week", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "gone");
-    await task(ada.org.id, "filed", { position: 2 });
-    await task(ada.org.id, "open", { position: 3 });
-    await weekSet(ada.person.id, LAST, ["gone", "filed", "open"]);
-    await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 'filed'").run();
-    await db.prepare("DELETE FROM tasks WHERE id = 'gone'").run();
+    await task(ada.org.id, 8);
+    await task(ada.org.id, 9, { position: 2 });
+    await task(ada.org.id, 7, { position: 3 });
+    await weekSet(ada.person.id, LAST, [8, 9, 7]);
+    await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 9").run();
+    await db.prepare("DELETE FROM tasks WHERE id = 8").run();
 
     await act(ada.cookie, { intent: "carry" });
 
-    expect(await stored(ada.person.id)).toEqual(["open"]);
+    expect(await stored(ada.person.id)).toEqual([7]);
   });
 
   it("keeps the set this week already holds", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "old");
-    await task(ada.org.id, "this", { position: 2 });
-    await weekSet(ada.person.id, LAST, ["old"]);
-    await act(ada.cookie, { intent: "plan", id: "this", slug: ada.org.slug });
+    await task(ada.org.id, 15);
+    await task(ada.org.id, 11, { position: 2 });
+    await weekSet(ada.person.id, LAST, [15]);
+    await act(ada.cookie, { intent: "plan", id: "11", slug: ada.org.slug });
 
     await act(ada.cookie, { intent: "carry" });
 
-    expect(await stored(ada.person.id)).toEqual(["this"]);
+    expect(await stored(ada.person.id)).toEqual([11]);
   });
 });
 
 describe("a week that is over", () => {
   it("takes no carry, because a week set is never rewritten after its week", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, BEFORE, ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, BEFORE, [1]);
     const request = post(`/me/week/${LAST}`, { intent: "carry" });
     request.headers.set("cookie", `${ada.cookie}; day=${DAY}`);
 
@@ -307,8 +307,8 @@ describe("a week that is over", () => {
 describe("starting clean", () => {
   it("starts the week with an empty set and drops the prompt", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, LAST, ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, LAST, [1]);
 
     await act(ada.cookie, { intent: "clean" });
     const data = await weekPage(ada.cookie);
@@ -317,27 +317,27 @@ describe("starting clean", () => {
     expect(data.leftovers).toBe(null);
     expect(data.picked).toEqual([]);
     // The tasks are all still there to pick, in their own groups.
-    expect(data.groups.find((one) => one.key === "todo")!.tasks.map((one) => one.id)).toEqual(["a"]);
+    expect(data.groups.find((one) => one.key === "todo")!.tasks.map((one) => one.id)).toEqual([1]);
   });
 
   it("leaves the old set alone", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, LAST, ["a"]);
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, LAST, [1]);
 
     await act(ada.cookie, { intent: "clean" });
 
-    expect(await stored(ada.person.id, LAST)).toEqual(["a"]);
+    expect(await stored(ada.person.id, LAST)).toEqual([1]);
   });
 
   it("keeps the set this week already holds", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await task(ada.org.id, "a");
-    await weekSet(ada.person.id, LAST, ["a"]);
-    await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
+    await task(ada.org.id, 1);
+    await weekSet(ada.person.id, LAST, [1]);
+    await act(ada.cookie, { intent: "plan", id: "1", slug: ada.org.slug });
 
     await act(ada.cookie, { intent: "clean" });
 
-    expect(await stored(ada.person.id)).toEqual(["a"]);
+    expect(await stored(ada.person.id)).toEqual([1]);
   });
 });

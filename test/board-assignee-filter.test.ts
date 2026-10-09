@@ -43,14 +43,15 @@ async function team(slug: string, people: { id: string }[]) {
 /** A task, placed by hand so a test can state the column it sits in. */
 async function task(
   orgId: string,
-  id: string,
+  title: string,
   held: { id: string }[] = [],
   status: Status = "todo",
 ) {
-  await db
-    .prepare("INSERT INTO tasks (id, org_id, title, status, position) VALUES (?, ?, ?, ?, 1)")
-    .bind(id, orgId, id, status)
+  const { meta } = await db
+    .prepare("INSERT INTO tasks (org_id, title, status, position) VALUES (?, ?, ?, 1)")
+    .bind(orgId, title, status)
     .run();
+  const id = meta.last_row_id;
   for (const person of held) {
     await db
       .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
@@ -197,12 +198,12 @@ describe("the filter beside the other narrowings", () => {
     const ada = await member("ada@example.test", "Ada");
     const bo = await member("bo@example.test", "Bo");
     const org = await team("blrhikes", [ada, bo]);
-    await task(org.id, "Planned and Ada's", [ada]);
-    await task(org.id, "Planned and Bo's", [bo]);
+    const adas = await task(org.id, "Planned and Ada's", [ada]);
+    const bos = await task(org.id, "Planned and Bo's", [bo]);
     await task(org.id, "Ada's and unplanned", [ada]);
     await db
       .prepare("INSERT INTO plans (user_id, day, task_ids) VALUES (?, ?, ?)")
-      .bind(ada.id, DAY, JSON.stringify(["Planned and Ada's", "Planned and Bo's"]))
+      .bind(ada.id, DAY, JSON.stringify([adas, bos]))
       .run();
 
     expect(titles(await board(org.slug, ada.cookie, `?today=1&assignee=${ada.id}`))).toEqual([
@@ -243,7 +244,7 @@ describe("the sweep under the filter", () => {
     const done = narrowed.columns.find((column) => column.status === "done")!;
     const request = post(`/o/${org.slug}/board`, {
       intent: "archive",
-      id: done.tasks.map((one) => one.id),
+      id: done.tasks.map((one) => String(one.id)),
     });
     request.headers.set("cookie", ada.cookie);
     await boardRoute.action(routeArgs(request, { slug: org.slug }));

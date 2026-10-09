@@ -9,7 +9,9 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc", environment: "dev" },
       miniflare: {
-        d1Databases: { DB: "tusker-test" },
+        // `MIGRATION_DB` is a second, empty database. A test of one migration
+        // fills it with the rows of the schema before, then runs the migration.
+        d1Databases: { DB: "tusker-test", MIGRATION_DB: "tusker-migration-test" },
         bindings: {
           TEST_MIGRATIONS: migrations,
           BETTER_AUTH_SECRET: "a-secret-that-only-the-tests-use",
