@@ -1,8 +1,9 @@
 /**
- * Where a board draws its quick-add box. See #165.
+ * Where a board draws its quick-add box. See #165 and #199.
  *
  * Each board draws one box, above the row of columns and outside every column,
- * and the box names no column: what it adds lands in To do.
+ * and the box names no column: what it adds lands in To do. The box takes the
+ * left of the board's top row, and the filters take the right.
  */
 
 import { renderToStaticMarkup } from "react-dom/server";
@@ -11,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import Board from "../app/routes/board";
 import type { Status } from "../app/board";
-import { UnifiedBoard } from "../app/unified-board";
+import Me from "../app/routes/me";
 
 const COLUMNS: { status: Status; label: string }[] = [
   { status: "backlog", label: "Backlog" },
@@ -40,26 +41,26 @@ function orgBoard(): string {
   return renderToStaticMarkup(<Stub initialEntries={["/o/acme/board"]} />);
 }
 
-/** The unified board with every column. */
+/** The unified board with every column, drawn from the data a loader would give it. */
 function unifiedBoard(): string {
-  const orgs = [
-    { slug: "ada", name: "Ada", color: "red" },
-    { slug: "acme", name: "Acme", color: "blue" },
-  ];
-  const Stub = createRoutesStub([
-    {
-      path: "/me",
-      Component: () => (
-        <UnifiedBoard
-          columns={COLUMNS.map((one) => ({ ...one, tasks: [] }))}
-          orgs={orgs}
-          members={{}}
-          planned={new Set()}
-          day="2026-09-02"
-        />
-      ),
-    },
-  ]);
+  const loaderData = {
+    orgs: [
+      { slug: "ada", name: "Ada", color: "red" },
+      { slug: "acme", name: "Acme", color: "blue" },
+    ],
+    members: {},
+    columns: COLUMNS.map((one) => ({ ...one, tasks: [] })),
+    planned: [],
+    toggles: { backlog: true, cancelled: true },
+    today: false,
+    hasPlan: false,
+    week: false,
+    hasSet: false,
+    day: "2026-09-02",
+    ask: null,
+  };
+  const props = { loaderData } as unknown as React.ComponentProps<typeof Me>;
+  const Stub = createRoutesStub([{ path: "/me", Component: () => <Me {...props} /> }]);
   return renderToStaticMarkup(<Stub initialEntries={["/me"]} />);
 }
 
@@ -83,6 +84,21 @@ describe.each([
     const box = html.indexOf('value="create"');
 
     expect(html.indexOf('name="title"', box)).toBeLessThan(html.indexOf("<h2"));
+  });
+
+  it("takes the left of the top row, and the filters take the right", () => {
+    const html = draw();
+    const row = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+
+    expect(row).toContain('value="create"');
+    expect(row.indexOf('value="create"')).toBeLessThan(row.indexOf("<nav"));
+  });
+
+  it("draws no decision tick: the task page sets the mark", () => {
+    const [box] = boxes(draw());
+
+    expect(box).not.toContain('name="decides"');
+    expect(box).not.toContain("Holds a decision");
   });
 
   it("names no column, so what it adds lands in To do", () => {

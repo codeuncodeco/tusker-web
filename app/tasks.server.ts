@@ -272,28 +272,28 @@ export function asTask<T extends { data: string }>(row: T): Omit<T, "data"> & { 
 }
 
 /**
- * The titles, the mark and the raw text a quick-add box posts, or the reason
- * it makes no task. Both boxes read a form the same way, so the two say the same thing to
+ * The titles and the raw text a quick-add box posts, or the reason it makes no
+ * task. Both boxes read a form the same way, so the two say the same thing to
  * a person who presses Enter on an empty one.
  *
  * The box takes a line break, so one post makes a list: one task per line, in
- * the order the lines appear. The mark goes on all of them or on none, because
- * one box holds one tick.
+ * the order the lines appear.
+ *
+ * The box sets no decision mark, so a `decides` in the form is not read: the
+ * task page sets the mark. See ADR-0010.
  */
 export function newTasksFrom(
   form: FormData,
-): { titles: string[]; decides: boolean; text: string } | { error: string } {
+): { titles: string[]; text: string } | { error: string } {
   const text = String(form.get("title") ?? "");
   const titles = titlesIn(text);
   if (titles.length === 0) return { error: "A task needs a title." };
   if (titles.length > MAX_TITLES) {
     return { error: `A list makes ${MAX_TITLES} tasks at the most.` };
   }
-  // The mark goes on when the task is made, while the thought is there. It is
-  // off by default, so an unticked box is a task that decides nothing.
   // The text goes back as it was typed, line breaks and all, because the undo
   // of a pasted list refills the box with it.
-  return { titles, decides: form.get("decides") === "1", text };
+  return { titles, text };
 }
 
 /**
@@ -321,7 +321,6 @@ export async function createTasks(
   tasks: {
     titles: string[];
     status: Status;
-    decides: boolean;
     /** The members who hold every task of the block. Empty is unassigned. */
     assignees: string[];
   },
@@ -345,10 +344,10 @@ export async function createTasks(
     ...rows.map((row) =>
       db
         .prepare(
-          `INSERT INTO tasks (id, org_id, title, status, position, decides, finished_at)
-           VALUES (?, ?, ?, ?, ?, ?, ${finished})`,
+          `INSERT INTO tasks (id, org_id, title, status, position, finished_at)
+           VALUES (?, ?, ?, ?, ?, ${finished})`,
         )
-        .bind(row.id, orgId, row.title, tasks.status, row.position, tasks.decides ? 1 : 0),
+        .bind(row.id, orgId, row.title, tasks.status, row.position),
     ),
     ...rows.flatMap((row) =>
       tasks.assignees.map((userId) =>

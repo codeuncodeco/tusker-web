@@ -14,7 +14,7 @@
  *
  * The board has one quick-add box, above the columns and outside every one,
  * and what it adds lands in To do. A task meant for another column is added
- * and then moved.
+ * and then moved. The page draws it, in its top row beside the filters.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -24,13 +24,11 @@ import { ColumnSweep } from "./column-sweep";
 import { landingInOrg } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
 import type { OrgHeld } from "./current-org";
-import type { Assignee } from "./assignees";
 import { useLocalDay } from "./local-day";
 import { addsSent, tasksSent, usePost, useSent } from "./pending";
 import { tellsOrgsApart } from "./org-chip";
 import { PendingAdds } from "./pending-adds";
 import { columnsFor, type Column } from "./unified";
-import { UnifiedAdd } from "./unified-add";
 import { UnifiedCard } from "./unified-card";
 import { NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
 import { moveFields } from "./unified-row";
@@ -38,15 +36,12 @@ import { moveFields } from "./unified-row";
 export function UnifiedBoard({
   columns: answered,
   orgs,
-  members,
   planned: picked,
   day,
 }: {
   columns: Column[];
-  /** Every org the person belongs to, for the org picker on the box. */
+  /** Every org the person belongs to, for the org on a card and the swept toast's links. */
   orgs: OrgHeld[];
-  /** The members of every org of two or more, for the assignee picker on the box. */
-  members: Record<string, Assignee[]>;
   /** The task ids the day's plan holds, which turn Plan into Unplan. */
   planned: Set<string>;
   day: string;
@@ -131,11 +126,6 @@ export function UnifiedBoard({
 
   return (
     <>
-      {/* One box for the board, outside every keyed list, so no press of a
-          typed word is ever the page's. The picker starts with no org every
-          time. See ADR-0012 and ADR-0027. */}
-      <UnifiedAdd orgs={orgs} members={members} label="Add to To do" bare />
-
       <DragLists
         lists={Object.fromEntries(
           columns.map((column) => [column.status, column.tasks.map((one) => one.id)]),

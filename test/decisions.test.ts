@@ -137,7 +137,8 @@ describe("marking a task as one that holds a decision", () => {
     expect(made!.decides).toBe(0);
   });
 
-  it("goes on from the quick-add box when the box is ticked", async () => {
+  // The box sets no mark: the task page does. See ADR-0010.
+  it("stays off when a post from the box names it", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     await onBoard(ada.cookie, ada.org.slug, {
@@ -150,10 +151,10 @@ describe("marking a task as one that holds a decision", () => {
     const made = await db
       .prepare("SELECT id, decides FROM tasks")
       .first<{ id: string; decides: number }>();
-    expect(made!.decides).toBe(1);
+    expect(made!.decides).toBe(0);
   });
 
-  it("asks at once for a marked task typed straight into Done", async () => {
+  it("asks nothing for a task typed straight into Done, though the post names a mark", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     const response = await onBoard(ada.cookie, ada.org.slug, {
@@ -161,23 +162,6 @@ describe("marking a task as one that holds a decision", () => {
       title: "Pick a database",
       status: "done",
       decides: "1",
-    });
-
-    const asked = query(response).get("ask")!;
-    expect((await board(ada.cookie, ada.org.slug, `?ask=${asked}`)).ask).toEqual({
-      id: asked,
-      slug: ada.org.slug,
-      title: "Pick a database",
-    });
-  });
-
-  it("asks nothing for an unmarked task typed straight into Done", async () => {
-    const ada = await member("ada@example.test", "Ada");
-
-    const response = await onBoard(ada.cookie, ada.org.slug, {
-      intent: "create",
-      title: "Water the plants",
-      status: "done",
     });
 
     expect(response).toEqual({ ok: true });

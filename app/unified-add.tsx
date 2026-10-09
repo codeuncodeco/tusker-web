@@ -110,7 +110,7 @@ export function UnifiedAdd({
 
   if (orgs.length === 0) return null;
 
-  /** Takes the add back and gives the box the words and the mark again. */
+  /** Takes the add back and gives the box the words again. */
   function refile(one: Added) {
     // One add is one act, so the undo names every row it made in one post.
     const form = new FormData();
@@ -121,7 +121,6 @@ export function UnifiedAdd({
 
     setLast(null);
     draft.setTitle(one.text);
-    draft.setDecides(one.decides);
     // A person undoes when the org was wrong, so the picker starts over.
     pick(null);
     setUndone((count) => count + 1);

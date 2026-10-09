@@ -547,22 +547,9 @@ describe("the quick-add box", () => {
     expect(row?.status).toBe("todo");
   });
 
-  it("asks a marked task typed straight into Done for its decision", async () => {
-    const ada = await member("ada@example.test", "Ada");
-
-    const response = (await act(ada.cookie, {
-      intent: "create",
-      slug: ada.org.slug,
-      title: "decided",
-      status: "done",
-      decides: "1",
-    })) as Response;
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toContain("ask=");
-  });
-
-  it("leaves an unmarked task typed into Done alone, and offers the undo", async () => {
+  // The box sets no mark, so a task it makes is never asked for a decision,
+  // though a post names one. The task page sets the mark. See ADR-0010.
+  it("asks nothing of a task typed into Done, though the post names a mark, and offers the undo", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     const acted = await act(ada.cookie, {
@@ -570,6 +557,7 @@ describe("the quick-add box", () => {
       slug: ada.org.slug,
       title: "over",
       status: "done",
+      decides: "1",
     });
 
     expect(acted).toMatchObject({ added: { slug: ada.org.slug, text: "over" } });
