@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
+import Board from "../app/routes/board";
 import type { Group, LiveTask } from "../app/unified";
 import { UnifiedList } from "../app/unified-list";
 
@@ -59,5 +60,39 @@ describe("the reorder buttons", () => {
     );
 
     expect(html).toMatch(REORDERS);
+  });
+});
+
+/** The org board, with two cards in To do, drawn from a loader's data. */
+function orgBoard(): string {
+  const card = (id: string) => ({ id, title: id, fields: [], assignees: [] });
+  const loaderData = {
+    org: { slug: "acme", name: "Acme" },
+    columns: [
+      { status: "todo", label: "To do", tasks: [card("a"), card("b")] },
+      { status: "in_progress", label: "In progress", tasks: [] },
+      { status: "done", label: "Done", tasks: [] },
+    ],
+    members: [],
+    ask: null,
+    toggles: { backlog: false, cancelled: false },
+    today: false,
+    search: "",
+    day: "2026-10-09",
+    hasPlan: false,
+    backlogByRule: false,
+  };
+  const props = { loaderData } as unknown as React.ComponentProps<typeof Board>;
+  const Stub = createRoutesStub([{ path: "/o/:slug/board", Component: () => <Board {...props} /> }]);
+  return renderToStaticMarkup(<Stub initialEntries={["/o/acme/board"]} />);
+}
+
+describe("the org board card", () => {
+  it("carries no reorder button, and the board names the step keys", () => {
+    const html = orgBoard();
+
+    expect(html).not.toMatch(REORDERS);
+    expect(html).toContain('aria-keyshortcuts="Shift+K"');
+    expect(html).toContain('aria-keyshortcuts="Shift+J"');
   });
 });

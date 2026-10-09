@@ -43,6 +43,7 @@ import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
+import { KeyLegend } from "../key-hint";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
@@ -507,6 +508,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       {/* One box for the board, outside every keyed list, so a typed word is
           never a press the page reads. See ADR-0022. */}
       <QuickAdd members={members} />
+
+      {/* A card carries no reorder button, so the keys that step it are named
+          once, here. See ADR-0026. */}
+      <KeyLegend acts={["up", "down"]} />
 
       <DragLists
         lists={Object.fromEntries(

@@ -55,8 +55,9 @@ A row that drags has no button to carry one. So a list whose rows drag names
 its reorder keys once, above the rows: Up `⇧K`, Down `⇧J`, Top `⇧T`, Bottom `⇧B`.
 It shows where the pointer is fine, as every other key mark does.
 
-The org board's arrows carried no key mark, so nothing named `J` and `K` there
-before this change, and nothing new names them now.
+The org board's arrows carried no key mark, but they were the one sign on the
+page that a card could step. So the board names its two step keys the same
+way, once, under the quick-add box: Up `⇧K`, Down `⇧J`.
 
 ## Consequences
 
