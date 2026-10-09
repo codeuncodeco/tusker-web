@@ -1,39 +1,22 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import * as boardRoute from "../app/routes/board";
-import * as loginRoute from "../app/routes/login";
 import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
-import { cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 const DAY = "2026-09-01";
 
 beforeEach(wipe);
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  const org = await db
-    .prepare("SELECT id, slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ?")
-    .bind(person.id)
-    .first<{ id: string; slug: string }>();
-  return { person, org: org!, cookie: cookieFrom(response) };
-}
 
 /** A team org, with everybody named as a member of it. */
 async function team(slug: string, people: { id: string }[]) {
   const id = `org-${slug}`;
   await db.batch([
-    db.prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'team')").bind(id, slug, slug),
+    db.prepare("INSERT INTO orgs (id, slug, name) VALUES (?, ?, ?)").bind(id, slug, slug),
     ...people.map((person) =>
       db
         .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
@@ -188,7 +171,7 @@ describe("the member lists a box draws from", () => {
     ]);
   });
 
-  it("answers no member on a personal board, which draws no picker", async () => {
+  it("answers no member on the board of an org of one, which draws no picker", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     const data = await boardRoute.loader(
@@ -198,7 +181,7 @@ describe("the member lists a box draws from", () => {
     expect(data.members).toEqual([]);
   });
 
-  it("answers the members of every team org to a cross-org page, keyed by slug", async () => {
+  it("answers the members of every org of two or more to a cross-org page, keyed by slug", async () => {
     const ada = await member("ada@example.test", "Ada");
     const bo = await member("bo@example.test", "Bo Kim");
     const blr = await team("blrhikes", [ada.person, bo.person]);
@@ -206,14 +189,15 @@ describe("the member lists a box draws from", () => {
 
     const data = await meRoute.loader(routeArgs(get("/me", `${ada.cookie}; day=${DAY}`)));
 
-    expect(Object.keys(data.members).sort()).toEqual(["blrhikes", "solo"]);
+    // Ada's own org and solo hold one member each, so neither is keyed.
+    expect(Object.keys(data.members)).toEqual(["blrhikes"]);
     expect(data.members[blr.slug]).toEqual([
       { id: ada.person.id, name: "Ada", initials: "A" },
       { id: bo.person.id, name: "Bo Kim", initials: "BK" },
     ]);
   });
 
-  it("names no personal org in the lists, because one member draws no picker", async () => {
+  it("names no org of one in the lists, because one member draws no picker", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     const data = await planRoute.loader(routeArgs(get("/me/plan", `${ada.cookie}; day=${DAY}`)));

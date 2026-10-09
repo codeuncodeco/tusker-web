@@ -36,7 +36,7 @@ export function UnifiedBoard({
   columns: Column[];
   /** Every org the person belongs to, for the org picker on every box. */
   orgs: OrgHeld[];
-  /** The members of every team org, for the assignee picker on every box. */
+  /** The members of every org of two or more, for the assignee picker on every box. */
   members: Record<string, Assignee[]>;
   /** The task ids the day's plan holds, which turn Plan into Unplan. */
   planned: Set<string>;
@@ -155,7 +155,7 @@ export function UnifiedBoard({
           </div>
 
           {/* One box per column, and the column names the status. The picker
-              starts at the personal org every time. See ADR-0012. */}
+              starts with no org every time. See ADR-0012 and ADR-0024. */}
           <UnifiedAdd
             orgs={orgs}
             members={members}

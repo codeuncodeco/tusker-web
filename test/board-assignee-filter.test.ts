@@ -26,11 +26,11 @@ async function member(email: string, name: string) {
   return { id: person.id, name, cookie: `${cookieFrom(response)}; ${DAY_COOKIE}=${DAY}` };
 }
 
-/** A team org, with everybody named as a member of it. */
+/** An org, with everybody named as a member of it. */
 async function team(slug: string, people: { id: string }[]) {
   const id = `org-${slug}`;
   await db.batch([
-    db.prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'team')").bind(id, slug, slug),
+    db.prepare("INSERT INTO orgs (id, slug, name) VALUES (?, ?, ?)").bind(id, slug, slug),
     ...people.map((person) =>
       db
         .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
@@ -38,17 +38,6 @@ async function team(slug: string, people: { id: string }[]) {
     ),
   ]);
   return { id, slug };
-}
-
-/** The personal org Tusker made for a person at signup. */
-async function personalOrg(personId: string) {
-  const org = await db
-    .prepare(
-      "SELECT id, slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ? AND kind = 'personal'",
-    )
-    .bind(personId)
-    .first<{ id: string; slug: string }>();
-  return org!;
 }
 
 /** A task, placed by hand so a test can state the column it sits in. */
@@ -109,7 +98,9 @@ describe("narrowing the board to one member", () => {
 
   it("keeps the tasks nobody holds under Unassigned", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const org = await team("blrhikes", [ada]);
+    // A second member, because an org of one draws no filter.
+    const bo = await member("bo@example.test", "Bo");
+    const org = await team("blrhikes", [ada, bo]);
     await task(org.id, "Ada's", [ada]);
     await task(org.id, "Nobody's");
 
@@ -120,7 +111,9 @@ describe("narrowing the board to one member", () => {
 
   it("gives the whole board back under Anyone", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const org = await team("blrhikes", [ada]);
+    // A second member, because an org of one draws no filter.
+    const bo = await member("bo@example.test", "Bo");
+    const org = await team("blrhikes", [ada, bo]);
     await task(org.id, "Ada's", [ada]);
     await task(org.id, "Nobody's");
 
@@ -130,7 +123,9 @@ describe("narrowing the board to one member", () => {
 
   it("draws an empty board for a name no member answers to", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const org = await team("blrhikes", [ada]);
+    // A second member, because an org of one draws no filter.
+    const bo = await member("bo@example.test", "Bo");
+    const org = await team("blrhikes", [ada, bo]);
     await task(org.id, "Ada's", [ada]);
 
     expect(titles(await board(org.slug, ada.cookie, "?assignee=u-gone"))).toEqual([]);
@@ -140,7 +135,9 @@ describe("narrowing the board to one member", () => {
 describe("what the header needs to draw the select", () => {
   it("hands back the value, so a reload draws the filter it ran", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const org = await team("blrhikes", [ada]);
+    // A second member, because an org of one draws no filter.
+    const bo = await member("bo@example.test", "Bo");
+    const org = await team("blrhikes", [ada, bo]);
 
     expect((await board(org.slug, ada.cookie, `?assignee=${ada.id}`)).assignee).toBe(ada.id);
     expect((await board(org.slug, ada.cookie)).assignee).toBe("");
@@ -156,9 +153,9 @@ describe("what the header needs to draw the select", () => {
     expect(members.map((one) => one.name)).toEqual(["Ada", "Bo", "Cy"]);
   });
 
-  it("draws no select on a personal org, which draws no assignee", async () => {
+  it("draws no select on an org of one member, which draws no assignee", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const org = await personalOrg(ada.id);
+    const org = await team("solo", [ada]);
     await task(org.id, "Ada's");
 
     const data = await board(org.slug, ada.cookie, `?assignee=${ada.id}`);
@@ -167,11 +164,18 @@ describe("what the header needs to draw the select", () => {
     expect(titles(data)).toEqual(["Ada's"]);
   });
 
-  it("draws the select on a team org of one member", async () => {
+  it("draws the select on that org once a second member joins", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const org = await team("blrhikes", [ada]);
+    const bo = await member("bo@example.test", "Bo");
+    const org = await team("solo", [ada]);
+    expect((await board(org.slug, ada.cookie)).members).toEqual([]);
 
-    expect((await board(org.slug, ada.cookie)).members.map((one) => one.name)).toEqual(["Ada"]);
+    await db
+      .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
+      .bind(org.id, bo.id)
+      .run();
+
+    expect((await board(org.slug, ada.cookie)).members.map((one) => one.name)).toEqual(["Ada", "Bo"]);
   });
 });
 
@@ -208,7 +212,9 @@ describe("the filter beside the other narrowings", () => {
 
   it("stacks with the column toggles", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const org = await team("blrhikes", [ada]);
+    // A second member, because an org of one draws no filter.
+    const bo = await member("bo@example.test", "Bo");
+    const org = await team("blrhikes", [ada, bo]);
     await task(org.id, "Ada's, done", [ada], "done");
     await task(org.id, "Ada's, cancelled", [ada], "cancelled");
 

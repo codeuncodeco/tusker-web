@@ -3,9 +3,11 @@
  *
  * The org board's box needs no org: the org is the page, and the column is the
  * only choice left. A cross-org page holds no org, so the box names one. It
- * starts at the personal org every time, and a team org draws a chip for as
- * long as the box holds it, because the placeholder goes away at the first
- * keystroke, which is when the risk starts. See ADR-0012.
+ * starts with no org picked every time, and refuses an add until one is. The
+ * picked org draws a chip for as long as the box holds it, because the
+ * placeholder goes away at the first keystroke, which is when the risk starts.
+ * A person in one org has no picker and no chip: the org is implied. See
+ * ADR-0012 and ADR-0024.
  *
  * The unified board puts one of these on every column, and the column names
  * the status. Plan mode puts one at the top and names none: an add there is a
@@ -45,9 +47,10 @@ export function UnifiedAdd({
 }: {
   orgs: OrgHeld[];
   /**
-   * The members of every team org, keyed by slug. The page reads them with the
-   * orgs, so the picker draws the moment the org pick changes and no fetcher
-   * runs between. A personal org is not keyed and draws no picker.
+   * The members of every org of two or more, keyed by slug. The page reads
+   * them with the orgs, so the picker draws the moment the org pick changes
+   * and no fetcher runs between. An org of one is not keyed and draws no
+   * picker.
    */
   members: Record<string, Assignee[]>;
   /** The column the box files into, where the page draws one per column. */
@@ -71,15 +74,16 @@ export function UnifiedAdd({
   const box = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLSelectElement>(null);
 
-  // Every person has a personal org, and it is first in the set. A person who
-  // belongs to nothing at all has no box to draw.
-  const personal = orgs[0];
-  const filing = orgs.find((org) => org.slug === picked) ?? personal;
+  // A person in one org files there and picks nothing. A person in several
+  // files nowhere until they pick, because no org is safe to guess: an org of
+  // one today is not private tomorrow. See ADR-0024.
+  const several = orgs.length > 1;
+  const filing = several ? (orgs.find((org) => org.slug === picked) ?? null) : (orgs[0] ?? null);
   const answer = add.data;
   const error = answer && "error" in answer ? answer.error : null;
 
   // An add empties the box and raises the undo line. The pick stays: a person
-  // adding a second task to a team org named it once.
+  // adding a second task to one org named it once.
   useEffect(() => {
     if (add.state !== "idle" || !answer || !("added" in answer)) return;
     setLast(answer.added);
@@ -90,7 +94,7 @@ export function UnifiedAdd({
 
   // An assignee id belongs to one org's membership, so a set carried across a
   // pick would name people the new org does not hold. The undo resets the pick
-  // to the personal org, and the set goes with it by this same rule.
+  // to no org, and the set goes with it by this same rule.
   //
   // The set is emptied while the render that changed the org is still running,
   // not in an effect after it, so no frame ever draws one org's picker holding
@@ -103,13 +107,13 @@ export function UnifiedAdd({
   }
 
   // The picker takes the focus a re-file needs, and the title where a person
-  // has only their personal org and so has no picker.
+  // has one org and so has no picker.
   useEffect(() => {
     if (undone === 0) return;
     (picker.current ?? box.current)?.focus();
   }, [undone]);
 
-  if (!personal) return null;
+  if (orgs.length === 0) return null;
 
   /** Takes the add back and gives the box the words and the mark again. */
   function refile(one: Added) {
@@ -146,15 +150,15 @@ export function UnifiedAdd({
             {/* The column the box sits on, where the page draws one per
                 column. Plan mode names none, and the add lands in To do. */}
             {status ? <input type="hidden" name="status" value={status} /> : null}
-            {/* A person with only their personal org has no choice to make, so
-                the org is a hidden field rather than a picker. */}
-            {orgs.length > 1 ? null : <input type="hidden" name="slug" value={personal.slug} />}
+            {/* A person with one org has no choice to make, so the org is a
+                hidden field rather than a picker. */}
+            {several || !filing ? null : <input type="hidden" name="slug" value={filing.slug} />}
           </>
         }
         chip={
-          /* The chip that names a team org, because a task filed in one is on
-             every member's board. The personal org stays quiet. */
-          filing.kind === "team" ? (
+          /* The chip that names the picked org, because a task filed in the
+             wrong one is on another org's board. One org needs no name. */
+          several && filing ? (
             <p className="flex items-center gap-1.5 text-xs text-muted">
               Adding to <OrgChip org={filing} />
             </p>
@@ -162,15 +166,21 @@ export function UnifiedAdd({
         }
         picker={
           <>
-            {orgs.length > 1 ? (
+            {several ? (
               <select
                 ref={picker}
                 name="slug"
-                value={filing.slug}
+                // Empty until a pick, and required, so the browser refuses an
+                // add that names no org. The action refuses it as well.
+                required
+                value={filing?.slug ?? ""}
                 onChange={(event) => pick(event.target.value)}
                 aria-label="Add to org"
                 className={smallFieldClass}
               >
+                <option value="" disabled>
+                  Pick an org
+                </option>
                 {orgs.map((org) => (
                   <option key={org.slug} value={org.slug}>
                     {org.name}
@@ -179,10 +189,11 @@ export function UnifiedAdd({
               </select>
             ) : null}
 
-            {/* The members of the org the pick holds. A personal org is not
-                keyed, so it draws no picker and the task is unassigned. */}
+            {/* The members of the org the pick holds. An org of one is not
+                keyed, and no pick is no org, so neither draws a picker and
+                the task is unassigned. */}
             <AssigneePicker
-              members={members[filing.slug] ?? []}
+              members={filing ? (members[filing.slug] ?? []) : []}
               picked={draft.assignees}
               onPick={draft.setAssignees}
             />

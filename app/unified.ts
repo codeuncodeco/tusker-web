@@ -30,7 +30,7 @@ export type LiveTask = {
   created_at: string;
   /** The org's `show_on_card` fields the task holds a value for. */
   fields: Shown[];
-  /** The members who hold the task. A personal org draws none. See ADR-0013. */
+  /** The members who hold the task. An org of one draws none. See ADR-0013. */
   assignees: Assignee[];
   /**
    * True for a picked task already finished. It stays in the list that holds

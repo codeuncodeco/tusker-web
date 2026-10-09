@@ -1,29 +1,16 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import * as boardRoute from "../app/routes/board";
-import * as loginRoute from "../app/routes/login";
 import * as membersRoute from "../app/routes/members";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import * as settingsRoute from "../app/routes/settings";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 
 beforeEach(wipe);
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  return { person, cookie: cookieFrom(response) };
-}
 
 /** A post to a route action, signed by the cookie. */
 async function send(
@@ -57,10 +44,10 @@ describe("making an org", () => {
     expect(response.headers.get("location")).toBe("/o/codeuncode/board");
     const row = await db
       .prepare(
-        "SELECT o.kind, m.role FROM orgs o JOIN memberships m ON m.org_id = o.id WHERE o.slug = 'codeuncode'",
+        "SELECT m.user_id, m.role FROM orgs o JOIN memberships m ON m.org_id = o.id WHERE o.slug = 'codeuncode'",
       )
-      .first<{ kind: string; role: string }>();
-    expect(row).toEqual({ kind: "team", role: "owner" });
+      .first<{ user_id: string; role: string }>();
+    expect(row).toEqual({ user_id: ada.person.id, role: "owner" });
   });
 
   it("takes the slug from the name when the field is empty", async () => {
@@ -89,8 +76,9 @@ describe("making an org", () => {
     const answer = await send(newOrgRoute, "/orgs/new", ada.cookie, { name: "  ", slug: "" });
 
     expect(answer).toEqual({ error: "An org needs a name." });
-    const { results } = await db.prepare("SELECT id FROM orgs WHERE kind = 'team'").all();
-    expect(results).toEqual([]);
+    // Ada's own org, which the fixture made, and nothing else.
+    const { results } = await db.prepare("SELECT slug FROM orgs").all();
+    expect(results).toEqual([{ slug: ada.org.slug }]);
   });
 });
 

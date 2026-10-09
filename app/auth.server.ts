@@ -3,7 +3,6 @@ import { generateRandomString } from "better-auth/crypto";
 import { emailOTP, magicLink } from "better-auth/plugins";
 
 import { createMailer, type Mailer } from "./mail.server";
-import { createPersonalOrg } from "./orgs.server";
 
 /** The link and the code both last this long. */
 const SIGN_IN_TTL = 15 * 60;
@@ -30,6 +29,9 @@ export type AuthDeps = {
  * Tusker has no public signup. Every way in refuses an unknown email. The
  * first account comes from `/bootstrap`, and every one after it from an
  * invitation or a hand-made row.
+ *
+ * Tusker makes no org when an account lands. A person makes their own, or
+ * starts with the org that invited them. See ADR-0024.
  */
 export function authOptions({ db, secret, baseURL, mailer }: AuthDeps) {
   return {
@@ -61,23 +63,6 @@ export function authOptions({ db, secret, baseURL, mailer }: AuthDeps) {
         },
       }),
     ],
-    databaseHooks: {
-      user: {
-        create: {
-          after: async (user) => {
-            // D1 has no interactive transaction, and this hook runs after the
-            // user row lands. A failure here undoes the row, so no account is
-            // left without an org.
-            try {
-              await createPersonalOrg(db, { id: user.id, name: user.name, email: user.email });
-            } catch (failure) {
-              await db.prepare('DELETE FROM "user" WHERE id = ?').bind(user.id).run();
-              throw failure;
-            }
-          },
-        },
-      },
-    },
   } satisfies Parameters<typeof betterAuth>[0];
 }
 

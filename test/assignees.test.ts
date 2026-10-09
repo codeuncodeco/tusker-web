@@ -1,38 +1,26 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
 import { initialsOf } from "../app/assignees";
-import { createAuth } from "../app/auth.server";
 import type { Status } from "../app/board";
 import { ASK } from "../app/decisions";
 import * as boardRoute from "../app/routes/board";
-import * as loginRoute from "../app/routes/login";
 import * as meRoute from "../app/routes/me";
 import * as taskRoute from "../app/routes/task";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { addMember } from "../app/orgs.server";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 const DAY = "2026-09-01";
 
 beforeEach(wipe);
 
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  return { person, cookie: cookieFrom(response) };
-}
-
-/** A team org, with everybody named as a member of it. */
+/** An org, with everybody named as a member of it. */
 async function team(slug: string, people: { id: string }[]) {
   const id = `org-${slug}`;
   await db.batch([
-    db.prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'team')").bind(id, slug, slug),
+    db.prepare("INSERT INTO orgs (id, slug, name) VALUES (?, ?, ?)").bind(id, slug, slug),
     ...people.map((person) =>
       db
         .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
@@ -40,17 +28,6 @@ async function team(slug: string, people: { id: string }[]) {
     ),
   ]);
   return { id, slug };
-}
-
-/** The personal org Tusker made for a person at signup. */
-async function personalOrg(personId: string) {
-  const org = await db
-    .prepare(
-      "SELECT id, slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ? AND kind = 'personal'",
-    )
-    .bind(personId)
-    .first<{ id: string; slug: string }>();
-  return org!;
 }
 
 /** A task, placed by hand so a test can state the column it wants. */
@@ -156,7 +133,9 @@ describe("the metadata aside", () => {
 
   it("leaves the assignees alone for a form that carries no picker", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
-    const org = await team("hikes", [ada.person]);
+    // A second member, because an org of one draws no picker to leave alone.
+    const grace = await member("grace@tusker.test", "Grace Hopper");
+    const org = await team("hikes", [ada.person, grace.person]);
     const id = await task(org.id, "walk");
 
     await save(ada.cookie, org.slug, id, { assignees: ada.person.id });
@@ -190,7 +169,8 @@ describe("the metadata aside", () => {
   it("refuses a member of another org, and writes nothing", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const grace = await member("grace@tusker.test", "Grace Hopper");
-    const hikes = await team("hikes", [ada.person]);
+    const cy = await member("cy@tusker.test", "Cy Young");
+    const hikes = await team("hikes", [ada.person, cy.person]);
     await team("boats", [grace.person]);
     const id = await task(hikes.id, "walk");
 
@@ -246,7 +226,9 @@ describe("the metadata aside", () => {
   it("drops an assignee who is no longer a member, and errors on nothing", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const grace = await member("grace@tusker.test", "Grace Hopper");
-    const org = await team("hikes", [ada.person, grace.person]);
+    // A third member, so the org still draws assignees once Grace is out.
+    const cy = await member("cy@tusker.test", "Cy Young");
+    const org = await team("hikes", [ada.person, grace.person, cy.person]);
     const id = await task(org.id, "walk");
 
     await save(ada.cookie, org.slug, id, { assignees: `${ada.person.id},${grace.person.id}` });
@@ -261,14 +243,23 @@ describe("the metadata aside", () => {
     expect(page.assignees.map((one) => one.name)).toEqual(["Ada Lovelace"]);
   });
 
-  it("draws no picker in a personal org", async () => {
+  it("draws no picker in an org of one member", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
-    const org = await personalOrg(ada.person.id);
-    const id = await task(org.id, "walk");
+    const id = await task(ada.org.id, "walk");
 
-    const page = await taskPage(ada.cookie, org.slug, id);
+    const page = await taskPage(ada.cookie, ada.org.slug, id);
     expect(page.members).toEqual([]);
     expect(page.assignees).toEqual([]);
+  });
+
+  it("draws one in that same org once a second member joins", async () => {
+    const ada = await member("ada@tusker.test", "Ada Lovelace");
+    const grace = await member("grace@tusker.test", "Grace Hopper");
+    await addMember(db, ada.org.id, "grace@tusker.test");
+    const id = await task(ada.org.id, "walk");
+
+    const page = await taskPage(ada.cookie, ada.org.slug, id);
+    expect(page.members.map((one) => one.id).sort()).toEqual([ada.person.id, grace.person.id].sort());
   });
 });
 
@@ -286,12 +277,11 @@ describe("a card", () => {
     expect(todo.tasks[0].assignees.map((one) => one.initials)).toEqual(["AL", "GH"]);
   });
 
-  it("draws none in a personal org", async () => {
+  it("draws none in an org of one member", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
-    const org = await personalOrg(ada.person.id);
-    const id = await task(org.id, "walk");
+    const id = await task(ada.org.id, "walk");
 
-    const page = await board(ada.cookie, org.slug);
+    const page = await board(ada.cookie, ada.org.slug);
     const todo = page.columns.find((column) => column.status === "todo")!;
     expect(todo.tasks[0].assignees).toEqual([]);
   });

@@ -13,6 +13,8 @@
  * ADR-0015.
  */
 
+import { instanceOwner, type InstanceOwner } from "../accounts.server";
+import { nameOf } from "../assignees";
 import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
 import { ColumnSwitch, TodayChip, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
@@ -73,7 +75,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return {
     orgs: set.orgs.map(held),
-    /** The members of every team org, for the picker on the box. */
+    /** The members of every org of two or more, for the picker on the box. */
     members: await membersBySlug(env.DB, set),
     day,
     columns: columnsFor(drawn, shown),
@@ -87,6 +89,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     hasSet: inWeek.size > 0,
     // The prompt a finished card raised, if the query string still holds one.
     ask: await askedAcross(env.DB, set, request),
+    // A person in no org has no task to read. Until the org directory lands,
+    // the page names the instance owner, who can add them. See ADR-0024.
+    owner: set.orgs.length === 0 ? await instanceOwner(env.DB) : null,
   };
 }
 
@@ -116,6 +121,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function Me({ loaderData }: Route.ComponentProps) {
   const { orgs, members, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } =
     loaderData;
+  if (orgs.length === 0) return <NoOrg owner={loaderData.owner} />;
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
@@ -142,6 +148,30 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       />
 
       <DecisionPrompt ask={ask} />
+    </main>
+  );
+}
+
+/**
+ * The page a person who belongs to no org sees. They have no board to read,
+ * and only a member can add them to an org, so it names who to ask.
+ */
+function NoOrg({ owner }: { owner: InstanceOwner | null }) {
+  return (
+    <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-4 p-8">
+      <h1 className="text-2xl tracking-tight">You belong to no org yet</h1>
+      <p className="text-muted">
+        Tasks live in orgs, and a member of an org adds you to it.
+        {owner ? (
+          <>
+            {" "}Ask {nameOf(owner)}, who set up this Tusker, to add you:{" "}
+            <a href={`mailto:${owner.email}`} className="underline">
+              {owner.email}
+            </a>
+            .
+          </>
+        ) : null}
+      </p>
     </main>
   );
 }

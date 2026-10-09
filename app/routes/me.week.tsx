@@ -113,7 +113,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   return {
     orgs: set.orgs.map(held),
-    /** The members of every team org, for the picker on the box. */
+    /** The members of every org of two or more, for the picker on the box. */
     members: await membersBySlug(env.DB, set),
     week,
     /** True for a week the path named, which the browser must not talk out of. */

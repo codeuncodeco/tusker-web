@@ -1,32 +1,15 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import * as boardRoute from "../app/routes/board";
-import * as loginRoute from "../app/routes/login";
 import * as membersRoute from "../app/routes/members";
 import * as newOrgRoute from "../app/routes/orgs.new";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 
 beforeEach(wipe);
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  const org = await db
-    .prepare("SELECT slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ?")
-    .bind(person.id)
-    .first<{ slug: string }>();
-  return { person, personal: org!.slug, cookie: cookieFrom(response) };
-}
 
 /** A post to the members page of one org, signed by the cookie. */
 function onMembers(cookie: string, slug: string, fields: Record<string, string>) {
@@ -279,26 +262,23 @@ describe("changing a role", () => {
   });
 });
 
-describe("a personal org", () => {
-  it("draws neither control, and refuses both acts", async () => {
+describe("an org of one member", () => {
+  it("keeps its one owner by the rule every org keeps, not by its kind", async () => {
     const ada = await member("ada@example.test", "Ada");
 
-    const page = await membersPage(ada.personal, ada.cookie);
-    expect(page.org.kind).toBe("personal");
-
-    const removed = await onMembers(ada.cookie, ada.personal, {
+    const removed = await onMembers(ada.cookie, ada.org.slug, {
       intent: "remove",
       member: ada.person.id,
       confirmed: "1",
     });
-    const roled = await onMembers(ada.cookie, ada.personal, {
+    const roled = await onMembers(ada.cookie, ada.org.slug, {
       intent: "role",
       member: ada.person.id,
       role: "member",
     });
 
-    expect(removed).toMatchObject({ error: expect.stringContaining("A personal org holds one person") });
-    expect(roled).toMatchObject({ error: expect.stringContaining("A personal org holds one person") });
+    expect(removed).toEqual({ error: "Ada must keep one owner. Make somebody else an owner first." });
+    expect(roled).toEqual({ error: "Ada must keep one owner. Make somebody else an owner first." });
     const row = await db
       .prepare("SELECT role FROM memberships WHERE user_id = ?")
       .bind(ada.person.id)

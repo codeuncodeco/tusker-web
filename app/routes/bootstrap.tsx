@@ -47,8 +47,10 @@ export async function action({ request, context }: Route.ActionArgs) {
     .signInEmail({ body: { email, password }, headers: request.headers, asResponse: true })
     .catch(() => null);
 
+  // An instance with no org has nothing to join, so the first person makes
+  // one. Tusker makes none for them. See ADR-0024.
   if (!response?.ok) throw redirect("/login");
-  return withCookies(response, redirect("/me"));
+  return withCookies(response, redirect("/orgs/new"));
 }
 
 /** The route exists only while no account does. After that it is a 404. */

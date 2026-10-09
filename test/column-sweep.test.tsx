@@ -69,8 +69,8 @@ function card(id: string, slug: string, status: Status): LiveTask {
 /** The unified board, drawn from the columns a loader would give it. */
 function unified(columns: { status: Status; label: string; tasks: LiveTask[] }[]): string {
   const orgs = [
-    { slug: "acme", name: "Acme", kind: "team" as const, color: "blue" },
-    { slug: "ada", name: "Ada", kind: "personal" as const, color: "red" },
+    { slug: "acme", name: "Acme", color: "blue" },
+    { slug: "ada", name: "Ada", color: "red" },
   ];
   const Stub = createRoutesStub([
     {

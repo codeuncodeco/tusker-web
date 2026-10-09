@@ -1,18 +1,15 @@
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import { colorRows } from "../app/colors";
 import * as boardRoute from "../app/routes/board";
 import * as fieldsRoute from "../app/routes/fields";
-import * as loginRoute from "../app/routes/login";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import * as taskRoute from "../app/routes/task";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 const BASE = "https://blrhikes.test/api/tusker/refs";
 const KUMARA = [{ id: "t1", label: "Kumara Parvatha" }];
 
@@ -27,16 +24,6 @@ function orgApp(options: unknown = []) {
       headers: { "content-type": "application/json" },
     }),
   );
-}
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  return { person, cookie: cookieFrom(response) };
 }
 
 /** A post to a route action, signed by the cookie. */

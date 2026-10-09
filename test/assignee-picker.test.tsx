@@ -44,7 +44,7 @@ describe("what the box posts", () => {
   });
 });
 
-it("draws nothing for an org with no member list, as a personal org has none", () => {
+it("draws nothing for an org with no member list, as an org of one has none", () => {
   expect(drawn([])).toBe("");
 });
 

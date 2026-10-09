@@ -7,7 +7,6 @@ export type Org = {
   id: string;
   slug: string;
   name: string;
-  kind: "personal" | "team";
   created_at: string;
   /**
    * The colour this org draws wherever a page names it beside another org. It
@@ -15,6 +14,11 @@ export type Org = {
    * nobody chose, and such an org draws grey. See ADR-0020.
    */
   color: string | null;
+  /**
+   * How many people belong to the org. An org of one draws no assignee,
+   * whoever made it. See ADR-0013 and ADR-0024.
+   */
+  members: number;
 };
 
 /**
@@ -22,9 +26,16 @@ export type Org = {
  * next. Every query that answers with an `Org` selects this and nothing else,
  * here and in `org-keys.server.ts`.
  */
-export const ORG_COLUMNS = "o.id, o.slug, o.name, o.kind, o.created_at, o.color";
+export const ORG_COLUMNS =
+  "o.id, o.slug, o.name, o.created_at, o.color, " +
+  "(SELECT COUNT(*) FROM memberships held WHERE held.org_id = o.id) AS members";
 
-/** The orgs one person is a member of, personal org first, then newest first. */
+/**
+ * The orgs one person is a member of, in the order they joined them. The first
+ * is the one a person with no current org stands in. See ADR-0024.
+ *
+ * Two memberships can land in one millisecond, so the row order breaks a tie.
+ */
 export async function listOrgsForPerson(db: D1Database, personId: string): Promise<Org[]> {
   const { results } = await db
     .prepare(
@@ -32,7 +43,7 @@ export async function listOrgsForPerson(db: D1Database, personId: string): Promi
        FROM orgs o
        JOIN memberships m ON m.org_id = o.id
        WHERE m.user_id = ?
-       ORDER BY o.kind = 'personal' DESC, o.created_at DESC`,
+       ORDER BY m.created_at, m.rowid`,
     )
     .bind(personId)
     .all<Org>();
@@ -63,72 +74,27 @@ export async function orgForMember(
 }
 
 /**
- * Creates the org Tusker gives a person at signup, with that person as its only
- * member. The org row and the membership row go in one batch, because a person
- * with no org cannot make a task.
- *
- * The slug column is unique, so two people invited at once with the same email
- * local part can collide. The insert then runs again with the next free slug.
- */
-export async function createPersonalOrg(
-  db: D1Database,
-  person: { id: string; name?: string | null; email: string },
-): Promise<Org> {
-  const base = baseSlug(person.email);
-  const name = person.name?.trim() || person.email;
-  const color = await assignedColor(db, person.id);
-
-  for (let tries = 0; tries < 5; tries++) {
-    const id = crypto.randomUUID();
-    const slug = await freeSlug(db, base);
-
-    try {
-      await db.batch([
-        db
-          .prepare("INSERT INTO orgs (id, slug, name, kind, color) VALUES (?, ?, ?, 'personal', ?)")
-          .bind(id, slug, name, color),
-        db
-          .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')")
-          .bind(id, person.id),
-      ]);
-    } catch (failure) {
-      if (tookTheSlug(failure)) continue;
-      throw failure;
-    }
-
-    const org = await db
-      .prepare(`SELECT ${ORG_COLUMNS} FROM orgs o WHERE o.id = ?`)
-      .bind(id)
-      .first<Org>();
-    if (!org) throw new Error("The personal org disappeared right after the insert.");
-    return org;
-  }
-
-  throw new Error(`Five tries found no free slug near ${base}.`);
-}
-
-/**
  * Makes an org a person names, with that person as its owner. The org row and
  * the membership row go in one batch, because an org nobody belongs to is a
  * row no page can reach.
  *
  * Answers null when the slug is taken, so the form can say so.
  */
-export async function createTeamOrg(
+export async function createOrg(
   db: D1Database,
-  team: { name: string; slug: string; personId: string },
+  named: { name: string; slug: string; personId: string },
 ): Promise<Org | null> {
   const id = crypto.randomUUID();
-  const color = await assignedColor(db, team.personId);
+  const color = await assignedColor(db, named.personId);
 
   try {
     await db.batch([
       db
-        .prepare("INSERT INTO orgs (id, slug, name, kind, color) VALUES (?, ?, ?, 'team', ?)")
-        .bind(id, team.slug, team.name, color),
+        .prepare("INSERT INTO orgs (id, slug, name, color) VALUES (?, ?, ?, ?)")
+        .bind(id, named.slug, named.name, color),
       db
         .prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'owner')")
-        .bind(id, team.personId),
+        .bind(id, named.personId),
     ]);
   } catch (failure) {
     if (tookTheSlug(failure)) return null;
@@ -421,11 +387,6 @@ export async function setOrgApp(
 /** True when another org took the slug between the read and the insert. */
 function tookTheSlug(failure: unknown): boolean {
   return failure instanceof Error && failure.message.includes("UNIQUE constraint failed");
-}
-
-/** The email's local part, cut down to what a URL can hold. */
-function baseSlug(email: string): string {
-  return slugify(email.split("@")[0] ?? "") || "person";
 }
 
 /** The part of a name a URL can carry: lower case, no run of punctuation. */

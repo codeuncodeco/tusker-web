@@ -40,7 +40,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   const fields = await listFields(env.DB, scope);
 
-  // A personal org holds one member, so it draws no picker and no initials.
+  // An org of one member draws no picker and no initials.
   // See ADR-0013.
   const assignable = drawsAssignees(scope.org);
 
@@ -73,7 +73,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     fields,
     /**
      * The org's members, as the picker offers them, in the order a card draws
-     * them. Empty for a personal org.
+     * them. Empty for an org of one.
      */
     members: assignable ? await membersOf(env.DB, scope) : [],
     /**
@@ -328,7 +328,7 @@ function MetadataAside({
 }: {
   status: Status;
   dueDate: string | null;
-  /** The org's members. Empty for a personal org, which draws no picker. */
+  /** The org's members. Empty for an org of one, which draws no picker. */
   members: Assignee[];
   assignees: Assignee[];
 }) {
