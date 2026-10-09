@@ -6,7 +6,7 @@
  * page: one Board, whose scope the select sets, then Week, Plan and Focus, then
  * the pages of the org the select names. While the select reads All, no org is
  * named, so ⋯ holds no org page. At the far right, a person menu holds what is
- * no org's. See ADR-0029.
+ * no org's, and "Keys ?" on a page that gives list keys. See ADR-0029.
  *
  * The address is the only current org. The select reads it, and a pick goes to
  * the board of that scope at once.
@@ -20,6 +20,9 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import type { OrgHeld } from "./current-org";
 import { Ellipsis, User } from "./icons";
+import { keyHint } from "./key-hint";
+import { KEY_MAP } from "./key-map";
+import { useKeyGuide } from "./keyed-list";
 import { OrgDot } from "./org-chip";
 import { boardOf } from "./org-select";
 
@@ -81,6 +84,33 @@ function Item({ to, here, children }: { to: string; here: boolean; children: Rea
           {children}
         </Link>
       )}
+    </li>
+  );
+}
+
+/**
+ * The row of the person menu that opens the Key guide. It is no page, so it is
+ * a button and not a link. It is drawn only where the page gives list keys, and
+ * only where the pointer is fine, because a phone has no keyboard. See #206.
+ */
+function KeysItem() {
+  const guide = useKeyGuide();
+  if (!guide.given) return null;
+  const mark = keyHint("guide");
+
+  return (
+    <li className="hidden pointer-fine:block">
+      <button
+        type="button"
+        {...mark.keys}
+        // The menu closes as this opens the guide, so the focus goes back to
+        // the menu's own button as the guide closes.
+        onClick={(event) => guide.open(event.currentTarget.closest("details")?.querySelector("summary") ?? null)}
+        className="flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-muted hover:bg-border hover:text-fg"
+      >
+        {KEY_MAP.guide.label}
+        {mark.hint}
+      </button>
     </li>
   );
 }
@@ -329,6 +359,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
               {one.label}
             </Item>
           ))}
+          <KeysItem />
         </Menu>
       </div>
     </header>

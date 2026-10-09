@@ -19,13 +19,14 @@
 import { useNavigate } from "react-router";
 
 import { stepped } from "./board";
+import { line, type GuideLine } from "./key-guide";
 import { fires } from "./key-map";
 import { BOARD_ARROWS, LIST_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
 import { taskPath, useOrigin } from "./paths";
 import { STEPS } from "./plan";
 import { isPlannable, type LiveTask } from "./unified";
-import { finishFields, moveFields, planFields } from "./unified-row";
+import { PLAN_VERBS, finishFields, moveFields, planFields, type Verbs } from "./unified-row";
 
 /**
  * Which acts a page gives, past the two every list has: moving the cursor, and
@@ -60,6 +61,24 @@ export const NO_STEP_ACTS: ListActs = { plan: true, step: false, move: true };
  * past its own. The task itself is live, so a finish and a move stand.
  */
 export const READ_ACTS: ListActs = { plan: false, step: false, move: true };
+
+/**
+ * Every act a page's keys give, which the Key guide names. `p` is one key that
+ * turns either way, so it is one line, named by the two verbs the page's
+ * button draws.
+ */
+export function guideLines(acts: ListActs, verbs: Verbs = PLAN_VERBS): GuideLine[] {
+  return [
+    line("next"),
+    line("prev"),
+    line("open"),
+    ...(acts.plan ? [line("plan", `${verbs.pick} or ${verbs.drop.toLowerCase()}`)] : []),
+    ...(acts.step ? [line("up"), line("down"), line("top"), line("bottom")] : []),
+    ...(acts.move ? [line("forward"), line("back")] : []),
+    line("finish"),
+    line("clear"),
+  ];
+}
 
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
@@ -172,6 +191,7 @@ export function useTaskKeys({
   act,
   ranked = planned,
   columns = null,
+  verbs = PLAN_VERBS,
 }: {
   rows: LiveTask[];
   planned: Set<string>;
@@ -186,6 +206,8 @@ export function useTaskKeys({
    * them, and a list with one run of rows has none to cross.
    */
   columns?: string[][] | null;
+  /** What the page's pick button reads, which the Key guide names `p` by. */
+  verbs?: Verbs;
 }): (label: string) => Keyed {
   const navigate = useNavigate();
   const origin = useOrigin();
@@ -208,5 +230,5 @@ export function useTaskKeys({
     else act(press.fields);
 
     return true;
-  }, columns ? BOARD_ARROWS : LIST_ARROWS);
+  }, columns ? BOARD_ARROWS : LIST_ARROWS, guideLines(acts, verbs));
 }

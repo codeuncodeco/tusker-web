@@ -44,11 +44,6 @@ describe("the reorder buttons", () => {
     );
 
     expect(html).not.toMatch(REORDERS);
-    // The keys stay, so the list names them where the buttons used to.
-    expect(html).toContain("⇧K");
-    expect(html).toContain("⇧J");
-    expect(html).toContain("⇧T");
-    expect(html).toContain("⇧B");
   });
 
   it("stay on a ranked list that does not drag, which is the week set", () => {
@@ -88,11 +83,8 @@ function orgBoard(): string {
 }
 
 describe("the org board card", () => {
-  it("carries no reorder button, and the board names the step keys", () => {
-    const html = orgBoard();
-
-    expect(html).not.toMatch(REORDERS);
-    expect(html).toContain('aria-keyshortcuts="Shift+K"');
-    expect(html).toContain('aria-keyshortcuts="Shift+J"');
+  // The step keys are named in the Key guide, and nowhere on the board.
+  it("carries no reorder button", () => {
+    expect(orgBoard()).not.toMatch(REORDERS);
   });
 });

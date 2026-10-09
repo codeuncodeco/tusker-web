@@ -133,13 +133,12 @@ describe("a day past its own", () => {
   });
 
   // A row of the plan steps by key and drags, and carries no step button: the
-  // list names the step keys instead. See ADR-0026.
+  // Key guide names the step keys instead. See ADR-0026.
   it("draws the pick and the step on the day the plan is made", () => {
     const html = page({});
 
     expect(html).toContain('value="unplan"');
     expect(html).not.toContain('value="up"');
-    expect(html).toContain('aria-keyshortcuts="Shift+K"');
     expect(html).toContain("cursor-grab");
   });
 });
