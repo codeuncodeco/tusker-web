@@ -56,16 +56,16 @@ export function useSent(): FormData[] {
  */
 export function usePost(
   /**
-   * True to draw the post in the same frame it is made. A controlled box reads
-   * its value from the posts in flight, and a post drawn a frame late shows
-   * the old value for that frame: a tick that flickers off and on again.
+   * `flushSync` draws the post in the same frame it is made. A controlled box
+   * reads its value from the posts in flight, and a post drawn a frame late
+   * shows the old value for that frame: a tick that flickers off and on again.
    */
-  now = false,
+  { flushSync = false }: { flushSync?: boolean } = {},
 ): (fields: Record<string, string>) => void {
   const submit = useSubmit();
   return useCallback(
-    (fields) => void submit(fields, { method: "post", navigate: false, flushSync: now }),
-    [submit, now],
+    (fields) => void submit(fields, { method: "post", navigate: false, flushSync }),
+    [submit, flushSync],
   );
 }
 

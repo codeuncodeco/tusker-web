@@ -24,7 +24,6 @@ import { STATUSES, STATUS_LABEL, type Status } from "./board";
 import { Dot } from "./dot";
 import type { OrgField } from "./fields";
 import { fieldClass } from "./forms";
-import { isPagePress } from "./keys";
 import { taskSent, usePost, useSent, type TaskHeld } from "./pending";
 import { PostButton } from "./posting";
 import type { RefPicker } from "./refs.server";
@@ -129,7 +128,7 @@ function PrimaryAct({ task }: { task: AsideTask }) {
 
 /** The controls of an open task. Each one saves on its own. */
 function LiveAside({ task, fields, refs, colors, members, assignees }: AsideProps) {
-  const post = usePost(true);
+  const post = usePost({ flushSync: true });
   const drawn = useDrawnTask(task, assignees);
   const held = new Set(drawn.assignees);
 
@@ -247,23 +246,20 @@ function FieldBox({ field, value, picker, color, onSave }: FieldBoxProps) {
     return (
       <label className="flex flex-col gap-1">
         {field.label}
-        <span className="flex items-center gap-2">
-          <select
-            name={name}
-            form={TASK_FORM}
-            value={value ?? ""}
-            onChange={(event) => onSave(event.target.value)}
-            className={`${fieldClass} min-w-0 flex-1`}
-          >
-            <option value="">—</option>
-            {field.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <Dot color={color} />
-        </span>
+        <select
+          name={name}
+          form={TASK_FORM}
+          value={value ?? ""}
+          onChange={(event) => onSave(event.target.value)}
+          className={fieldClass}
+        >
+          <option value="">—</option>
+          {field.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
       </label>
     );
   }
@@ -390,6 +386,19 @@ function heldText(field: OrgField, value: string | undefined, picker: RefPicker 
 }
 
 /**
+ * True for an `Esc` the drawer may take. A box that is typed in keeps its own
+ * `Esc`, which puts the saved value back, so the drawer shuts on the next one.
+ * A pick list or a tick has no `Esc` of its own, so the drawer takes it. A
+ * raised prompt takes every press. See `isPagePress`.
+ */
+function drawerPress(event: KeyboardEvent): boolean {
+  const target = event.target as Element | null;
+  if (target?.closest('textarea, input:not([type="checkbox"])')) return false;
+  if (document.querySelector('[role="dialog"]')) return false;
+  return !event.metaKey && !event.ctrlKey && !event.altKey;
+}
+
+/**
  * The bar at the foot of a phone's page: the status, the primary act, and
  * Details, which opens the aside as a drawer.
  *
@@ -409,7 +418,7 @@ export function TaskBar({ task, assignees }: { task: AsideTask; assignees: Assig
       return open;
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape" || !isPagePress(event)) return;
+      if (event.key !== "Escape" || !drawerPress(event)) return;
       if (!shut()) return;
       event.preventDefault();
       event.stopPropagation();

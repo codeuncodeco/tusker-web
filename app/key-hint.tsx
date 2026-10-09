@@ -44,8 +44,9 @@ export function keyHint(action: ActionName) {
 }
 
 /**
- * The same, for a press no list act names: the task page's `Esc`. One press
- * is drawn one way, wherever the control sits.
+ * The same, for a press no list act names: the task page's `Esc`, and the
+ * `e` that opens its description. One press is drawn one way, wherever the
+ * control sits.
  */
 export function keyMark(key: string) {
   return {

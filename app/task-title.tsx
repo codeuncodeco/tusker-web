@@ -16,7 +16,7 @@ import { SavedInput } from "./saved-input";
 import { TASK_FORM } from "./task-aside";
 
 export function TaskTitle({ title, finished }: { title: string; finished: boolean }) {
-  const post = usePost(true);
+  const post = usePost({ flushSync: true });
 
   if (finished) return <h1 className="text-2xl tracking-tight">{title}</h1>;
 

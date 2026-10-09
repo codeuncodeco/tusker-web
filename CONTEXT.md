@@ -131,7 +131,7 @@ _Avoid_: Subtask, task list item, todo
 **Description box**:
 The control that edits a description: a read view, and an uncontrolled
 textarea that opens in its place and takes focus. A click on the text opens
-it, and so does `E`; a click on a checkbox ticks and a click on a link follows,
+it, and so does `e`; a click on a checkbox ticks and a click on a link follows,
 and neither opens it. An empty description draws "Add a description…" in its
 place. With no script it is a plain textarea of the raw text. Leaving the box
 saves the whole text: Done, or Escape, or a click away. Tab indents, so Tab is
