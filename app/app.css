@@ -79,6 +79,14 @@
     font-weight: 500;
   }
 
+  /* Tailwind resets a button to the arrow. A live one takes the pointer back,
+     and a disabled one keeps the arrow. See #194. */
+
+  button:not(:disabled),
+  [role="button"] {
+    cursor: pointer;
+  }
+
   /* The accent has two jobs and no others. */
 
   :focus-visible {
