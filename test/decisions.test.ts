@@ -390,8 +390,9 @@ describe("skipping the prompt", () => {
     await task(ada.org.id, "ship");
     await finish(ada.cookie, ada.org.slug, "ship");
 
+    // A finished task is reopened before it is saved. See #164.
+    await onTask(ada.cookie, ada.org.slug, "ship", { intent: "reopen" });
     await onTask(ada.cookie, ada.org.slug, "ship", { title: "ship" });
-    await onBoard(ada.cookie, ada.org.slug, { intent: "move", id: "ship", status: "todo" });
     const again = await finish(ada.cookie, ada.org.slug, "ship");
 
     expect(again).toEqual({ ok: true });
