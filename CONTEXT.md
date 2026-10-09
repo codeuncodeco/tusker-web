@@ -471,14 +471,20 @@ members of the org it files into: the set starts empty, it stays across an add,
 and a change of org empties it. An org that holds one member has nobody else to
 name, so no box filing there draws the assignee picker. The title is a textarea
 one line high: Enter posts and Shift+Enter makes a line, so a pasted list keeps
-its line breaks. See ADR-0013 and ADR-0027.
+its line breaks. On the org board the box takes the board's narrowing: a task
+added there holds each active **Field filter** value, and an **Assignee
+filter** set to a member starts the picker with that member, who the person
+can still change before Enter. `Anyone` and `Unassigned` start it with nobody.
+A value the task cannot take is skipped, not refused. See ADR-0013 and
+ADR-0027.
 _Avoid_: Composer, capture box, new task form
 
 **Pasted list**:
 Several lines posted from one quick-add box. Each non-empty line, trimmed, is
 one task, in the order the lines appear, and the block lands at the top of the
 column with the first line topmost. The picked members go on all of them or on
-none, because one box holds one set. A list of more
+none, because one box holds one set, and so do the field values the board's
+narrowing gives. A list of more
 than 100 lines is refused and writes nothing.
 _Avoid_: Bulk add, batch, import
 
@@ -666,6 +672,20 @@ The unified board carries none either: a member select there would name
 strangers. See ADR-0013 and ADR-0017.
 _Avoid_: My tasks toggle, owner filter
 
+**Field filter**:
+A select on the org board that narrows it to the tasks holding one value of one
+custom field: `Any`, then the values the field offers. The org board draws one
+for each field the org marks filterable, and only for a select field, which
+offers its options, or a reference field, which offers its cached ref options.
+A text or a date field has no closed list of values, so it draws none, even
+when marked filterable, and the fields screen says so. It rides in the address
+as `field.<key>`, the name the **Task API** reads, it joins the remembered
+narrowing, and it is AND with the search, the chips, the column switches, the
+assignee filter and every other field filter. A value for a field the org no
+longer offers a filter for is ignored. The unified board carries none, because
+each org declares its own fields. See ADR-0029.
+_Avoid_: Custom filter, facet, client filter
+
 **Search**:
 The box on the org board that narrows it to the tasks holding the text in
 their title or description. It is one more narrowing beside the filters, not a
@@ -677,7 +697,8 @@ character to find, not a wildcard. Nothing is ranked: the column order stands.
 _Avoid_: Full-text search, query, find
 
 **Remembered narrowing**:
-The search and the assignee filter an org board was left with. It belongs to
+The search, the assignee filter and the field filters an org board was left
+with. It belongs to
 the person, so the browser holds it, one entry per org. A board opened with no
 query at all gets it back in the address. A board opened with a query keeps
 that query as it stands, so a search cleared by hand stays cleared.

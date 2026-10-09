@@ -25,12 +25,19 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { AssigneeFilter, ColumnSwitch, SearchBox, TodayChip, WeekChip } from "../board-chrome";
+import {
+  AssigneeFilter,
+  ColumnSwitch,
+  FieldFilterSelect,
+  SearchBox,
+  TodayChip,
+  WeekChip,
+} from "../board-chrome";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
 import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
 import { useBoardKeys } from "../board-keys";
-import { ANYONE, keeps, readAssignee } from "../assignee-filter";
+import { ANYONE, keeps, readAssignee, seededBy } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask, membersOf, readAssignees } from "../assignees.server";
 import { AssigneePicker } from "../assignee-picker";
@@ -40,11 +47,19 @@ import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, promptFor } from "../decisions.server";
 import { Dot } from "../dot";
+import {
+  filterSelects,
+  fieldName,
+  keepsFields,
+  narrowedData,
+  readFieldValues,
+  type FieldFilter,
+} from "../field-filter";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
-import { refLabels } from "../refs.server";
+import { refLabels, refOptionsOfOrg } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { taskPath, useOrigin } from "../paths";
 import { addsSent, boardSent, postAndReport, usePost, useSent } from "../pending";
@@ -102,6 +117,12 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     ? await Promise.all([assigneesByTask(env.DB, scope), membersOf(env.DB, scope)])
     : [new Map<string, Assignee[]>(), [] as Assignee[]];
   const assignee = draws ? readAssignee(query) : ANYONE;
+  // One select per field the org marks filterable, and the values the address
+  // narrows by. A value for a field that draws no select is ignored, so an old
+  // link still opens. A reference offers its cached refs, read for the whole
+  // org in one go.
+  const fieldValues = readFieldValues(query, declared);
+  const refs = await refOptionsOfOrg(env.DB, scope);
   // The two chips narrow the board to today's plan, or to this week's set. A
   // null plan is a day the person has not planned, and then the chip leads to
   // plan mode instead. An emptied plan holds nothing to narrow to, so it reads
@@ -115,12 +136,16 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const inWeek = new Set(weekSet ?? []);
   // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
   const { today, week, ids } = narrowingFor(query, held, inWeek);
-  // Every narrowing is AND, and the filter narrows what the chip left, in
-  // memory over the map the initials already needed. A name no member answers
+  // Every narrowing is AND, and the filters narrow what the chip left, in
+  // memory over the map the initials already needed and the data every card
+  // already carries. A name no member answers
   // to keeps nothing, which is the honest board for a member who left: their
   // assignments left with them.
   const shown = tasks.filter(
-    (task) => (!ids || ids.has(task.id)) && keeps(assignee, assignees.get(task.id) ?? []),
+    (task) =>
+      (!ids || ids.has(task.id)) &&
+      keeps(assignee, assignees.get(task.id) ?? []) &&
+      keepsFields(fieldValues, task.data),
   );
 
   // The Backlog rule reads the whole board, so narrowing does not change which
@@ -160,6 +185,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     search,
     /** The value the select holds, so a reload draws the filter it ran. */
     assignee,
+    /** One select per filterable field, each holding the value it narrows by. */
+    filters: filterSelects(declared, fieldValues, refs),
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan: held.size > 0,
@@ -187,7 +214,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // box keeps the words, so nothing typed is lost. See ADR-0013.
     const assigned = await readAssignees(env.DB, scope, form);
     if ("error" in assigned) return assigned;
-    await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
+    // The board's field filters ride along. See `QuickAdd`.
+    const data = narrowedData(await listFields(env.DB, scope), form);
+    await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids, data });
     return { ok: true };
   }
 
@@ -257,17 +286,27 @@ export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args
  * person filing three tasks to one member names them once. An org of one
  * hands it no member and it draws nothing. See ADR-0013.
  *
+ * The box takes the board's narrowing, as the extension did: a board narrowed
+ * to one member starts the picker with that member, and a board narrowed to
+ * one field value gives every task the box makes that value.
+ *
  * `n` focuses the box and Escape gives the board its keys back, as they do on
  * the unified board.
  */
 function QuickAdd({
   members,
+  assignee,
+  filters,
 }: {
   /** The org's members. Empty for an org of one, which draws no picker. */
   members: Assignee[];
+  /** The assignee filter's value, which seeds the picker with one member. */
+  assignee: string;
+  /** The field filters, whose active values every task the box makes holds. */
+  filters: FieldFilter[];
 }) {
   const add = useFetcher<typeof action>();
-  const draft = useQuickAddDraft();
+  const draft = useQuickAddDraft(seededBy(assignee, members));
   const error = add.data && "error" in add.data ? add.data.error : null;
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -285,6 +324,13 @@ function QuickAdd({
       error={error}
       titleRef={box}
       bare
+      // The active field filters, which the action reads against the org's
+      // declarations.
+      fields={filters
+        .filter((one) => one.value)
+        .map((one) => (
+          <input key={one.key} type="hidden" name={fieldName(one.key)} value={one.value} />
+        ))}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
         (event.target as HTMLElement).blur();
@@ -381,7 +427,7 @@ function CardItem({
 
 export default function Board({ loaderData }: Route.ComponentProps) {
   const { org, members, toggles, today, hasPlan, week, hasSet, day, ask, search } = loaderData;
-  const { assignee } = loaderData;
+  const { assignee, filters } = loaderData;
   // The board as the server holds it, with every post still in flight laid
   // over it, so a move or a step shows before the server answers. See #168.
   const sent = useSent();
@@ -464,13 +510,16 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         {/* One box for the board, outside every keyed list, so a typed word is
             never a press the page reads. See ADR-0022. */}
         <TopRowBox>
-          <QuickAdd members={members} />
+          <QuickAdd members={members} assignee={assignee} filters={filters} />
         </TopRowBox>
         {/* The filters take the rest of the row, and wrap under the box where
             they do not fit beside it. */}
         <nav className="flex flex-1 flex-wrap items-baseline justify-end gap-4">
           <SearchBox search={search} />
           <AssigneeFilter assignee={assignee} members={members} />
+          {filters.map((filter) => (
+            <FieldFilterSelect key={filter.key} filter={filter} />
+          ))}
           <TodayChip today={today} hasPlan={hasPlan} />
           <WeekChip week={week} hasSet={hasSet} />
           {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
