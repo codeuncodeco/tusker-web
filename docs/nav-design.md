@@ -1,5 +1,9 @@
 # Navigation design
 
+> The header this design draws is replaced by ADR-0029: one row, an org
+> select that scopes one board, and no current org. The audit and the defects
+> below are still the record of why the header exists.
+
 ## The problem
 
 Tusker has no global chrome. `app/root.tsx` renders `<Outlet />` and nothing

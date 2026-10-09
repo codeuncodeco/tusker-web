@@ -51,3 +51,8 @@ person-primary is not a header edit.
 Two pages are peers, and the header is twice as wide as either half needs. On
 a narrow screen the two halves have to stack or collapse, which a single-root
 design would never have had to solve.
+
+## Superseded in part
+
+ADR-0029 replaces the header this record draws: one row, an org select, and
+no current org. The route tree and the org layout stand.
