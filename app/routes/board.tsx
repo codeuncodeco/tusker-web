@@ -39,10 +39,12 @@ import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
-import { QuickAddBox, useAddKey, useQuickAddDraft } from "../quick-add";
+import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
 import { taskPath, useOrigin } from "../paths";
+import { addsSent, boardSent, postAndReport, usePost, useSent } from "../pending";
+import { PendingAdds } from "../pending-adds";
 import { readPlan } from "../plans.server";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
@@ -246,6 +248,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   throw new Response("That form does not name an action.", { status: 400 });
 }
 
+/** A post the server refuses raises a toast, not the error page. See `app/pending.ts`. */
+export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
+
 /**
  * The box at the top of a column. It posts on Enter and empties itself once
  * the tasks land, so a person can type the next one at once. The column names
@@ -273,15 +278,12 @@ function QuickAdd({
   const add = useFetcher<typeof action>();
   const draft = useQuickAddDraft();
   const error = add.data && "error" in add.data ? add.data.error : null;
-  const { clear } = draft;
   const box = useRef<HTMLTextAreaElement>(null);
 
   useAddKey(box, addKey);
-
-  useEffect(() => {
-    if (add.state !== "idle" || !add.data || !("ok" in add.data)) return;
-    clear();
-  }, [add.state, add.data, clear]);
+  // The box empties as the add is posted, and the task draws in the column at
+  // once, so the next one can be typed while the first is on its way.
+  useSendDraft(add, draft);
 
   return (
     <QuickAddBox
@@ -440,10 +442,15 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
-  const { org, columns, members, toggles, today, hasPlan, week, hasSet, day, ask, search } =
-    loaderData;
+  const { org, members, toggles, today, hasPlan, week, hasSet, day, ask, search } = loaderData;
   const { assignee } = loaderData;
-  const mover = useFetcher();
+  // The board as the server holds it, with every post still in flight laid
+  // over it, so a move or a step shows before the server answers. See #168.
+  const sent = useSent();
+  const columns = boardSent(loaderData.columns, sent);
+  // Each press posts on its own, so a held key is every press and not the
+  // last one: the board draws all of them while they are in flight.
+  const post = usePost();
   const [on, setOn] = useState<string | null>(null);
   const board = useRef<HTMLDivElement>(null);
 
@@ -470,7 +477,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
    */
   const move: Move = (id, status, before = null) => {
     setOn(id);
-    mover.submit({ intent: "move", id, status, before: before ?? "" }, { method: "post" });
+    post({ intent: "move", id, status, before: before ?? "" });
   };
 
   /**
@@ -479,7 +486,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
    */
   const step = (id: string, way: "up" | "down") => {
     setOn(id);
-    mover.submit({ intent: way, id }, { method: "post" });
+    post({ intent: way, id });
   };
 
   /** A drop on the column itself, past the last card, lands at the bottom. */
@@ -570,6 +577,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               {...keyed(`${column.label} tasks`)}
               className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
             >
+              <PendingAdds titles={addsSent(sent, column.status)} />
               {column.tasks.map((card, index) => (
                 <CardItem
                   key={card.id}

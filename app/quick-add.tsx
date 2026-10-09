@@ -77,6 +77,43 @@ export function useQuickAddDraft(): Draft {
   return { title, setTitle, decides, setDecides, assignees, setAssignees, clear };
 }
 
+/**
+ * Empties the box the moment an add is posted, so the task draws on the page
+ * at once and the next one can be typed while the first is on its way.
+ *
+ * An add the server refuses gives the words and the mark back, because
+ * nothing typed is lost. A box the person has started typing into again keeps
+ * what it holds: the new words are the newer thought. See #168.
+ */
+export function useSendDraft(
+  add: { state: string; formData?: FormData; data?: unknown },
+  draft: Draft,
+) {
+  const sent = useRef<{ title: string; decides: boolean } | null>(null);
+  const { clear, title, setTitle, setDecides } = draft;
+
+  useEffect(() => {
+    if (add.state !== "submitting" || !add.formData) return;
+    sent.current = {
+      title: String(add.formData.get("title") ?? ""),
+      decides: add.formData.get("decides") === "1",
+    };
+    clear();
+  }, [add.state, add.formData, clear]);
+
+  useEffect(() => {
+    if (add.state !== "idle" || !sent.current) return;
+    const back = sent.current;
+    sent.current = null;
+    const answer = add.data;
+    const refused =
+      typeof answer === "object" && answer !== null && ("error" in answer || "failed" in answer);
+    if (!refused || title !== "") return;
+    setTitle(back.title);
+    setDecides(back.decides);
+  }, [add.state, add.data, title, setTitle, setDecides]);
+}
+
 export function QuickAddBox({
   form: Form,
   label,

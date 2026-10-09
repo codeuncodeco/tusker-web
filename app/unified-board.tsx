@@ -13,24 +13,25 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useFetcher } from "react-router";
 
 import { isFinished, type Status } from "./board";
 import { ColumnSweep } from "./column-sweep";
 import type { OrgHeld } from "./current-org";
 import type { Assignee } from "./assignees";
 import { useLocalDay } from "./local-day";
-import type { Column } from "./unified";
+import { addsSent, tasksSent, usePost, useSent } from "./pending";
+import { PendingAdds } from "./pending-adds";
+import { columnsFor, type Column } from "./unified";
 import { UnifiedAdd } from "./unified-add";
 import { UnifiedCard } from "./unified-card";
 import { NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
 import { moveFields } from "./unified-row";
 
 export function UnifiedBoard({
-  columns,
+  columns: held,
   orgs,
   members,
-  planned,
+  planned: picked,
   day,
 }: {
   columns: Column[];
@@ -42,7 +43,22 @@ export function UnifiedBoard({
   planned: Set<string>;
   day: string;
 }) {
-  const post = useFetcher();
+  // The board as the server holds it, with every post still in flight laid
+  // over it: a moved card in its new column and a pick already picked, so a
+  // second `p` on the same card reads the first. See #168.
+  const sent = useSent();
+  const drawn = tasksSent(
+    held.flatMap((column) => column.tasks),
+    [...picked],
+    sent,
+  );
+  const columns = columnsFor(
+    drawn.tasks,
+    held.map((column) => column.status),
+  );
+  const planned = new Set(drawn.picked);
+  // A post per press, so every press of a burst is drawn.
+  const post = usePost();
   const [on, setOn] = useState<string | null>(null);
   // The name of every org, for the archive links the swept toast carries. It
   // is made once, because the sweep re-binds its effect on a new object.
@@ -76,7 +92,7 @@ export function UnifiedBoard({
     acts: NO_STEP_ACTS,
     on: cursor,
     setOn,
-    act: (fields) => post.submit(fields, { method: "post" }),
+    act: post,
     columns: columns.map((column) => column.tasks.map((task) => task.id)),
   });
 
@@ -96,7 +112,7 @@ export function UnifiedBoard({
     const dragged = rows.find((one) => one.id === event.dataTransfer.getData("text/plain"));
     if (!dragged || dragged.status === status) return;
     setOn(dragged.id);
-    post.submit(moveFields(dragged, status), { method: "post" });
+    post(moveFields(dragged, status));
   }
 
   // The cursor follows the keys down a column longer than the window.
@@ -174,6 +190,7 @@ export function UnifiedBoard({
             {...keyed(`${column.label} tasks`)}
             className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
           >
+            <PendingAdds titles={addsSent(sent, column.status)} />
             {column.tasks.map((task, at) => (
               <UnifiedCard
                 key={task.id}

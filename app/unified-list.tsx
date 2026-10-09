@@ -8,9 +8,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useFetcher } from "react-router";
 
 import { useLocalDay } from "./local-day";
+import { usePost } from "./pending";
+import { PendingAdds } from "./pending-adds";
 import type { Group, GroupKey, LiveTask } from "./unified";
 import { ALL_ACTS, NO_STEP_ACTS, READ_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
@@ -24,6 +25,8 @@ export function UnifiedList({
   picks = true,
   label = (group) => group.label,
   verbs = PLAN_VERBS,
+  adds = [],
+  addsAt = "bottom",
 }: {
   groups: Group[];
   /** The task ids the page's list holds, which turn the pick verb over. */
@@ -42,8 +45,15 @@ export function UnifiedList({
   label?: (group: Group) => string;
   /** What the pick button reads, where a page picks into a list of its own. */
   verbs?: Verbs;
+  /**
+   * The titles an add in flight will make. An add is a pick, so they draw in
+   * the ordered group, at the end the page's picks land on. See #168.
+   */
+  adds?: string[];
+  addsAt?: "top" | "bottom";
 }) {
-  const post = useFetcher();
+  // A post per press, so every press of a burst is drawn.
+  const post = usePost();
   const [on, setOn] = useState<string | null>(null);
   const list = useRef<HTMLDivElement>(null);
 
@@ -66,7 +76,7 @@ export function UnifiedList({
     acts,
     on: cursor,
     setOn,
-    act: (fields) => post.submit(fields, { method: "post" }),
+    act: post,
     ranked: new Set(ranked.map((one) => one.id)),
   });
 
@@ -86,6 +96,7 @@ export function UnifiedList({
           {/* The rows and nothing else: the box a page draws sits above this,
               outside every keyed list. */}
           <ul {...keyed(`${label(group)} tasks`)} className="flex flex-col gap-2">
+            {group.key === ordered && addsAt === "top" ? <PendingAdds titles={adds} /> : null}
             {group.tasks.map((task) => (
               <UnifiedRow
                 key={task.id}
@@ -99,6 +110,7 @@ export function UnifiedList({
                 moves={movesFor(ranked, task)}
               />
             ))}
+            {group.key === ordered && addsAt === "bottom" ? <PendingAdds titles={adds} /> : null}
           </ul>
         </section>
       ))}

@@ -16,6 +16,7 @@ import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
 import { backPath } from "../paths";
+import { postAndReport } from "../pending";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
 import {
@@ -376,6 +377,9 @@ function MetadataAside({
     </aside>
   );
 }
+
+/** A post the server refuses raises a toast, not the error page. See `app/pending.ts`. */
+export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
   const { org, task, back, fields, refs, colors, members, assignees, ask } = loaderData;
