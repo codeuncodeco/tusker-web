@@ -180,13 +180,14 @@ export function UnifiedBoard({
                   {/* The heading stays pinned, and only this scrolls. The gutter
                       is reserved, so a full column is as wide as an empty one,
                       which is the point of the equal split. The focus outline is
-                      drawn inside, as the row clips what is past its edge. See
+                      drawn inside, as the row clips what is past its edge, and
+                      the floor gives an empty column a box to draw it on. See
                       #193. */}
                   <DropList
                     id={column.status}
                     ids={cards.map((one) => one.id)}
                     props={keyed(`${column.label} tasks`)}
-                    className="flex flex-col gap-2 focus-visible:-outline-offset-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+                    className="flex min-h-12 flex-col gap-2 focus-visible:-outline-offset-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
                   >
                     {/* The box files into To do, so an add in flight draws there. */}
                     {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
