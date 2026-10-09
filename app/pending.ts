@@ -175,15 +175,12 @@ export function tasksSent(
 
 /**
  * The titles the adds in flight will make, one per line as the server splits
- * them. A box on a board names its column, and draws only the adds posted to
- * it; a page with one box names none.
+ * them. A page has one box, so every add in flight is that box's.
  */
-export function addsSent(sent: FormData[], status?: Status): string[] {
-  return sent.flatMap((form) => {
-    if (form.get("intent") !== "create") return [];
-    if (status !== undefined && form.get("status") !== status) return [];
-    return titlesIn(String(form.get("title") ?? ""));
-  });
+export function addsSent(sent: FormData[]): string[] {
+  return sent.flatMap((form) =>
+    form.get("intent") === "create" ? titlesIn(String(form.get("title") ?? "")) : [],
+  );
 }
 
 /**

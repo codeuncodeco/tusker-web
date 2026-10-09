@@ -263,6 +263,15 @@ unified board's seven-day cap reads it, because `updated_at` moves on every
 edit and a typo fix would otherwise read as a finish.
 _Avoid_: Completed at, closed date
 
+**Reopen**:
+Moving a finished task back to To do. A Done or Cancelled task is read on its
+page, not edited: the page draws no form, and the server refuses a save or a
+description for it. Ticking a box, archiving and answering the decision prompt
+still work. Reopen is the way back to an edit, and it is a move like any other,
+so it clears the finish time. An archived task is restored before it is
+reopened. A move out of Done on a board reopens the task too.
+_Avoid_: Undo, unfinish
+
 ### Order
 
 **Order**:
@@ -400,9 +409,10 @@ ADR-0015.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
-The box that makes a task from a typed title. On a board it sits at the top of a
-column, and the column names the status. On the unified board and in plan mode
-it carries an org picker, which starts at the personal org every time a
+The box that makes a task from a typed title. A board has one, above the row of
+columns and outside every column, and what it adds lands in To do. A task meant
+for another column is added and then moved. On the unified board and in plan
+mode it carries an org picker, which starts at the personal org every time a
 person opens Tusker. A team org draws a chip that names it while the box holds
 it. The decision mark is set here. The box also names the assignees, out of the
 members of the org it files into: the set starts empty, it stays across an add,
@@ -417,9 +427,7 @@ Several lines posted from one quick-add box. Each non-empty line, trimmed, is
 one task, in the order the lines appear, and the block lands at the top of the
 column with the first line topmost. The mark and the picked members go on all
 of them or on none, because one box holds one tick and one set. A list of more
-than 100 lines is refused and writes nothing. One box raises one decision
-prompt, so a marked list typed straight into Done is asked about the task on
-top of it.
+than 100 lines is refused and writes nothing.
 _Avoid_: Bulk add, batch, import
 
 **Undo an add**:

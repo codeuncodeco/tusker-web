@@ -18,6 +18,10 @@ thought is still there. A task made before the thought landed is marked on the
 task page, which is also where the mark comes off. Those are the two places a
 person is already writing about the task.
 
+A finished task is read on its page, not edited, so its mark comes off after a
+Reopen. That costs nothing: the prompt only returns on the next finish, and a
+task is reopened before it can be finished again. See #164.
+
 ## Nothing records the ask
 
 The first shape also counted the ask, in a `tasks.decision_asked` flag set by

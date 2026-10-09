@@ -194,17 +194,8 @@ describe("the tasks an add in flight draws", () => {
     expect(addsSent([sent({ intent: "create", title: "one\n\n two " })])).toEqual(["one", "two"]);
   });
 
-  it("draws only the adds of the column the box sits on, where a page names one", () => {
-    const posts = [
-      sent({ intent: "create", status: "todo", title: "here" }),
-      sent({ intent: "create", status: "done", title: "there" }),
-    ];
-
-    expect(addsSent(posts, "todo")).toEqual(["here"]);
-  });
-
   it("draws nothing for a post that is not an add", () => {
-    expect(addsSent([sent({ intent: "move", id: "a", status: "todo" })], "todo")).toEqual([]);
+    expect(addsSent([sent({ intent: "move", id: "a", status: "todo" })])).toEqual([]);
   });
 });
 
