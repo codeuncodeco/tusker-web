@@ -1,10 +1,6 @@
 /**
  * One card of the unified board.
  *
- * It shows its rank, the way the org board's card does: the place the board
- * draws it in, counting from one. No row stores it, and it drifts between
- * loads, because the percentile is an index over a column length that changes.
- *
  * Two things move the card: the `>` and `<` keys, which name a column, and a
  * drag, which draws where the card will land and writes that place inside its
  * own org. The order in a unified column is derived, so the card can then sit
@@ -25,15 +21,12 @@ import { type LiveTask } from "./unified";
 
 export function UnifiedCard({
   task,
-  rank,
   selected,
   domId,
   place,
   showsOrg,
 }: {
   task: LiveTask;
-  /** The place the board draws the card in, counting from one. */
-  rank: number;
   selected: boolean;
   domId: string;
   /**
@@ -65,7 +58,6 @@ export function UnifiedCard({
     >
       <span className="flex items-baseline gap-2">
         <Grip grip={drag.grip} />
-        <span className="tabular-nums text-dim">{rank}</span>
         <Link
           to={taskPath(task.org.slug, task.id, origin)}
           className={`flex-1 underline-offset-2 hover:underline ${

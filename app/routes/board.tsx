@@ -315,30 +315,22 @@ function QuickAdd({
 type Move = (id: string, status: Status, before?: string | null) => void;
 
 /**
- * One card. It shows its rank, the way the extension did: the place the board
- * draws it in, counting from one. No row stores it.
- *
- * A card carries no reorder button. A drag from its grip places it, and the
- * keys step it: `>` and `<` move the card to another column, and `J` and `K`
- * step it inside its column. See ADR-0016 and ADR-0026.
+ * One card. It carries no reorder button. A drag from its grip places it, and
+ * the keys step it: `>` and `<` move the card to another column, and `J` and
+ * `K` step it inside its column. See ADR-0016 and ADR-0026.
  *
  * It carries no Archive button either: a control never adds a line to a card.
  * One task is archived from its own page, or by narrowing the column and
  * sweeping it. See ADR-0026.
- *
- * The rank reads the order the drag holds, so a card dragged in from another
- * column counts its new place.
  */
 function CardItem({
-  cards,
-  index,
+  card,
   slug,
   selected,
   domId,
   place,
 }: {
-  cards: Card[];
-  index: number;
+  card: Card;
   slug: string;
   selected: boolean;
   domId: string;
@@ -349,7 +341,6 @@ function CardItem({
    */
   place: () => void;
 }) {
-  const card = cards[index];
   const origin = useOrigin();
   const drag = useDragItem(card.id);
 
@@ -368,7 +359,6 @@ function CardItem({
     >
       <span className="flex items-baseline gap-2">
         <Grip grip={drag.grip} />
-        <span className="tabular-nums text-dim">{index + 1}</span>
         <Link
           to={taskPath(slug, card.id, origin)}
           className="flex-1 underline-offset-2 hover:underline"
@@ -552,11 +542,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                   >
                     {/* The box files into To do, so an add in flight draws there. */}
                     {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
-                    {drawn.map((card, index) => (
+                    {drawn.map((card) => (
                       <CardItem
                         key={card.id}
-                        cards={drawn}
-                        index={index}
+                        card={card}
                         slug={org.slug}
                         selected={cursor === card.id}
                         domId={`card-${card.id}`}

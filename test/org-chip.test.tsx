@@ -65,7 +65,7 @@ describe("the chip that names an org", () => {
 describe("a card of the unified board", () => {
   it("names its org with the chip, colour and all", () => {
     const markup = draw(() => (
-      <UnifiedCard task={live("purple")} rank={1} selected={false} domId="c1" place={() => {}} showsOrg />
+      <UnifiedCard task={live("purple")} selected={false} domId="c1" place={() => {}} showsOrg />
     ));
 
     expect(markup).toContain("var(--color-opt-purple)");
@@ -74,7 +74,7 @@ describe("a card of the unified board", () => {
 
   it("names no org for a person in one, because there is no other to tell it from", () => {
     const markup = draw(() => (
-      <UnifiedCard task={live("purple")} rank={1} selected={false} domId="c1" place={() => {}} showsOrg={false} />
+      <UnifiedCard task={live("purple")} selected={false} domId="c1" place={() => {}} showsOrg={false} />
     ));
 
     expect(markup).not.toContain("var(--color-opt-purple)");
