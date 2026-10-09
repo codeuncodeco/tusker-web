@@ -41,7 +41,7 @@ import type { Route } from "./+types/me";
 export const handle = { frame: true };
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "Your tasks — Tusker" }];
+  return [{ title: "Board — Tusker" }];
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -136,8 +136,8 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         {/* The header's org select is this page's heading. See ADR-0029. */}
         <nav className="flex items-baseline gap-4">
           {/* A person with no plan for today gets no chip: there is nothing
-              to narrow to, and the header carries Plan on every page. The
-              week set reads the same way, and the header carries Week. */}
+              to narrow to, and the header's ⋯ holds Plan on every page. The
+              week set reads the same way, and ⋯ holds Week. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
           {hasSet ? <WeekChip week={week} hasSet /> : null}
           {BOARD_TOGGLES.map((which) => (

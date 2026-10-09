@@ -311,7 +311,7 @@ describe("the archive screen", () => {
 describe("an archived task", () => {
   it("leaves the unified board", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await aside(ada);
+    await aside(ada.person);
     const id = await made(ada.org.slug, ada.cookie, "done", "Ship it");
 
     const before = (await meRoute.loader(

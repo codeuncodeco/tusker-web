@@ -43,11 +43,11 @@ export async function member(email: string, name: string) {
  * stands in it, so `/me` sends them to its board: a test of the unified board
  * gives its person this one first. See ADR-0029.
  */
-export async function aside(person: { person: { id: string } }) {
+export async function aside(person: { id: string }) {
   const made = await createOrg(env.DB, {
     name: "Aside",
-    slug: slugify(`aside-${person.person.id}`),
-    personId: person.person.id,
+    slug: slugify(`aside-${person.id}`),
+    personId: person.id,
   });
   if (!made) throw new Error("Another org already holds the aside slug.");
   return made;

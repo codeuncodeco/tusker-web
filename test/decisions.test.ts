@@ -242,7 +242,7 @@ describe("the prompt on finishing a marked task", () => {
 
   it("is raised by the unified view, which names the org the task is in", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await aside(ada);
+    await aside(ada.person);
     await task(ada.org.id, "ship");
 
     const response = await onMe(ada.cookie, { intent: "finish", id: "ship", slug: ada.org.slug });
@@ -290,7 +290,7 @@ describe("the prompt on finishing a marked task", () => {
 
   it("reads null for a task the person's orgs do not hold", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await aside(ada);
+    await aside(ada.person);
     const bob = await member("bob@example.test", "Bob");
     await task(bob.org.id, "theirs");
 

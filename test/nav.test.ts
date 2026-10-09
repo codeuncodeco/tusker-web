@@ -136,6 +136,7 @@ describe("the person layout", () => {
     const ada = await member("ada@example.test", "Ada");
     const acme = await team(ada.cookie, "acme");
 
+    // The old current-org cookie, left in a browser, names nothing now.
     const answer = await personLayout.loader(
       routeArgs(get("/me/week", `${ada.cookie}; org=${acme}`)),
     );

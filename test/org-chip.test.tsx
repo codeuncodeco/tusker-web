@@ -155,7 +155,7 @@ describe("the header", () => {
     expect(markup).not.toContain("var(--color-opt-pink)");
   });
 
-  it("gives a colourless org a grey dot, so the menu keeps one shape", () => {
+  it("gives a colourless org a grey dot, so the header keeps one shape", () => {
     const orgs = [org("acme", null)];
     const markup = renderToStaticMarkup(
       <StaticRouter location="/o/acme/board">

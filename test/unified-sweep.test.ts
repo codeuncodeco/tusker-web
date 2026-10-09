@@ -111,7 +111,7 @@ describe("a sweep over several orgs", () => {
 
   it("sweeps Cancelled as it sweeps Done", async () => {
     const ada = await member("ada@example.test", "Ada");
-    await aside(ada);
+    await aside(ada.person);
     const dropped = await task(ada.org.id, "dropped", "cancelled");
 
     await act(ada.cookie, cards({ slug: ada.org.slug, ids: [dropped] }));

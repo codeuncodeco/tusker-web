@@ -112,7 +112,7 @@ function Menu({
   label,
   icon,
   name,
-  here,
+  here = false,
   align,
   children,
 }: {
@@ -123,7 +123,7 @@ function Menu({
   /** What a screen reader reads for the glyph. */
   name: string;
   /** True while the person stands on a page only this menu holds. */
-  here: boolean;
+  here?: boolean;
   /** The edge of the summary the panel lines up with. */
   align: "left" | "right";
   children: React.ReactNode;
@@ -213,10 +213,14 @@ function OrgSelect({
           <OrgDot color={org.color} />
         </span>
       ) : null}
+      {/* The select holds its own value, so a pick shows at once. The key
+          draws it again from the address on every move, so a step back reads
+          the board it lands on. */}
       <select
+        key={org?.slug ?? ""}
         name="to"
         aria-label="Board"
-        value={org?.slug ?? ""}
+        defaultValue={org?.slug ?? ""}
         onChange={(event) => navigate(boardOf(event.target.value || null))}
         className="h-9 rounded bg-transparent px-2 text-lg font-medium focus:outline-none"
       >
@@ -289,7 +293,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           name
         )}
 
-        <Menu label={page} icon={<Ellipsis />} name={page ? "more pages" : "Pages"} here={false} align="left">
+        <Menu label={page} icon={<Ellipsis />} name="Pages" align="left">
           <Item to={board} here={onBoard}>
             Board
           </Item>
