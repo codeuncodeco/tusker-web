@@ -65,9 +65,11 @@ export function KeyGuide({ lines, close }: { lines: GuideLine[]; close: () => vo
     return () => window.removeEventListener("keydown", onKey, true);
   }, [close]);
 
+  // Over the board's sticky header (`z-20`) and Top row (`z-10`), so the
+  // shade dims them as well.
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4"
       // A press on the shade is a click outside. One inside the dialog lands
       // on the dialog first, so it never closes it.
       onPointerDown={(event) => {

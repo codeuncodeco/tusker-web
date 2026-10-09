@@ -280,7 +280,6 @@ describe("the page a finished task draws", () => {
 
     expect(html).toContain('name="title"');
     expect(html).toContain(">Save<");
-    expect(html).toContain(">Edit<");
     expect(html).not.toContain('value="reopen"');
   });
 });

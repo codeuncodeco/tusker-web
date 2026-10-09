@@ -1,10 +1,16 @@
-import { Form, Link, redirect } from "react-router";
+import { Form, redirect } from "react-router";
 
 import { archiveTasks, restoreTasks } from "../archive.server";
-import { drawsAssignees, type Assignee } from "../assignees";
-import { assigneesOf, membersOf, readAssignees, setAssignees } from "../assignees.server";
+import { drawsAssignees } from "../assignees";
+import {
+  assignOne,
+  assigneesOf,
+  membersOf,
+  readAssignees,
+  setAssignees,
+} from "../assignees.server";
 import { BackLink } from "../back-link";
-import { STATUSES, STATUS_LABEL, isFinished, readStatus, type Status } from "../board";
+import { isFinished, readStatus, type Status } from "../board";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
@@ -12,21 +18,22 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, finishTask, moveAndAsk } from "../decisions.server";
 import { DescriptionBox } from "../description-box";
 import { DescriptionView } from "../description-view";
-import { Dot } from "../dot";
-import { readData, type OrgField } from "../fields";
+import { readData, readValue, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
-import { fieldClass } from "../forms";
 import { backPath } from "../paths";
 import { postAndReport } from "../pending";
-import { PostButton } from "../posting";
-import { refPickers, type RefPicker } from "../refs.server";
+import { refPickers } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
+import { TASK_FORM, TaskAside, TaskBar, useDrawnTask } from "../task-aside";
+import { TaskTitle } from "../task-title";
 import {
+  editTask,
   readDueDate,
   readTask,
   saveDescription,
   saveTask,
   tickDescriptionBox,
+  type TaskEdit,
 } from "../tasks.server";
 import type { Route } from "./+types/task";
 
@@ -182,6 +189,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // One control of the page, saved on its own. With script every control
+  // posts this way, carrying its own value and no other, so a post for one
+  // control writes nothing else. See #204.
+  if (CONTROL_INTENTS.has(intent)) return saveControl(env.DB, scope, request, task, intent, form);
+
+  // The whole task, as the page posts it with no script: one form across both
+  // columns, and the description with it.
   const title = String(form.get("title") ?? "").trim();
   if (!title) return { error: "A task needs a title." };
 
@@ -218,6 +232,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   if (picked) await setAssignees(env.DB, scope, params.taskId, assigned.ids);
 
+  // The no-script description is a textarea in the same form. A post that
+  // carries none keeps the text the row holds.
+  if (form.has("description")) {
+    await saveDescription(env.DB, scope, params.taskId, String(form.get("description")));
+  }
+
   // The status is a move, not a column of the row: it takes a place in the new
   // column, and moving to Done here is the same act as the Finish button. An
   // unchanged status moves nothing, so a save does not send the card to the
@@ -228,6 +248,74 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (moved.prompt) return moved.prompt;
   }
 
+  return { ok: true };
+}
+
+/** The intents that each save one control of the page. */
+const CONTROL_INTENTS = new Set(["title", "status", "due", "mark", "field", "assign"]);
+
+/**
+ * Saves one control: the title, the status, the due date, the decision mark,
+ * one field, or one assignee. The post carries that control's value and the
+ * write touches nothing else.
+ *
+ * A value the control does not take is refused with its reason, so the page
+ * raises it as a toast and the control goes back to what the server holds.
+ */
+async function saveControl(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+  task: { id: string; status: Status },
+  intent: string,
+  form: FormData,
+) {
+  const refuse = (reason: string) => new Response(reason, { status: 400 });
+
+  // The status is a move, as the whole-task save makes it, so Done raises the
+  // prompt on a marked task. See ADR-0010.
+  if (intent === "status") {
+    const status = readStatus(form);
+    if (status === task.status) return { ok: true };
+    const moved = await moveAndAsk(db, scope, request, task.id, status);
+    if (!moved.moved) throw new Response("Not found", { status: 404 });
+    return moved.prompt ?? { ok: true };
+  }
+
+  if (intent === "assign") {
+    if (!drawsAssignees(scope.org)) throw refuse("This org draws no assignees.");
+    const asked = await readAssignees(db, scope, form);
+    if ("error" in asked) throw refuse(asked.error);
+    const [userId] = asked.ids;
+    if (!userId) throw refuse("Name the member to assign.");
+    await assignOne(db, scope, task.id, userId, form.get("held") === "1");
+    return { ok: true };
+  }
+
+  let edit: TaskEdit;
+  if (intent === "title") {
+    const title = String(form.get("title") ?? "").trim();
+    if (!title) throw refuse("A task needs a title.");
+    edit = { title };
+  } else if (intent === "due") {
+    const due = readDueDate(form);
+    if ("error" in due) throw refuse(due.error);
+    edit = { dueDate: due.dueDate };
+  } else if (intent === "mark") {
+    edit = { decides: form.get("decides") === "1" };
+  } else {
+    // Only a declared field is read, so a key another org declared, or none
+    // declared, writes nothing.
+    const key = String(form.get("key") ?? "");
+    const field = (await listFields(db, scope)).find((one) => one.key === key);
+    if (!field) throw refuse("This org declares no such field.");
+    const read = readValue(field, form.get(`field.${key}`));
+    if ("error" in read) throw refuse(read.error);
+    edit = { field: key, value: read.value };
+  }
+
+  const edited = await editTask(db, scope, task.id, edit);
+  if (!edited) throw new Response("Not found", { status: 404 });
   return { ok: true };
 }
 
@@ -242,269 +330,69 @@ function refuseFinished(status: Status) {
   }
 }
 
-/**
- * A reference field: a picker over the cached options.
- *
- * A field that was never pulled draws a plain id box. An empty dropdown reads
- * as "the org app has no trails", and the box at least takes an id.
- *
- * An id the options do not name keeps its place in the list, drawn raw, so a
- * save of the rest of the task does not silently drop it.
- */
-function RefBox({
-  field,
-  value,
-  picker,
-  color,
-}: {
-  field: OrgField;
-  value: string | undefined;
-  picker: RefPicker | undefined;
-  color: string | null;
-}) {
-  const name = `field.${field.key}`;
-  const options = picker?.options ?? [];
-  const unnamed = value && !options.some((one) => one.id === value);
-
-  if (!picker?.pulled) {
-    return (
-      <label className="flex flex-col gap-1">
-        {field.label}
-        <span className="text-muted">
-          No options pulled yet. Refresh this field on the fields screen, or type the id.
-        </span>
-        <span className="flex items-center gap-2">
-          <input name={name} type="text" defaultValue={value ?? ""} className={`${fieldClass} flex-1`} />
-          <Dot color={color} />
-        </span>
-      </label>
-    );
-  }
-
-  return (
-    <label className="flex flex-col gap-1">
-      {field.label}
-      <span className="flex items-center gap-2">
-        <select name={name} defaultValue={value ?? ""} className={`${fieldClass} flex-1`}>
-          <option value="">—</option>
-          {unnamed ? <option value={value}>{picker.label ?? value}</option> : null}
-          {options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <Dot color={color} />
-      </span>
-    </label>
-  );
-}
-
-/** One declared field, drawn by its type. Every type reads one box. */
-function FieldBox({
-  field,
-  value,
-  picker,
-  color,
-}: {
-  field: OrgField;
-  value: string | undefined;
-  picker: RefPicker | undefined;
-  color: string | null;
-}) {
-  const name = `field.${field.key}`;
-
-  if (field.type === "reference") {
-    return <RefBox field={field} value={value} picker={picker} color={color} />;
-  }
-
-  if (field.type === "select") {
-    return (
-      <label className="flex flex-col gap-1">
-        {field.label}
-        <select name={name} defaultValue={value ?? ""} className={fieldClass}>
-          <option value="">—</option>
-          {field.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
-    );
-  }
-
-  return (
-    <label className="flex flex-col gap-1">
-      {field.label}
-      <input
-        name={name}
-        type={field.type === "date" ? "date" : "text"}
-        defaultValue={value ?? ""}
-        className={fieldClass}
-      />
-    </label>
-  );
-}
-
-/**
- * The aside, live and finished: a pane split off by a divider, on top when it
- * stacks on a phone and on its left beside the fields. It draws no box. See
- * #184.
- */
-const asideClass =
-  "flex w-full shrink-0 flex-col gap-3 border-t border-border pt-6 sm:w-64 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6";
-
-/**
- * The metadata aside: status, due date and the members who hold the task.
- *
- * It sits beside the task rather than in the run of fields, because these
- * three belong to every task of every org and a custom field belongs to one
- * org. The popup and the full page then share one shape.
- */
-function MetadataAside({
-  status,
-  dueDate,
-  members,
-  assignees,
-}: {
-  status: Status;
-  dueDate: string | null;
-  /** The org's members. Empty for an org of one, which draws no picker. */
-  members: Assignee[];
-  assignees: Assignee[];
-}) {
-  const held = new Set(assignees.map((one) => one.id));
-
-  return (
-    <aside className={asideClass}>
-      <label className="flex flex-col gap-1">
-        Status
-        {/* Moving to Done here is the same act as the Finish button, so a
-            marked task raises the same prompt. See ADR-0010. */}
-        <select name="status" defaultValue={status} className={fieldClass}>
-          {STATUSES.map((one) => (
-            <option key={one} value={one}>
-              {STATUS_LABEL[one]}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="flex flex-col gap-1">
-        Due date
-        <input name="due_date" type="date" defaultValue={dueDate ?? ""} className={fieldClass} />
-      </label>
-
-      {members.length > 0 ? (
-        <fieldset className="flex flex-col gap-1">
-          <legend>Assignees</legend>
-          {/* Unticking every box posts no name, so this says the picker was
-              on the form and an empty set is a task nobody holds. */}
-          <input type="hidden" name="assignees" value="picked" />
-          {members.map((member) => (
-            <label key={member.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="assignee"
-                value={member.id}
-                defaultChecked={held.has(member.id)}
-              />
-              {member.name}
-            </label>
-          ))}
-        </fieldset>
-      ) : null}
-    </aside>
-  );
-}
 
 /** A post the server refuses raises a toast, not the error page. See `app/pending.ts`. */
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
-/**
- * A finished task, read: the same run of fields and the same aside as the
- * form, drawn as text. Nothing here posts, so the one way to change the task
- * is to reopen it. See #164.
- */
-function FinishedTask({
-  task,
-  fields,
-  refs,
-  colors,
-  members,
-  assignees,
-}: {
-  task: { status: Status; due_date: string | null; data: Record<string, string>; decides: boolean };
-  fields: OrgField[];
-  refs: Record<string, RefPicker>;
-  colors: Record<string, string | null>;
-  members: Assignee[];
-  assignees: Assignee[];
-}) {
-  return (
-    <div className="flex flex-col gap-6 sm:flex-row">
-      <dl className="flex min-w-0 flex-1 flex-col gap-3">
-        {task.decides ? <p>Holds a decision</p> : null}
-
-        {fields.map((field) => (
-          <ReadLine key={field.key} label={field.label}>
-            {heldText(field, task.data[field.key], refs[field.key])}
-            <Dot color={colors[field.key] ?? null} />
-          </ReadLine>
-        ))}
-      </dl>
-
-      <aside className={asideClass}>
-        <dl className="flex flex-col gap-3">
-          <ReadLine label="Status">{STATUS_LABEL[task.status]}</ReadLine>
-          <ReadLine label="Due date">{task.due_date ?? "—"}</ReadLine>
-          {/* An org of one draws no assignees, here as on the form. */}
-          {members.length > 0 ? (
-            <ReadLine label="Assignees">
-              {assignees.length > 0 ? assignees.map((one) => one.name).join(", ") : "—"}
-            </ReadLine>
-          ) : null}
-        </dl>
-      </aside>
-    </div>
-  );
-}
-
-/** One label and the value it holds, as the finished page reads it. */
-function ReadLine({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-muted">{label}</dt>
-      <dd className="flex items-center gap-2">{children}</dd>
-    </div>
-  );
-}
-
-/**
- * The text a field holds. A reference reads by the label its picker names, and
- * by the raw id when nothing names it, as the picker draws an unnamed id.
- */
-function heldText(field: OrgField, value: string | undefined, picker: RefPicker | undefined) {
-  if (!value) return "—";
-  if (field.type !== "reference") return value;
-  return picker?.options.find((one) => one.id === value)?.label ?? picker?.label ?? value;
-}
-
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, task, back, fields, refs, colors, members, assignees, ask } = loaderData;
+  const { task, back, fields, refs, colors, members, assignees, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
+  const drawn = useDrawnTask(task, assignees);
 
   return (
     // Wider than the other pages under the org layout: the aside sits beside
-    // the task, so the two columns need the room.
-    <main className="mx-auto flex max-w-4xl flex-1 flex-col gap-6 p-8">
+    // the task, so the two columns need the room. On a phone the bar sits at
+    // the foot of the page, and the page leaves it room so it covers nothing.
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-8 pb-24 sm:pb-8">
       {/* The way back to the list `Enter` opened the task from. */}
       <BackLink to={back} />
-      <h1 className="text-2xl tracking-tight">{task.title}</h1>
 
-      {task.finished ? (
-        <FinishedTask
+      {/* With no script, every control of the page posts with this form, by
+          its `form` attribute: the description's ticks are forms of their
+          own, and a form cannot hold another. With script nothing submits it,
+          because every control saves on its own. */}
+      <Form
+        id={TASK_FORM}
+        method="post"
+        onSubmit={(event) => event.preventDefault()}
+      />
+
+      <div className="flex flex-col gap-6 sm:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <TaskTitle title={drawn.title} finished={task.finished} />
+
+          {/* A finished task still ticks its boxes, but its text is not
+              edited. */}
+          {task.finished ? (
+            <>
+              <h2>Description</h2>
+              <DescriptionView text={task.description} />
+            </>
+          ) : (
+            <DescriptionBox text={task.description} form={TASK_FORM} />
+          )}
+
+          {error ? (
+            <p role="alert" className="text-danger">
+              {error}
+            </p>
+          ) : null}
+
+          {/* The whole-task save, for a page with no script. With script every
+              control saves on its own, and the button is never drawn. */}
+          {task.finished ? null : (
+            <noscript>
+              <button
+                form={TASK_FORM}
+                className="self-start rounded border border-border px-3 py-2"
+              >
+                Save
+              </button>
+            </noscript>
+          )}
+        </div>
+
+        <TaskAside
           task={task}
           fields={fields}
           refs={refs}
@@ -512,101 +400,9 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           members={members}
           assignees={assignees}
         />
-      ) : (
-        <Form method="post" key={task.id} className="flex flex-col gap-6 sm:flex-row">
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            <label className="flex flex-col gap-1">
-              Title
-              <input name="title" required defaultValue={task.title} className={fieldClass} />
-            </label>
+      </div>
 
-            {/* Off by default, and only a marked task raises the prompt when it is
-                finished. See ADR-0010. */}
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="decides" value="1" defaultChecked={task.decides} />
-              Holds a decision
-            </label>
-
-            {fields.map((field) => (
-              <FieldBox
-                key={field.key}
-                field={field}
-                value={task.data[field.key]}
-                picker={refs[field.key]}
-                color={colors[field.key] ?? null}
-              />
-            ))}
-
-            {fields.length === 0 ? (
-              <p className="text-muted">
-                This org declares no field yet.{" "}
-                <Link to={`/o/${org.slug}/fields`} className="underline">
-                  Declare one
-                </Link>
-                .
-              </p>
-            ) : null}
-
-            {error ? (
-              <p role="alert" className="text-danger">
-                {error}
-              </p>
-            ) : null}
-            {actionData && "ok" in actionData ? (
-              <p className="text-muted">Saved.</p>
-            ) : null}
-
-            <PostButton intent={null} label="Save" busyLabel="Saving…" />
-          </div>
-
-          <MetadataAside
-            status={task.status}
-            dueDate={task.due_date}
-            members={members}
-            assignees={assignees}
-          />
-        </Form>
-      )}
-
-      {/* Its own section, because a form cannot hold another one, and every
-          box of the description posts on its own. */}
-      <section className="flex flex-col gap-2">
-        <h2>Description</h2>
-        {/* A finished task still ticks its boxes, but its text is not edited. */}
-        {task.finished ? (
-          <DescriptionView text={task.description} />
-        ) : (
-          <DescriptionBox text={task.description} />
-        )}
-      </section>
-
-      {/* Its own form, because archiving is one act and saving is another.
-          An archived task keeps its status, so this button says nothing about
-          the column it holds. Live work is offered no Archive, as it is on the
-          board: archive keeps finished work. */}
-      {task.archived || task.finished ? (
-        <Form method="post">
-          {task.archived ? (
-            <PostButton intent="restore" label="Restore" busyLabel="Restoring…" />
-          ) : (
-            <PostButton intent="archive" label="Archive" busyLabel="Archiving…" />
-          )}
-        </Form>
-      ) : null}
-
-      {/* Its own form, because finishing is one act and saving is another. A
-          finished task is offered the way back instead: Reopen moves it to To
-          do, and the page then edits it. An archived task is restored first,
-          so it offers Restore above and nothing here. */}
-      {task.archived ? null : (
-        <Form method="post">
-          {task.finished ? (
-            <PostButton intent="reopen" label="Reopen" busyLabel="Reopening…" />
-          ) : (
-            <PostButton intent="finish" label="Finish" busyLabel="Finishing…" />
-          )}
-        </Form>
-      )}
+      <TaskBar task={task} assignees={assignees} />
 
       <DecisionPrompt ask={ask} />
     </main>

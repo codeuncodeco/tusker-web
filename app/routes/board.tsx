@@ -63,10 +63,8 @@ import {
   newTasksFrom,
   stepTask,
 } from "../tasks.server";
+import { revealCursor, TopRow, TopRowBox } from "../top-row";
 import type { Route } from "./+types/board";
-
-/** The board holds still and scrolls inside its columns. See `app/frame.ts`. */
-export const handle = { frame: true };
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData.org.name} — Tusker` }];
@@ -456,23 +454,21 @@ export default function Board({ loaderData }: Route.ComponentProps) {
     step,
   );
 
-  // The cursor follows the keys down a column longer than the window.
-  useEffect(() => {
-    board.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [cursor]);
+  // The cursor follows the keys down a column longer than the window, and
+  // stays clear of the Top row stuck over it.
+  useEffect(() => revealCursor(board.current), [cursor]);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
-      {/* The board's top row: the box on the left and the filters on the
-          right, on one line where the width allows. The header's org select
-          is this page's heading. See ADR-0029. */}
-      <header className="flex flex-wrap items-start gap-x-6 gap-y-3">
+    <main className="flex flex-1 flex-col gap-6 p-8">
+      <TopRow>
         {/* One box for the board, outside every keyed list, so a typed word is
             never a press the page reads. See ADR-0022. */}
-        <div className="min-w-64 max-w-xl flex-1">
+        <TopRowBox>
           <QuickAdd members={members} />
-        </div>
-        <nav className="ml-auto flex flex-wrap items-baseline gap-4">
+        </TopRowBox>
+        {/* The filters take the rest of the row, and wrap under the box where
+            they do not fit beside it. */}
+        <nav className="flex flex-1 flex-wrap items-baseline justify-end gap-4">
           <SearchBox search={search} />
           <AssigneeFilter assignee={assignee} members={members} />
           <TodayChip today={today} hasPlan={hasPlan} />
@@ -480,7 +476,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
           <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>
-      </header>
+      </TopRow>
 
       <DragLists
         lists={Object.fromEntries(
@@ -490,10 +486,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         overlay={(id) => <DragCopy title={cards.get(id)?.title ?? ""} />}
       >
         {(shown) => (
-          // The row holds still, and each column scrolls inside itself. The
+          // Each column is as long as its cards, and the page scrolls. The
           // columns are panes: a divider splits them, and a card is the one
-          // thing on the board with an edge. See #184.
-          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto sm:min-h-0">
+          // thing on the board with an edge. See #184 and #191.
+          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
             {columns.map((column) => {
               const drawn = shown[column.status].flatMap((id) => cards.get(id) ?? []);
               return (
@@ -510,8 +506,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                     {/* The sweep acts on the whole column, so it is column chrome.
                         It sits with the name and the count, the way the extension
                         drew it, so the act on the column is where the column says
-                        what it holds. The head is pinned, so the sweep stays in
-                        sight while the cards scroll. */}
+                        what it holds. The head scrolls away with the column's
+                        cards. */}
                     {isFinished(column.status) ? (
                       <ColumnSweep
                         label={column.label}
@@ -521,20 +517,18 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                     ) : null}
                   </div>
 
-                  {/* The heading and the sweep stay pinned, and only this
-                      scrolls. The gutter is reserved, so a full column is as
-                      wide as an empty one, which is the point of the equal
-                      split.
-
-                      This is the keyed list: the cards and nothing else. The focus
-                      outline is drawn inside, as the row clips what is past its
-                      edge, and the floor gives an empty column a box to draw it
-                      on. See #193. */}
+                  {/* This is the keyed list: the cards and nothing else. It is
+                      as long as its cards, and the page scrolls, not the list.
+                      It fills the rest of a short column, so a drop below the
+                      last card still lands in it. The focus outline is drawn
+                      inside, as the row clips what is past its edge, and the
+                      floor gives an empty column a box to draw it on. See
+                      #193. */}
                   <DropList
                     id={column.status}
                     ids={drawn.map((one) => one.id)}
                     props={keyed(`${column.label} tasks`)}
-                    className="flex min-h-12 flex-col gap-2 focus-visible:-outline-offset-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+                    className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
                   >
                     {/* The box files into To do, so an add in flight draws there. */}
                     {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}

@@ -54,11 +54,18 @@ export function useSent(): FormData[] {
  * one step while the server took several. With a fetcher per press, every
  * press is in flight and every press is drawn.
  */
-export function usePost(): (fields: Record<string, string>) => void {
+export function usePost(
+  /**
+   * `flushSync` draws the post in the same frame it is made. A controlled box
+   * reads its value from the posts in flight, and a post drawn a frame late
+   * shows the old value for that frame: a tick that flickers off and on again.
+   */
+  { flushSync = false }: { flushSync?: boolean } = {},
+): (fields: Record<string, string>) => void {
   const submit = useSubmit();
   return useCallback(
-    (fields) => void submit(fields, { method: "post", navigate: false }),
-    [submit],
+    (fields) => void submit(fields, { method: "post", navigate: false, flushSync }),
+    [submit, flushSync],
   );
 }
 
@@ -203,6 +210,49 @@ export function tickedSent(checked: boolean, box: number, sent: FormData[]): boo
     (form) => form.get("intent") === "tick" && form.get("box") === String(box),
   ).length;
   return ticks % 2 === 1 ? !checked : checked;
+}
+
+/** The values the controls of the task page edit, as the loader reads them. */
+export type TaskHeld = {
+  title: string;
+  status: Status;
+  due_date: string | null;
+  decides: boolean;
+  data: Record<string, string>;
+  /** The ids of the members who hold the task. */
+  assignees: string[];
+};
+
+/**
+ * The task page with the posts of its controls in flight laid over it: each
+ * control draws the value it posted until the server's copy lands. A post the
+ * server refuses goes the same way, and the control draws what the server
+ * holds again. See #204.
+ */
+export function taskSent<T extends TaskHeld>(task: T, sent: FormData[]): T {
+  return sent.reduce((drawn, form) => {
+    const intent = String(form.get("intent") ?? "");
+
+    if (intent === "title") return { ...drawn, title: String(form.get("title") ?? "").trim() };
+    if (intent === "status") return { ...drawn, status: String(form.get("status")) as Status };
+    if (intent === "due") return { ...drawn, due_date: String(form.get("due_date") ?? "") || null };
+    if (intent === "mark") return { ...drawn, decides: form.get("decides") === "1" };
+
+    if (intent === "field") {
+      const key = String(form.get("key") ?? "");
+      const value = String(form.get(`field.${key}`) ?? "").trim();
+      const { [key]: _, ...rest } = drawn.data;
+      return { ...drawn, data: value ? { ...rest, [key]: value } : rest };
+    }
+
+    if (intent === "assign") {
+      const id = String(form.get("assignee") ?? "");
+      const rest = drawn.assignees.filter((one) => one !== id);
+      return { ...drawn, assignees: form.get("held") === "1" ? [...rest, id] : rest };
+    }
+
+    return drawn;
+  }, task);
 }
 
 /**

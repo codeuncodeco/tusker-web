@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { crossOver, landing, landingInOrg, settle } from "../app/drag";
+import { whereOver } from "../app/drag-lists";
 
 const board = { todo: ["a", "b", "c"], doing: ["d", "e"], done: [] };
 
@@ -69,5 +70,55 @@ describe("where a drop lands on a list of several orgs", () => {
 
   it("names no card of the org above the dragged one", () => {
     expect(landingInOrg(["a", "x"], "x", orgOf)).toBeNull();
+  });
+});
+
+describe("what a dragged card is over, on a board as long as its columns", () => {
+  // Two columns side by side, each as tall as the board, as they are since the
+  // page scrolls and no column does. To do holds a card at every height, and
+  // Done holds one card at the top. See #191.
+  const lists = { todo: ["a", "b", "c"], done: ["z"] };
+  const rect = (left: number, top: number, width: number, height: number) => ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+  });
+  const rects = new Map([
+    ["todo", rect(0, 0, 300, 2000)],
+    ["a", rect(0, 0, 300, 60)],
+    ["b", rect(0, 600, 300, 60)],
+    ["c", rect(0, 1200, 300, 60)],
+    ["done", rect(320, 0, 300, 2000)],
+    ["z", rect(320, 0, 300, 60)],
+  ]);
+
+  /** What the card is over when the pointer, and the copy under it, are at one point. */
+  function overAt(x: number, y: number) {
+    const collisions = whereOver(lists)({
+      active: { id: "b" },
+      collisionRect: rect(x - 150, y - 30, 300, 60),
+      droppableRects: rects,
+      droppableContainers: [...rects.keys()].map((id) => ({ id })),
+      pointerCoordinates: { x, y },
+    } as unknown as Parameters<ReturnType<typeof whereOver>>[0]);
+    return collisions[0]?.id;
+  }
+
+  it("is the column the pointer is in, though a card of another sits closer", () => {
+    // Done's own corners are far off, and To do's `c` is level with the
+    // pointer. The pointer is in Done, so the card is over Done.
+    expect(overAt(470, 1230)).toBe("done");
+  });
+
+  it("is the closest card of the column the pointer is in", () => {
+    expect(overAt(470, 40)).toBe("z");
+    expect(overAt(150, 1230)).toBe("c");
+  });
+
+  it("is the closest of everything when the pointer is in no column", () => {
+    expect(overAt(310, 630)).toBe("b");
   });
 });
