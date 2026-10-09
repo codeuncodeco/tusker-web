@@ -1,4 +1,4 @@
-import { Form, Link } from "react-router";
+import { Form, Link, redirect } from "react-router";
 
 import { archiveTasks, restoreTasks } from "../archive.server";
 import { drawsAssignees, type Assignee } from "../assignees";
@@ -128,12 +128,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // The prompt the Finish button raised, answered.
   if (intent === "decide") return decide(env.DB, scope, request, form);
 
-  if (intent === "finish") {
-    const finished = await finishTask(env.DB, scope, request, params.taskId);
-    if (!finished.moved) throw new Response("Not found", { status: 404 });
-    return finished.prompt ?? { ok: true };
-  }
-
   // One checkbox of the description, flipped where the raw text holds it. It
   // posts on its own, so it reads no other box of the page.
   if (intent === "tick") {
@@ -150,15 +144,27 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   // A finished task, back to To do. It is the same move a status change makes,
   // so the finish time goes the way it goes on any move out of Done. An open
-  // task has nothing to reopen, and stays where it stands.
+  // task has nothing to reopen, and stays where it stands. An archived one is
+  // restored first: open work no board draws would be lost work.
   if (intent === "reopen") {
     if (!isFinished(task.status)) return { ok: true };
+    if (task.archived === 1) {
+      throw new Response("An archived task is restored before it is reopened.", { status: 409 });
+    }
     const moved = await moveAndAsk(env.DB, scope, request, params.taskId, "todo");
     if (!moved.moved) throw new Response("Not found", { status: 404 });
-    return { ok: true };
+    // The page again, and not a "Saved." under the form Reopen opens.
+    const url = new URL(request.url);
+    return redirect(`${url.pathname}${url.search}`);
   }
 
   refuseFinished(task.status);
+
+  if (intent === "finish") {
+    const finished = await finishTask(env.DB, scope, request, params.taskId);
+    if (!finished.moved) throw new Response("Not found", { status: 404 });
+    return finished.prompt ?? { ok: true };
+  }
 
   // The description, as the editor posts it when the box is left. It carries
   // the whole text and no other box of the page, so leaving the editor saves
@@ -581,16 +587,19 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
 
       {/* Its own form, because finishing is one act and saving is another. A
           finished task is offered the way back instead: Reopen moves it to To
-          do, and the page then edits it. */}
-      <Form method="post">
-        <button
-          name="intent"
-          value={task.finished ? "reopen" : "finish"}
-          className="self-start rounded border border-border px-3 py-2"
-        >
-          {task.finished ? "Reopen" : "Finish"}
-        </button>
-      </Form>
+          do, and the page then edits it. An archived task is restored first,
+          so it offers Restore above and nothing here. */}
+      {task.archived ? null : (
+        <Form method="post">
+          <button
+            name="intent"
+            value={task.finished ? "reopen" : "finish"}
+            className="self-start rounded border border-border px-3 py-2"
+          >
+            {task.finished ? "Reopen" : "Finish"}
+          </button>
+        </Form>
+      )}
 
       <DecisionPrompt ask={ask} />
     </main>

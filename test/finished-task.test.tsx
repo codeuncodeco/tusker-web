@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
-import type { Status } from "../app/board";
+import { isFinished, type Status } from "../app/board";
 import * as loginRoute from "../app/routes/login";
 import * as taskRoute from "../app/routes/task";
 import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
@@ -43,7 +43,6 @@ async function task(
   id: string,
   some: { status: Status; description?: string; decides?: boolean },
 ) {
-  const finished = some.status === "done" || some.status === "cancelled";
   await db
     .prepare(
       `INSERT INTO tasks (id, org_id, title, status, position, description, decides, finished_at)
@@ -56,7 +55,7 @@ async function task(
       some.status,
       some.description ?? "",
       some.decides ? 1 : 0,
-      finished ? "2026-09-01T10:00:00.000Z" : null,
+      isFinished(some.status) ? "2026-09-01T10:00:00.000Z" : null,
     )
     .run();
   return id;
@@ -107,6 +106,19 @@ describe("a post that edits a finished task", () => {
       expect(await row("t1")).toEqual(before);
     });
   }
+});
+
+describe("a Finish posted for a finished task", () => {
+  it("is refused on a cancelled task, which stays where it is", async () => {
+    const one = await member("again@example.test", "Again");
+    await task(one.org.id, "t1", { status: "cancelled", decides: true });
+    const before = await row("t1");
+
+    const response = await caught(act(one.cookie, one.org.slug, "t1", { intent: "finish" }));
+
+    expect(response.status).toBe(409);
+    expect(await row("t1")).toEqual(before);
+  });
 });
 
 describe("a description posted for a finished task", () => {
@@ -177,6 +189,28 @@ describe("Reopen", () => {
     });
   }
 
+  it("answers with the page again, so the form it opens says nothing was saved", async () => {
+    const one = await member("back@example.test", "Back");
+    await task(one.org.id, "t1", { status: "done" });
+
+    const response = await caught(act(one.cookie, one.org.slug, "t1", { intent: "reopen" }));
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(`/o/${one.org.slug}/t/t1`);
+  });
+
+  it("is refused on an archived task, which is restored first", async () => {
+    const one = await member("kept@example.test", "Kept");
+    await task(one.org.id, "t1", { status: "done" });
+    await act(one.cookie, one.org.slug, "t1", { intent: "archive" });
+    const before = await row("t1");
+
+    const response = await caught(act(one.cookie, one.org.slug, "t1", { intent: "reopen" }));
+
+    expect(response.status).toBe(409);
+    expect(await row("t1")).toEqual(before);
+  });
+
   it("leaves the task open to a save afterwards", async () => {
     const one = await member("after@example.test", "After");
     await task(one.org.id, "t1", { status: "done" });
@@ -243,6 +277,17 @@ describe("the page a finished task draws", () => {
       expect(html).toContain("Holds a decision");
     });
   }
+
+  it("offers Restore and no Reopen while the task is archived", async () => {
+    const one = await member("shelf@example.test", "Shelf");
+    await task(one.org.id, "t1", { status: "done" });
+    await act(one.cookie, one.org.slug, "t1", { intent: "archive" });
+
+    const html = await drawn(one.cookie, one.org.slug, "t1");
+
+    expect(html).toContain('value="restore"');
+    expect(html).not.toContain('value="reopen"');
+  });
 
   it("draws the edit form for an open task, and no Reopen", async () => {
     const one = await member("open@example.test", "Open");
