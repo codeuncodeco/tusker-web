@@ -1,6 +1,6 @@
 /**
- * The remembered narrowing: the search and the assignee filter a board was
- * left with.
+ * The remembered narrowing: the search, the assignee filter and the field
+ * filters a board was left with.
  *
  * It belongs to the person and not to the org, so the browser holds it, one
  * entry per org. The address is the truth, and this only fills it in when a
@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { ANYONE, ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
+import { FIELD_PREFIX } from "./field-filter";
 import { readSearch, SEARCH_NAME } from "./search";
 
 /** Where one board keeps the narrowing it was left with. */
@@ -21,7 +22,7 @@ export function memoryKey(slug: string): string {
 /**
  * The narrowing part of an address, as the query string to remember. A column
  * toggle stays out: it says what a person wants to see, and the address is
- * read for it every time. The search and the assignee filter are the two that
+ * read for it every time. The search, the assignee filter and the field filters
  * join it.
  *
  * An empty answer is a board a person cleared by hand, and it is remembered as
@@ -33,6 +34,12 @@ export function narrowingOf(params: URLSearchParams): string {
   if (search) narrowing.set(SEARCH_NAME, search);
   const assignee = readAssignee(params);
   if (assignee !== ANYONE) narrowing.set(ASSIGNEE_NAME, assignee);
+  // The page holds no declarations here, so every field filter is kept, and
+  // the loader ignores the ones the org no longer offers.
+  for (const [name, value] of params) {
+    const kept = value.trim();
+    if (name.startsWith(FIELD_PREFIX) && kept) narrowing.set(name, kept);
+  }
   return narrowing.toString();
 }
 

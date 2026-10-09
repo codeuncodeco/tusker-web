@@ -4,9 +4,10 @@
  *
  * The org board and the unified board draw the same five columns, so they draw
  * the same switches over them. Which columns each offers is the board's own
- * business, and so is which controls it draws: the search box and the assignee
- * filter are the org board's alone, because a search is one org's rows and a
- * member select across every org would name strangers. See ADR-0017.
+ * business, and so is which controls it draws: the search box, the assignee
+ * filter and the field filters are the org board's alone, because a search is
+ * one org's rows, a member select across every org would name strangers, and
+ * each org declares its own fields. See ADR-0017 and ADR-0029.
  */
 
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ import {
   type Status,
   type Toggles,
 } from "./board";
+import { fieldName, type FieldFilter } from "./field-filter";
 import { fieldClass, smallFieldClass } from "./forms";
 import { Square, SquareCheck } from "./icons";
 import { without } from "./query";
@@ -111,6 +113,40 @@ export function AssigneeFilter({ assignee, members }: { assignee: string; member
         {members.map((one) => (
           <option key={one.id} value={one.id}>
             {one.name}
+          </option>
+        ))}
+      </select>
+      {/* The submit the select needs when no script runs. */}
+      <button className="sr-only">Filter</button>
+    </Form>
+  );
+}
+
+/**
+ * The select that narrows the board to the tasks holding one value of one
+ * field: `Any`, then the values the field offers.
+ *
+ * It is a GET form, as the assignee filter is, under the name the task API
+ * reads, `field.<key>`. The rest of the query rides along as hidden fields, so
+ * picking a client keeps the search, the member and every other field filter.
+ */
+export function FieldFilterSelect({ filter }: { filter: FieldFilter }) {
+  const name = fieldName(filter.key);
+
+  return (
+    <Form method="get" className="flex items-baseline">
+      <RestOfQuery except={name} />
+      <select
+        name={name}
+        aria-label={`Filter by ${filter.label}`}
+        value={filter.value}
+        onChange={(event) => event.currentTarget.form?.requestSubmit()}
+        className={smallFieldClass}
+      >
+        <option value="">Any {filter.label.toLowerCase()}</option>
+        {filter.options.map((one) => (
+          <option key={one.value} value={one.value}>
+            {one.label}
           </option>
         ))}
       </select>

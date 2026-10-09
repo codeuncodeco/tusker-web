@@ -6,6 +6,7 @@ import {
   UNASSIGNED,
   keeps,
   readAssignee,
+  seededBy,
   withoutAssignee,
 } from "../app/assignee-filter";
 import { narrowingOf } from "../app/remembered";
@@ -88,5 +89,22 @@ describe("what a board remembers", () => {
 
   it("is empty for a board a person cleared by hand", () => {
     expect(narrowingOf(query(`q=&${ASSIGNEE_NAME}=&today=1`))).toBe("");
+  });
+});
+
+describe("the assignees the quick-add box starts with", () => {
+  const members = [member("u-ada"), member("u-bo")];
+
+  it("is the member the board is narrowed to", () => {
+    expect(seededBy("u-bo", members)).toEqual(["u-bo"]);
+  });
+
+  it("is nobody under Anyone or Unassigned", () => {
+    expect(seededBy(ANYONE, members)).toEqual([]);
+    expect(seededBy(UNASSIGNED, members)).toEqual([]);
+  });
+
+  it("is nobody for a name no member answers to", () => {
+    expect(seededBy("u-gone", members)).toEqual([]);
   });
 });

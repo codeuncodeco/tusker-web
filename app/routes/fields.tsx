@@ -199,10 +199,16 @@ function check(
   return null;
 }
 
-/** The two boxes every field carries, on the declare form and on an edit. */
+/**
+ * The two boxes every field carries, on the declare form and on an edit.
+ *
+ * The board draws a filter for a select or a reference field alone: a text or
+ * a date field has no list of values to pick from. The box says so, rather
+ * than take a tick that draws nothing.
+ */
 function Flags({ field }: { field?: OrgField }) {
   return (
-    <span className="flex gap-4">
+    <span className="flex flex-wrap items-center gap-4">
       <label className="flex items-center gap-2">
         <input type="checkbox" name="show_on_card" value="1" defaultChecked={field?.show_on_card} />
         Show on the card
@@ -211,6 +217,7 @@ function Flags({ field }: { field?: OrgField }) {
         <input type="checkbox" name="filterable" value="1" defaultChecked={field?.filterable} />
         Filter by it
       </label>
+      <span className="text-muted">The board filters by a select or a reference field, not by text or a date.</span>
     </span>
   );
 }

@@ -63,10 +63,22 @@ export type Draft = {
  *
  * An add empties the words. It leaves the members: a person filing three tasks
  * to one member names them once, as they name the org once.
+ *
+ * The members start as the seed: on a board narrowed to one member, that
+ * member. A new seed replaces the set, so the box follows the narrowing a
+ * person picks, and the person can still change the set before Enter.
  */
-export function useQuickAddDraft(): Draft {
+export function useQuickAddDraft(seed: string[] = []): Draft {
   const [title, setTitle] = useState("");
-  const [assignees, setAssignees] = useState<string[]>([]);
+  const [assignees, setAssignees] = useState<string[]>(seed);
+  // The seed is read while the box draws, not after, so the first draw already
+  // holds it and a new one lands without a draw that holds the old set.
+  const seedKey = seed.join(" ");
+  const [seededWith, setSeededWith] = useState(seedKey);
+  if (seedKey !== seededWith) {
+    setSeededWith(seedKey);
+    setAssignees(seed);
+  }
   // Stable, so an effect that empties the box on an add runs once.
   const clear = useCallback(() => setTitle(""), []);
   return { title, setTitle, assignees, setAssignees, clear };
