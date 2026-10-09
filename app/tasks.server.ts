@@ -1,6 +1,7 @@
 import { isFinished, isStatus, stepInColumn, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
 import { tickBox } from "./description";
+import { fieldKeyOf } from "./field-filter";
 import { listFields } from "./fields.server";
 import { between, placesAbove } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
@@ -367,6 +368,9 @@ export function newTasksFrom(
  * must not cost thirty round trips. The caller checked the ids with
  * `readAssignees`, and the foreign key checks them again. See ADR-0013.
  *
+ * The custom field values go on every task of the block too, as the members
+ * do. The caller read them against the org's declarations.
+ *
  * The database counts out each task's number as the row goes in, so no number
  * is read first and written after. Each task's assignees go in straight after
  * it and point at the highest number in the table: the batch is one
@@ -383,6 +387,8 @@ export async function createTasks(
     status: Status;
     /** The members who hold every task of the block. Empty is unassigned. */
     assignees: string[];
+    /** The custom field values every task of the block holds. */
+    data?: Record<string, string>;
   },
 ): Promise<TaskId[]> {
   const orgId = scope.org.id;
@@ -393,15 +399,16 @@ export async function createTasks(
   // made, so it carries the finish time from the start: no later move writes
   // one for it.
   const finished = isFinished(tasks.status) ? NOW : "NULL";
+  const data = JSON.stringify(tasks.data ?? {});
 
   const statements = tasks.titles.flatMap((title, at) => [
     db
       .prepare(
-        `INSERT INTO tasks (org_id, title, status, position, finished_at)
-         VALUES (?, ?, ?, ?, ${finished})
+        `INSERT INTO tasks (org_id, title, status, position, data, finished_at)
+         VALUES (?, ?, ?, ?, ?, ${finished})
          RETURNING id`,
       )
-      .bind(orgId, title, tasks.status, positions[at]),
+      .bind(orgId, title, tasks.status, positions[at], data),
     ...tasks.assignees.map((userId) =>
       db
         .prepare(
@@ -644,9 +651,6 @@ export type TaskFilter = {
   fields: { key: string; value: string }[];
 };
 
-/** The name a custom field filter carries, ahead of the key it narrows by. */
-const FIELD_QUERY = "field.";
-
 /**
  * What a query of the read API narrows to, or the reason it narrows to nothing
  * a task could match.
@@ -668,13 +672,15 @@ export async function readTaskFilter(
     statuses.push(value);
   }
 
-  const asked = [...query.keys()].filter((name) => name.startsWith(FIELD_QUERY));
+  const asked = [...query.keys()].flatMap((name) => {
+    const key = fieldKeyOf(name);
+    return key === null ? [] : [{ name, key }];
+  });
   if (asked.length === 0) return { statuses, fields: [] };
 
   const declared = new Set((await listFields(db, scope)).map((field) => field.key));
   const fields = [];
-  for (const name of asked) {
-    const key = name.slice(FIELD_QUERY.length);
+  for (const { name, key } of asked) {
     if (!declared.has(key)) return { error: `${scope.org.name} declares no field called ${key}.` };
 
     const value = query.get(name) ?? "";

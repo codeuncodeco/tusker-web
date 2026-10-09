@@ -40,6 +40,8 @@ function board(columns: ReturnType<typeof column>[]): string {
     toggles: { backlog: false, cancelled: true },
     today: false,
     search: "",
+    assignee: "",
+    filters: [],
     day: "2026-09-02",
     hasPlan: false,
     backlogByRule: false,

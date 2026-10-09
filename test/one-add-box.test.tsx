@@ -32,6 +32,8 @@ function orgBoard(): string {
     toggles: { backlog: true, cancelled: true },
     today: false,
     search: "",
+    assignee: "",
+    filters: [],
     day: "2026-09-02",
     hasPlan: false,
     backlogByRule: false,

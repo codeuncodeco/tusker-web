@@ -45,6 +45,16 @@ export function keeps(assignee: string, held: Assignee[]): boolean {
 }
 
 /**
+ * The members the quick-add box starts with on a board narrowed to this value:
+ * the member it names, so a task added there is theirs. `Anyone` and
+ * `Unassigned` name nobody, and nor does a member who left the org. The person
+ * can still change the set before Enter.
+ */
+export function seededBy(assignee: string, members: Assignee[]): string[] {
+  return members.some((one) => one.id === assignee) ? [assignee] : [];
+}
+
+/**
  * The rest of the address, as name and value pairs. The select posts these
  * back as hidden fields, so picking a member keeps the search, the chip and
  * the columns a person turned on.
