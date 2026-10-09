@@ -38,13 +38,6 @@ a member of that org, by either road, clears it, so being taken out later is
 not a decline. See ADR-0028.
 _Avoid_: Access request, application
 
-**Current org**:
-The org a person visited last, and the one the header names while they stand on
-a person page. A session cookie holds it, and every visit to an org page
-rewrites it. A person who has visited none yet has the org they joined first.
-See ADR-0011.
-_Avoid_: Active org, selected org, org context
-
 **Org colour**:
 The colour one org carries, drawn wherever a page names that org beside
 another: the unified board, plan mode and the week page. It is a palette name
@@ -195,9 +188,8 @@ produced it, so a deleted task leaves the decision in place.
 
 **Decision mark**:
 The flag that says a task holds a decision, in `tasks.decides`. It is off by
-default, and only a marked task raises the decision prompt. A person sets it in
-the quick-add box when the task is made, and on the task page after.
-See ADR-0010.
+default, and only a marked task raises the decision prompt. A person sets it on
+the task page, which is also where it comes off. See ADR-0010.
 _Avoid_: Decision flag, needs-decision
 
 **Decision prompt**:
@@ -402,12 +394,25 @@ tabs cannot fight over it.
 _Avoid_: Referrer, back stack, return URL, here
 
 **Board**:
-A page that draws tasks as one column per status. Tusker has two, the **Org
-board** and the **Unified board**. They are one page over two sets of rows: the
+A page that draws tasks as one column per status. Tusker has one board, and
+the **Org select** sets its scope: All, or one org. Scoped to All it is the
+**Unified board**, and scoped to one org it is the **Org board**. Both are the
 same five columns, the same cards, and the same keys except the two that step a
-stored order. The bare word is right where one board is in view, or where the
-rule holds for both. Where the two stand together, name them.
-_Avoid_: Kanban, board view
+stored order. One org's order is stored, so the powers of one org come with that
+scope: its order and `J` and `K`, the assignee filter, the field filters and the
+search. The board never draws two orgs out of several: a scope is All or one.
+The bare word is right where one scope is in view, or where the rule holds for
+both. Where the two stand together, name them.
+_Avoid_: Kanban, board view, org filter
+
+**Org select**:
+The control in the header that sets the board's scope: All, then every org the
+person belongs to. A pick goes to that scope's board at once. It reads the
+address, so it names the org of the org page a person stands on, and All on
+every person page. A person in one org has nothing to pick, so it is not drawn:
+that person always stands in their one org, their board is that org's board,
+and the header's menu always holds its pages.
+_Avoid_: Org switcher, org dropdown, org filter
 
 **Org board**:
 The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
@@ -441,7 +446,8 @@ person opens Tusker, and the box refuses an add until one is picked. A person
 who belongs to one org has no org picker, and that org is implied. A person who
 belongs to several sees a chip that names the picked org while the box holds
 it, and the line an add leaves names the org. For a person in one org, that
-line says "Added" and names no org. The decision mark is set here. The box also names the assignees, out of the
+line says "Added" and names no org. The box sets no decision mark: the task
+page does. The box also names the assignees, out of the
 members of the org it files into: the set starts empty, it stays across an add,
 and a change of org empties it. An org that holds one member has nobody else to
 name, so no box filing there draws the assignee picker. The title is a textarea
@@ -452,15 +458,15 @@ _Avoid_: Composer, capture box, new task form
 **Pasted list**:
 Several lines posted from one quick-add box. Each non-empty line, trimmed, is
 one task, in the order the lines appear, and the block lands at the top of the
-column with the first line topmost. The mark and the picked members go on all
-of them or on none, because one box holds one tick and one set. A list of more
+column with the first line topmost. The picked members go on all of them or on
+none, because one box holds one set. A list of more
 than 100 lines is refused and writes nothing.
 _Avoid_: Bulk add, batch, import
 
 **Undo an add**:
 The line the quick-add box shows after it makes a task. It counts what the add
 made, deletes every row that add wrote, drops them all from the day's plan, and
-gives the box back the whole text as it was typed and the mark, with the picker
+gives the box back the whole text as it was typed, with the picker
 reset to no org picked and the assignee set emptied with it, so a task typed
 into the wrong org is filed again rather than typed again. One add is one act,
 so its undo is one act. It is the only delete Tusker has. See ADR-0012 and
@@ -607,16 +613,18 @@ task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
 
 **Header**:
-The one bar every signed-in page draws, in two rows. Row 1 names who and
-where: the wordmark, the current org and the account. Row 2 is every page as a
-button, in a person half for Tasks, Week, Plan and Focus and an org half for
-the current org's pages. Both halves are always drawn, and the page a person
-stands on is marked. A label names the destination and never what the page
-holds, so "Week" and "Plan" stand while those pages head with the week and the
-day they draw. `/account` stands in neither half, so it marks neither. A
-control that comes and goes teaches nothing, so nothing in the header is drawn
-by rule.
-See ADR-0011.
+The one bar every signed-in page draws, in one row. At its centre, the **Org
+select** and a menu beside it that names the page a person stands on. The menu
+holds one Board, whose scope the select sets, then Week, Plan and Focus, then
+the pages of the org the select names: Decisions, Archive, Fields, Members and
+Settings. While the select reads All, no org is named, so the menu holds no org
+page: a person picks the org first. A person in one org always has it named.
+On the board the select is the page's
+heading, and every other page heads itself. At the far right, a person menu
+holds Account and New org, which belong to no org. A label names the
+destination and never what the page holds, so "Week" and "Plan" stand while
+those pages head with the week and the day they draw. The address is the only
+place the header reads an org from. See ADR-0011 and ADR-0029.
 _Avoid_: Chrome, nav bar, top bar
 
 **Assignee filter**:

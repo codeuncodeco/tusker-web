@@ -13,10 +13,11 @@ decision log is the rate of the ask, not the shape of the box.
 So a person marks the task, in `tasks.decides`, and only a marked task raises
 the prompt. The mark is off by default.
 
-The mark goes on in the board's quick-add box, when the task is made and the
-thought is still there. A task made before the thought landed is marked on the
-task page, which is also where the mark comes off. Those are the two places a
-person is already writing about the task.
+The mark goes on and comes off on the task page, where a person is already
+writing about the task. The quick-add box held it too at first, so that a task
+was marked while the thought was still there. #181 took it out of the box to
+keep the board's top row to one line, at the cost of a pasted list, which can
+no longer mark every line at once.
 
 A finished task is read on its page, not edited, so its mark comes off after a
 Reopen. That costs nothing: the prompt only returns on the next finish, and a
