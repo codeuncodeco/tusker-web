@@ -472,7 +472,7 @@ The tasks one person means to finish in one named week, in the order they mean
 to take them. It holds no day: the week set says what and how it ranks, and the
 plan says when. A pick lands on top, a task written back from a day lands at the
 foot, and a member finished this week sinks under the live ones and keeps its
-rank. It belongs to the person and can hold tasks from several orgs. Membership
+place. It belongs to the person and can hold tasks from several orgs. Membership
 is always per named week, so a task is in the set of week 36 and not "in the
 week set". See ADR-0014 and ADR-0021.
 _Avoid_: Week plan, weekly backlog, commitment
