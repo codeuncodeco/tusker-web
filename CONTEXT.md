@@ -114,6 +114,16 @@ _Avoid_: Customer, account
 **Task**:
 One piece of work in one org. A task never belongs to two orgs.
 
+**Task number**:
+The number that names one task, written `#1234`, and the task's path is
+`/t/1234`. It is the task's only id. Tasks are numbered across the whole
+instance, not per org, so a bare number names one task on a page that holds
+many orgs, and an org sees gaps in its own run. A task keeps its number for
+good, and a deleted task's number goes to no other task. The number is
+guessable, so the page gives the same 404 for a task a person may not read as
+for one that does not exist. See ADR-0030.
+_Avoid_: Task key, ref, ticket number, UUID
+
 **Description**:
 The raw markdown a task carries, in `tasks.description`. The column holds text,
 and the page renders it. Tusker draws a small subset: code spans, links, bare
