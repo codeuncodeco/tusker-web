@@ -79,16 +79,15 @@ export function DragLists({
   );
 
   // The reload after a drop draws the order the server stored, so the held
-  // copy goes once the post is done. A post that has not started yet is not
-  // done, so the flag waits for it to start.
-  const flying = useRef(false);
+  // copy goes once the drop's post is done. A post that has not started yet
+  // is not done, so the drop waits for it to start. A page's keys post on the
+  // same fetcher, and a post the drop did not make clears nothing: it would
+  // snap a drag back mid-way.
+  const drop = useRef<"none" | "sent" | "flying">("none");
   useEffect(() => {
-    if (busy) {
-      flying.current = true;
-      return;
-    }
-    if (!flying.current) return;
-    flying.current = false;
+    if (busy && drop.current === "sent") drop.current = "flying";
+    if (busy || drop.current !== "flying") return;
+    drop.current = "none";
     setHeld(null);
   }, [busy]);
 
@@ -119,6 +118,7 @@ export function DragLists({
       return setHeld(null);
     }
     setHeld(ended);
+    drop.current = "sent";
     onDrop({ id: card, list, order });
   }
 

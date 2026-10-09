@@ -86,7 +86,7 @@ export function UnifiedList({
 
   // Only the ranked rows drag: they are the order the person owns. A list
   // with no such group holds nothing to drag.
-  const dragged = drags && ordered !== null ? ordered : null;
+  const dragGroup = drags && ordered !== null ? ordered : null;
   const tasks = new Map(rows.map((one) => [one.id, one]));
 
   /** A drop names the row it lands above, or none for the foot. */
@@ -97,7 +97,7 @@ export function UnifiedList({
 
   return (
     <DragLists
-      lists={dragged === null ? {} : { [dragged]: ranked.map((one) => one.id) }}
+      lists={dragGroup === null ? {} : { [dragGroup]: ranked.map((one) => one.id) }}
       onDrop={onDrop}
       busy={post.state !== "idle"}
       overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
@@ -105,16 +105,16 @@ export function UnifiedList({
       {(shown) => (
         <div ref={list} className="flex flex-col gap-6">
           {groups.map((group) => {
-            const drags = group.key === dragged;
+            const dragsHere = group.key === dragGroup;
             // A ranked group draws its rows in the order the drag holds, and
             // the rows no order ranks after them, where they always sit.
-            const drawn = drags
+            const drawn = dragsHere
               ? [
                   ...shown[group.key].flatMap((id) => tasks.get(id) ?? []),
                   ...group.tasks.filter((one) => !ranked.includes(one)),
                 ]
               : group.tasks;
-            const order = drags ? drawn.filter((one) => ranked.includes(one)) : ranked;
+            const order = dragsHere ? drawn.filter((one) => ranked.includes(one)) : ranked;
             return (
               <section key={group.key} className="flex flex-col gap-2">
                 <h2 className="font-mono uppercase tracking-wide text-muted">
@@ -125,7 +125,7 @@ export function UnifiedList({
                     this, outside every keyed list. */}
                 <DropList
                   id={group.key}
-                  ids={drags ? shown[group.key] : []}
+                  ids={dragsHere ? shown[group.key] : []}
                   props={keyed(`${label(group)} tasks`)}
                   className="flex flex-col gap-2"
                 >
@@ -140,7 +140,7 @@ export function UnifiedList({
                       domId={`row-${task.id}`}
                       place={() => setOn(task.id)}
                       moves={movesFor(order, task)}
-                      drags={drags && ranked.includes(task)}
+                      drags={dragsHere && ranked.includes(task)}
                     />
                   ))}
                 </DropList>

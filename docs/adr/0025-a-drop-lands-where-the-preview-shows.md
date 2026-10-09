@@ -49,6 +49,13 @@ with the row it lands above, or none for the foot. It goes through the route
 the steps use, and a day read back refuses it as it refuses a step. The shelf
 below the plan does not drag: its order is not the plan's.
 
+A key names the card and the way and never a place, because the page's copy of
+the order is one load old (`CONTEXT.md`, "Card keys"). A drop does name a
+place, from that same copy. That is the point of a drop: it says "above this
+card", and the card is the one the person saw. A held key would post the same
+place twice, but a drop is one gesture, so it posts once. A neighbour the
+order no longer holds names the foot.
+
 A drop into Done still finishes the task and raises the decision prompt for a
 marked task, as the select and the keys do.
 
