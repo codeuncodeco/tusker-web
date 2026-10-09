@@ -29,12 +29,12 @@ export function TaskTitle({
   finished: boolean;
 }) {
   const post = usePost({ flushSync: true });
-  const number = <span className="shrink-0 font-mono text-dim">{taskLabel(id)}</span>;
+  const label = <span className="shrink-0 font-mono text-dim">{taskLabel(id)}</span>;
 
   if (finished) {
     return (
       <h1 className="flex items-baseline gap-3 text-2xl tracking-tight">
-        {number}
+        {label}
         <span className="min-w-0">{title}</span>
       </h1>
     );
@@ -42,7 +42,7 @@ export function TaskTitle({
 
   return (
     <h1 className="flex items-baseline gap-3 text-2xl tracking-tight">
-      {number}
+      {label}
       <SavedInput
         name="title"
         form={TASK_FORM}
