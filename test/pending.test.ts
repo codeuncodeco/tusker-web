@@ -5,7 +5,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { addsSent, boardSent, failureText, tasksSent, tickedSent } from "../app/pending";
+import {
+  addsSent,
+  boardSent,
+  failureText,
+  taskSent,
+  tasksSent,
+  tickedSent,
+} from "../app/pending";
 import type { LiveTask } from "../app/unified";
 
 /** One post, as a fetcher holds it while it is in flight. */
@@ -239,6 +246,56 @@ describe("a description box, while its ticks are in flight", () => {
 
   it("reads only the ticks of its own box", () => {
     expect(tickedSent(true, 0, [sent({ intent: "tick", box: "1" })])).toBe(true);
+  });
+});
+
+describe("the task page, while its controls post", () => {
+  const held = {
+    title: "Pack",
+    status: "todo" as const,
+    due_date: "2026-12-01",
+    decides: true,
+    data: { client: "Acme", kind: "Bug" },
+    assignees: ["ada"],
+  };
+
+  it("draws what the server said when nothing is in flight", () => {
+    expect(taskSent(held, [])).toEqual(held);
+  });
+
+  it("draws each control's posted value at once, and leaves the others", () => {
+    expect(
+      taskSent(held, [
+        sent({ intent: "title", title: " Pack the tent " }),
+        sent({ intent: "status", status: "in_progress" }),
+        sent({ intent: "due", due_date: "" }),
+        sent({ intent: "mark", decides: "0" }),
+        sent({ intent: "field", key: "kind", "field.kind": "Chore" }),
+        sent({ intent: "field", key: "client", "field.client": "" }),
+      ]),
+    ).toEqual({
+      ...held,
+      title: "Pack the tent",
+      status: "in_progress",
+      due_date: null,
+      decides: false,
+      data: { kind: "Chore" },
+    });
+  });
+
+  it("draws one tick per assignee, the later post over the earlier", () => {
+    expect(
+      taskSent(held, [
+        sent({ intent: "assign", assignee: "grace", held: "1" }),
+        sent({ intent: "assign", assignee: "ada", held: "0" }),
+        sent({ intent: "assign", assignee: "bo", held: "1" }),
+        sent({ intent: "assign", assignee: "bo", held: "0" }),
+      ]).assignees,
+    ).toEqual(["grace"]);
+  });
+
+  it("reads a post of another page's kind as nothing", () => {
+    expect(taskSent(held, [sent({ intent: "tick", box: "0" })])).toEqual(held);
   });
 });
 

@@ -129,8 +129,11 @@ the Nth box on screen is always the Nth toggleable line.
 _Avoid_: Subtask, task list item, todo
 
 **Description box**:
-The control that edits a description: a read view with an Edit button, and an
-uncontrolled textarea that opens in its place and takes focus. Leaving the box
+The control that edits a description: a read view, and an uncontrolled
+textarea that opens in its place and takes focus. A click on the text opens
+it, and so does `E`; a click on a checkbox ticks and a click on a link follows,
+and neither opens it. An empty description draws "Add a description…" in its
+place. With no script it is a plain textarea of the raw text. Leaving the box
 saves the whole text: Done, or Escape, or a click away. Tab indents, so Tab is
 not the way out. The textarea is uncontrolled because the keys write the
 text and move the caret in place, and a re-render mid-edit loses the caret.
@@ -400,6 +403,13 @@ another site is dropped, and a task opened from nowhere goes back to the org's
 board. It rides in the URL and not in a cookie, so a reload keeps it and two
 tabs cannot fight over it.
 _Avoid_: Referrer, back stack, return URL, here
+
+**Task aside**:
+The pane beside a task that holds its properties and its acts — the status,
+the due date, the assignees, the org's fields, the decision mark, and Finish,
+Reopen, Archive and Restore; on a phone it is a drawer opened from a bar at the
+foot of the page; the task page and the task popup draw the same aside.
+_Avoid_: Sidebar, metadata panel
 
 **Board**:
 A page that draws tasks as one column per status. Tusker has one board, and
