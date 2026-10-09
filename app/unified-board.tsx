@@ -4,17 +4,20 @@
  *
  * A person who learns the org board meets the same page across all of them.
  * The layout is the org board's; the order is the unified sort, and it is
- * derived: no card is dragged into a place and no card steps. See ADR-0006,
+ * derived: no card steps. See ADR-0006,
  * "One order per column".
  *
  * A card still moves by drag, and the drag draws where it will land. The drop
  * writes the column and a place inside the card's own org, and percentile
  * order then draws the card, which can sit a little away from the drop.
  * See ADR-0025, which amends ADR-0015.
+ *
+ * The board has one quick-add box, above the columns and outside every one,
+ * and what it adds lands in To do. A task meant for another column is added
+ * and then moved.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useFetcher } from "react-router";
 
 import { isFinished, type Status } from "./board";
 import { ColumnSweep } from "./column-sweep";
@@ -23,29 +26,46 @@ import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
 import type { OrgHeld } from "./current-org";
 import type { Assignee } from "./assignees";
 import { useLocalDay } from "./local-day";
-import type { Column } from "./unified";
+import { addsSent, tasksSent, usePost, useSent } from "./pending";
+import { PendingAdds } from "./pending-adds";
+import { columnsFor, type Column } from "./unified";
 import { UnifiedAdd } from "./unified-add";
 import { UnifiedCard } from "./unified-card";
 import { NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
 import { moveFields } from "./unified-row";
 
 export function UnifiedBoard({
-  columns,
+  columns: answered,
   orgs,
   members,
-  planned,
+  planned: picked,
   day,
 }: {
   columns: Column[];
-  /** Every org the person belongs to, for the org picker on every box. */
+  /** Every org the person belongs to, for the org picker on the box. */
   orgs: OrgHeld[];
-  /** The members of every team org, for the assignee picker on every box. */
+  /** The members of every team org, for the assignee picker on the box. */
   members: Record<string, Assignee[]>;
   /** The task ids the day's plan holds, which turn Plan into Unplan. */
   planned: Set<string>;
   day: string;
 }) {
-  const post = useFetcher();
+  // The board as the server holds it, with every post still in flight laid
+  // over it: a moved card in its new column and a pick already picked, so a
+  // second `p` on the same card reads the first. See #168.
+  const sent = useSent();
+  const drawn = tasksSent(
+    answered.flatMap((column) => column.tasks),
+    [...picked],
+    sent,
+  );
+  const columns = columnsFor(
+    drawn.tasks,
+    answered.map((column) => column.status),
+  );
+  const planned = new Set(drawn.picked);
+  // A post per press, so every press of a burst is drawn.
+  const post = usePost();
   const [on, setOn] = useState<string | null>(null);
   // The name of every org, for the archive links the swept toast carries. It
   // is made once, because the sweep re-binds its effect on a new object.
@@ -76,7 +96,7 @@ export function UnifiedBoard({
     acts: NO_STEP_ACTS,
     on: cursor,
     setOn,
-    act: (fields) => post.submit(fields, { method: "post" }),
+    act: post,
     columns: columns.map((column) => column.tasks.map((task) => task.id)),
   });
 
@@ -99,7 +119,7 @@ export function UnifiedBoard({
     if (!dragged) return;
     const before = landingInOrg(order, id, (one) => tasks.get(one)?.org.slug);
     setOn(id);
-    post.submit(moveFields(dragged, list as Status, before), { method: "post" });
+    post(moveFields(dragged, list as Status, before));
   }
 
   // The cursor follows the keys down a column longer than the window.
@@ -108,84 +128,79 @@ export function UnifiedBoard({
   }, [cursor]);
 
   return (
-    <DragLists
-      lists={Object.fromEntries(
-        columns.map((column) => [column.status, column.tasks.map((one) => one.id)]),
-      )}
-      onDrop={onDrop}
-      busy={post.state !== "idle"}
-      overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
-    >
-      {(shown) => (
-        // The row holds still, and each column scrolls inside itself.
-        <div ref={board} className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0">
-          {columns.map((column) => {
-            const drawn = shown[column.status].flatMap((id) => tasks.get(id) ?? []);
-            return (
-              <section
-                key={column.status}
-                // Every column takes an equal share of the width, down to the
-                // width it always had. Past that the row scrolls sideways.
-                className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
-              >
-                <div className="flex items-baseline gap-3">
-                  <h2 className="font-mono uppercase tracking-wide text-muted">
-                    {column.label} <span className="text-dim">{column.tasks.length}</span>
-                  </h2>
-                  {/* The sweep acts on the whole column, so it is column chrome,
-                      and it sits with the name and the count as it does on the
-                      org board. A column of this board holds cards of several
-                      orgs, so each card names the org that holds it, and the
-                      toast links to the archive of every org the sweep touched.
-                      See ADR-0019. */}
-                  {isFinished(column.status) ? (
-                    <ColumnSweep
-                      label={column.label}
-                      cards={column.tasks.map((task) => ({ id: task.id, slug: task.org.slug }))}
-                      undoAt="/me"
-                      names={names}
-                    />
-                  ) : null}
-                </div>
+    <>
+      {/* One box for the board, outside every keyed list, so no press of a
+          typed word is ever the page's. The picker starts at the personal org
+          every time. See ADR-0012. */}
+      <UnifiedAdd orgs={orgs} members={members} label="Add to To do" bare />
 
-                {/* One box per column, and the column names the status. The
-                    picker starts at the personal org every time. See ADR-0012. */}
-                <UnifiedAdd
-                  orgs={orgs}
-                  members={members}
-                  status={column.status}
-                  label={`Add to ${column.label}`}
-                  // One key names one box, and To do is where an add goes by hand.
-                  addKey={column.status === "todo"}
-                />
-
-                {/* The heading and the box stay pinned, and only this scrolls.
-                    The gutter is reserved, so a full column is as wide as an
-                    empty one, which is the point of the equal split. */}
-                {/* The cards and nothing else: the box above is outside every
-                    keyed list, so no press of a typed word is ever the page's. */}
-                <DropList
-                  id={column.status}
-                  ids={drawn.map((one) => one.id)}
-                  props={keyed(`${column.label} tasks`)}
-                  className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+      <DragLists
+        lists={Object.fromEntries(
+          columns.map((column) => [column.status, column.tasks.map((one) => one.id)]),
+        )}
+        onDrop={onDrop}
+        overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
+      >
+        {(shown) => (
+          // The row holds still, and each column scrolls inside itself.
+          <div ref={board} className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0">
+            {columns.map((column) => {
+              const cards = shown[column.status].flatMap((id) => tasks.get(id) ?? []);
+              return (
+                <section
+                  key={column.status}
+                  // Every column takes an equal share of the width, down to the
+                  // width it always had. Past that the row scrolls sideways.
+                  className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
                 >
-                  {drawn.map((task, at) => (
-                    <UnifiedCard
-                      key={task.id}
-                      task={task}
-                      rank={at + 1}
-                      selected={cursor === task.id}
-                      domId={`card-${task.id}`}
-                      place={() => setOn(task.id)}
-                    />
-                  ))}
-                </DropList>
-              </section>
-            );
-          })}
-        </div>
-      )}
-    </DragLists>
+                  <div className="flex items-baseline gap-3">
+                    <h2 className="font-mono uppercase tracking-wide text-muted">
+                      {column.label} <span className="text-dim">{column.tasks.length}</span>
+                    </h2>
+                    {/* The sweep acts on the whole column, so it is column chrome,
+                        and it sits with the name and the count as it does on the
+                        org board. A column of this board holds cards of several
+                        orgs, so each card names the org that holds it, and the
+                        toast links to the archive of every org the sweep touched.
+                        See ADR-0019. */}
+                    {isFinished(column.status) ? (
+                      <ColumnSweep
+                        label={column.label}
+                        cards={column.tasks.map((task) => ({ id: task.id, slug: task.org.slug }))}
+                        undoAt="/me"
+                        names={names}
+                      />
+                    ) : null}
+                  </div>
+
+                  {/* The heading stays pinned, and only this scrolls. The gutter
+                      is reserved, so a full column is as wide as an empty one,
+                      which is the point of the equal split. */}
+                  <DropList
+                    id={column.status}
+                    ids={cards.map((one) => one.id)}
+                    props={keyed(`${column.label} tasks`)}
+                    className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+                  >
+                    {/* The box files into To do, so an add in flight draws there. */}
+                    {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
+                    {cards.map((task, at) => (
+                      <UnifiedCard
+                        key={task.id}
+                        task={task}
+                        rank={at + 1}
+                        selected={cursor === task.id}
+                        domId={`card-${task.id}`}
+                        place={() => setOn(task.id)}
+                      />
+                    ))}
+                  </DropList>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </DragLists>
+    </>
   );
 }

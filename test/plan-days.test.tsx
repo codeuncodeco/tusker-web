@@ -44,6 +44,7 @@ function page(some: { day?: string; prev?: string; next?: string; canPlan?: bool
     next: some.next ?? "2026-09-02",
     groups: [{ key: "today" as const, label: "Today", tasks: [TASK] }],
     planned: ["a"],
+    weekSet: ["a"],
     ask: null,
   };
   const props = { loaderData } as unknown as React.ComponentProps<typeof Plan>;

@@ -45,7 +45,7 @@ export const BOARD_ARROWS = [...LIST_ARROWS, "ArrowLeft", "ArrowRight"] as const
  * box `n` moves the focus to.
  *
  * The two are drawn by components that never meet — a route puts the box above
- * the list, and a board puts one on every column — so the surface is where
+ * the list, and a board puts it above its columns — so the surface is where
  * they find each other. The box is kept as its own ref and not as the element,
  * so the surface always reads the box that is on screen now.
  */

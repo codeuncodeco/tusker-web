@@ -8,11 +8,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useFetcher } from "react-router";
 
 import { landing } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
 import { useLocalDay } from "./local-day";
+import { usePost } from "./pending";
+import { PendingAdds } from "./pending-adds";
 import type { Group, GroupKey, LiveTask } from "./unified";
 import { ALL_ACTS, NO_STEP_ACTS, READ_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
@@ -27,6 +28,8 @@ export function UnifiedList({
   label = (group) => group.label,
   verbs = PLAN_VERBS,
   drags = false,
+  adds = [],
+  addsAt = "bottom",
 }: {
   groups: Group[];
   /** The task ids the page's list holds, which turn the pick verb over. */
@@ -51,8 +54,15 @@ export function UnifiedList({
    * See ADR-0025.
    */
   drags?: boolean;
+  /**
+   * The titles an add in flight will make. An add is a pick, so they draw in
+   * the ordered group, at the end the page's picks land on. See #168.
+   */
+  adds?: string[];
+  addsAt?: "top" | "bottom";
 }) {
-  const post = useFetcher();
+  // A post per press, so every press of a burst is drawn.
+  const post = usePost();
   const [on, setOn] = useState<string | null>(null);
   const list = useRef<HTMLDivElement>(null);
 
@@ -75,7 +85,7 @@ export function UnifiedList({
     acts,
     on: cursor,
     setOn,
-    act: (fields) => post.submit(fields, { method: "post" }),
+    act: post,
     ranked: new Set(ranked.map((one) => one.id)),
   });
 
@@ -92,14 +102,13 @@ export function UnifiedList({
   /** A drop names the row it lands above, or none for the foot. */
   function onDrop({ id, order }: Drop) {
     setOn(id);
-    post.submit({ intent: "place", id, before: landing(order, id) ?? "" }, { method: "post" });
+    post({ intent: "place", id, before: landing(order, id) ?? "" });
   }
 
   return (
     <DragLists
       lists={dragGroup === null ? {} : { [dragGroup]: ranked.map((one) => one.id) }}
       onDrop={onDrop}
-      busy={post.state !== "idle"}
       overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
     >
       {(shown) => (
@@ -129,6 +138,7 @@ export function UnifiedList({
                   props={keyed(`${label(group)} tasks`)}
                   className="flex flex-col gap-2"
                 >
+                  {group.key === ordered && addsAt === "top" ? <PendingAdds titles={adds} /> : null}
                   {drawn.map((task) => (
                     <UnifiedRow
                       key={task.id}
@@ -143,6 +153,9 @@ export function UnifiedList({
                       drags={dragsHere && ranked.includes(task)}
                     />
                   ))}
+                  {group.key === ordered && addsAt === "bottom" ? (
+                    <PendingAdds titles={adds} />
+                  ) : null}
                 </DropList>
               </section>
             );

@@ -43,6 +43,7 @@ import {
 } from "react";
 
 import { crossOver, listOf, settle, type Lists } from "./drag";
+import { useSent } from "./pending";
 
 /** One drop: the card, the list it landed in, and that list's new order. */
 export type Drop = { id: string; list: string; order: string[] };
@@ -50,18 +51,17 @@ export type Drop = { id: string; list: string; order: string[] };
 export function DragLists({
   lists,
   onDrop,
-  busy,
   overlay,
   children,
 }: {
   /** The ids the page draws, by list. */
   lists: Lists;
-  onDrop: (drop: Drop) => void;
   /**
-   * True while the drop's post is in flight. The page keeps the dropped order
-   * until the post comes back, so the card does not jump home and back.
+   * Posts the drop. The page lays the post over its lists while it is in
+   * flight, so the card draws where it landed before the server answers.
+   * See #168.
    */
-  busy: boolean;
+  onDrop: (drop: Drop) => void;
   /** What follows the pointer: a copy of the card being dragged. */
   overlay: (id: string) => ReactNode;
   /** Draws the lists, in the order the drag has them now. */
@@ -69,8 +69,8 @@ export function DragLists({
 }) {
   const id = useId();
   const [active, setActive] = useState<string | null>(null);
-  // The lists while a drag is under way, and after a drop until its post comes
-  // back. Null is the page's own lists.
+  // The lists while a drag is under way, and after a drop until the page draws
+  // the post. Null is the page's own lists.
   const [held, setHeld] = useState<Lists | null>(null);
 
   const sensors = useSensors(
@@ -78,22 +78,27 @@ export function DragLists({
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
   );
 
-  // The reload after a drop draws the order the server stored, so the held
-  // copy goes once the drop's post is done. A post that has not started yet
-  // is not done, so the drop waits for it to start. A page's keys post on the
-  // same fetcher, and a post the drop did not make clears nothing: it would
-  // snap a drag back mid-way.
-  const drop = useRef<"none" | "sent" | "flying">("none");
+  // After a drop the held copy stays until the page draws the post, so the
+  // card does not jump home and back: the lists the page hands in change once
+  // the post is laid over them. A post the server refuses may change nothing,
+  // so the copy also goes once no post is in flight. A drag under way is never
+  // let go of here: a key posts while it runs, and that is not the drop's post.
+  const sent = useSent().length;
+  const shape = JSON.stringify(lists);
+  const drop = useRef<{ shape: string; flying: boolean } | null>(null);
   useEffect(() => {
-    if (busy && drop.current === "sent") drop.current = "flying";
-    if (busy || drop.current !== "flying") return;
-    drop.current = "none";
+    const waiting = drop.current;
+    if (!waiting) return;
+    if (sent > 0) waiting.flying = true;
+    if (shape === waiting.shape && (sent > 0 || !waiting.flying)) return;
+    drop.current = null;
     setHeld(null);
-  }, [busy]);
+  }, [shape, sent]);
 
   const shown = held ?? lists;
 
   function onDragStart(event: DragStartEvent) {
+    drop.current = null;
     setActive(String(event.active.id));
     setHeld(lists);
   }
@@ -118,7 +123,7 @@ export function DragLists({
       return setHeld(null);
     }
     setHeld(ended);
-    drop.current = "sent";
+    drop.current = { shape, flying: false };
     onDrop({ id: card, list, order });
   }
 

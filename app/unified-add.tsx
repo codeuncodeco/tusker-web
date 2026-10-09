@@ -1,15 +1,15 @@
 /**
  * The quick-add box the cross-org pages carry.
  *
- * The org board's box needs no org: the org is the page, and the column is the
- * only choice left. A cross-org page holds no org, so the box names one. It
- * starts at the personal org every time, and a team org draws a chip for as
- * long as the box holds it, because the placeholder goes away at the first
- * keystroke, which is when the risk starts. See ADR-0012.
+ * The org board's box needs no org: the org is the page. A cross-org page
+ * holds no org, so the box names one. It starts at the personal org every
+ * time, and a team org draws a chip for as long as the box holds it, because
+ * the placeholder goes away at the first keystroke, which is when the risk
+ * starts. See ADR-0012.
  *
- * The unified board puts one of these on every column, and the column names
- * the status. Plan mode puts one at the top and names none: an add there is a
- * pick, and a pick is live work.
+ * The unified board puts one above its columns, and what it adds lands in To
+ * do. Plan mode puts one at the top: an add there is a pick, and a pick is live
+ * work. Neither names a status.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -18,11 +18,10 @@ import { useFetcher } from "react-router";
 import { useAddingTo } from "./adding";
 import { AssigneePicker } from "./assignee-picker";
 import type { Assignee } from "./assignees";
-import type { Status } from "./board";
 import type { OrgHeld } from "./current-org";
 import { smallFieldClass } from "./forms";
 import { OrgChip } from "./org-chip";
-import { QuickAddBox, useAddKey, useQuickAddDraft } from "./quick-add";
+import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
 
@@ -33,15 +32,13 @@ type Answer = Exclude<Acted, Response>;
  * The box, or nothing for a person who belongs to no org at all.
  *
  * `n` focuses the title and Escape gives the list its keys back, so the page
- * stays keyboard first with a text box on it. A page with several boxes gives
- * the key to one of them, because one key names one box.
+ * stays keyboard first with a text box on it.
  */
 export function UnifiedAdd({
   orgs,
   members,
-  status,
   label = "Add a task",
-  addKey = true,
+  bare = false,
 }: {
   orgs: OrgHeld[];
   /**
@@ -50,12 +47,10 @@ export function UnifiedAdd({
    * runs between. A personal org is not keyed and draws no picker.
    */
   members: Record<string, Assignee[]>;
-  /** The column the box files into, where the page draws one per column. */
-  status?: Status;
   /** What the empty box says, and what a screen reader reads. */
   label?: string;
-  /** True for the one box on the page that `n` focuses. */
-  addKey?: boolean;
+  /** True on a board, where the box reads as a field and not as a card. */
+  bare?: boolean;
 }) {
   const add = useFetcher<Answer>();
   const undo = useFetcher();
@@ -78,15 +73,16 @@ export function UnifiedAdd({
   const answer = add.data;
   const error = answer && "error" in answer ? answer.error : null;
 
-  // An add empties the box and raises the undo line. The pick stays: a person
-  // adding a second task to a team org named it once.
+  // An add empties the box as it is posted, and its answer raises the undo
+  // line. The pick stays: a person adding a second task to a team org named it
+  // once.
+  useSendDraft(add, draft);
   useEffect(() => {
     if (add.state !== "idle" || !answer || !("added" in answer)) return;
     setLast(answer.added);
-    draft.clear();
-  }, [add.state, answer, draft.clear]);
+  }, [add.state, answer]);
 
-  useAddKey(box, addKey);
+  useAddKey(box);
 
   // An assignee id belongs to one org's membership, so a set carried across a
   // pick would name people the new org does not hold. The undo resets the pick
@@ -132,24 +128,21 @@ export function UnifiedAdd({
     <section className="flex flex-col gap-2">
       <QuickAddBox
         form={add.Form}
+      busy={add.state !== "idle"}
         label={label}
         draft={draft}
         error={error}
         titleRef={box}
+        bare={bare}
         // Escape leaves the box, and the list gets `j`, `k` and the rest back.
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
           (event.target as HTMLElement).blur();
         }}
         fields={
-          <>
-            {/* The column the box sits on, where the page draws one per
-                column. Plan mode names none, and the add lands in To do. */}
-            {status ? <input type="hidden" name="status" value={status} /> : null}
-            {/* A person with only their personal org has no choice to make, so
-                the org is a hidden field rather than a picker. */}
-            {orgs.length > 1 ? null : <input type="hidden" name="slug" value={personal.slug} />}
-          </>
+          /* A person with only their personal org has no choice to make, so
+             the org is a hidden field rather than a picker. */
+          orgs.length > 1 ? null : <input type="hidden" name="slug" value={personal.slug} />
         }
         chip={
           /* The chip that names a team org, because a task filed in one is on

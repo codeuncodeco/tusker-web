@@ -1,6 +1,7 @@
-import { useFetcher } from "react-router";
+import { Form } from "react-router";
 
 import { descriptionBlocks, type DescriptionBlock } from "./description";
+import { tickedSent, usePost, useSent } from "./pending";
 
 /**
  * A task description, read-only, with live checkboxes.
@@ -59,25 +60,24 @@ function Block({ block }: { block: DescriptionBlock }) {
  * raw text: the number is what stops a tick from writing a stale copy of a
  * description over a newer one.
  *
- * `ticked` says what the person just drew. The server ignores it, and the box
- * reads it while the post is in flight, because a checkbox that snaps back for
- * half a second reads as one that did not work.
+ * Each tick posts on a fetcher of its own, and the box draws the ticks still in
+ * flight over what the loader said. A checkbox that snaps back for half a
+ * second reads as one that did not work, and a second tick must not drop the
+ * first. See `app/pending.ts`.
  */
 function CheckLine({ block }: { block: Extract<DescriptionBlock, { kind: "check" }> }) {
-  const tick = useFetcher();
-  const sent = tick.formData?.get("ticked");
-  const checked = sent === undefined || sent === null ? block.checked : sent === "1";
+  const post = usePost();
+  const checked = tickedSent(block.checked, block.box, useSent());
 
   return (
-    <tick.Form method="post" style={nested(block.indent)}>
+    <Form method="post" navigate={false} style={nested(block.indent)}>
       <input type="hidden" name="intent" value="tick" />
       <input type="hidden" name="box" value={block.box} />
-      <input type="hidden" name="ticked" value={block.checked ? "0" : "1"} />
       <label className="flex items-baseline gap-2">
         <input
           type="checkbox"
           checked={checked}
-          onChange={(event) => tick.submit(event.currentTarget.form)}
+          onChange={() => post({ intent: "tick", box: String(block.box) })}
         />
         <span
           className={checked ? "text-muted line-through" : ""}
@@ -87,7 +87,7 @@ function CheckLine({ block }: { block: Extract<DescriptionBlock, { kind: "check"
       </label>
       {/* The submit the box needs when no script runs. */}
       <button className="sr-only">Tick</button>
-    </tick.Form>
+    </Form>
   );
 }
 
