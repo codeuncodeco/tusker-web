@@ -31,16 +31,15 @@ import { useSurface } from "./keyed-list";
  * title. So the box says it is this surface's, and the list moves the focus to
  * it while the list holds the focus. See ADR-0022.
  */
-export function useAddKey(box: RefObject<HTMLTextAreaElement | null>, bound: boolean) {
+export function useAddKey(box: RefObject<HTMLTextAreaElement | null>) {
   const surface = useSurface();
 
   useEffect(() => {
-    if (!bound) return;
     surface.box.current = box;
     return () => {
       if (surface.box.current === box) surface.box.current = null;
     };
-  }, [box, bound, surface]);
+  }, [box, surface]);
 }
 
 /** The form a fetcher draws. It is the same shape whatever the fetcher answers. */

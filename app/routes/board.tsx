@@ -13,6 +13,7 @@ import { Link, useFetcher } from "react-router";
 
 import {
   BOARD_TOGGLES,
+  addStatus,
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
@@ -175,9 +176,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const intent = String(form.get("intent") ?? "");
 
   if (intent === "create") {
-    // The board's box names no column, so what it adds lands in To do. A post
-    // that names one still files there, as it does on the unified board.
-    const status = form.get("status") === null ? "todo" : readStatus(form);
+    const status = addStatus(form);
     const typed = newTasksFrom(form);
     if ("error" in typed) return typed;
     // The ids are checked before anything is written, so an add naming a
@@ -272,7 +271,7 @@ function QuickAdd({
   const { clear } = draft;
   const box = useRef<HTMLTextAreaElement>(null);
 
-  useAddKey(box, true);
+  useAddKey(box);
 
   useEffect(() => {
     if (add.state !== "idle" || !add.data || !("ok" in add.data)) return;

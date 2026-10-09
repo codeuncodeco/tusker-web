@@ -1,10 +1,11 @@
 /**
  * The quick-add box the cross-org pages carry.
  *
- * The org board's box needs no org: the org is the page. A cross-org page holds no org, so the box names one. It
- * starts at the personal org every time, and a team org draws a chip for as
- * long as the box holds it, because the placeholder goes away at the first
- * keystroke, which is when the risk starts. See ADR-0012.
+ * The org board's box needs no org: the org is the page. A cross-org page
+ * holds no org, so the box names one. It starts at the personal org every
+ * time, and a team org draws a chip for as long as the box holds it, because
+ * the placeholder goes away at the first keystroke, which is when the risk
+ * starts. See ADR-0012.
  *
  * The unified board puts one above its columns, and what it adds lands in To
  * do. Plan mode puts one at the top: an add there is a pick, and a pick is live
@@ -80,7 +81,7 @@ export function UnifiedAdd({
     draft.clear();
   }, [add.state, answer, draft.clear]);
 
-  useAddKey(box, true);
+  useAddKey(box);
 
   // An assignee id belongs to one org's membership, so a set carried across a
   // pick would name people the new org does not hold. The undo resets the pick

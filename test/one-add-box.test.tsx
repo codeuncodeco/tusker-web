@@ -13,7 +13,7 @@ import Board from "../app/routes/board";
 import type { Status } from "../app/board";
 import { UnifiedBoard } from "../app/unified-board";
 
-const STATUSES: { status: Status; label: string }[] = [
+const COLUMNS: { status: Status; label: string }[] = [
   { status: "backlog", label: "Backlog" },
   { status: "todo", label: "To do" },
   { status: "in_progress", label: "In progress" },
@@ -25,7 +25,7 @@ const STATUSES: { status: Status; label: string }[] = [
 function orgBoard(): string {
   const loaderData = {
     org: { slug: "acme", name: "Acme" },
-    columns: STATUSES.map((one) => ({ ...one, tasks: [] })),
+    columns: COLUMNS.map((one) => ({ ...one, tasks: [] })),
     members: [],
     ask: null,
     toggles: { backlog: true, cancelled: true },
@@ -51,7 +51,7 @@ function unifiedBoard(): string {
       path: "/me",
       Component: () => (
         <UnifiedBoard
-          columns={STATUSES.map((one) => ({ ...one, tasks: [] }))}
+          columns={COLUMNS.map((one) => ({ ...one, tasks: [] }))}
           orgs={orgs}
           members={{}}
           planned={new Set()}
