@@ -194,6 +194,7 @@ export function UnifiedBoard({
                         selected={cursor === task.id}
                         domId={`card-${task.id}`}
                         place={() => setOn(task.id)}
+                        named={orgs.length > 1}
                       />
                     ))}
                   </DropList>

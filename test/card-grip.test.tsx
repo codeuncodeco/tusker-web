@@ -75,7 +75,7 @@ describe("the grip", () => {
 
   it("is drawn on a unified board card, before the rank", () => {
     const html = markup(
-      <UnifiedCard task={live("a")} rank={3} selected={false} domId="c1" place={() => {}} />,
+      <UnifiedCard task={live("a")} rank={3} selected={false} domId="c1" place={() => {}} named />,
     );
 
     expect(grips(html)).toBe(1);
@@ -138,7 +138,7 @@ function lines(html: string): string[] {
 
 describe("the unified card's lines", () => {
   function card(task: LiveTask): string {
-    return markup(<UnifiedCard task={task} rank={1} selected={false} domId="c1" place={() => {}} />);
+    return markup(<UnifiedCard task={task} rank={1} selected={false} domId="c1" place={() => {}} named />);
   }
 
   it("are the title line and the org chip's line when the task has no fields and no due date", () => {

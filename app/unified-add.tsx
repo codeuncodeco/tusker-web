@@ -196,7 +196,8 @@ export function UnifiedAdd({
       {last ? (
         <UndoLine
           added={last}
-          org={orgs.find((org) => org.slug === last.slug)?.name ?? last.slug}
+          // A person in one org has no other org to mistake it for.
+          org={several ? (orgs.find((org) => org.slug === last.slug)?.name ?? last.slug) : null}
           undo={refile}
           dismiss={() => setLast(null)}
         />
@@ -210,15 +211,18 @@ export function UnifiedAdd({
  * pasted list is one act with several rows in it. It has no timer: it stays
  * until the next add, the dismiss, or the end of the page.
  */
-function UndoLine({
+export function UndoLine({
   added,
   org,
   undo,
   dismiss,
 }: {
   added: Added;
-  /** The org the task landed in, named as a person reads it. */
-  org: string;
+  /**
+   * The org the task landed in, named as a person reads it, or null for a
+   * person in one org, who has no other to mistake it for.
+   */
+  org: string | null;
   undo: (one: Added) => void;
   dismiss: () => void;
 }) {
@@ -228,7 +232,8 @@ function UndoLine({
       className="flex items-center gap-3 text-muted"
     >
       <span className="grow">
-        {added.ids.length === 1 ? "Added" : `Added ${added.ids.length} tasks`} to {org}
+        {added.ids.length === 1 ? "Added" : `Added ${added.ids.length} tasks`}
+        {org === null ? null : ` to ${org}`}
       </span>
       <button type="button" onClick={() => undo(added)} className="underline">
         Undo
