@@ -1,5 +1,8 @@
 # A cross-org add starts personal
 
+The org the picker starts at is superseded by ADR-0024: there is no personal
+org, and the picker starts with no org picked.
+
 `/me` is one person's tasks across every org they belong to. A task belongs to
 one org and never to two, so a quick-add box on that page must name an org that
 the page itself does not hold. The board has no such problem: the org is the

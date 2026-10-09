@@ -10,18 +10,38 @@ person one list across all of them.
 
 **Org**:
 A boundary that owns tasks and decides who can read them. A person belongs to
-many orgs. Every org row carries an `org_id`.
-_Avoid_: Workspace, team, tenant, account
+many orgs. Every org row carries an `org_id`. There is one kind of org. Tusker
+makes none at signup: a person makes their own orgs or is invited into one, and
+an org that holds only its maker is still an org like any other. Any person
+can make an org, from a page of its own, but nothing sends them there. A
+person who belongs to no org lands on the org directory instead.
+_Avoid_: Workspace, team, tenant, account, personal org
 
-**Personal org**:
-The org that Tusker creates for a person at signup, with that person as the only
-member. It is an org like any other. Only the label in the org switcher differs.
-_Avoid_: Personal space, private tasks
+**Org directory**:
+The page a person who belongs to no org lands on, and the only page that names
+an org to somebody outside it. It lists every org by name and colour, and from
+it the person sends a join request to one or more of them. It also names the
+instance owner, for a person whose org is not listed. A person who belongs to
+an org does not see it.
+_Avoid_: Org browser, explore orgs
+
+**Join request**:
+A person's ask to become a member of one org, sent from the org directory. It
+mails the org's owners and waits on the org's members page, where every
+member sees it and only an owner answers it. Approving it makes the person a member and mails them a link that
+signs them in. Declining it is silent, and it stays declined: the person cannot
+ask that org again, though the org can still invite them. While it waits, the
+person can withdraw it, from the directory or, once they belong to an org,
+from their account page. Approval by one org leaves the person's other join
+requests waiting. A person holds at most one join request per org, and becoming
+a member of that org, by either road, clears it, so being taken out later is
+not a decline. See ADR-0025.
+_Avoid_: Access request, application
 
 **Current org**:
 The org a person visited last, and the one the header names while they stand on
 a person page. A session cookie holds it, and every visit to an org page
-rewrites it. A person who has visited none yet has their personal org.
+rewrites it. A person who has visited none yet has the org they joined first.
 See ADR-0011.
 _Avoid_: Active org, selected org, org context
 
@@ -45,6 +65,12 @@ _Avoid_: Seat, collaborator
 One person's way in: an email, and a password or a mailed link. An account is
 not an org and not a client, so the word keeps that one meaning.
 _Avoid_: Login, profile, user record
+
+**Instance owner**:
+The account the bootstrap page made, the first account of a deploy. It is the
+person a newcomer is told to contact. It reads no org it is not a member of,
+because membership is still the only permission check.
+_Avoid_: Admin, superuser, app owner
 
 **Invitation**:
 How every account after the first is made. Tusker has no public signup, so a
@@ -384,14 +410,16 @@ _Avoid_: Unified view, my tasks page, global board
 **Quick-add box**:
 The box that makes a task from a typed title. On a board it sits at the top of a
 column, and the column names the status. On the unified board and in plan mode
-it carries an org picker, which starts at the personal org every time a
-person opens Tusker. A team org draws a chip that names it while the box holds
+it carries an org picker, which starts with no org picked every time a person
+opens Tusker, and the box refuses an add until one is picked. A person who
+belongs to one org has no org picker, and that org is implied. A person who
+belongs to several sees a chip that names the picked org while the box holds
 it. The decision mark is set here. The box also names the assignees, out of the
 members of the org it files into: the set starts empty, it stays across an add,
-and a change of org empties it. A personal org holds one member, so no box
-filing there draws the picker. The title is a textarea one line high: Enter
-posts and Shift+Enter makes a line, so a pasted list keeps its line breaks.
-See ADR-0012 and ADR-0013.
+and a change of org empties it. An org that holds one member has nobody else to
+name, so no box filing there draws the assignee picker. The title is a textarea
+one line high: Enter posts and Shift+Enter makes a line, so a pasted list keeps
+its line breaks. See ADR-0013 and ADR-0024.
 _Avoid_: Composer, capture box, new task form
 
 **Pasted list**:
@@ -408,9 +436,10 @@ _Avoid_: Bulk add, batch, import
 The line the quick-add box shows after it makes a task. It counts what the add
 made, deletes every row that add wrote, drops them all from the day's plan, and
 gives the box back the whole text as it was typed and the mark, with the picker
-reset to the personal org and the assignee set emptied with it, so a task typed
+reset to no org picked and the assignee set emptied with it, so a task typed
 into the wrong org is filed again rather than typed again. One add is one act,
-so its undo is one act. It is the only delete Tusker has. See ADR-0012.
+so its undo is one act. It is the only delete Tusker has. See ADR-0012 and
+ADR-0024.
 _Avoid_: Trash, revert
 
 **Week set**:
@@ -570,7 +599,8 @@ The select on the org board that narrows it to the tasks one member holds:
 and narrows nothing. A member answers for a task they hold among others, and
 `Unassigned` answers for a task nobody holds. It lives in the address, it joins
 the remembered narrowing, and it narrows what the Today chip and the search
-already left. A personal org carries no filter, because it draws no assignee.
+already left. An org that holds one member carries no filter, because it draws
+no assignee.
 The unified board carries none either: a member select there would name
 strangers. See ADR-0013 and ADR-0017.
 _Avoid_: My tasks toggle, owner filter
