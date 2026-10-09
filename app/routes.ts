@@ -25,6 +25,7 @@ export default [
     // planned. One file, because two lists that sort differently go wrong.
     route("me/plan/:day", "routes/me.plan.tsx", { id: "me-plan-day" }),
     route("account", "routes/account.tsx"),
+    route("orgs", "routes/orgs.tsx"),
     route("orgs/new", "routes/orgs.new.tsx"),
   ]),
 

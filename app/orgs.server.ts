@@ -335,18 +335,26 @@ export async function addMember(db: D1Database, orgId: string, email: string): P
   return addMemberById(db, orgId, person.id);
 }
 
-/** Adds an account Tusker holds the id of. Every new member lands as `member`. */
+/**
+ * Adds an account Tusker holds the id of. Every new member lands as `member`.
+ *
+ * Both roads in, an invitation and an approved join request, end here, so the
+ * person's join request to the org goes in the same batch, waiting or
+ * declined. Being taken out later is then not a decline. See ADR-0028.
+ */
 export async function addMemberById(
   db: D1Database,
   orgId: string,
   personId: string,
 ): Promise<Exclude<Added, "no-account">> {
-  const done = await db
-    .prepare("INSERT OR IGNORE INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
-    .bind(orgId, personId)
-    .run();
+  const [done] = await db.batch([
+    db
+      .prepare("INSERT OR IGNORE INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')")
+      .bind(orgId, personId),
+    db.prepare("DELETE FROM join_requests WHERE org_id = ? AND user_id = ?").bind(orgId, personId),
+  ]);
 
-  return done.meta.changes > 0 ? "added" : "already";
+  return done!.meta.changes > 0 ? "added" : "already";
 }
 
 
