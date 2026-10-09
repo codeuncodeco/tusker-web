@@ -127,29 +127,30 @@ describe("a move out of the finished columns", () => {
   });
 });
 
-describe("an edit to a finished task", () => {
-  it("does not change the stamp when the title is saved", async () => {
+describe("a finished task on its page", () => {
+  // A finished task is read on its page, not edited. A tick is the one write
+  // to its text the page still takes. See #164.
+  it("does not change the stamp when a box of the description is ticked", async () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "done");
+    await db.prepare("UPDATE tasks SET description = '- [ ] tidy up' WHERE id = ?").bind(id).run();
     const stamped = (await only()).finished_at;
 
-    await task(ada.org.slug, ada.cookie, id, { title: "A better title" });
+    await task(ada.org.slug, ada.cookie, id, { intent: "tick", box: "0" });
 
     const row = await db
-      .prepare("SELECT title, finished_at, updated_at FROM tasks WHERE id = ?")
+      .prepare("SELECT description, finished_at FROM tasks WHERE id = ?")
       .bind(id)
-      .first<{ title: string; finished_at: string | null; updated_at: string }>();
-    expect(row!.title).toBe("A better title");
-    expect(row!.finished_at).toBe(stamped);
+      .first<{ description: string; finished_at: string | null }>();
+    expect(row).toEqual({ description: "- [x] tidy up", finished_at: stamped });
   });
 
-  it("does not change the stamp when the description is saved", async () => {
+  it("clears the stamp when it is reopened", async () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "done");
-    const stamped = (await only()).finished_at;
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "describe", description: "How it went" });
+    await task(ada.org.slug, ada.cookie, id, { intent: "reopen" });
 
-    expect((await only()).finished_at).toBe(stamped);
+    expect(await only()).toMatchObject({ status: "todo", finished_at: null });
   });
 });

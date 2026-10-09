@@ -253,6 +253,15 @@ unified board's seven-day cap reads it, because `updated_at` moves on every
 edit and a typo fix would otherwise read as a finish.
 _Avoid_: Completed at, closed date
 
+**Reopen**:
+Moving a finished task back to To do. A Done or Cancelled task is read on its
+page, not edited: the page draws no form, and the server refuses a save or a
+description for it. Ticking a box, archiving and answering the decision prompt
+still work. Reopen is the way back to an edit, and it is a move like any other,
+so it clears the finish time. An archived task is restored before it is
+reopened. A move out of Done on a board reopens the task too.
+_Avoid_: Undo, unfinish
+
 ### Order
 
 **Order**:

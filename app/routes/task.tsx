@@ -1,4 +1,4 @@
-import { Form, Link } from "react-router";
+import { Form, Link, redirect } from "react-router";
 
 import { archiveTasks, restoreTasks } from "../archive.server";
 import { drawsAssignees, type Assignee } from "../assignees";
@@ -11,6 +11,7 @@ import { cloudflareEnv } from "../context.server";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, finishTask, moveAndAsk } from "../decisions.server";
 import { DescriptionBox } from "../description-box";
+import { DescriptionView } from "../description-view";
 import { Dot } from "../dot";
 import { readData, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
@@ -127,12 +128,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // The prompt the Finish button raised, answered.
   if (intent === "decide") return decide(env.DB, scope, request, form);
 
-  if (intent === "finish") {
-    const finished = await finishTask(env.DB, scope, request, params.taskId);
-    if (!finished.moved) throw new Response("Not found", { status: 404 });
-    return finished.prompt ?? { ok: true };
-  }
-
   // One checkbox of the description, flipped where the raw text holds it. It
   // posts on its own, so it reads no other box of the page.
   if (intent === "tick") {
@@ -140,6 +135,35 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const ticked = await tickDescriptionBox(env.DB, scope, params.taskId, box);
     if (!ticked) throw new Response("Not found", { status: 404 });
     return { ok: true };
+  }
+
+  // Every act below this line edits the task, and a finished task is not
+  // edited: it is reopened first.
+  const task = await readTask(env.DB, scope, params.taskId);
+  if (!task) throw new Response("Not found", { status: 404 });
+
+  // A finished task, back to To do. It is the same move a status change makes,
+  // so the finish time goes the way it goes on any move out of Done. An open
+  // task has nothing to reopen, and stays where it stands. An archived one is
+  // restored first: open work no board draws would be lost work.
+  if (intent === "reopen") {
+    if (!isFinished(task.status)) return { ok: true };
+    if (task.archived === 1) {
+      throw new Response("An archived task is restored before it is reopened.", { status: 409 });
+    }
+    const moved = await moveAndAsk(env.DB, scope, request, params.taskId, "todo");
+    if (!moved.moved) throw new Response("Not found", { status: 404 });
+    // The page again, and not a "Saved." under the form Reopen opens.
+    const url = new URL(request.url);
+    return redirect(`${url.pathname}${url.search}`);
+  }
+
+  refuseFinished(task.status);
+
+  if (intent === "finish") {
+    const finished = await finishTask(env.DB, scope, request, params.taskId);
+    if (!finished.moved) throw new Response("Not found", { status: 404 });
+    return finished.prompt ?? { ok: true };
   }
 
   // The description, as the editor posts it when the box is left. It carries
@@ -155,9 +179,6 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (!described) throw new Response("Not found", { status: 404 });
     return { ok: true };
   }
-
-  const task = await readTask(env.DB, scope, params.taskId);
-  if (!task) throw new Response("Not found", { status: 404 });
 
   const title = String(form.get("title") ?? "").trim();
   if (!title) return { error: "A task needs a title." };
@@ -206,6 +227,17 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   }
 
   return { ok: true };
+}
+
+/**
+ * A finished task is read, not edited: the page draws no form for it, and a
+ * post that edits it anyway is refused here, so a hand-made form writes
+ * nothing. Reopen is the way back to an edit. See #164.
+ */
+function refuseFinished(status: Status) {
+  if (isFinished(status)) {
+    throw new Response("A finished task is reopened before it is changed.", { status: 409 });
+  }
 }
 
 /**
@@ -377,6 +409,75 @@ function MetadataAside({
   );
 }
 
+/**
+ * A finished task, read: the same run of fields and the same aside as the
+ * form, drawn as text. Nothing here posts, so the one way to change the task
+ * is to reopen it. See #164.
+ */
+function FinishedTask({
+  task,
+  fields,
+  refs,
+  colors,
+  members,
+  assignees,
+}: {
+  task: { status: Status; due_date: string | null; data: Record<string, string>; decides: boolean };
+  fields: OrgField[];
+  refs: Record<string, RefPicker>;
+  colors: Record<string, string | null>;
+  members: Assignee[];
+  assignees: Assignee[];
+}) {
+  return (
+    <div className="flex flex-col gap-6 sm:flex-row">
+      <dl className="flex min-w-0 flex-1 flex-col gap-3">
+        {task.decides ? <p>Holds a decision</p> : null}
+
+        {fields.map((field) => (
+          <ReadLine key={field.key} label={field.label}>
+            {heldText(field, task.data[field.key], refs[field.key])}
+            <Dot color={colors[field.key] ?? null} />
+          </ReadLine>
+        ))}
+      </dl>
+
+      <aside className="flex w-full shrink-0 flex-col gap-3 rounded-lg border border-border p-4 sm:w-64">
+        <dl className="flex flex-col gap-3">
+          <ReadLine label="Status">{STATUS_LABEL[task.status]}</ReadLine>
+          <ReadLine label="Due date">{task.due_date ?? "—"}</ReadLine>
+          {/* A personal org draws no assignees, here as on the form. */}
+          {members.length > 0 ? (
+            <ReadLine label="Assignees">
+              {assignees.length > 0 ? assignees.map((one) => one.name).join(", ") : "—"}
+            </ReadLine>
+          ) : null}
+        </dl>
+      </aside>
+    </div>
+  );
+}
+
+/** One label and the value it holds, as the finished page reads it. */
+function ReadLine({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className="text-muted">{label}</dt>
+      <dd className="flex items-center gap-2">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * The text a field holds. A reference reads by the label its picker names, and
+ * by the raw id when nothing names it, as the picker draws an unnamed id.
+ */
+function heldText(field: OrgField, value: string | undefined, picker: RefPicker | undefined) {
+  if (!value) return "—";
+  if (field.type !== "reference") return value;
+  return picker?.options.find((one) => one.id === value)?.label ?? picker?.label ?? value;
+}
+
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
   const { org, task, back, fields, refs, colors, members, assignees, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
@@ -389,67 +490,83 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
       <BackLink to={back} />
       <h1 className="text-2xl tracking-tight">{task.title}</h1>
 
-      <Form method="post" key={task.id} className="flex flex-col gap-6 sm:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <label className="flex flex-col gap-1">
-            Title
-            <input name="title" required defaultValue={task.title} className={fieldClass} />
-          </label>
-
-          {/* Off by default, and only a marked task raises the prompt when it is
-              finished. See ADR-0010. */}
-          <label className="flex items-center gap-2">
-            <input type="checkbox" name="decides" value="1" defaultChecked={task.decides} />
-            Holds a decision
-          </label>
-
-          {fields.map((field) => (
-            <FieldBox
-              key={field.key}
-              field={field}
-              value={task.data[field.key]}
-              picker={refs[field.key]}
-              color={colors[field.key] ?? null}
-            />
-          ))}
-
-          {fields.length === 0 ? (
-            <p className="text-muted">
-              This org declares no field yet.{" "}
-              <Link to={`/o/${org.slug}/fields`} className="underline">
-                Declare one
-              </Link>
-              .
-            </p>
-          ) : null}
-
-          {error ? (
-            <p role="alert" className="text-danger">
-              {error}
-            </p>
-          ) : null}
-          {actionData && "ok" in actionData ? (
-            <p className="text-muted">Saved.</p>
-          ) : null}
-
-          <button className="self-start rounded border border-border px-3 py-2">
-            Save
-          </button>
-        </div>
-
-        <MetadataAside
-          status={task.status}
-          dueDate={task.due_date}
+      {task.finished ? (
+        <FinishedTask
+          task={task}
+          fields={fields}
+          refs={refs}
+          colors={colors}
           members={members}
           assignees={assignees}
         />
-      </Form>
+      ) : (
+        <Form method="post" key={task.id} className="flex flex-col gap-6 sm:flex-row">
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <label className="flex flex-col gap-1">
+              Title
+              <input name="title" required defaultValue={task.title} className={fieldClass} />
+            </label>
+
+            {/* Off by default, and only a marked task raises the prompt when it is
+                finished. See ADR-0010. */}
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="decides" value="1" defaultChecked={task.decides} />
+              Holds a decision
+            </label>
+
+            {fields.map((field) => (
+              <FieldBox
+                key={field.key}
+                field={field}
+                value={task.data[field.key]}
+                picker={refs[field.key]}
+                color={colors[field.key] ?? null}
+              />
+            ))}
+
+            {fields.length === 0 ? (
+              <p className="text-muted">
+                This org declares no field yet.{" "}
+                <Link to={`/o/${org.slug}/fields`} className="underline">
+                  Declare one
+                </Link>
+                .
+              </p>
+            ) : null}
+
+            {error ? (
+              <p role="alert" className="text-danger">
+                {error}
+              </p>
+            ) : null}
+            {actionData && "ok" in actionData ? (
+              <p className="text-muted">Saved.</p>
+            ) : null}
+
+            <button className="self-start rounded border border-border px-3 py-2">
+              Save
+            </button>
+          </div>
+
+          <MetadataAside
+            status={task.status}
+            dueDate={task.due_date}
+            members={members}
+            assignees={assignees}
+          />
+        </Form>
+      )}
 
       {/* Its own section, because a form cannot hold another one, and every
           box of the description posts on its own. */}
       <section className="flex flex-col gap-2">
         <h2>Description</h2>
-        <DescriptionBox text={task.description} />
+        {/* A finished task still ticks its boxes, but its text is not edited. */}
+        {task.finished ? (
+          <DescriptionView text={task.description} />
+        ) : (
+          <DescriptionBox text={task.description} />
+        )}
       </section>
 
       {/* Its own form, because archiving is one act and saving is another.
@@ -468,15 +585,18 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
         </Form>
       ) : null}
 
-      {/* Its own form, because finishing is one act and saving is another. */}
-      {task.status === "done" || task.status === "cancelled" ? null : (
+      {/* Its own form, because finishing is one act and saving is another. A
+          finished task is offered the way back instead: Reopen moves it to To
+          do, and the page then edits it. An archived task is restored first,
+          so it offers Restore above and nothing here. */}
+      {task.archived ? null : (
         <Form method="post">
           <button
             name="intent"
-            value="finish"
+            value={task.finished ? "reopen" : "finish"}
             className="self-start rounded border border-border px-3 py-2"
           >
-            Finish
+            {task.finished ? "Reopen" : "Finish"}
           </button>
         </Form>
       )}
