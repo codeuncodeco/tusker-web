@@ -11,17 +11,15 @@
  * a little away from the drop. There are no arrows: to say "this first" is to
  * plan it. See ADR-0006, "One order per column", and ADR-0025.
  *
- * The card is its title line and at most one line under it, which holds the
- * org chip, the fields and the due date. That line is drawn only when it holds
- * something. A drag starts from the grip, so the rest of the card scrolls.
+ * The card is its title line and at most one line under it, the content line.
+ * A drag starts from the grip, so the rest of the card scrolls.
  */
 
 import { Link } from "react-router";
 
-import { Dot } from "./dot";
+import { ContentLine } from "./content-line";
 import { Grip, useDragItem } from "./drag-lists";
 import { Initials } from "./initials";
-import { OrgChip } from "./org-chip";
 import { taskPath, useOrigin } from "./paths";
 import { type LiveTask } from "./unified";
 
@@ -76,23 +74,7 @@ export function UnifiedCard({
         <Initials assignees={task.assignees} />
       </span>
 
-      <span className="flex items-center gap-2 text-xs text-muted empty:hidden">
-        <OrgChip org={task.org} />
-        {/* The field strip truncates before the due date does: the due date is
-            the one signal that reads the same in every org. */}
-        {task.fields.length > 0 ? (
-          <span className="flex min-w-0 flex-1 gap-1 truncate">
-            {task.fields.map((field, at) => (
-              <span key={field.key} className="flex items-center gap-1 truncate">
-                {at > 0 ? <span aria-hidden="true">·</span> : null}
-                <Dot color={field.color} />
-                {field.value}
-              </span>
-            ))}
-          </span>
-        ) : null}
-        {task.due_date ? <span className="ml-auto shrink-0 tabular-nums">{task.due_date}</span> : null}
-      </span>
+      <ContentLine task={task} />
     </li>
   );
 }

@@ -209,6 +209,9 @@ export function useDragItem(id: string, disabled = false) {
   };
 }
 
+/** What the grip takes from `useDragItem`: the node a drag starts from. */
+type DragGrip = ReturnType<typeof useDragItem>["grip"];
+
 /**
  * The six dots at the left edge of a card, and the one part of it a drag
  * starts from. It adds width and never a line. It is for the pointer alone:
@@ -216,15 +219,18 @@ export function useDragItem(id: string, disabled = false) {
  *
  * `touch-none` keeps the browser from scrolling under a finger on the grip,
  * which would take the touch before the drag could. See ADR-0025.
+ *
+ * The dots are drawn here and not in `icons.tsx`: they are six circles, not a
+ * Font Awesome path, and the grip is their one use.
  */
-export function Grip({ grip }: { grip: ReturnType<typeof useDragItem>["grip"] }) {
+export function Grip({ grip }: { grip: DragGrip }) {
   return (
     <span
       aria-hidden="true"
       data-grip=""
       ref={grip.ref}
       {...grip.listeners}
-      className="-ml-1 shrink-0 cursor-grab touch-none self-center p-1 text-dim hover:text-fg"
+      className="-ml-1.5 shrink-0 cursor-grab touch-none self-center px-1.5 py-1 text-dim hover:text-fg"
     >
       <svg viewBox="0 0 10 16" fill="currentColor" className="block h-4 w-2.5">
         <circle cx="2.5" cy="3" r="1.5" />

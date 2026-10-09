@@ -378,8 +378,8 @@ function CardItem({
         <Initials assignees={card.assignees} />
       </span>
 
+      {/* One line: a pill that does not fit is cut off, and never wraps. */}
       {card.fields.length > 0 ? (
-        // One line: a pill that does not fit is cut off, and never wraps.
         <ul className="flex gap-2 overflow-hidden text-xs text-muted">
           {card.fields.map((field) => (
             <li

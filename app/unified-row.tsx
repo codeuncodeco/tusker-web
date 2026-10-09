@@ -1,11 +1,10 @@
 import { Link, useFetcher } from "react-router";
 
 import type { Status } from "./board";
-import { Dot } from "./dot";
+import { ContentLine } from "./content-line";
 import { Grip, useDragItem } from "./drag-lists";
 import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
-import { OrgChip } from "./org-chip";
 import { taskPath, useOrigin } from "./paths";
 import type { LiveTask } from "./unified";
 
@@ -40,12 +39,10 @@ export function finishFields(task: LiveTask) {
  * One row of plan mode and of focus mode, so the two lists cannot drift apart.
  * The unified board draws a card of its own.
  *
- * A row is its title line and one line under it. The title line holds the
- * grip where the row drags, the title and the buttons, so a control never adds
- * a line. The line under it holds the org, the org's `show_on_card` fields
- * joined by `·`, and the due date rightmost. The field strip truncates before
- * the due date does: the due date is the one signal that reads the same in
- * every org.
+ * A row is its title line and the content line under it. The title line holds
+ * the grip where the row drags, the title and the buttons, so a control never
+ * adds a line. The week set's six buttons are the exception: they wrap under
+ * the title on a narrow screen, because that row has no drag to replace them.
  *
  * The two acts sit in a form of their own, so they work with no script. The
  * `p` and `x` keys post the same fields, and each button carries its key.
@@ -120,7 +117,7 @@ export function UnifiedRow({
           : "border-border"
       } ${drags ? "bg-surface" : ""} ${drag.dragging ? "opacity-40" : ""}`}
     >
-      <span className="flex items-baseline gap-3">
+      <span className={`flex items-baseline gap-x-3 ${moves ? "flex-wrap gap-y-1" : ""}`}>
         {drags ? <Grip grip={drag.grip} /> : null}
         <Link
           to={taskPath(task.org.slug, task.id, origin)}
@@ -206,23 +203,7 @@ export function UnifiedRow({
         </post.Form>
       </span>
 
-      <span className="flex items-center gap-3 text-xs text-muted empty:hidden">
-        <OrgChip org={task.org} />
-        {task.fields.length > 0 ? (
-          <span className="flex min-w-0 flex-1 gap-1 truncate">
-            {task.fields.map((field, at) => (
-              <span key={field.key} className="flex items-center gap-1 truncate">
-                {at > 0 ? <span aria-hidden="true">·</span> : null}
-                <Dot color={field.color} />
-                {field.value}
-              </span>
-            ))}
-          </span>
-        ) : null}
-        {/* Rightmost, and it never truncates: the due date is the one signal
-            that reads the same in every org. */}
-        {task.due_date ? <span className="ml-auto shrink-0 tabular-nums">{task.due_date}</span> : null}
-      </span>
+      <ContentLine task={task} />
     </li>
   );
 }

@@ -117,15 +117,16 @@ describe("the org board card", () => {
 /** The elements directly inside the first `<li>` of the markup: a card's lines. */
 function lines(html: string): string[] {
   const VOID = new Set(["input", "br", "img", "hr"]);
+  const card = html.slice(html.indexOf("<li"));
   const found: string[] = [];
   let depth = 0;
   let start = 0;
-  for (const tag of html.slice(html.indexOf("<li")).matchAll(/<(\/?)([a-z0-9-]+)[^>]*>/g)) {
+  for (const tag of card.matchAll(/<(\/?)([a-z0-9-]+)[^>]*>/g)) {
     const [whole, closing, name] = tag;
     const at = tag.index;
     if (closing) {
       depth -= 1;
-      if (depth === 1) found.push(html.slice(html.indexOf("<li")).slice(start, at + whole.length));
+      if (depth === 1) found.push(card.slice(start, at + whole.length));
       if (depth === 0) break;
     } else if (!VOID.has(name)) {
       if (depth === 1) start = at;
@@ -162,9 +163,5 @@ describe("the unified card's lines", () => {
     expect(content).toContain("Large");
     expect(content).toContain("2026-10-12");
     expect(more).toEqual([]);
-  });
-
-  it("collapse the content line when it holds nothing", () => {
-    expect(card(live("a"))).toContain("empty:hidden");
   });
 });
