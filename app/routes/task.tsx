@@ -18,6 +18,7 @@ import { listFields } from "../fields.server";
 import { fieldClass } from "../forms";
 import { backPath } from "../paths";
 import { postAndReport } from "../pending";
+import { PostButton } from "../posting";
 import { refPickers, type RefPicker } from "../refs.server";
 import { requireScope, type Scope } from "../scope.server";
 import {
@@ -555,9 +556,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
               <p className="text-muted">Saved.</p>
             ) : null}
 
-            <button className="self-start rounded border border-border px-3 py-2">
-              Save
-            </button>
+            <PostButton intent={null} label="Save" busyLabel="Saving…" />
           </div>
 
           <MetadataAside
@@ -587,13 +586,11 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           board: archive keeps finished work. */}
       {task.archived || task.finished ? (
         <Form method="post">
-          <button
-            name="intent"
-            value={task.archived ? "restore" : "archive"}
-            className="self-start rounded border border-border px-3 py-2"
-          >
-            {task.archived ? "Restore" : "Archive"}
-          </button>
+          {task.archived ? (
+            <PostButton intent="restore" label="Restore" busyLabel="Restoring…" />
+          ) : (
+            <PostButton intent="archive" label="Archive" busyLabel="Archiving…" />
+          )}
         </Form>
       ) : null}
 
@@ -603,13 +600,11 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           so it offers Restore above and nothing here. */}
       {task.archived ? null : (
         <Form method="post">
-          <button
-            name="intent"
-            value={task.finished ? "reopen" : "finish"}
-            className="self-start rounded border border-border px-3 py-2"
-          >
-            {task.finished ? "Reopen" : "Finish"}
-          </button>
+          {task.finished ? (
+            <PostButton intent="reopen" label="Reopen" busyLabel="Reopening…" />
+          ) : (
+            <PostButton intent="finish" label="Finish" busyLabel="Finishing…" />
+          )}
         </Form>
       )}
 
