@@ -1,5 +1,9 @@
 # A drop names a column, not a place
 
+Amended by [ADR-0026](./0026-every-act-is-reachable-by-a-key-or-a-drag.md).
+"Every other key rides on a button, so no act is reachable by key alone" below
+is replaced: every act is reachable by a key or a drag.
+
 Amended by [ADR-0025](./0025-a-drop-lands-where-the-preview-shows.md).
 "Why the column and not the gap" and "Where the card lands" below are replaced:
 a drag now draws where the card will land, and the drop writes a place inside

@@ -317,13 +317,12 @@ type Move = (id: string, status: Status, before?: string | null) => void;
  * One card. It shows its rank, the way the extension did: the place the board
  * draws it in, counting from one. No row stores it.
  *
- * The two arrows step the card inside its column, in a form that posts on its
- * own, so it needs no script. Tusker is keyboard first, so the drag is the
- * second way, not the only one: `>` and `<` move the card to another column,
- * and `J` and `K` post what the arrows post. See ADR-0016.
+ * A card carries no reorder button. A drag places it, and the keys step it:
+ * `>` and `<` move the card to another column, and `J` and `K` step it inside
+ * its column. See ADR-0016 and ADR-0026.
  *
- * The rank and the arrows read the order the drag holds, so a card dragged in
- * from another column counts its new place.
+ * The rank reads the order the drag holds, so a card dragged in from another
+ * column counts its new place.
  */
 function CardItem({
   cards,
@@ -350,9 +349,6 @@ function CardItem({
   const card = cards[index];
   const origin = useOrigin();
   const drag = useDragItem(card.id);
-  const step = useFetcher();
-  // Its own form, because a form posts one intent and a step is not an
-  // archive.
   const archiver = useFetcher();
 
   return (
@@ -395,34 +391,6 @@ function CardItem({
           ))}
         </ul>
       ) : null}
-
-      <span className="flex gap-2">
-        {/* The two arrows, which post what `J` and `K` post. A card at the top
-            of its column cannot step up and one at the bottom cannot step
-            down, and that is all the page decides: the place the step lands
-            above is the server's, because this order is one load old. */}
-        <step.Form method="post" className="flex gap-2">
-          <input type="hidden" name="id" value={card.id} />
-          <button
-            name="intent"
-            value="up"
-            disabled={index === 0}
-            aria-label={`Move ${card.title} up`}
-            className="rounded border border-border px-1 text-xs disabled:opacity-30"
-          >
-            ↑
-          </button>
-          <button
-            name="intent"
-            value="down"
-            disabled={index === cards.length - 1}
-            aria-label={`Move ${card.title} down`}
-            className="rounded border border-border px-1 text-xs disabled:opacity-30"
-          >
-            ↓
-          </button>
-        </step.Form>
-      </span>
 
       {/* One task, off the board and kept. It is offered where the work is
           finished, because archive holds finished work. */}

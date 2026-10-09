@@ -86,7 +86,7 @@ in ADR-0015 that "the missing insertion line is what tells a person which board
 they are on" no longer holds. The org chip on a unified card tells them.
 
 The arrow buttons in plan mode are now a second way to do what a drag does.
-Removing them is #167.
+Removing them is #167, and ADR-0026 records it.
 
 A redirect that raises the decision prompt now goes to the page, and not to
 the page's data address (`/me.data`). A fetcher posts to that address, so a

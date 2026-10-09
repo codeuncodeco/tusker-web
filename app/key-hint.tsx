@@ -55,3 +55,22 @@ export function keyMark(key: string) {
     ),
   };
 }
+
+/**
+ * The keys of acts no control carries, named once above the list they act on.
+ * A row that drags has no reorder button for its key to ride on, and a key
+ * nothing names is a key nobody finds. See ADR-0026.
+ *
+ * It shows where the pointer is fine, as every other mark does.
+ */
+export function KeyLegend({ acts }: { acts: ActionName[] }) {
+  return (
+    <p className="hidden gap-3 text-xs text-dim pointer-fine:flex">
+      {acts.map((act) => (
+        <span key={act} aria-keyshortcuts={spoken(KEY_MAP[act].key)}>
+          {KEY_MAP[act].label} <kbd>{seen(KEY_MAP[act].key)}</kbd>
+        </span>
+      ))}
+    </p>
+  );
+}
