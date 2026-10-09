@@ -368,7 +368,7 @@ function MetadataAside({
   const held = new Set(assignees.map((one) => one.id));
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-3 rounded-lg border border-border p-4 sm:w-64">
+    <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-border pt-6 sm:w-64 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
       <label className="flex flex-col gap-1">
         Status
         {/* Moving to Done here is the same act as the Finish button, so a
@@ -446,7 +446,7 @@ function FinishedTask({
         ))}
       </dl>
 
-      <aside className="flex w-full shrink-0 flex-col gap-3 rounded-lg border border-border p-4 sm:w-64">
+      <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-border pt-6 sm:w-64 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
         <dl className="flex flex-col gap-3">
           <ReadLine label="Status">{STATUS_LABEL[task.status]}</ReadLine>
           <ReadLine label="Due date">{task.due_date ?? "—"}</ReadLine>

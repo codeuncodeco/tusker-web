@@ -142,8 +142,10 @@ export function UnifiedBoard({
         overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
       >
         {(shown) => (
-          // The row holds still, and each column scrolls inside itself.
-          <div ref={board} className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0">
+          // The row holds still, and each column scrolls inside itself. The
+          // columns are panes, not boxes: a divider splits them, and a card is
+          // the one box on the board. See #184.
+          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto sm:min-h-0">
             {columns.map((column) => {
               const cards = shown[column.status].flatMap((id) => tasks.get(id) ?? []);
               return (
@@ -151,7 +153,7 @@ export function UnifiedBoard({
                   key={column.status}
                   // Every column takes an equal share of the width, down to the
                   // width it always had. Past that the row scrolls sideways.
-                  className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
+                  className="flex min-w-72 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
                 >
                   <div className="flex items-baseline gap-3">
                     <h2 className="font-mono uppercase tracking-wide text-muted">

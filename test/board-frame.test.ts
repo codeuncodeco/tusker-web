@@ -74,3 +74,33 @@ it("declares the frame on the two board routes, and on no other route", () => {
     .map(([path]) => path.split("/").slice(-2).join("/"));
   expect(declaring.sort()).toEqual(["routes/board.tsx", "routes/me.tsx"]);
 });
+
+/** The class string that holds one name, so a test can read its neighbours. */
+function classWith(name: string, one: string): string {
+  const found = classes(sourceOf(name)).find((each) => each.split(/\s+/).includes(one));
+  if (!found) throw new Error(`No class with ${one} in ${name}`);
+  return found;
+}
+
+it("draws no box round a board column", () => {
+  // A card is the one box on the board. The column is a pane, and only a
+  // divider marks where one ends. See #184.
+  for (const board of BOARDS) {
+    const column = classWith(board, "min-w-72").split(/\s+/);
+    const box = column.filter((one) => /^(rounded|border)/.test(one));
+    expect([board, box]).toEqual([board, []]);
+  }
+});
+
+it("splits the board columns with a divider in the token colour", () => {
+  // The columns sit in a row at every width, and the row scrolls sideways when
+  // it runs out, so the divider between them is upright at every width.
+  for (const board of BOARDS) {
+    const row = classWith(board, "overflow-x-auto").split(/\s+/);
+    expect([board, row.includes("divide-x"), row.includes("divide-border")]).toEqual([
+      board,
+      true,
+      true,
+    ]);
+  }
+});
