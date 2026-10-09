@@ -49,6 +49,8 @@ export function ColumnSweep({
   useEffect(() => {
     if (sweep.state !== "idle" || !done || said.current === done) return;
     said.current = done;
+    // A sweep that did not land has said so already, in a toast of its own.
+    if (!("changed" in done)) return;
     // A run that changed nothing and answered says nothing, unless it stopped
     // part way: then the silence would be the wrong answer.
     if (done.changed.length === 0 && !done.partial) return;

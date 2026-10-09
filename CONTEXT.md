@@ -213,6 +213,14 @@ restores those. The batch reports itself in a **Toast**, which holds the one
 undo. See ADR-0019.
 _Avoid_: Bulk archive, clear column
 
+**Drawn ahead**:
+A change a page draws the moment it is posted, before the server answers: a
+move, a step, an archive, a pick or an add. The page lays the posts React
+Router holds in flight over what the loader said, so there is no second store,
+and the guess goes when the loaders answer. A refused post leaves the page as
+the server holds it and raises a **Toast**. See `app/pending.ts` and ADR-0004.
+_Avoid_: Optimistic store, local state, cache
+
 **Toast**:
 One short message about an act that is already done, with at most one way to
 take it back. It is drawn over every page, one at a time, and it goes by itself
@@ -221,7 +229,9 @@ a sweep takes several cards away at once, and the count is the only proof of
 what happened. The region is live, so a reader announces the message. The undo
 is a form button, so a keyboard reaches it. A message also carries a link per
 org the act touched, because there is no cross-org **Archive screen**, and an
-undo that stopped part way says so and asks for a second press.
+undo that stopped part way says so and asks for a second press. A change the
+server refused, or never received, says so in a toast as well, because the
+page drew it before the answer came. See **Drawn ahead**.
 _Avoid_: Snackbar, notification, flash message
 
 **Archive screen**:

@@ -17,6 +17,7 @@ import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
 import { ColumnSwitch, TodayChip, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
+import { postAndReport } from "../pending";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
@@ -112,6 +113,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   return acted;
 }
+
+/** A post the server refuses raises a toast, not the error page. See `app/pending.ts`. */
+export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Me({ loaderData }: Route.ComponentProps) {
   const { orgs, members, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } =

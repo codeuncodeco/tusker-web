@@ -77,6 +77,43 @@ export function useQuickAddDraft(): Draft {
   return { title, setTitle, decides, setDecides, assignees, setAssignees, clear };
 }
 
+/**
+ * Empties the box the moment an add is posted, so the task draws on the page
+ * at once and the next one can be typed while the first is on its way.
+ *
+ * An add the server refuses gives the words and the mark back, because
+ * nothing typed is lost. A box the person has started typing into again keeps
+ * what it holds: the new words are the newer thought. See #168.
+ */
+export function useSendDraft(
+  add: { state: string; formData?: FormData; data?: unknown },
+  draft: Draft,
+) {
+  const sent = useRef<{ title: string; decides: boolean } | null>(null);
+  const { clear, title, setTitle, setDecides } = draft;
+
+  useEffect(() => {
+    if (add.state !== "submitting" || !add.formData) return;
+    sent.current = {
+      title: String(add.formData.get("title") ?? ""),
+      decides: add.formData.get("decides") === "1",
+    };
+    clear();
+  }, [add.state, add.formData, clear]);
+
+  useEffect(() => {
+    if (add.state !== "idle" || !sent.current) return;
+    const back = sent.current;
+    sent.current = null;
+    const answer = add.data;
+    const refused =
+      typeof answer === "object" && answer !== null && ("error" in answer || "failed" in answer);
+    if (!refused || title !== "") return;
+    setTitle(back.title);
+    setDecides(back.decides);
+  }, [add.state, add.data, title, setTitle, setDecides]);
+}
+
 export function QuickAddBox({
   form: Form,
   label,
@@ -87,6 +124,7 @@ export function QuickAddBox({
   fields,
   chip,
   picker,
+  busy = false,
   bare = false,
 }: {
   /** The `Form` of the fetcher that posts the add. */
@@ -108,12 +146,25 @@ export function QuickAddBox({
    */
   picker?: ReactNode;
   /**
+   * True while the last add is in flight. A fetcher that posts again drops
+   * the post it had on its way, so an Enter pressed now waits, and the add
+   * goes the moment the first one lands. See #168.
+   */
+  busy?: boolean;
+  /**
    * True on a board, where the box sits above the columns. There it reads as a
    * field and not as a card, so a person does not take it for a task.
    */
   bare?: boolean;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const [waiting, setWaiting] = useState(false);
+
+  useEffect(() => {
+    if (busy || !waiting) return;
+    setWaiting(false);
+    box.current?.form?.requestSubmit();
+  }, [busy, waiting]);
 
   // The box starts one line high and grows with what it holds, up to a few
   // lines, so a person sees the list they pasted before they post it.
@@ -158,7 +209,8 @@ export function QuickAddBox({
           // input method is composing belongs to that method.
           if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
           event.preventDefault();
-          event.currentTarget.form?.requestSubmit();
+          if (busy) setWaiting(true);
+          else event.currentTarget.form?.requestSubmit();
         }}
         placeholder={label}
         aria-label={label}

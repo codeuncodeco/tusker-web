@@ -21,7 +21,7 @@ import type { Assignee } from "./assignees";
 import type { OrgHeld } from "./current-org";
 import { smallFieldClass } from "./forms";
 import { OrgChip } from "./org-chip";
-import { QuickAddBox, useAddKey, useQuickAddDraft } from "./quick-add";
+import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
 
@@ -73,13 +73,14 @@ export function UnifiedAdd({
   const answer = add.data;
   const error = answer && "error" in answer ? answer.error : null;
 
-  // An add empties the box and raises the undo line. The pick stays: a person
-  // adding a second task to a team org named it once.
+  // An add empties the box as it is posted, and its answer raises the undo
+  // line. The pick stays: a person adding a second task to a team org named it
+  // once.
+  useSendDraft(add, draft);
   useEffect(() => {
     if (add.state !== "idle" || !answer || !("added" in answer)) return;
     setLast(answer.added);
-    draft.clear();
-  }, [add.state, answer, draft.clear]);
+  }, [add.state, answer]);
 
   useAddKey(box);
 
@@ -127,6 +128,7 @@ export function UnifiedAdd({
     <section className="flex flex-col gap-2">
       <QuickAddBox
         form={add.Form}
+      busy={add.state !== "idle"}
         label={label}
         draft={draft}
         error={error}
