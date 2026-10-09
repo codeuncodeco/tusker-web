@@ -21,10 +21,21 @@ faded in the place it will land. A copy of the card follows the pointer. That
 copy is drawn outside the columns, because a column scrolls, and a card dragged
 out of a scrolling column is clipped.
 
-A mouse drags after it moves five pixels, so a click on a card still places the
-cursor. A finger drags after a 200 ms hold, so a swipe still scrolls the
-column. The pointer sensor is not used, because it takes the touch before the
-touch sensor can, and then a swipe never scrolls.
+A drag starts from the **grip** (`CONTEXT.md`), the six dots at the left edge
+of a card or a plan row, and from nowhere else. The rest of the card places the
+cursor on a click and scrolls the column on a swipe. The grip is `aria-hidden`
+and takes no focus, because the keys already move a card.
+
+On the grip, a mouse drags after it moves five pixels, so a click there still
+places the cursor. A finger drags at once. The pointer sensor is not used,
+because it takes the touch before the touch sensor can.
+
+*Amended by #182.* The whole card was the drag source at first, so a finger
+had to hold for 200 ms before it dragged, or a swipe over a card would never
+scroll. A hold is slow, and nothing on the card said it would drag. With a grip
+the two gestures start in different places, so the hold has no job, and it
+goes. The grip draws `touch-action: none`, so the browser does not take a touch
+there for a scroll.
 
 No key drags. The keys of a keyed list do not change.
 
