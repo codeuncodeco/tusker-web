@@ -1,5 +1,10 @@
 # The org board takes the same keys
 
+Amended by [ADR-0026](./0026-every-act-is-reachable-by-a-key-or-a-drag.md).
+The card's two arrows are gone, and so is the rule that a key never acts alone:
+every act is now reachable by a key or a drag. `J` and `K` still post `up` and
+`down`, and a drag reorders the card.
+
 Amended by [ADR-0022](./0022-a-keyed-lists-keys-are-live-where-focus-is.md).
 The board's keys are now live only in the list that holds the focus, and the
 letters below are read from `app/key-map.ts`. The two maps still stay apart:

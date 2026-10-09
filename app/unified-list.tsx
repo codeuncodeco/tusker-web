@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { landing } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
+import { KeyLegend } from "./key-hint";
 import { useLocalDay } from "./local-day";
 import { usePost } from "./pending";
 import { PendingAdds } from "./pending-adds";
@@ -68,8 +69,9 @@ export function UnifiedList({
 
   // One flat order, so `j` and `k` walk the page the way a person reads it.
   const rows = groups.flatMap((group) => group.tasks);
-  // The rows the page's own order ranks. It draws the move buttons and it
-  // binds `J`, `K` and `T`, so a key reaches no act a control withholds.
+  // The rows the page's own order ranks. It draws the move buttons where the
+  // rows do not drag, and it binds `J`, `K`, `T` and `B`, so a key reaches no
+  // row the order does not rank.
   const ranked = rankedIn(groups.find((group) => group.key === ordered));
   // The cursor starts empty, and stays on its task while the list moves. A
   // task the list stops drawing takes the cursor off with it. See ADR-0015.
@@ -130,6 +132,10 @@ export function UnifiedList({
                   {label(group)} <span className="text-dim">{group.tasks.length}</span>
                 </h2>
 
+                {/* A row that drags carries no reorder button, so the keys
+                    that reorder it are named here. See ADR-0026. */}
+                {dragsHere ? <KeyLegend acts={["up", "down", "top", "bottom"]} /> : null}
+
                 {/* The rows and nothing else: the box a page draws sits above
                     this, outside every keyed list. */}
                 <DropList
@@ -149,7 +155,10 @@ export function UnifiedList({
                       selected={cursor === task.id}
                       domId={`row-${task.id}`}
                       place={() => setOn(task.id)}
-                      moves={movesFor(order, task)}
+                      // A row that drags is moved by the drag and the keys. A
+                      // ranked row that does not keeps its buttons, because a
+                      // phone has no other way to move it. See ADR-0026.
+                      moves={dragsHere ? undefined : movesFor(order, task)}
                       drags={dragsHere && ranked.includes(task)}
                     />
                   ))}

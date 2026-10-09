@@ -70,10 +70,11 @@ export function UnifiedRow({
    */
   place?: () => void;
   /**
-   * Which way the row can move, in a list whose order a person owns: the plan
-   * and the week set. Nothing here leaves the buttons off, which is every
-   * other list: that order is derived, and to say "this first" is to plan it.
-   * See ADR-0006, "One order per column", and ADR-0021.
+   * Which way the row can move, in a list whose order a person owns and that
+   * takes no drag: the week set. Nothing here leaves the buttons off. The plan
+   * gives none, because a drag and the keys move its rows (ADR-0026). Every
+   * other list gives none, because that order is derived, and to say "this
+   * first" is to plan it. See ADR-0006, "One order per column", and ADR-0021.
    *
    * A promote is offered wherever a step up is, and a move to the foot
    * wherever a step down is: the row on top is the one row already at the top,

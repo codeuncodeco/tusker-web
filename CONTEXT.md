@@ -391,8 +391,8 @@ _Avoid_: Kanban, board view
 The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
 Backlog and Cancelled shown by rule. The order inside a column is the org's and
 it is stored, so this is the one board that binds `J` and `K`. A drag draws
-where the card will land, and the drop writes that place. See ADR-0016 and
-ADR-0025.
+where the card will land, and the drop writes that place. A card carries no
+reorder button, and the board names `J` and `K` once, under the quick-add box. See ADR-0016, ADR-0025 and ADR-0026.
 _Avoid_: Team board, project board, the org's board
 
 **Unified board**:
@@ -477,8 +477,8 @@ and lay them out differently: a plan drawn from a Done column is nonsense. The
 week set comes first, in week order, and the rest of the live set under a
 heading below it. Plan mode reads that order and never writes it: the one order
 it owns is the plan's. A row of the plan steps by key and drags by pointer, and
-the drag draws where it will land (ADR-0025). Every pick, step and drag writes
-the plan row, so nothing waits on a tab and there is no Commit button. All of
+the drag draws where it will land (ADR-0025). It carries no reorder button
+(ADR-0026). Every pick, step and drag writes the plan row, so nothing waits on a tab and there is no Commit button. All of
 that is the day the person is in, and the days ahead of it. Reading a finished day back is not plan mode's act, so a **Day
 walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
@@ -642,8 +642,10 @@ and the way, never a place, because the page's copy of the order is one load
 old. A drag is the one move that names a place: it names the card the person
 saw it land above, and a card the order no longer holds names the foot. See
 ADR-0025. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and
-`d`, which drops a task from the batch. Every key posts what a control
-on the page posts, so no act is reachable by key alone. See ADR-0016.
+`d`, which drops a task from the batch. Every act is reachable by a key or a
+drag. A row that drags carries no reorder button, and a list of them names its
+reorder keys above the rows. The week set has no drag and keeps its buttons.
+See ADR-0026.
 _Avoid_: Shortcuts, hotkeys, bindings
 
 **Keyed list**:

@@ -2,7 +2,9 @@
  * The mark a control carries to name its key.
  *
  * A button that says "Plan" and never says `p` teaches nothing, and a sentence
- * under the list teaches it once. So the key rides on the control.
+ * under the list teaches it once. So the key rides on the control. A row that
+ * drags has no reorder button, so its list names those keys once, above the
+ * rows: `KeyLegend`. See ADR-0026.
  *
  * The two forms do not agree, on purpose. The eye reads `⇧K`. The machine reads
  * `Shift+K`, which is the grammar `aria-keyshortcuts` takes.
@@ -54,4 +56,27 @@ export function keyMark(key: string) {
       </kbd>
     ),
   };
+}
+
+/**
+ * The keys of acts no control carries, named once above the list they act on.
+ * A row that drags has no reorder button for its key to ride on, and a key
+ * nothing names is a key nobody finds. See ADR-0026.
+ *
+ * It shows where the pointer is fine, as every other mark does.
+ */
+export function KeyLegend({ acts }: { acts: ActionName[] }) {
+  return (
+    <p className="hidden gap-3 text-xs text-dim pointer-fine:flex">
+      {acts.map((act) => {
+        const mark = keyHint(act);
+        return (
+          <span key={act} {...mark.keys}>
+            {KEY_MAP[act].label}
+            {mark.hint}
+          </span>
+        );
+      })}
+    </p>
+  );
 }
