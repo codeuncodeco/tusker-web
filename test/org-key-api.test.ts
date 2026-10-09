@@ -1,31 +1,18 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import * as apiRoute from "../app/routes/api.tasks";
 import * as boardRoute from "../app/routes/board";
 import * as fieldsRoute from "../app/routes/fields";
-import * as loginRoute from "../app/routes/login";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import * as settingsRoute from "../app/routes/settings";
 import * as taskRoute from "../app/routes/task";
-import { caught, cookieFrom, get, post, routeArgs, SITE, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, SITE, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 
 beforeEach(wipe);
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  return { person, cookie: cookieFrom(response) };
-}
 
 /** A post to a route action, signed by the cookie. */
 function send(

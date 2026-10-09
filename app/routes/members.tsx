@@ -19,9 +19,6 @@ import {
 import { requireScope, type Scope } from "../scope.server";
 import type { Route } from "./+types/members";
 
-/** A personal org holds one person, so it has no member to add or to remove. */
-const PERSONAL_ORG = "A personal org holds one person. Make another org to work with somebody else.";
-
 /**
  * Why an org refuses to lose its last owner, by a removal or by a demotion.
  * See ADR-0023.
@@ -53,7 +50,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug, context);
   return {
-    org: { slug: scope.org.slug, name: scope.org.name, kind: scope.org.kind },
+    org: { slug: scope.org.slug, name: scope.org.name },
     members: await listMembers(env.DB, scope.org.id),
     // Which row is the reader's own, so the page says Leave rather than Remove.
     you: scope.personId,
@@ -63,8 +60,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
   const scope = await requireScope(request, env, params.slug, context);
-
-  if (scope.org.kind === "personal") return { error: PERSONAL_ORG };
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "invite");
@@ -136,7 +131,6 @@ async function changeRole(env: Env, scope: Scope, form: FormData) {
 
 export default function Members({ loaderData, actionData }: Route.ComponentProps) {
   const { org, members, you } = loaderData;
-  const team = org.kind === "team";
   const confirm = actionData && "confirm" in actionData ? actionData.confirm : null;
   // One count for the whole list, because the answer is the org's and not the
   // row's: it decides which single row draws no control.
@@ -152,14 +146,12 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
             <span>{nameOf(member)}</span>
             <span className="text-muted">{member.email}</span>
             <span className="text-xs uppercase tracking-wide text-muted">{member.role}</span>
-            {team ? (
-              <MemberControls
-                member={member}
-                last={member.role === "owner" && owners === 1}
-                you={you}
-                org={org}
-              />
-            ) : null}
+            <MemberControls
+              member={member}
+              last={member.role === "owner" && owners === 1}
+              you={you}
+              org={org}
+            />
           </li>
         ))}
       </ul>
@@ -173,7 +165,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
       ) : null}
       {actionData && "ok" in actionData ? <p className="text-muted">{actionData.ok}</p> : null}
 
-      {team ? <InviteForm /> : <p className="text-muted">{PERSONAL_ORG}</p>}
+      <InviteForm />
     </main>
   );
 }

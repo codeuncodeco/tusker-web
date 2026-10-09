@@ -6,8 +6,8 @@ import type { Auth } from "./auth.server";
  * Makes an account. Tusker has no public signup, so this is the one way in:
  * the bootstrap page, an invitation, or a hand-run script calls it.
  *
- * The user row triggers the database hook that creates the personal org, so a
- * new person can make a task straight away.
+ * The account holds no org. The caller adds the org that invited it, or the
+ * person makes one. See ADR-0027.
  *
  * This reaches into `auth.$context` because better-auth publishes no endpoint
  * that makes an account without a signup. `sign-up/email` is off, and the
@@ -50,6 +50,23 @@ export async function createAccount(
 export async function noAccountYet(db: D1Database): Promise<boolean> {
   const found = await db.prepare('SELECT 1 FROM "user" LIMIT 1').first();
   return found === null;
+}
+
+/** What a page shows of the instance owner: who to ask, and where. */
+export type InstanceOwner = { name: string; email: string };
+
+/**
+ * The instance owner: the account the bootstrap page made, which is the oldest
+ * user row. A person who belongs to no org is told to ask them to be added.
+ * It reads no org it is not a member of. See ADR-0027.
+ *
+ * Null only while the instance holds no account, when nobody is signed in to
+ * ask.
+ */
+export async function instanceOwner(db: D1Database): Promise<InstanceOwner | null> {
+  return db
+    .prepare('SELECT name, email FROM "user" ORDER BY createdAt, rowid LIMIT 1')
+    .first<InstanceOwner>();
 }
 
 /** The name a mail calls an account by: its name, or its email when the name is blank. */

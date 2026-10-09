@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createAccount } from "../app/accounts.server";
 import { createAuth } from "../app/auth.server";
 import { outbox } from "../app/mail.server";
+import { createOrg } from "../app/orgs.server";
 import * as authRoute from "../app/routes/api.auth";
 import * as inviteRoute from "../app/routes/invite";
 import * as loginRoute from "../app/routes/login";
@@ -33,31 +34,13 @@ async function signInWithPassword(password = PASSWORD) {
 }
 
 describe("a new account", () => {
-  it("gets a personal org and a membership", async () => {
-    const user = await invite();
-
-    const org = await db
-      .prepare("SELECT id, slug, name, kind FROM orgs WHERE kind = 'personal'")
-      .first<{ id: string; slug: string; name: string; kind: string }>();
-    expect(org).toMatchObject({ slug: "ada", name: "Ada", kind: "personal" });
-
-    const membership = await db
-      .prepare("SELECT org_id, user_id, role FROM memberships")
-      .first<{ org_id: string; user_id: string; role: string }>();
-    expect(membership).toEqual({ org_id: org!.id, user_id: user.id, role: "owner" });
-  });
-
-  it("takes a second slug when the first one is gone", async () => {
-    await db
-      .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES ('other', 'ada', 'Ada', 'team')")
-      .run();
-
+  it("holds no org, because Tusker makes none at signup", async () => {
     await invite();
 
-    const org = await db
-      .prepare("SELECT slug FROM orgs WHERE kind = 'personal'")
-      .first<{ slug: string }>();
-    expect(org?.slug).toBe("ada-2");
+    const orgs = await db.prepare("SELECT id FROM orgs").all();
+    const memberships = await db.prepare("SELECT org_id FROM memberships").all();
+    expect(orgs.results).toEqual([]);
+    expect(memberships.results).toEqual([]);
   });
 });
 
@@ -167,14 +150,16 @@ describe("/account", () => {
     expect(response.headers.get("location")).toBe("/login?next=%2Faccount");
   });
 
-  it("shows the signed-in person and their orgs", async () => {
-    await invite();
+  it("shows the signed-in person and their orgs, first joined first", async () => {
+    const ada = await invite();
+    await createOrg(db, { name: "Ada", slug: "ada", personId: ada.id });
+    await createOrg(db, { name: "Acme", slug: "acme", personId: ada.id });
     const cookie = cookieFrom(await signInWithPassword());
 
     const data = await accountRoute.loader(routeArgs(get("/account", cookie)));
 
     expect(data.person).toMatchObject({ name: "Ada", email: EMAIL });
-    expect(data.orgs).toEqual([expect.objectContaining({ slug: "ada", kind: "personal" })]);
+    expect(data.orgs.map((org) => org.slug)).toEqual(["ada", "acme"]);
   });
 });
 
@@ -212,15 +197,13 @@ describe("the invite endpoint", () => {
     expect(response.status).toBe(400);
   });
 
-  it("makes an account, and that account gets its personal org", async () => {
+  it("makes an account, and that account holds no org", async () => {
     const response = (await inviteRoute.action(
       routeArgs(invitation({ authorization: `Bearer ${env.INVITE_TOKEN}` })),
     )) as Response;
 
     expect(response.status).toBe(201);
-    const org = await db
-      .prepare("SELECT slug, kind FROM orgs")
-      .first<{ slug: string; kind: string }>();
-    expect(org).toEqual({ slug: "bo", kind: "personal" });
+    const { results } = await db.prepare("SELECT id FROM orgs").all();
+    expect(results).toEqual([]);
   });
 });

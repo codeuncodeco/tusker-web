@@ -46,10 +46,7 @@ export default function Account({ loaderData }: Route.ComponentProps) {
               <Link to={`/o/${org.slug}/board`} className="underline">
                 {org.name}
               </Link>{" "}
-              <span className="text-muted">/{org.slug}</span>
-              {org.kind === "personal" ? (
-                <span className="ml-2 text-xs uppercase tracking-wide text-muted">personal</span>
-              ) : null}{" "}
+              <span className="text-muted">/{org.slug}</span>{" "}
               <Link to={`/o/${org.slug}/members`} className="ml-2 underline">
                 Members
               </Link>

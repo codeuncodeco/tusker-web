@@ -22,12 +22,10 @@ export type InviteDeps = { db: D1Database; auth: Auth; mailer: Mailer; origin: s
  * The three answers a member sees:
  *
  * - `added` — an account held the email, and it is a member now
- * - `invited` — no account held it, so Tusker made one, with its personal org
+ * - `invited` — no account held it, so Tusker made one, holding this org and
+ *   no other. See ADR-0027
  * - `already` — the account is a member of this org. Nothing changes, and
  *   nobody is mailed
- *
- * A personal org holds one person, so it is not an org to invite into. The
- * caller refuses that before it reaches here.
  */
 export async function inviteToOrg(
   deps: InviteDeps,
@@ -47,9 +45,8 @@ export async function inviteToOrg(
     return "added";
   }
 
-  // No account holds the email. Making it also makes the personal org, through
-  // the better-auth user hook, so the invited person lands with an org of
-  // their own as well as this one.
+  // No account holds the email. Tusker makes it, and the org that invited it
+  // is the only one it holds.
   const person = await madeAccount(auth, email);
   if (!person) {
     // Another invitation made the account between the read and here. It is an

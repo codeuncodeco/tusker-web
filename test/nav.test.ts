@@ -4,46 +4,40 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { RouterContextProvider, StaticRouter } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import { currentOrg, rememberOrg, slugOfCurrentOrg } from "../app/current-org";
 import { Header } from "../app/header";
 import * as orgLayout from "../app/layouts/org";
 import * as personLayout from "../app/layouts/person";
-import type { Org } from "../app/orgs.server";
-import * as loginRoute from "../app/routes/login";
+import { addMember, type Org } from "../app/orgs.server";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import { orgScope, requireScope } from "../app/scope.server";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 
 beforeEach(wipe);
 
-/** An org row as the header reads one. Only the four columns matter here. */
-function org(slug: string, kind: Org["kind"]): Org {
-  return { id: slug, slug, name: slug, kind, created_at: "2026-09-01", color: "blue" };
+/** An org row as the header reads one. Only the slug matters here. */
+function org(slug: string): Org {
+  return { id: slug, slug, name: slug, created_at: "2026-09-01", color: "blue", members: 1 };
 }
 
 describe("the current org", () => {
-  const personal = org("ada", "personal");
-  const acme = org("acme", "team");
+  // In the order the person joined them, as `listOrgsForPerson` answers.
+  const first = org("ada");
+  const acme = org("acme");
 
   it("is the org the cookie names", () => {
-    expect(currentOrg([personal, acme], "acme")).toEqual(acme);
+    expect(currentOrg([first, acme], "acme")).toEqual(acme);
   });
 
-  it("is the personal org while no cookie names one", () => {
-    expect(currentOrg([personal, acme], null)).toEqual(personal);
+  it("is the first joined while no cookie names one", () => {
+    expect(currentOrg([first, acme], null)).toEqual(first);
   });
 
-  it("is the personal org again when the cookie names an org the person left", () => {
-    expect(currentOrg([personal, acme], "gone")).toEqual(personal);
-  });
-
-  it("is the first org when the person holds no personal one", () => {
-    expect(currentOrg([acme], null)).toEqual(acme);
+  it("is the first joined again when the cookie names an org the person left", () => {
+    expect(currentOrg([first, acme], "gone")).toEqual(first);
   });
 
   it("is nothing when the person belongs to nothing", () => {
@@ -62,20 +56,6 @@ describe("the current org", () => {
     expect(cookie.toLowerCase()).toContain("httponly");
   });
 });
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  const own = await db
-    .prepare("SELECT slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ?")
-    .bind(person.id)
-    .first<{ slug: string }>();
-  return { person, personal: own!.slug, cookie: cookieFrom(response) };
-}
 
 /** Makes a team org, as its owner, and answers its slug. */
 async function team(cookie: string, name: string): Promise<string> {
@@ -100,7 +80,7 @@ describe("the org layout", () => {
     await member("bob@example.test", "Bob");
     const bobs = await db
       .prepare("SELECT slug FROM orgs WHERE slug <> ? ORDER BY created_at DESC")
-      .bind(ada.personal)
+      .bind(ada.org.slug)
       .first<{ slug: string }>();
 
     const response = await caught(
@@ -119,7 +99,7 @@ describe("the org layout", () => {
     );
 
     expect(answer.data.org.slug).toBe(acme);
-    expect(answer.data.orgs.map((one) => one.slug)).toEqual([ada.personal, acme]);
+    expect(answer.data.orgs.map((one) => one.slug)).toEqual([ada.org.slug, acme]);
     expect(answer.init?.headers).toBeDefined();
     expect(new Headers(answer.init!.headers).get("set-cookie")).toContain(`org=${acme}`);
   });
@@ -144,13 +124,26 @@ describe("the person layout", () => {
     expect(answer.org?.slug).toBe(acme);
   });
 
-  it("names the personal org before any visit", async () => {
+  it("names the org the person joined first before any visit", async () => {
     const ada = await member("ada@example.test", "Ada");
     await team(ada.cookie, "acme");
 
     const answer = await personLayout.loader(routeArgs(get("/me", ada.cookie)));
 
-    expect(answer.org?.slug).toBe(ada.personal);
+    expect(answer.org?.slug).toBe(ada.org.slug);
+    expect(answer.orgs.map((one) => one.slug)).toEqual([ada.org.slug, "acme"]);
+  });
+
+  it("goes by the day the person joined an org, not the day it was made", async () => {
+    // Bo's org is older than Ada's, but Ada joins it only after she makes hers.
+    const bo = await member("bo@example.test", "Bo");
+    const ada = await member("ada@example.test", "Ada");
+    await addMember(db, bo.org.id, "ada@example.test");
+
+    const answer = await personLayout.loader(routeArgs(get("/me", ada.cookie)));
+
+    expect(answer.orgs.map((one) => one.slug)).toEqual([ada.org.slug, bo.org.slug]);
+    expect(answer.org?.slug).toBe(ada.org.slug);
   });
 });
 
@@ -178,13 +171,13 @@ describe("the scope of a page under the org layout", () => {
     context.set(orgScope, await requireScope(get(`/o/${acme}/board`, ada.cookie), env, acme));
 
     const read = await requireScope(
-      get(`/o/${ada.personal}/board`, ada.cookie),
+      get(`/o/${ada.org.slug}/board`, ada.cookie),
       env,
-      ada.personal,
+      ada.org.slug,
       context,
     );
 
-    expect(read.org.slug).toBe(ada.personal);
+    expect(read.org.slug).toBe(ada.org.slug);
   });
 });
 
@@ -213,7 +206,7 @@ describe("the header", () => {
   });
 
   it("marks a page of the current org the same way", () => {
-    const markup = headerAt("/o/acme/decisions", org("acme", "team"));
+    const markup = headerAt("/o/acme/decisions", org("acme"));
 
     expect(markup).toMatch(/aria-current="page"[^>]*>Decisions</);
     expect(markup).not.toMatch(/<a[^>]*href="\/o\/acme\/decisions"/);

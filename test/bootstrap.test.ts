@@ -21,15 +21,17 @@ async function takeTheSeat() {
 }
 
 describe("the bootstrap route", () => {
-  it("makes the first account, its org, and a session", async () => {
+  it("makes the first account and a session, and sends it to make an org", async () => {
     const response = (await setUp()) as Response;
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/me");
+    expect(response.headers.get("location")).toBe("/orgs/new");
     expect(cookieFrom(response)).toContain("better-auth");
 
-    const org = await db.prepare("SELECT slug, kind FROM orgs").first<{ slug: string; kind: string }>();
-    expect(org).toEqual({ slug: "ada", kind: "personal" });
+    // An instance with no org has nothing to join, so the first person makes
+    // one. Tusker makes none for them. See ADR-0027.
+    const { results } = await db.prepare("SELECT id FROM orgs").all();
+    expect(results).toEqual([]);
   });
 
   it("refuses a password that is too short", async () => {

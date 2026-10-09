@@ -1,32 +1,20 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
 import { INVITE_TTL, createAuth } from "../app/auth.server";
 import { outbox } from "../app/mail.server";
 import * as authRoute from "../app/routes/api.auth";
-import * as loginRoute from "../app/routes/login";
 import * as membersRoute from "../app/routes/members";
 import * as newOrgRoute from "../app/routes/orgs.new";
+import { member } from "./accounts";
 import { SITE, caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 
 beforeEach(async () => {
   await wipe();
   outbox.length = 0;
 });
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  return { person, cookie: cookieFrom(response) };
-}
 
 /** Ada and her team org, with the outbox emptied of the sign-in mails. */
 async function team() {
@@ -76,15 +64,20 @@ describe("inviting from the members page", () => {
     expect(cookieFrom(response)).toContain("better-auth");
   });
 
-  it("gives the invited account its own personal org", async () => {
+  it("gives the invited account the org that invited it, and no other", async () => {
     const ada = await team();
 
     await invite(ada.cookie, "bo@example.test");
 
-    const org = await db
-      .prepare("SELECT slug, kind FROM orgs WHERE kind = 'personal' AND slug = 'bo'")
-      .first<{ slug: string; kind: string }>();
-    expect(org).toEqual({ slug: "bo", kind: "personal" });
+    const { results } = await db
+      .prepare(
+        `SELECT o.slug FROM orgs o
+         JOIN memberships m ON m.org_id = o.id
+         JOIN "user" u ON u.id = m.user_id
+         WHERE u.email = 'bo@example.test'`,
+      )
+      .all<{ slug: string }>();
+    expect(results).toEqual([{ slug: "codeuncode" }]);
   });
 
   it("gives the invitation link the invitation TTL, not the sign-in one", async () => {
@@ -143,17 +136,15 @@ describe("inviting from the members page", () => {
     expect(results).toHaveLength(2);
   });
 
-  it("refuses a second member in a personal org", async () => {
+  it("takes a second member into an org of one, as a former personal org is", async () => {
     const ada = await member("ada@example.test", "Ada");
     outbox.length = 0;
 
     const answer = await invite(ada.cookie, "bo@example.test", "ada");
 
-    expect(answer.error).toContain("A personal org holds one person");
-    expect(await memberCount("ada")).toBe(1);
-    expect(outbox).toEqual([]);
-    const { results } = await db.prepare('SELECT id FROM "user"').all();
-    expect(results).toHaveLength(1);
+    expect(answer.ok).toBe("bo@example.test is a member now. Tusker mailed them a link to sign in.");
+    expect(await memberCount("ada")).toBe(2);
+    expect(outbox).toHaveLength(1);
   });
 
   it("refuses an empty email", async () => {

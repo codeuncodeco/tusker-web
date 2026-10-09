@@ -181,11 +181,11 @@ async function cardsByOrg(db: D1Database, set: OrgSet): Promise<Map<string, Show
 }
 
 /**
- * Who holds each task, across the set. One read per team org and none per
- * card, as the org board does it.
+ * Who holds each task, across the set. One read per org of two or more and
+ * none per card, as the org board does it.
  *
- * A personal org holds one member, so it draws no assignee and is not read at
- * all. A task id is a UUID, so one map covers every org. See ADR-0013.
+ * An org of one member draws no assignee, so it is not read at all. A task id
+ * is a UUID, so one map covers every org. See ADR-0013.
  */
 async function heldByTask(db: D1Database, set: OrgSet): Promise<Map<string, Assignee[]>> {
   const read = await Promise.all(
@@ -202,7 +202,7 @@ function holes(count: number): string {
 }
 
 /**
- * The members of every team org in the set, keyed by slug.
+ * The members of every org of two or more in the set, keyed by slug.
  *
  * A cross-org quick-add box draws the picker of whatever org the org picker
  * holds, so the lists come back with the page and no fetcher runs between a
@@ -210,8 +210,8 @@ function holes(count: number): string {
  * answers the whole board's assignees.
  *
  * The key is the slug, because a form names an org by its slug and no screen
- * carries an org id. A personal org holds one member and draws no picker, so
- * it is not read and not keyed. See ADR-0013.
+ * carries an org id. An org of one member draws no picker, so it is not read
+ * and not keyed. See ADR-0013.
  */
 export async function membersBySlug(
   db: D1Database,

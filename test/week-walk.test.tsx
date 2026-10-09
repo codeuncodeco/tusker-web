@@ -44,8 +44,8 @@ function page(some: {
 } = {}) {
   const week = some.week ?? WEEK;
   const loaderData = {
-    // One personal org, so the box draws: a person always has one.
-    orgs: [{ slug: "ada", name: "Ada", kind: "personal", color: null }],
+    // One org, so the box draws with no org picker.
+    orgs: [{ slug: "ada", name: "Ada", color: null }],
     members: {},
     week,
     named: week !== WEEK,

@@ -2,7 +2,7 @@ import { Form, redirect } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
-import { createTeamOrg, freeSlug, slugify } from "../orgs.server";
+import { createOrg, freeSlug, slugify } from "../orgs.server";
 import { requirePerson } from "../session.server";
 import type { Route } from "./+types/orgs.new";
 
@@ -30,7 +30,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const slug = typed ? slugify(typed) : await freeSlug(env.DB, slugify(name) || "org");
   if (!slug) return { error: "That slug holds no letter or number." };
 
-  const org = await createTeamOrg(env.DB, { name, slug, personId: person.id });
+  const org = await createOrg(env.DB, { name, slug, personId: person.id });
   if (!org) return { error: `Another org already holds /${slug}.` };
 
   return redirect(`/o/${org.slug}/board`);

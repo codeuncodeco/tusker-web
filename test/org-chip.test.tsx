@@ -73,7 +73,7 @@ describe("a card of the unified board", () => {
 describe("the header", () => {
   /** One org as the header holds it. */
   function org(slug: string, color: string | null): OrgHeld {
-    return { slug, name: slug, kind: "team", color };
+    return { slug, name: slug, color };
   }
 
   it("puts a dot before the current org and before every org in the switcher", () => {

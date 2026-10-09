@@ -3,12 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { ASSIGNABLE } from "../app/colors";
 import { createOrgKey, orgForKey } from "../app/org-keys.server";
-import {
-  createPersonalOrg,
-  createTeamOrg,
-  listOrgsForPerson,
-  setOrgColor,
-} from "../app/orgs.server";
+import { createOrg, listOrgsForPerson, setOrgColor } from "../app/orgs.server";
 import migration from "../migrations/0015_org_color.sql?raw";
 import { wipe } from "./routes";
 
@@ -40,16 +35,16 @@ describe("the colour a new org is given", () => {
   it("colours a fresh org with no visit to the settings page", async () => {
     await person("u1", "ada@example.test");
 
-    const org = await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
+    const org = (await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" }))!;
 
     expect(org.color).toBe(ASSIGNABLE[0]);
   });
 
   it("never gives one person two orgs the same colour, until the palette runs out", async () => {
     await person("u1", "ada@example.test");
-    await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
+    await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" });
     for (let n = 1; n < ASSIGNABLE.length; n++) {
-      await createTeamOrg(db, { name: `Team ${n}`, slug: `team-${n}`, personId: "u1" });
+      await createOrg(db, { name: `Team ${n}`, slug: `team-${n}`, personId: "u1" });
     }
 
     const colors = (await listOrgsForPerson(db, "u1")).map((org) => org.color);
@@ -60,9 +55,9 @@ describe("the colour a new org is given", () => {
 
   it("wraps round once the person holds every name", async () => {
     await person("u1", "ada@example.test");
-    await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
+    await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" });
     for (let n = 1; n <= ASSIGNABLE.length; n++) {
-      await createTeamOrg(db, { name: `Team ${n}`, slug: `team-${n}`, personId: "u1" });
+      await createOrg(db, { name: `Team ${n}`, slug: `team-${n}`, personId: "u1" });
     }
 
     const last = await db
@@ -76,9 +71,9 @@ describe("the colour a new org is given", () => {
   it("counts only the orgs that person holds, not every org on the instance", async () => {
     await person("u1", "ada@example.test");
     await person("u2", "bo@example.test");
-    await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
+    await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" });
 
-    const bo = await createPersonalOrg(db, { id: "u2", name: "Bo", email: "bo@example.test" });
+    const bo = (await createOrg(db, { name: "Bo", slug: "bo", personId: "u2" }))!;
 
     expect(bo.color).toBe(ASSIGNABLE[0]);
   });
@@ -90,7 +85,7 @@ describe("the colour a row already here was given", () => {
     // table that holds rows: the same walk, over rows this test writes.
     for (let n = 1; n <= ASSIGNABLE.length + 1; n++) {
       await db
-        .prepare("INSERT INTO orgs (id, slug, name, kind, created_at) VALUES (?, ?, ?, 'team', ?)")
+        .prepare("INSERT INTO orgs (id, slug, name, created_at) VALUES (?, ?, ?, ?)")
         .bind(`o${n}`, `o-${n}`, `Org ${n}`, `2026-09-01T0${n}:00:00.000Z`)
         .run();
     }
@@ -107,7 +102,7 @@ describe("the colour a row already here was given", () => {
 describe("setting the colour", () => {
   it("writes what a member chose, and clears it back to null", async () => {
     await person("u1", "ada@example.test");
-    const org = await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
+    const org = (await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" }))!;
     const scope = { org, personId: "u1" };
 
     await setOrgColor(db, scope, "#2563eb");
@@ -121,7 +116,7 @@ describe("setting the colour", () => {
 describe("the org behind a key", () => {
   it("carries the colour, as every other read of an org does", async () => {
     await person("u1", "ada@example.test");
-    const org = await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
+    const org = (await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" }))!;
     const key = await createOrgKey(db, { org, personId: "u1" }, "ada-app");
 
     const read = await orgForKey(db, key);

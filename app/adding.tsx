@@ -1,19 +1,19 @@
 /**
  * The org the cross-org quick-add box files into.
  *
- * The pick starts at the personal org every time a person opens Tusker, holds
- * while they stay in the app — the move from `/me` to `/me/plan` included —
- * and dies on a reload or in a new tab. That lifetime is what this state is:
- * it lives in the root layout, so nothing is stored and nothing expires.
+ * The pick starts with no org every time a person opens Tusker, holds while
+ * they stay in the app — the move from `/me` to `/me/plan` included — and dies
+ * on a reload or in a new tab. That lifetime is what this state is: it lives in
+ * the root layout, so nothing is stored and nothing expires.
  *
- * A task that lands in the personal org by accident is private. One that lands
- * in a team org by accident is on every member's board, and Tusker cannot move
- * a task between orgs. See ADR-0012.
+ * No org is safe to start at. A task that lands in the wrong org is on every
+ * member's board, an org of one today can take a member tomorrow, and Tusker
+ * cannot move a task between orgs. See ADR-0012 and ADR-0027.
  */
 
 import { createContext, useContext, useState } from "react";
 
-/** The slug the box files into, and the way to change it. Null is personal. */
+/** The slug the box files into, and the way to change it. Null is no pick yet. */
 type AddingTo = [string | null, (slug: string | null) => void];
 
 const AddingToOrg = createContext<AddingTo>([null, () => {}]);
@@ -25,8 +25,8 @@ export function AddingProvider({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The slug the box is filing into, or null for the personal org. The box names
- * the personal org itself, because only the page knows which one it is.
+ * The slug the box is filing into, or null before the person picks one. A box
+ * for a person in one org ignores it, because that org is implied.
  */
 export function useAddingTo(): AddingTo {
   return useContext(AddingToOrg);

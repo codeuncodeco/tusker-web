@@ -98,7 +98,7 @@ describe("the org board, while a post is in flight", () => {
   });
 });
 
-/** A live task of the personal org, named by its id. */
+/** A live task of one org, named by its id. */
 function task(id: string, status: LiveTask["status"] = "todo", percentile = 0): LiveTask {
   return {
     id,

@@ -184,7 +184,7 @@ function Menu({
 /**
  * The header, on every signed-in page.
  *
- * `orgs` is every org the person belongs to, personal first, and `org` is the
+ * `orgs` is every org the person belongs to, first joined first, and `org` is the
  * current one. The menu lists orgs and nothing else; New org lives on the
  * account page. A person who belongs to no org gets no menu, because an empty
  * menu says nothing.
@@ -222,9 +222,6 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
                       the dot before it clips the name. */}
                   <span className="truncate">{one.name}</span>
                 </Link>
-                {one.kind === "personal" ? (
-                  <span className="shrink-0 text-xs uppercase tracking-wide text-muted">personal</span>
-                ) : null}
               </li>
             ))}
           </Menu>

@@ -54,6 +54,9 @@ function statusFor(form: FormData, picked: boolean): Status {
   return picked ? "todo" : addStatus(form);
 }
 
+/** What an add that names no org answers. */
+export const NO_ORG_PICKED = "Pick an org to add to.";
+
 /**
  * Makes a task of every line typed, in the org the picker named, in To do,
  * and held by the members the box named.
@@ -70,6 +73,11 @@ async function addTasks(
   picks: Picks,
   form: FormData,
 ): Promise<Acted> {
+  // The box starts with no org picked, so an add that names none is a person
+  // who has not picked yet, not a stranger guessing slugs. It answers with a
+  // sentence, and the box keeps the words. See ADR-0027.
+  if (!form.get("slug")) return { error: NO_ORG_PICKED };
+
   const scope = scopeFrom(set, form);
   const typed = newTasksFrom(form);
   if ("error" in typed) return typed;

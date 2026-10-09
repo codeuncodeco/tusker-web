@@ -11,31 +11,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import { isFinished, type Status } from "../app/board";
-import * as loginRoute from "../app/routes/login";
 import * as taskRoute from "../app/routes/task";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 
 beforeEach(wipe);
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  const org = await db
-    .prepare("SELECT id, slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ?")
-    .bind(person.id)
-    .first<{ id: string; slug: string }>();
-  return { org: org!, cookie: cookieFrom(response) };
-}
 
 /** A task in one status, placed by hand, finished a while ago when it is. */
 async function task(

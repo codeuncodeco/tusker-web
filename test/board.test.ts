@@ -1,31 +1,14 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
 import type { Status } from "../app/board";
 import * as boardRoute from "../app/routes/board";
-import * as loginRoute from "../app/routes/login";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 
 beforeEach(wipe);
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  const org = await db
-    .prepare("SELECT id, slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ?")
-    .bind(person.id)
-    .first<{ id: string; slug: string }>();
-  return { person, org: org!, cookie: cookieFrom(response) };
-}
 
 /** The board loader for one org, as that org's member sees it. */
 function board(slug: string, cookie: string, query = "") {

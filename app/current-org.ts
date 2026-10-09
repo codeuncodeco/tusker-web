@@ -14,11 +14,11 @@ import type { Org } from "./orgs.server";
 export const ORG_COOKIE = "org";
 
 /** What the header needs of one org. It never carries an id. */
-export type OrgHeld = Pick<Org, "slug" | "name" | "kind" | "color">;
+export type OrgHeld = Pick<Org, "slug" | "name" | "color">;
 
 /** One org, cut down to what the header draws. */
 export function held(org: Org): OrgHeld {
-  return { slug: org.slug, name: org.name, kind: org.kind, color: org.color };
+  return { slug: org.slug, name: org.name, color: org.color };
 }
 
 /** The org the cookie names, or null before the person has visited one. */
@@ -38,11 +38,13 @@ export function rememberOrg(slug: string): string {
 /**
  * The current org, out of the orgs the person belongs to.
  *
- * A slug no membership answers for reads as none, so an org a person left, or
- * one they never held, falls back to the personal org rather than naming an
- * org the header cannot link to. A person who belongs to nothing has none.
+ * `orgs` comes in the order the person joined them, so with no cookie the
+ * current org is the first joined. A slug no membership answers for reads as
+ * none, so an org a person left, or one they never held, falls back the same
+ * way rather than naming an org the header cannot link to. A person who
+ * belongs to nothing has none. See ADR-0027.
  */
 export function currentOrg<T extends OrgHeld>(orgs: T[], slug: string | null): T | null {
   const named = slug ? orgs.find((org) => org.slug === slug) : undefined;
-  return named ?? orgs.find((org) => org.kind === "personal") ?? orgs[0] ?? null;
+  return named ?? orgs[0] ?? null;
 }

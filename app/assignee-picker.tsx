@@ -9,7 +9,7 @@
  *
  * The set starts empty. Unassigned is a state to look at, not a gap to hide.
  *
- * A personal org holds one member and draws no picker, so an empty list draws
+ * An org of one member draws no picker, so an empty list draws
  * nothing at all.
  */
 

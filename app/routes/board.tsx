@@ -97,7 +97,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // Who holds each task, for the whole org in one read, and the org's members
   // beside it: one list for the picker the quick-add box carries and for the
   // filter select in the header. The two reads go together, because neither
-  // waits on the other. A personal org draws no assignee, so it draws neither
+  // waits on the other. An org of one draws no assignee, so it draws neither
   // control, and it holds no filter either, whatever the address says.
   // See ADR-0013 and ADR-0017.
   const draws = drawsAssignees(scope.org);
@@ -262,7 +262,7 @@ export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args
  * added and then moved.
  *
  * The picker names who holds the task. It keeps its set across an add, so a
- * person filing three tasks to one member names them once. A personal org
+ * person filing three tasks to one member names them once. An org of one
  * hands it no member and it draws nothing. See ADR-0013.
  *
  * `n` focuses the box and Escape gives the board its keys back, as they do on
@@ -271,7 +271,7 @@ export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args
 function QuickAdd({
   members,
 }: {
-  /** The org's members. Empty for a personal org, which draws no picker. */
+  /** The org's members. Empty for an org of one, which draws no picker. */
   members: Assignee[];
 }) {
   const add = useFetcher<typeof action>();

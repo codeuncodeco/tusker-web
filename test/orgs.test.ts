@@ -3,8 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   addMember,
-  createPersonalOrg,
-  createTeamOrg,
+  createOrg,
   freeSlug,
   listMembers,
   listOrgsForPerson,
@@ -27,44 +26,52 @@ async function person(id: string, email: string) {
     .run();
 }
 
-it("names the personal org after the person, and keeps the email when there is no name", async () => {
-  await person("u1", "ada@example.test");
-
-  const org = await createPersonalOrg(db, { id: "u1", name: null, email: "ada@example.test" });
-
-  expect(org).toMatchObject({ slug: "ada", name: "ada@example.test", kind: "personal" });
-});
-
 it("lists only the orgs the person is a member of", async () => {
   await person("u1", "ada@example.test");
   await person("u2", "bo@example.test");
-  await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
-  await createPersonalOrg(db, { id: "u2", name: "Bo", email: "bo@example.test" });
+  await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" });
+  await createOrg(db, { name: "Bo", slug: "bo", personId: "u2" });
 
   const mine = await listOrgsForPerson(db, "u1");
 
   expect(mine).toEqual([expect.objectContaining({ slug: "ada" })]);
 });
 
-it("puts the personal org first", async () => {
+it("lists the orgs in the order the person joined them, whenever the org was made", async () => {
   await person("u1", "ada@example.test");
-  await db
-    .prepare("INSERT INTO orgs (id, slug, name, kind) VALUES ('t1', 'codeuncode', 'codeuncode', 'team')")
-    .run();
-  await db.prepare("INSERT INTO memberships (org_id, user_id, role) VALUES ('t1', 'u1', 'member')").run();
-  await createPersonalOrg(db, { id: "u1", name: "Ada", email: "ada@example.test" });
+  await person("u2", "bo@example.test");
+  // Bo makes the older org, and Ada joins it only after she makes her own.
+  const older = await createOrg(db, { name: "Older", slug: "older", personId: "u2" });
+  await createOrg(db, { name: "Ada", slug: "ada", personId: "u1" });
+  await addMember(db, older!.id, "ada@example.test");
+  await createOrg(db, { name: "Newest", slug: "newest", personId: "u1" });
 
   const mine = await listOrgsForPerson(db, "u1");
 
-  expect(mine.map((org) => org.slug)).toEqual(["ada", "codeuncode"]);
+  expect(mine.map((org) => org.slug)).toEqual(["ada", "older", "newest"]);
 });
 
-it("makes a team org with the person as its owner", async () => {
+it("counts the members of each org it lists", async () => {
+  await person("u1", "ada@example.test");
+  await person("u2", "bo@example.test");
+  const shared = await createOrg(db, { name: "Shared", slug: "shared", personId: "u1" });
+  await createOrg(db, { name: "Alone", slug: "alone", personId: "u1" });
+  await addMember(db, shared!.id, "bo@example.test");
+
+  const mine = await listOrgsForPerson(db, "u1");
+
+  expect(mine.map((org) => [org.slug, org.members])).toEqual([
+    ["shared", 2],
+    ["alone", 1],
+  ]);
+});
+
+it("makes an org with the person as its owner and only member", async () => {
   await person("u1", "ada@example.test");
 
-  const org = await createTeamOrg(db, { name: "codeuncode", slug: "codeuncode", personId: "u1" });
+  const org = await createOrg(db, { name: "codeuncode", slug: "codeuncode", personId: "u1" });
 
-  expect(org).toMatchObject({ slug: "codeuncode", name: "codeuncode", kind: "team" });
+  expect(org).toMatchObject({ slug: "codeuncode", name: "codeuncode", members: 1 });
   const role = await db
     .prepare("SELECT role FROM memberships WHERE org_id = ? AND user_id = 'u1'")
     .bind(org!.id)
@@ -75,9 +82,9 @@ it("makes a team org with the person as its owner", async () => {
 it("answers null for a slug another org already holds, and writes nothing", async () => {
   await person("u1", "ada@example.test");
   await person("u2", "bo@example.test");
-  await createTeamOrg(db, { name: "codeuncode", slug: "codeuncode", personId: "u1" });
+  await createOrg(db, { name: "codeuncode", slug: "codeuncode", personId: "u1" });
 
-  const second = await createTeamOrg(db, { name: "Another", slug: "codeuncode", personId: "u2" });
+  const second = await createOrg(db, { name: "Another", slug: "codeuncode", personId: "u2" });
 
   expect(second).toBeNull();
   const { results } = await db.prepare("SELECT id FROM orgs").all();
@@ -87,7 +94,7 @@ it("answers null for a slug another org already holds, and writes nothing", asyn
 it("cuts a name down to a slug, and finds the next free one", async () => {
   expect(slugify("Code & Uncode!")).toBe("code-uncode");
   await person("u1", "ada@example.test");
-  await createTeamOrg(db, { name: "Code Uncode", slug: "code-uncode", personId: "u1" });
+  await createOrg(db, { name: "Code Uncode", slug: "code-uncode", personId: "u1" });
 
   expect(await freeSlug(db, "code-uncode")).toBe("code-uncode-2");
 });
@@ -97,7 +104,7 @@ describe("adding a person to an org", () => {
   async function team() {
     await person("u1", "ada@example.test");
     await person("u2", "Bo@Example.test");
-    const org = await createTeamOrg(db, { name: "codeuncode", slug: "codeuncode", personId: "u1" });
+    const org = await createOrg(db, { name: "codeuncode", slug: "codeuncode", personId: "u1" });
     return org!;
   }
 
@@ -134,4 +141,10 @@ describe("adding a person to an org", () => {
     expect(members.map((one) => one.role)).toEqual(["owner", "member"]);
     expect(members.map((one) => one.id)).toEqual(["u1", "u2"]);
   });
+});
+
+it("holds no kind, because there is one kind of org", async () => {
+  const { results } = await db.prepare("PRAGMA table_info(orgs)").all<{ name: string }>();
+
+  expect(results.map((column) => column.name)).not.toContain("kind");
 });

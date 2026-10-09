@@ -43,8 +43,8 @@ function orgBoard(): string {
 /** The unified board with every column. */
 function unifiedBoard(): string {
   const orgs = [
-    { slug: "ada", name: "Ada", kind: "personal" as const, color: "red" },
-    { slug: "acme", name: "Acme", kind: "team" as const, color: "blue" },
+    { slug: "ada", name: "Ada", color: "red" },
+    { slug: "acme", name: "Acme", color: "blue" },
   ];
   const Stub = createRoutesStub([
     {

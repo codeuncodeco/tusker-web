@@ -47,10 +47,11 @@ function compare(a: string, b: string): number {
 }
 
 /**
- * True when the org draws an assignee. A personal org holds one member, so a
- * picker whose only value is "me" is noise on every card of the org a person
- * reads most. See ADR-0013.
+ * True when the org draws an assignee. An org of one member has nobody else to
+ * name, so a picker whose only value is "me" is noise on every card. The count
+ * decides and not who made the org: an org of one draws a picker the day a
+ * second member joins. See ADR-0013 and ADR-0027.
  */
-export function drawsAssignees(org: { kind: "personal" | "team" }): boolean {
-  return org.kind !== "personal";
+export function drawsAssignees(org: { members: number }): boolean {
+  return org.members > 1;
 }

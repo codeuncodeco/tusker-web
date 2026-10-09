@@ -44,7 +44,7 @@ export function UnifiedBoard({
   columns: Column[];
   /** Every org the person belongs to, for the org picker on the box. */
   orgs: OrgHeld[];
-  /** The members of every team org, for the assignee picker on the box. */
+  /** The members of every org of two or more, for the assignee picker on the box. */
   members: Record<string, Assignee[]>;
   /** The task ids the day's plan holds, which turn Plan into Unplan. */
   planned: Set<string>;
@@ -130,8 +130,8 @@ export function UnifiedBoard({
   return (
     <>
       {/* One box for the board, outside every keyed list, so no press of a
-          typed word is ever the page's. The picker starts at the personal org
-          every time. See ADR-0012. */}
+          typed word is ever the page's. The picker starts with no org every
+          time. See ADR-0012 and ADR-0027. */}
       <UnifiedAdd orgs={orgs} members={members} label="Add to To do" bare />
 
       <DragLists

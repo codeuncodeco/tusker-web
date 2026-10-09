@@ -1,38 +1,21 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAccount } from "../app/accounts.server";
-import { createAuth } from "../app/auth.server";
-import * as loginRoute from "../app/routes/login";
 import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
-import { caught, cookieFrom, get, post, routeArgs, wipe } from "./routes";
+import { member } from "./accounts";
+import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
-const PASSWORD = "correct horse battery";
 const DAY = "2026-09-01";
 
 beforeEach(wipe);
-
-/** An account, its personal org and a cookie that signs its requests. */
-async function member(email: string, name: string) {
-  const auth = createAuth(env, get("/"));
-  const person = await createAccount(auth, { email, name, password: PASSWORD });
-  const response = (await loginRoute.action(
-    routeArgs(post("/login", { intent: "password", email, password: PASSWORD })),
-  )) as Response;
-  const org = await db
-    .prepare("SELECT id, slug FROM orgs JOIN memberships ON org_id = id WHERE user_id = ?")
-    .bind(person.id)
-    .first<{ id: string; slug: string }>();
-  return { person, org: org!, cookie: cookieFrom(response) };
-}
 
 /** A second org the person is a member of. */
 async function team(personId: string, slug: string) {
   const id = `org-${slug}`;
   await db.batch([
-    db.prepare("INSERT INTO orgs (id, slug, name, kind) VALUES (?, ?, ?, 'team')").bind(id, slug, slug),
+    db.prepare("INSERT INTO orgs (id, slug, name) VALUES (?, ?, ?)").bind(id, slug, slug),
     db.prepare("INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, 'member')").bind(id, personId),
   ]);
   return { id, slug };
@@ -154,6 +137,17 @@ describe("the add", () => {
 
     expect(acted).toEqual({ error: "A task needs a title." });
     expect((await rowsIn(ada.org.id)).results).toEqual([]);
+  });
+
+  it("refuses an add that names no org, and writes nothing", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await team(ada.person.id, "blrhikes");
+
+    const acted = await onMe(ada.cookie, { intent: "create", slug: "", title: "fix the map" });
+
+    expect(acted).toEqual({ error: "Pick an org to add to." });
+    const { results } = await db.prepare("SELECT id FROM tasks").all();
+    expect(results).toEqual([]);
   });
 
   it("answers 404 for an org the person is not a member of", async () => {
@@ -358,12 +352,12 @@ describe("where the box shows", () => {
     expect(past.canAdd).toBe(false);
   });
 
-  it("names every org the person can file into, personal first", async () => {
+  it("names every org the person can file into, first joined first", async () => {
     const ada = await member("ada@example.test", "Ada");
     await team(ada.person.id, "blrhikes");
 
     const data = await meRoute.loader(routeArgs(get("/me", `${ada.cookie}; day=${DAY}`)));
 
-    expect(data.orgs.map((one) => one.kind)).toEqual(["personal", "team"]);
+    expect(data.orgs.map((one) => one.slug)).toEqual([ada.org.slug, "blrhikes"]);
   });
 });

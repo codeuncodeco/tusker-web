@@ -366,7 +366,7 @@ export async function createTasks(
  * Deletes one task of the org, row and all.
  *
  * It is the only delete Tusker has: the undo of a quick add, on a row made
- * seconds ago. Archiving instead would leave a real row in a team org that
+ * seconds ago. Archiving instead would leave a real row in an org that
  * never wanted it, which is the failure ADR-0012 sets out to prevent.
  *
  * A decision the task produced stays, with its link cleared, because a

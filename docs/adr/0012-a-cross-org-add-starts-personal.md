@@ -1,5 +1,8 @@
 # A cross-org add starts personal
 
+The org the picker starts at is superseded by ADR-0027: there is no personal
+org, and the picker starts with no org picked.
+
 Amended in place by #165: a board has one quick-add box, not one per column,
 and what it adds lands in To do. The sentence on the org board's box was
 rewritten. Everything else here stands.
