@@ -11,7 +11,6 @@ import { Outlet, redirect } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
-import { useFrame } from "../frame";
 import { Header } from "../header";
 import { namedOrg } from "../org-select";
 import { DIRECTORY, readOrgSet } from "../scope.server";
@@ -35,18 +34,10 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 export default function Person({ loaderData }: Route.ComponentProps) {
-  // A board page holds still and scrolls inside its columns, so the wrapper is
-  // the window and nothing taller. Every other page keeps document scroll.
-  const frame = useFrame();
-
   return (
-    <div
-      className={`flex min-h-full flex-col ${frame ? "sm:h-full sm:min-h-0" : ""}`}
-    >
+    <div className="flex min-h-full flex-col">
       <Header orgs={loaderData.orgs} org={loaderData.org} />
-      {/* The clip sits under the header, and not around it, because the
-          header's menus are drawn over the page from inside it. */}
-      <div className={`flex flex-1 flex-col ${frame ? "sm:min-h-0 sm:overflow-hidden" : ""}`}>
+      <div className="flex flex-1 flex-col">
         <Outlet />
       </div>
     </div>

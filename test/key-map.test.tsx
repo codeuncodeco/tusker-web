@@ -110,6 +110,9 @@ describe("the key each act binds", () => {
       key: "Escape",
       press: () => expect(press("Escape")).toEqual({ kind: "cursor", id: null }),
     },
+    // `?` opens the Key guide, which the keyed list does and the map does not.
+    // `test/key-guide.test.tsx` reads that press.
+    guide: { key: "?", press: () => expect(press("?")).toBe(null) },
   };
 
   for (const [action, fired] of Object.entries(fires)) {

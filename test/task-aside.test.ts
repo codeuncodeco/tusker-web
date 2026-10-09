@@ -1,5 +1,5 @@
 /**
- * The task aside, read off its source, as `board-frame.test.ts` reads the
+ * The task aside, read off its source, as `board-scroll.test.ts` reads the
  * board. Where the aside draws is layout and nothing else.
  */
 

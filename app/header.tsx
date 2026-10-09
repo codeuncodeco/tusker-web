@@ -6,7 +6,7 @@
  * page: one Board, whose scope the select sets, then Week, Plan and Focus, then
  * the pages of the org the select names. While the select reads All, no org is
  * named, so ⋯ holds no org page. At the far right, a person menu holds what is
- * no org's. See ADR-0029.
+ * no org's, and "Keys ?" on a page that gives list keys. See ADR-0029.
  *
  * The address is the only current org. The select reads it, and a pick goes to
  * the board of that scope at once.
@@ -20,6 +20,9 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import type { OrgHeld } from "./current-org";
 import { Ellipsis, User } from "./icons";
+import { keyHint } from "./key-hint";
+import { KEY_MAP } from "./key-map";
+import { useKeyGuide } from "./keyed-list";
 import { OrgDot } from "./org-chip";
 import { boardOf } from "./org-select";
 
@@ -81,6 +84,33 @@ function Item({ to, here, children }: { to: string; here: boolean; children: Rea
           {children}
         </Link>
       )}
+    </li>
+  );
+}
+
+/**
+ * The row of the person menu that opens the Key guide. It is no page, so it is
+ * a button and not a link. It is drawn only where the page gives list keys, and
+ * only where the pointer is fine, because a phone has no keyboard. See #206.
+ */
+function KeysItem() {
+  const guide = useKeyGuide();
+  if (!guide.given) return null;
+  const mark = keyHint("guide");
+
+  return (
+    <li className="hidden pointer-fine:block">
+      <button
+        type="button"
+        {...mark.keys}
+        // No place to go back to: the menu closes as the guide opens, so the
+        // guide gives the focus to the page's keyed list, where the keys are.
+        onClick={() => guide.open(null)}
+        className="flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-muted hover:bg-border hover:text-fg"
+      >
+        {KEY_MAP.guide.label}
+        {mark.hint}
+      </button>
     </li>
   );
 }
@@ -282,7 +312,13 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     // Three columns: an empty left, the select and ⋯ at the centre, the person
     // menu at the right. The outer two share the rest equally, so the centre
     // stays centred whatever either side holds.
-    <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 border-b border-border px-8 py-3">
+    //
+    // On a board, from `sm` up, the header sticks, and the board's Top row
+    // sticks under it at `top-16`, so the height is fixed and not its
+    // content's. Every other page scrolls it away. See #191.
+    <header
+      className={`top-0 z-20 grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-x-4 border-b border-border bg-bg px-8 ${onBoard ? "sm:sticky" : ""}`}
+    >
       <span aria-hidden="true" />
       <div className="flex items-center gap-2">
         {orgs.length > 1 ? (
@@ -329,6 +365,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
               {one.label}
             </Item>
           ))}
+          <KeysItem />
         </Menu>
       </div>
     </header>

@@ -9,9 +9,11 @@
 
 /**
  * True for a press the page can act on. A keyed list holds no box, so the box
- * guard reads for the three listeners still on the window — the decision
- * prompt, the offer that ends a batch, and the task page's way back — and for a
- * box a page draws inside a list by mistake. See ADR-0022.
+ * guard reads for the listeners still on the window — the decision prompt,
+ * the offer that ends a batch, and the task page's way back — and for a box a
+ * page draws inside a list by mistake. See ADR-0022. The Key guide's `Escape`
+ * is on the window too, and asks no guard: while it is up, it is the dialog,
+ * and every press is its.
  *
  * All three are `Escape`, which 2.1.4 does not reach: it names a single
  * character key, and Escape is not one. A page that draws no list has nowhere

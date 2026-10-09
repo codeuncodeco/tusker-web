@@ -53,8 +53,10 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
   if (!ask) return null;
   const error = post.data?.error;
 
+  // Over the board's sticky header (`z-20`) and Top row (`z-10`), so the
+  // shade dims them as well.
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
       <div
         role="dialog"
         aria-modal="true"

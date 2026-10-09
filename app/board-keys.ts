@@ -16,6 +16,7 @@
 import { useNavigate } from "react-router";
 
 import { isFinished, stepped, type Status } from "./board";
+import { line, type GuideLine } from "./key-guide";
 import { fires } from "./key-map";
 import { BOARD_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
@@ -23,6 +24,14 @@ import { taskPath, useOrigin } from "./paths";
 
 /** One column as the keys read it: its status, and the ids it draws in order. */
 export type KeyedColumn = { status: Status; ids: string[] };
+
+/**
+ * Every act the board's keys give, which the Key guide names. No plan: a plan
+ * is the person's, and this board is the org's. See ADR-0016.
+ */
+export const BOARD_LINES: GuideLine[] = (
+  ["next", "prev", "open", "up", "down", "forward", "back", "finish", "clear"] as const
+).map((act) => line(act));
 
 /**
  * What one press asks the board for: to put the cursor on a card, to open one,
@@ -143,5 +152,5 @@ export function useBoardKeys(
     else step(act.id, act.way);
 
     return true;
-  }, BOARD_ARROWS);
+  }, BOARD_ARROWS, BOARD_LINES);
 }
