@@ -238,8 +238,8 @@ export default function Week({ loaderData }: Route.ComponentProps) {
   const groups = canPick
     ? groupsFor(drawn.tasks, drawn.picked, "week")
     : pickedOnly(drawn.tasks, drawn.picked, "week");
-  const picked = groups.find((group) => group.key === "week")!.tasks;
-  const done = picked.filter((one) => one.finished).length;
+  const inWeek = groups.find((group) => group.key === "week")!.tasks;
+  const done = inWeek.filter((one) => one.finished).length;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -257,9 +257,9 @@ export default function Week({ loaderData }: Route.ComponentProps) {
           </Link>
         </h1>
         <WeekWalk today={day} prev={prev} next={next} onThisWeek={onThisWeek} />
-        {picked.length > 0 ? (
+        {inWeek.length > 0 ? (
           <span className="tabular-nums text-muted">
-            {done} of {picked.length} done
+            {done} of {inWeek.length} done
           </span>
         ) : null}
         {/* The one word that says why the page offers no pick and no step. */}

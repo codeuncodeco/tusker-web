@@ -124,6 +124,7 @@ export function QuickAddBox({
   fields,
   chip,
   picker,
+  busy = false,
 }: {
   /** The `Form` of the fetcher that posts the add. */
   form: FetcherForm;
@@ -143,8 +144,21 @@ export function QuickAddBox({
    * members who hold what it makes.
    */
   picker?: ReactNode;
+  /**
+   * True while the last add is in flight. A fetcher that posts again drops
+   * the post it had on its way, so an Enter pressed now waits, and the add
+   * goes the moment the first one lands. See #168.
+   */
+  busy?: boolean;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const [waiting, setWaiting] = useState(false);
+
+  useEffect(() => {
+    if (busy || !waiting) return;
+    setWaiting(false);
+    box.current?.form?.requestSubmit();
+  }, [busy, waiting]);
 
   // The box starts one line high and grows with what it holds, up to a few
   // lines, so a person sees the list they pasted before they post it.
@@ -184,7 +198,8 @@ export function QuickAddBox({
           // input method is composing belongs to that method.
           if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
           event.preventDefault();
-          event.currentTarget.form?.requestSubmit();
+          if (busy) setWaiting(true);
+          else event.currentTarget.form?.requestSubmit();
         }}
         placeholder={label}
         aria-label={label}

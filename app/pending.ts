@@ -187,6 +187,18 @@ export function addsSent(sent: FormData[], status?: Status): string[] {
 }
 
 /**
+ * What one description box draws while its ticks are in flight. The server
+ * flips the box once for each post, whatever the page thought it held, so the
+ * box flips once for each tick still on its way.
+ */
+export function tickedSent(checked: boolean, box: number, sent: FormData[]): boolean {
+  const ticks = sent.filter(
+    (form) => form.get("intent") === "tick" && form.get("box") === String(box),
+  ).length;
+  return ticks % 2 === 1 ? !checked : checked;
+}
+
+/**
  * What a person reads when a post did not land: the reason the server gave,
  * or that the server was out of reach.
  */

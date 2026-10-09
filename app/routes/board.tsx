@@ -288,6 +288,7 @@ function QuickAdd({
   return (
     <QuickAddBox
       form={add.Form}
+      busy={add.state !== "idle"}
       label={`Add to ${label}`}
       draft={draft}
       error={error}

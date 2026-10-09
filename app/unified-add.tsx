@@ -133,6 +133,7 @@ export function UnifiedAdd({
     <section className="flex flex-col gap-2">
       <QuickAddBox
         form={add.Form}
+      busy={add.state !== "idle"}
         label={label}
         draft={draft}
         error={error}

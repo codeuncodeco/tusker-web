@@ -28,7 +28,7 @@ import { NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
 import { moveFields } from "./unified-row";
 
 export function UnifiedBoard({
-  columns: held,
+  columns: answered,
   orgs,
   members,
   planned: picked,
@@ -48,13 +48,13 @@ export function UnifiedBoard({
   // second `p` on the same card reads the first. See #168.
   const sent = useSent();
   const drawn = tasksSent(
-    held.flatMap((column) => column.tasks),
+    answered.flatMap((column) => column.tasks),
     [...picked],
     sent,
   );
   const columns = columnsFor(
     drawn.tasks,
-    held.map((column) => column.status),
+    answered.map((column) => column.status),
   );
   const planned = new Set(drawn.picked);
   // A post per press, so every press of a burst is drawn.

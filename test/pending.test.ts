@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { addsSent, boardSent, failureText, tasksSent } from "../app/pending";
+import { addsSent, boardSent, failureText, tasksSent, tickedSent } from "../app/pending";
 import type { LiveTask } from "../app/unified";
 
 /** One post, as a fetcher holds it while it is in flight. */
@@ -205,6 +205,20 @@ describe("the tasks an add in flight draws", () => {
 
   it("draws nothing for a post that is not an add", () => {
     expect(addsSent([sent({ intent: "move", id: "a", status: "todo" })], "todo")).toEqual([]);
+  });
+});
+
+describe("a description box, while its ticks are in flight", () => {
+  it("flips once for each tick in flight, because the server flips once for each post", () => {
+    const one = [sent({ intent: "tick", box: "2" })];
+    const two = [...one, sent({ intent: "tick", box: "2" })];
+
+    expect(tickedSent(false, 2, one)).toBe(true);
+    expect(tickedSent(false, 2, two)).toBe(false);
+  });
+
+  it("reads only the ticks of its own box", () => {
+    expect(tickedSent(true, 0, [sent({ intent: "tick", box: "1" })])).toBe(true);
   });
 });
 
