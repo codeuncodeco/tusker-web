@@ -11,12 +11,13 @@ import {
   unifiedColumns,
   type LiveTask,
 } from "../app/unified";
+import type { TaskId } from "../app/task-number";
 
 /** A row with only the parts the sort reads named. */
-function live(some: Partial<LiveTask> & { id: string }): LiveTask {
+function live(some: Partial<LiveTask> & { id: TaskId }): LiveTask {
   return {
     org: { slug: "ada", name: "Ada", color: "blue" },
-    title: some.id,
+    title: String(some.id),
     status: "todo",
     due_date: null,
     percentile: 0.5,
@@ -29,52 +30,52 @@ function live(some: Partial<LiveTask> & { id: string }): LiveTask {
 }
 
 /** The ids the sort leaves in order. */
-function sorted(...rows: LiveTask[]): string[] {
+function sorted(...rows: LiveTask[]): TaskId[] {
   return [...rows].sort(inOrder).map((one) => one.id);
 }
 
 describe("the order inside a group", () => {
   it("puts the smaller percentile first", () => {
-    expect(sorted(live({ id: "b", percentile: 0.9 }), live({ id: "a", percentile: 0.1 }))).toEqual(["a", "b"]);
+    expect(sorted(live({ id: 2, percentile: 0.9 }), live({ id: 1, percentile: 0.1 }))).toEqual([1, 2]);
   });
 
   it("breaks a tie on the due date, earliest first", () => {
     const rows = sorted(
-      live({ id: "late", due_date: "2026-03-02" }),
-      live({ id: "soon", due_date: "2026-03-01" }),
+      live({ id: 1, due_date: "2026-03-02" }),
+      live({ id: 2, due_date: "2026-03-01" }),
     );
-    expect(rows).toEqual(["soon", "late"]);
+    expect(rows).toEqual([2, 1]);
   });
 
   it("sorts a dated task above an undated one", () => {
-    expect(sorted(live({ id: "none" }), live({ id: "dated", due_date: "2030-12-31" }))).toEqual([
-      "dated",
-      "none",
+    expect(sorted(live({ id: 1 }), live({ id: 2, due_date: "2030-12-31" }))).toEqual([
+      2,
+      1,
     ]);
   });
 
   it("breaks a date tie on created_at, then on the id", () => {
     const rows = sorted(
-      live({ id: "z", created_at: "2026-01-02T00:00:00.000Z" }),
-      live({ id: "b", created_at: "2026-01-01T00:00:00.000Z" }),
-      live({ id: "a", created_at: "2026-01-01T00:00:00.000Z" }),
+      live({ id: 3, created_at: "2026-01-02T00:00:00.000Z" }),
+      live({ id: 2, created_at: "2026-01-01T00:00:00.000Z" }),
+      live({ id: 1, created_at: "2026-01-01T00:00:00.000Z" }),
     );
-    expect(rows).toEqual(["a", "b", "z"]);
+    expect(rows).toEqual([1, 2, 3]);
   });
 
   it("does not let an overdue task jump the list", () => {
     const rows = sorted(
-      live({ id: "overdue", percentile: 0.9, due_date: "2020-01-01" }),
-      live({ id: "first", percentile: 0.1 }),
+      live({ id: 1, percentile: 0.9, due_date: "2020-01-01" }),
+      live({ id: 3, percentile: 0.1 }),
     );
-    expect(rows).toEqual(["first", "overdue"]);
+    expect(rows).toEqual([3, 1]);
   });
 
   it("gives the same order whatever order the rows arrive in", () => {
     const rows = [
-      live({ id: "a", percentile: 0.2 }),
-      live({ id: "b", percentile: 0.2, due_date: "2026-05-01" }),
-      live({ id: "c", percentile: 0.1 }),
+      live({ id: 1, percentile: 0.2 }),
+      live({ id: 2, percentile: 0.2, due_date: "2026-05-01" }),
+      live({ id: 3, percentile: 0.1 }),
     ];
     expect(sorted(...rows)).toEqual(sorted(...[...rows].reverse()));
   });
@@ -82,85 +83,85 @@ describe("the order inside a group", () => {
 
 describe("the groups", () => {
   it("draws Today, In progress and To do, in that order", () => {
-    const groups = groupsFor([live({ id: "a" })], []);
+    const groups = groupsFor([live({ id: 1 })], []);
     expect(groups.map((one) => one.key)).toEqual(["today", "in_progress", "todo"]);
   });
 
   it("holds the plan in plan order, whatever the sort would say", () => {
-    const tasks = [live({ id: "a", percentile: 0.1 }), live({ id: "b", percentile: 0.9 })];
-    const [today] = groupsFor(tasks, ["b", "a"]);
-    expect(today.tasks.map((one) => one.id)).toEqual(["b", "a"]);
+    const tasks = [live({ id: 1, percentile: 0.1 }), live({ id: 2, percentile: 0.9 })];
+    const [today] = groupsFor(tasks, [2, 1]);
+    expect(today.tasks.map((one) => one.id)).toEqual([2, 1]);
   });
 
   it("draws a planned task in Today and nowhere else", () => {
-    const tasks = [live({ id: "a" }), live({ id: "b", status: "in_progress" })];
-    const [today, inProgress, todo] = groupsFor(tasks, ["a", "b"]);
-    expect(today.tasks.map((one) => one.id)).toEqual(["a", "b"]);
+    const tasks = [live({ id: 1 }), live({ id: 2, status: "in_progress" })];
+    const [today, inProgress, todo] = groupsFor(tasks, [1, 2]);
+    expect(today.tasks.map((one) => one.id)).toEqual([1, 2]);
     expect(inProgress.tasks).toEqual([]);
     expect(todo.tasks).toEqual([]);
   });
 
   it("splits the rest by status", () => {
-    const tasks = [live({ id: "a" }), live({ id: "b", status: "in_progress" })];
+    const tasks = [live({ id: 1 }), live({ id: 2, status: "in_progress" })];
     const [, inProgress, todo] = groupsFor(tasks, []);
-    expect(inProgress.tasks.map((one) => one.id)).toEqual(["b"]);
-    expect(todo.tasks.map((one) => one.id)).toEqual(["a"]);
+    expect(inProgress.tasks.map((one) => one.id)).toEqual([2]);
+    expect(todo.tasks.map((one) => one.id)).toEqual([1]);
   });
 
   it("keeps a planned task the person finished today in Today", () => {
-    const [today] = groupsFor([live({ id: "a", status: "done", finished: true })], ["a"]);
-    expect(today.tasks.map((one) => [one.id, one.finished])).toEqual([["a", true]]);
+    const [today] = groupsFor([live({ id: 1, status: "done", finished: true })], [1]);
+    expect(today.tasks.map((one) => [one.id, one.finished])).toEqual([[1, true]]);
   });
 
   it("drops a planned task the org no longer holds", () => {
-    const [today] = groupsFor([live({ id: "a" })], ["a", "gone"]);
-    expect(today.tasks.map((one) => one.id)).toEqual(["a"]);
+    const [today] = groupsFor([live({ id: 1 })], [1, 99]);
+    expect(today.tasks.map((one) => one.id)).toEqual([1]);
   });
 });
 
 describe("the groups plan mode draws", () => {
   it("draws the plan, this week, In progress and To do, in that order", () => {
-    const groups = planGroups([live({ id: "a" })], [], []);
+    const groups = planGroups([live({ id: 1 })], [], []);
     expect(groups.map((one) => one.key)).toEqual(["today", "week", "in_progress", "todo"]);
   });
 
   it("draws the week set in week order, whatever the columns sort like", () => {
-    const tasks = [live({ id: "a", percentile: 0.9 }), live({ id: "b", percentile: 0.1 })];
-    const [, week] = planGroups(tasks, [], ["a", "b"]);
-    expect(week.tasks.map((one) => one.id)).toEqual(["a", "b"]);
+    const tasks = [live({ id: 1, percentile: 0.9 }), live({ id: 2, percentile: 0.1 })];
+    const [, week] = planGroups(tasks, [], [1, 2]);
+    expect(week.tasks.map((one) => one.id)).toEqual([1, 2]);
   });
 
   // The week page sinks a finished member; a plan keeps one where the day put
   // it. See ADR-0021.
   it("sinks a finished member of the week set under the live ones", () => {
-    const tasks = [live({ id: "a", status: "done", finished: true }), live({ id: "b" })];
-    const [, week] = planGroups(tasks, [], ["a", "b"]);
-    expect(week.tasks.map((one) => one.id)).toEqual(["b", "a"]);
+    const tasks = [live({ id: 1, status: "done", finished: true }), live({ id: 2 })];
+    const [, week] = planGroups(tasks, [], [1, 2]);
+    expect(week.tasks.map((one) => one.id)).toEqual([2, 1]);
   });
 
   it("draws a task the plan holds in the plan and not in the week", () => {
-    const tasks = [live({ id: "a" }), live({ id: "b" })];
-    const [today, week] = planGroups(tasks, ["a"], ["a", "b"]);
-    expect(today.tasks.map((one) => one.id)).toEqual(["a"]);
-    expect(week.tasks.map((one) => one.id)).toEqual(["b"]);
+    const tasks = [live({ id: 1 }), live({ id: 2 })];
+    const [today, week] = planGroups(tasks, [1], [1, 2]);
+    expect(today.tasks.map((one) => one.id)).toEqual([1]);
+    expect(week.tasks.map((one) => one.id)).toEqual([2]);
   });
 
   it("leaves the rest of the live set under its own headings", () => {
-    const tasks = [live({ id: "a" }), live({ id: "b", status: "in_progress" }), live({ id: "c" })];
-    const [, , inProgress, todo] = planGroups(tasks, ["a"], []);
-    expect(inProgress.tasks.map((one) => one.id)).toEqual(["b"]);
-    expect(todo.tasks.map((one) => one.id)).toEqual(["c"]);
+    const tasks = [live({ id: 1 }), live({ id: 2, status: "in_progress" }), live({ id: 3 })];
+    const [, , inProgress, todo] = planGroups(tasks, [1], []);
+    expect(inProgress.tasks.map((one) => one.id)).toEqual([2]);
+    expect(todo.tasks.map((one) => one.id)).toEqual([3]);
   });
 
   it("keeps the plan in plan order", () => {
-    const tasks = [live({ id: "a", percentile: 0.1 }), live({ id: "b", percentile: 0.9 })];
-    const [today] = planGroups(tasks, ["b", "a"], ["a", "b"]);
-    expect(today.tasks.map((one) => one.id)).toEqual(["b", "a"]);
+    const tasks = [live({ id: 1, percentile: 0.1 }), live({ id: 2, percentile: 0.9 })];
+    const [today] = planGroups(tasks, [2, 1], [1, 2]);
+    expect(today.tasks.map((one) => one.id)).toEqual([2, 1]);
   });
 
   it("drops a member no org answers for", () => {
-    const [, week] = planGroups([live({ id: "a" })], [], ["a", "gone"]);
-    expect(week.tasks.map((one) => one.id)).toEqual(["a"]);
+    const [, week] = planGroups([live({ id: 1 })], [], [1, 99]);
+    expect(week.tasks.map((one) => one.id)).toEqual([1]);
   });
 });
 
@@ -204,16 +205,16 @@ describe("the columns of the unified board", () => {
   it("puts each task in the column its status names, in the sort order", () => {
     const columns = columnsFor(
       [
-        live({ id: "second", percentile: 0.9 }),
-        live({ id: "running", status: "in_progress" }),
-        live({ id: "first", percentile: 0.1 }),
+        live({ id: 1, percentile: 0.9 }),
+        live({ id: 2, status: "in_progress" }),
+        live({ id: 3, percentile: 0.1 }),
       ],
       ["todo", "in_progress"],
     );
 
     expect(columns.map((one) => [one.status, one.tasks.map((task) => task.id)])).toEqual([
-      ["todo", ["first", "second"]],
-      ["in_progress", ["running"]],
+      ["todo", [3, 1]],
+      ["in_progress", [2]],
     ]);
   });
 
@@ -234,13 +235,13 @@ describe("the seven-day cap", () => {
 
 describe("what a plan can hold", () => {
   it("takes a To do or an In progress task", () => {
-    expect(isPlannable(live({ id: "a" }))).toBe(true);
-    expect(isPlannable(live({ id: "b", status: "in_progress" }))).toBe(true);
+    expect(isPlannable(live({ id: 1 }))).toBe(true);
+    expect(isPlannable(live({ id: 2, status: "in_progress" }))).toBe(true);
   });
 
   it("takes no Backlog, Done or Cancelled task", () => {
-    expect(isPlannable(live({ id: "a", status: "backlog" }))).toBe(false);
-    expect(isPlannable(live({ id: "b", status: "done" }))).toBe(false);
-    expect(isPlannable(live({ id: "c", status: "cancelled" }))).toBe(false);
+    expect(isPlannable(live({ id: 1, status: "backlog" }))).toBe(false);
+    expect(isPlannable(live({ id: 2, status: "done" }))).toBe(false);
+    expect(isPlannable(live({ id: 3, status: "cancelled" }))).toBe(false);
   });
 });

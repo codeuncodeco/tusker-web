@@ -1,9 +1,9 @@
 import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 
 /**
- * Three layouts, one per kind of page: the signed-out pages, the person axis
- * and the org axis. The tree carries the model, so the header is drawn once
- * and the org is loaded once. See ADR-0011.
+ * Four layouts, one per kind of page: the signed-out pages, the person axis,
+ * the org axis and one task. The tree carries the model, so the header is
+ * drawn once and the org is loaded once. See ADR-0011.
  */
 export default [
   layout("layouts/signed-out.tsx", [
@@ -34,10 +34,13 @@ export default [
     route("fields", "routes/fields.tsx"),
     route("decisions", "routes/decisions.tsx"),
     route("archive", "routes/archive.tsx"),
-    route("t/:taskId", "routes/task.tsx"),
     route("members", "routes/members.tsx"),
     route("settings", "routes/settings.tsx"),
   ]),
+
+  // One task, named by its number and no org, so a rename breaks no link to
+  // it. The layout finds the org from the task. See ADR-0030.
+  route("t/:n", "layouts/task.tsx", [index("routes/task.tsx")]),
 
   // The org select's road with no script: a GET form that redirects to the
   // board it names. See ADR-0029.

@@ -7,6 +7,7 @@ import * as fieldsRoute from "../app/routes/fields";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import * as settingsRoute from "../app/routes/settings";
 import * as taskRoute from "../app/routes/task";
+import type { TaskId } from "../app/task-number";
 import { member } from "./accounts";
 import { caught, get, post, routeArgs, SITE, wipe } from "./routes";
 
@@ -64,9 +65,9 @@ function read(query: string, key?: string): Promise<Response> {
 }
 
 /** Adds a task to a column and answers its id. */
-async function addTask(slug: string, cookie: string, title: string, status = "todo"): Promise<string> {
+async function addTask(slug: string, cookie: string, title: string, status = "todo"): Promise<TaskId> {
   await send(boardRoute, `/o/${slug}/board`, cookie, { intent: "create", status, title }, { slug });
-  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: string }>();
+  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: TaskId }>();
   return row!.id;
 }
 
@@ -82,8 +83,8 @@ function declare(slug: string, cookie: string, field: { label: string; type: str
 }
 
 /** Writes one custom field value on a task. */
-function save(slug: string, cookie: string, taskId: string, title: string, fields: Record<string, string>) {
-  return send(taskRoute, `/o/${slug}/t/${taskId}`, cookie, { title, ...fields }, { slug, taskId });
+function save(slug: string, cookie: string, taskId: TaskId, title: string, fields: Record<string, string>) {
+  return send(taskRoute, `/t/${taskId}`, cookie, { title, ...fields }, { n: String(taskId) });
 }
 
 describe("minting and revoking an org key", () => {
@@ -152,16 +153,22 @@ describe("minting and revoking an org key", () => {
 describe("reading tasks with an org key", () => {
   it("answers that org's tasks and nothing else", async () => {
     const { ada, bo } = await twoOrgs();
-    await addTask("blrhikes", bo.cookie, "Book the bus");
+    const bus = await addTask("blrhikes", bo.cookie, "Book the bus");
     await addTask("codeuncode", ada.cookie, "Ship the board");
     const key = await mint("blrhikes", bo.cookie);
 
     const response = await read("", key);
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { org: { slug: string }; tasks: { title: string }[] };
+    const body = (await response.json()) as {
+      org: { slug: string };
+      tasks: { id: TaskId; title: string }[];
+    };
     expect(body.org.slug).toBe("blrhikes");
     expect(body.tasks.map((one) => one.title)).toEqual(["Book the bus"]);
+    // The id is the task number, a number and not text.
+    expect(typeof body.tasks[0].id).toBe("number");
+    expect(body.tasks[0].id).toBe(bus);
   });
 
   it("answers the tasks in column order", async () => {

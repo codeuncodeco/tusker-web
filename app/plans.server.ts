@@ -10,6 +10,7 @@
 
 import type { Picks } from "./picks";
 import { moveInPlan, placeInPlan, type Step } from "./plan";
+import type { TaskId } from "./task-number";
 
 /**
  * The ordered task ids one person planned for one day, or null when they
@@ -22,12 +23,12 @@ export async function readPlan(
   db: D1Database,
   personId: string,
   day: string,
-): Promise<string[] | null> {
+): Promise<TaskId[] | null> {
   const row = await db
     .prepare("SELECT task_ids FROM plans WHERE user_id = ? AND day = ?")
     .bind(personId, day)
     .first<{ task_ids: string }>();
-  return row ? (JSON.parse(row.task_ids) as string[]) : null;
+  return row ? (JSON.parse(row.task_ids) as TaskId[]) : null;
 }
 
 /**
@@ -43,7 +44,7 @@ export async function startPlan(
   db: D1Database,
   personId: string,
   day: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<boolean> {
   const written = await db
     .prepare(
@@ -67,7 +68,7 @@ export async function appendToPlan(
   db: D1Database,
   personId: string,
   day: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   const plan = (await readPlan(db, personId, day)) ?? [];
   const add = taskIds.filter((one) => !plan.includes(one));
@@ -85,7 +86,7 @@ export async function movePlan(
   db: D1Database,
   personId: string,
   day: string,
-  taskId: string,
+  taskId: TaskId,
   step: Step,
 ): Promise<void> {
   const plan = await readPlan(db, personId, day);
@@ -103,8 +104,8 @@ export async function placePlan(
   db: D1Database,
   personId: string,
   day: string,
-  taskId: string,
-  before: string | null,
+  taskId: TaskId,
+  before: TaskId | null,
 ): Promise<void> {
   const plan = await readPlan(db, personId, day);
   if (!plan) return;
@@ -123,7 +124,7 @@ export async function unplanTasks(
   db: D1Database,
   personId: string,
   day: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   const plan = await readPlan(db, personId, day);
   const drop = new Set(taskIds);
@@ -141,7 +142,7 @@ async function writePlan(
   db: D1Database,
   personId: string,
   day: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   await db
     .prepare(
@@ -167,7 +168,7 @@ export async function unplanAcross(
   personId: string,
   from: string,
   to: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   if (taskIds.length === 0 || from > to) return;
 
@@ -178,7 +179,7 @@ export async function unplanAcross(
     .all<{ day: string; task_ids: string }>();
 
   const writes = results
-    .map((row) => ({ day: row.day, taskIds: JSON.parse(row.task_ids) as string[] }))
+    .map((row) => ({ day: row.day, taskIds: JSON.parse(row.task_ids) as TaskId[] }))
     .filter((one) => one.taskIds.some((id) => drop.has(id)))
     .map((one) =>
       db

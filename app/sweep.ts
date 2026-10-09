@@ -8,9 +8,10 @@
  */
 
 import type { Toast } from "./toast";
+import { readTaskId, type TaskId } from "./task-number";
 
 /** One card a sweep names: the task, and the org that holds it. */
-export type Swept = { id: string; slug: string };
+export type Swept = { id: TaskId; slug: string };
 
 /**
  * What one run left behind: the cards it changed, and whether it ran out. A
@@ -39,8 +40,8 @@ export function readSwept(form: FormData): Swept[] {
     throw new Response("That form names a card without an org.", { status: 400 });
   }
   return ids
-    .map((id, at) => ({ id, slug: slugs[at] }))
-    .filter((card) => card.id !== "" && card.slug !== "");
+    .map((id, at) => ({ id: readTaskId(id), slug: slugs[at] }))
+    .filter((card): card is Swept => card.id !== null && card.slug !== "");
 }
 
 /**
@@ -49,8 +50,8 @@ export function readSwept(form: FormData): Swept[] {
  * The order is the column's, so a person reading the toast reads the orgs in
  * the order the sweep wrote them. See ADR-0019.
  */
-export function byOrg(cards: Swept[]): { slug: string; ids: string[] }[] {
-  const groups = new Map<string, string[]>();
+export function byOrg(cards: Swept[]): { slug: string; ids: TaskId[] }[] {
+  const groups = new Map<string, TaskId[]>();
   for (const card of cards) {
     const held = groups.get(card.slug);
     if (held) held.push(card.id);
@@ -105,7 +106,7 @@ export function sweptToast({
             action: undoAt,
             post: {
               intent: "restore",
-              id: archived.map((card) => card.id),
+              id: archived.map((card) => String(card.id)),
               slug: archived.map((card) => card.slug),
             },
           },

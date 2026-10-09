@@ -80,13 +80,14 @@ import {
 } from "../tasks.server";
 import { revealCursor, TopRow, TopRowBox } from "../top-row";
 import type { Route } from "./+types/board";
+import { readTaskId, type TaskId } from "../task-number";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${loaderData.org.name} — Tusker` }];
 }
 
 /** What one card shows. The task page reads the rest of the row. */
-type Card = { id: string; title: string; fields: Shown[]; assignees: Assignee[] };
+type Card = { id: TaskId; title: string; fields: Shown[]; assignees: Assignee[] };
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
@@ -115,7 +116,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const draws = drawsAssignees(scope.org);
   const [assignees, members] = draws
     ? await Promise.all([assigneesByTask(env.DB, scope), membersOf(env.DB, scope)])
-    : [new Map<string, Assignee[]>(), [] as Assignee[]];
+    : [new Map<TaskId, Assignee[]>(), [] as Assignee[]];
   const assignee = draws ? readAssignee(query) : ANYONE;
   // One select per field the org marks filterable, and the values the address
   // narrows by. A value for a field that draws no select is ignored, so an old
@@ -222,9 +223,10 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   if (intent === "move") {
     const status = readStatus(form);
-    const id = String(form.get("id") ?? "");
+    const id = readTaskId(form.get("id"));
+    if (id === null) throw new Response("Not found", { status: 404 });
     // The card the task lands above. Nothing named means the bottom.
-    const before = String(form.get("before") ?? "") || null;
+    const before = readTaskId(form.get("before"));
     const moved = await moveTask(env.DB, scope, { taskId: id, status, before });
     if (!moved.moved) throw new Response("Not found", { status: 404 });
     // A card dropped into Done is a task finished, and a marked task is the
@@ -240,7 +242,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // way, and the server reads the neighbour it lands above: the page's copy of
   // the order is one load old, and a held key would post the same place twice.
   if (intent === "up" || intent === "down") {
-    const id = String(form.get("id") ?? "");
+    const id = readTaskId(form.get("id"));
+    if (id === null) throw new Response("Not found", { status: 404 });
     const stepped = await stepTask(env.DB, scope, { taskId: id, way: intent === "down" ? 1 : -1 });
     if (!stepped.moved) throw new Response("Not found", { status: 404 });
     return { ok: true };
@@ -350,7 +353,7 @@ function QuickAdd({
  * What a drag asks for: the card, its column, and the card it lands above. A
  * key names no card, and the move lands at the bottom of the column.
  */
-type Move = (id: string, status: Status, before?: string | null) => void;
+type Move = (id: TaskId, status: Status, before?: TaskId | null) => void;
 
 /**
  * One card. It carries no reorder button. A drag from its grip places it, and
@@ -363,13 +366,11 @@ type Move = (id: string, status: Status, before?: string | null) => void;
  */
 function CardItem({
   card,
-  slug,
   selected,
   domId,
   place,
 }: {
   card: Card;
-  slug: string;
   selected: boolean;
   domId: string;
   /**
@@ -398,7 +399,7 @@ function CardItem({
       <span className="flex items-baseline gap-2">
         <Grip grip={drag.grip} />
         <Link
-          to={taskPath(slug, card.id, origin)}
+          to={taskPath(card.id, origin)}
           className="flex-1 underline-offset-2 hover:underline"
         >
           {card.title}
@@ -435,7 +436,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // Each press posts on its own, so a held key is every press and not the
   // last one: the board draws all of them while they are in flight.
   const post = usePost();
-  const [on, setOn] = useState<string | null>(null);
+  const [on, setOn] = useState<TaskId | null>(null);
   const board = useRef<HTMLDivElement>(null);
 
   // The cursor starts empty, and stays on its own card while the board moves
@@ -461,16 +462,16 @@ export default function Board({ loaderData }: Route.ComponentProps) {
    */
   const move: Move = (id, status, before = null) => {
     setOn(id);
-    post({ intent: "move", id, status, before: before ?? "" });
+    post({ intent: "move", id: String(id), status, before: String(before ?? "") });
   };
 
   /**
    * The post `J` and `K` make: the card and the way. It names no place, so the
    * server reads the card the step lands above out of the order as it stands.
    */
-  const step = (id: string, way: "up" | "down") => {
+  const step = (id: TaskId, way: "up" | "down") => {
     setOn(id);
-    post({ intent: way, id });
+    post({ intent: way, id: String(id) });
   };
 
   /**
@@ -493,7 +494,6 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // arrows cross the columns the letters walk. See ADR-0022.
   const keyed = useBoardKeys(
     columns.map((column) => ({ status: column.status, ids: column.tasks.map((one) => one.id) })),
-    org.slug,
     cursor,
     setOn,
     move,
@@ -585,7 +585,6 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                       <CardItem
                         key={card.id}
                         card={card}
-                        slug={org.slug}
                         selected={cursor === card.id}
                         domId={`card-${card.id}`}
                         place={() => setOn(card.id)}

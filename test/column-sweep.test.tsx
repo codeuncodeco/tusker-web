@@ -20,11 +20,11 @@ import type { LiveTask } from "../app/unified";
 import { UnifiedBoard } from "../app/unified-board";
 
 /** One column of the org board, as its loader hands it over. */
-function column(status: Status, label: string, titles: string[]) {
+function column(status: Status, label: string, titles: string[], first = 1) {
   return {
     status,
     label,
-    tasks: titles.map((title) => ({ id: title, title, fields: [], assignees: [] })),
+    tasks: titles.map((title, at) => ({ id: first + at, title, fields: [], assignees: [] })),
   };
 }
 
@@ -53,11 +53,11 @@ function board(columns: ReturnType<typeof column>[]): string {
 }
 
 /** One card of the unified board, of the org the test names. */
-function card(id: string, slug: string, status: Status): LiveTask {
+function card(id: number, slug: string, status: Status): LiveTask {
   return {
     id,
     org: { slug, name: slug, color: "blue" },
-    title: id,
+    title: `Task ${id}`,
     status,
     due_date: null,
     percentile: 0,
@@ -102,10 +102,10 @@ function head(html: string, label: string): string {
 }
 
 /** The id and slug pairs one sweep form posts, in card order. */
-function posts(sweep: string): { id: string; slug: string }[] {
+function posts(sweep: string): { id: number; slug: string }[] {
   const ids = [...sweep.matchAll(/name="id" value="([^"]*)"/g)].map((one) => one[1]);
   const slugs = [...sweep.matchAll(/name="slug" value="([^"]*)"/g)].map((one) => one[1]);
-  return ids.map((id, at) => ({ id, slug: slugs[at] }));
+  return ids.map((id, at) => ({ id: Number(id), slug: slugs[at] }));
 }
 
 describe("the sweep on a finished column of the org board", () => {
@@ -124,12 +124,12 @@ describe("the sweep on a finished column of the org board", () => {
   it("names every card the column draws, and no other", () => {
     const html = board([
       column("done", "Done", ["One", "Two"]),
-      column("cancelled", "Cancelled", ["Three"]),
+      column("cancelled", "Cancelled", ["Three"], 3),
     ]);
 
     expect(posts(head(html, "Done"))).toEqual([
-      { id: "One", slug: "acme" },
-      { id: "Two", slug: "acme" },
+      { id: 1, slug: "acme" },
+      { id: 2, slug: "acme" },
     ]);
   });
 });
@@ -137,8 +137,8 @@ describe("the sweep on a finished column of the org board", () => {
 describe("the sweep on a finished column of the unified board", () => {
   it("sits in the head of Done and of Cancelled", () => {
     const html = unified([
-      { status: "done", label: "Done", tasks: [card("one", "acme", "done")] },
-      { status: "cancelled", label: "Cancelled", tasks: [card("two", "ada", "cancelled")] },
+      { status: "done", label: "Done", tasks: [card(1, "acme", "done")] },
+      { status: "cancelled", label: "Cancelled", tasks: [card(2, "ada", "cancelled")] },
     ]);
 
     expect(head(html, "Done")).toContain("Archive 1");
@@ -150,13 +150,13 @@ describe("the sweep on a finished column of the unified board", () => {
       {
         status: "done",
         label: "Done",
-        tasks: [card("one", "acme", "done"), card("two", "ada", "done")],
+        tasks: [card(1, "acme", "done"), card(2, "ada", "done")],
       },
     ]);
 
     expect(posts(head(html, "Done"))).toEqual([
-      { id: "one", slug: "acme" },
-      { id: "two", slug: "ada" },
+      { id: 1, slug: "acme" },
+      { id: 2, slug: "ada" },
     ]);
   });
 
@@ -168,7 +168,7 @@ describe("the sweep on a finished column of the unified board", () => {
 
   it("leaves a live column without one, however full it is", () => {
     const html = unified([
-      { status: "todo", label: "To do", tasks: [card("one", "acme", "todo")] },
+      { status: "todo", label: "To do", tasks: [card(1, "acme", "todo")] },
     ]);
 
     expect(html).not.toContain("from To do");
@@ -191,11 +191,11 @@ describe("the columns the org board leaves without one", () => {
 });
 
 describe("what a finished sweep says", () => {
-  const swept = (archived: { id: string; slug: string }[], names?: Record<string, string>) =>
+  const swept = (archived: { id: number; slug: string }[], names?: Record<string, string>) =>
     sweptToast({ label: "Done", undoAt: "/o/acme/board", archived, names });
 
   it("names the count and the column it swept", () => {
-    expect(swept([{ id: "a", slug: "acme" }, { id: "b", slug: "acme" }]).text).toBe(
+    expect(swept([{ id: 1, slug: "acme" }, { id: 2, slug: "acme" }]).text).toBe(
       "Archived 2 from Done.",
     );
   });
@@ -203,10 +203,10 @@ describe("what a finished sweep says", () => {
   it("offers one undo, which posts the cards the sweep changed", () => {
     // The sweep was given three cards and changed two: one was already
     // archived.
-    expect(swept([{ id: "a", slug: "acme" }, { id: "b", slug: "ada" }]).act).toEqual({
+    expect(swept([{ id: 1, slug: "acme" }, { id: 2, slug: "ada" }]).act).toEqual({
       label: "Undo",
       action: "/o/acme/board",
-      post: { intent: "restore", id: ["a", "b"], slug: ["acme", "ada"] },
+      post: { intent: "restore", id: ["1", "2"], slug: ["acme", "ada"] },
     });
   });
 
@@ -217,9 +217,9 @@ describe("what a finished sweep says", () => {
   it("links to the archive of every org it touched, once each", () => {
     const toast = swept(
       [
-        { id: "a", slug: "acme" },
-        { id: "b", slug: "ada" },
-        { id: "c", slug: "acme" },
+        { id: 1, slug: "acme" },
+        { id: 2, slug: "ada" },
+        { id: 3, slug: "acme" },
       ],
       { acme: "Acme", ada: "Ada" },
     );
@@ -231,19 +231,19 @@ describe("what a finished sweep says", () => {
   });
 
   it("links nowhere for the board that stands in its own org", () => {
-    expect(swept([{ id: "a", slug: "acme" }]).links).toEqual([]);
+    expect(swept([{ id: 1, slug: "acme" }]).links).toEqual([]);
   });
 
   it("says so when one org did not answer", () => {
     const toast = sweptToast({
       label: "Done",
       undoAt: "/me",
-      archived: [{ id: "a", slug: "acme" }],
+      archived: [{ id: 1, slug: "acme" }],
       partial: true,
     });
 
     expect(toast.text).toBe("Archived 1 from Done. One org did not answer.");
-    expect(toast.act?.post).toEqual({ intent: "restore", id: ["a"], slug: ["acme"] });
+    expect(toast.act?.post).toEqual({ intent: "restore", id: ["1"], slug: ["acme"] });
   });
 });
 
@@ -252,7 +252,7 @@ describe("what binds the sweep", () => {
     expect(Object.values(KEY_MAP).map((row) => row.label)).not.toContain("Archive");
 
     const html = unified([
-      { status: "done", label: "Done", tasks: [card("one", "acme", "done")] },
+      { status: "done", label: "Done", tasks: [card(1, "acme", "done")] },
     ]);
 
     // A keyed control carries its key, the way every row control does.

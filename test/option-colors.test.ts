@@ -6,6 +6,7 @@ import * as boardRoute from "../app/routes/board";
 import * as fieldsRoute from "../app/routes/fields";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import * as taskRoute from "../app/routes/task";
+import type { TaskId } from "../app/task-number";
 import { member } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
 
@@ -95,7 +96,7 @@ function setColor(cookie: string, colors: Record<string, string>, key = "trail")
 }
 
 /** Adds a task to To do, gives it a trail, and answers its id. */
-async function addTask(cookie: string, title: string, trail?: string): Promise<string> {
+async function addTask(cookie: string, title: string, trail?: string): Promise<TaskId> {
   await send(
     boardRoute,
     "/o/codeuncode/board",
@@ -103,12 +104,11 @@ async function addTask(cookie: string, title: string, trail?: string): Promise<s
     { intent: "create", status: "todo", title },
     { slug: "codeuncode" },
   );
-  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: string }>();
+  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: TaskId }>();
   const taskId = row!.id;
   if (trail !== undefined) {
-    await send(taskRoute, `/o/codeuncode/t/${taskId}`, cookie, { title, "field.trail": trail }, {
-      slug: "codeuncode",
-      taskId,
+    await send(taskRoute, `/t/${taskId}`, cookie, { title, "field.trail": trail }, {
+      n: String(taskId),
     });
   }
   return taskId;
@@ -255,7 +255,7 @@ describe("the task page", () => {
     const task = await addTask(ada.cookie, "Walk Kumara", "t1");
 
     const edit = await taskRoute.loader(
-      routeArgs(get(`/o/codeuncode/t/${task}`, ada.cookie), { slug: "codeuncode", taskId: task }),
+      routeArgs(get(`/t/${task}`, ada.cookie), { n: String(task) }),
     );
 
     expect(edit.colors).toEqual({ trail: "blue" });

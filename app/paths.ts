@@ -1,6 +1,7 @@
 import { useLocation } from "react-router";
 
 import { withoutPrompt } from "./decisions";
+import type { TaskId } from "./task-number";
 
 /**
  * A path inside the app, so a redirect cannot be pointed at another site.
@@ -22,9 +23,12 @@ export function safeNext(value: unknown, fallback = "/me"): string {
  */
 const FROM = "from";
 
-/** One task, opened from the page named by `from`. */
-export function taskPath(slug: string, taskId: string, from?: string): string {
-  const path = `/o/${slug}/t/${taskId}`;
+/**
+ * One task, opened from the page named by `from`. The path names the task and
+ * no org, so a rename breaks no link to it. See ADR-0030.
+ */
+export function taskPath(taskId: TaskId, from?: string): string {
+  const path = `/t/${taskId}`;
   return from ? `${path}?${FROM}=${encodeURIComponent(from)}` : path;
 }
 

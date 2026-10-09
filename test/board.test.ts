@@ -15,9 +15,10 @@ function board(slug: string, cookie: string, query = "") {
   return boardRoute.loader(routeArgs(get(`/o/${slug}/board${query}`, cookie), { slug }));
 }
 
-/** A post to the board action, signed by the cookie. */
-function act(slug: string, cookie: string, fields: Record<string, string>) {
-  const request = post(`/o/${slug}/board`, fields);
+/** A post to the board action, signed by the cookie. A task number posts as its digits. */
+function act(slug: string, cookie: string, fields: Record<string, string | number>) {
+  const posted = Object.fromEntries(Object.entries(fields).map(([name, value]) => [name, String(value)]));
+  const request = post(`/o/${slug}/board`, posted);
   request.headers.set("cookie", cookie);
   return boardRoute.action(routeArgs(request, { slug }));
 }
@@ -118,6 +119,7 @@ describe("dragging a card", () => {
     const ada = await member("ada@example.test", "Ada");
     await act("ada", ada.cookie, { intent: "create", status: "todo", title: "Move me" });
     const { id } = (await board("ada", ada.cookie)).columns.find((c) => c.status === "todo")!.tasks[0];
+    expect(id).toEqual(expect.any(Number));
 
     await act("ada", ada.cookie, { intent: "move", id, status: "done" });
 
@@ -130,7 +132,7 @@ describe("dragging a card", () => {
     const ada = await member("ada@example.test", "Ada");
     const bo = await member("bo@example.test", "Bo");
     await act("bo", bo.cookie, { intent: "create", status: "todo", title: "Theirs" });
-    const theirs = await db.prepare("SELECT id FROM tasks").first<{ id: string }>();
+    const theirs = await db.prepare("SELECT id FROM tasks").first<{ id: number }>();
 
     const response = await caught(act("ada", ada.cookie, { intent: "move", id: theirs!.id, status: "done" }));
 
@@ -198,7 +200,7 @@ describe("the order inside a column", () => {
   }
 
   /** The position of one row, straight from the table. */
-  async function positionOf(id: string) {
+  async function positionOf(id: number) {
     const row = await db.prepare("SELECT position FROM tasks WHERE id = ?").bind(id).first<{ position: number }>();
     return row!.position;
   }

@@ -14,7 +14,7 @@ import { UnifiedRow } from "../app/unified-row";
 /** One task of an org that carries the named colour. */
 function live(color: string | null): LiveTask {
   return {
-    id: "t1",
+    id: 1,
     org: { slug: "acme", name: "Acme", color },
     title: "Ship it",
     status: "todo",

@@ -5,6 +5,7 @@ import * as boardRoute from "../app/routes/board";
 import * as fieldsRoute from "../app/routes/fields";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import * as taskRoute from "../app/routes/task";
+import type { TaskId } from "../app/task-number";
 import { member } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
 
@@ -61,20 +62,20 @@ function fieldsOf(slug: string, cookie: string) {
 }
 
 /** Adds a task to To do and answers its id. */
-async function addTask(slug: string, cookie: string, title: string): Promise<string> {
+async function addTask(slug: string, cookie: string, title: string): Promise<TaskId> {
   await send(boardRoute, `/o/${slug}/board`, cookie, { intent: "create", status: "todo", title }, { slug });
-  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: string }>();
+  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: TaskId }>();
   return row!.id;
 }
 
 /** The task editor for one task. */
-function editor(slug: string, cookie: string, taskId: string) {
-  return taskRoute.loader(routeArgs(get(`/o/${slug}/t/${taskId}`, cookie), { slug, taskId }));
+function editor(cookie: string, taskId: TaskId) {
+  return taskRoute.loader(routeArgs(get(`/t/${taskId}`, cookie), { n: String(taskId) }));
 }
 
 /** A save from the task editor. */
-function save(slug: string, cookie: string, taskId: string, fields: Record<string, string>) {
-  return send(taskRoute, `/o/${slug}/t/${taskId}`, cookie, fields, { slug, taskId });
+function save(cookie: string, taskId: TaskId, fields: Record<string, string>) {
+  return send(taskRoute, `/t/${taskId}`, cookie, fields, { n: String(taskId) });
 }
 
 describe("declaring a field", () => {
@@ -185,8 +186,8 @@ describe("editing and removing a field", () => {
     await declare("codeuncode", ada.cookie, { label: "Kind", type: "select", options: "Bug\nChore" });
     const bug = await addTask("codeuncode", ada.cookie, "Fix the header");
     const chore = await addTask("codeuncode", ada.cookie, "Tidy the log");
-    await save("codeuncode", ada.cookie, bug, { title: "Fix the header", "field.kind": "Bug" });
-    await save("codeuncode", ada.cookie, chore, { title: "Tidy the log", "field.kind": "Chore" });
+    await save(ada.cookie, bug, { title: "Fix the header", "field.kind": "Bug" });
+    await save(ada.cookie, chore, { title: "Tidy the log", "field.kind": "Chore" });
 
     await send(
       fieldsRoute,
@@ -196,8 +197,8 @@ describe("editing and removing a field", () => {
       { slug: "codeuncode" },
     );
 
-    expect((await editor("codeuncode", ada.cookie, bug)).task.data).toEqual({ kind: "Bug" });
-    expect((await editor("codeuncode", ada.cookie, chore)).task.data).toEqual({});
+    expect((await editor(ada.cookie, bug)).task.data).toEqual({ kind: "Bug" });
+    expect((await editor(ada.cookie, chore)).task.data).toEqual({});
   });
 
   it("answers 404 for a key the org does not declare", async () => {
@@ -222,7 +223,7 @@ describe("editing and removing a field", () => {
     const { ada } = await twoOrgs();
     await declare("codeuncode", ada.cookie, { label: "Client", type: "text" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
-    await save("codeuncode", ada.cookie, task, { title: "Write the brief", "field.client": "Acme" });
+    await save(ada.cookie, task, { title: "Write the brief", "field.client": "Acme" });
 
     await send(
       fieldsRoute,
@@ -246,7 +247,7 @@ describe("the task editor", () => {
     await declare("codeuncode", ada.cookie, { label: "Ship by", type: "date" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
 
-    const answer = await save("codeuncode", ada.cookie, task, {
+    const answer = await save(ada.cookie, task, {
       title: "Write the brief",
       "field.client": "Acme",
       "field.kind": "Chore",
@@ -254,7 +255,7 @@ describe("the task editor", () => {
     });
 
     expect(answer).toEqual({ ok: true });
-    const seen = await editor("codeuncode", ada.cookie, task);
+    const seen = await editor(ada.cookie, task);
     expect(seen.fields.map((one) => one.key)).toEqual(["client", "kind", "ship_by"]);
     expect(seen.task.data).toEqual({ client: "Acme", kind: "Chore", ship_by: "2026-08-31" });
   });
@@ -264,7 +265,7 @@ describe("the task editor", () => {
     await declare("codeuncode", ada.cookie, { label: "Client", type: "text" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
 
-    await save("codeuncode", ada.cookie, task, { title: "Write the brief", "field.client": "Acme" });
+    await save(ada.cookie, task, { title: "Write the brief", "field.client": "Acme" });
 
     const row = await db
       .prepare("SELECT json_extract(data, '$.client') AS client FROM tasks WHERE id = ?")
@@ -277,11 +278,11 @@ describe("the task editor", () => {
     const { ada } = await twoOrgs();
     await declare("codeuncode", ada.cookie, { label: "Client", type: "text" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
-    await save("codeuncode", ada.cookie, task, { title: "Write the brief", "field.client": "Acme" });
+    await save(ada.cookie, task, { title: "Write the brief", "field.client": "Acme" });
 
-    await save("codeuncode", ada.cookie, task, { title: "Write the brief", "field.client": "" });
+    await save(ada.cookie, task, { title: "Write the brief", "field.client": "" });
 
-    expect((await editor("codeuncode", ada.cookie, task)).task.data).toEqual({});
+    expect((await editor(ada.cookie, task)).task.data).toEqual({});
   });
 
   it("refuses a select value the field does not declare, and writes nothing", async () => {
@@ -289,13 +290,13 @@ describe("the task editor", () => {
     await declare("codeuncode", ada.cookie, { label: "Kind", type: "select", options: "Bug" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
 
-    const answer = await save("codeuncode", ada.cookie, task, {
+    const answer = await save(ada.cookie, task, {
       title: "Write the brief",
       "field.kind": "Epic",
     });
 
     expect(answer).toEqual({ error: "Kind does not hold Epic." });
-    expect((await editor("codeuncode", ada.cookie, task)).task.data).toEqual({});
+    expect((await editor(ada.cookie, task)).task.data).toEqual({});
   });
 
   it("refuses a date the calendar does not hold", async () => {
@@ -303,7 +304,7 @@ describe("the task editor", () => {
     await declare("codeuncode", ada.cookie, { label: "Ship by", type: "date" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
 
-    const answer = await save("codeuncode", ada.cookie, task, {
+    const answer = await save(ada.cookie, task, {
       title: "Write the brief",
       "field.ship_by": "31/08/2026",
     });
@@ -315,7 +316,7 @@ describe("the task editor", () => {
     const { ada, bo } = await twoOrgs();
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
 
-    const response = await caught(editor("blrhikes", bo.cookie, task));
+    const response = await caught(editor(bo.cookie, task));
 
     expect(response.status).toBe(404);
   });
@@ -327,7 +328,7 @@ describe("the board card", () => {
     await declare("codeuncode", ada.cookie, { label: "Client", type: "text", show_on_card: "1" });
     await declare("codeuncode", ada.cookie, { label: "Note", type: "text" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
-    await save("codeuncode", ada.cookie, task, {
+    await save(ada.cookie, task, {
       title: "Write the brief",
       "field.client": "Acme",
       "field.note": "Later",
@@ -357,12 +358,12 @@ describe("one org's fields", () => {
     await declare("blrhikes", bo.cookie, { label: "Trail name", type: "text" });
     const task = await addTask("codeuncode", ada.cookie, "Write the brief");
 
-    await save("codeuncode", ada.cookie, task, {
+    await save(ada.cookie, task, {
       title: "Write the brief",
       "field.trail_name": "Kumara Parvatha",
     });
 
-    expect((await editor("codeuncode", ada.cookie, task)).task.data).toEqual({});
+    expect((await editor(ada.cookie, task)).task.data).toEqual({});
   });
 
   it("answer 404 to a person the org does not hold", async () => {

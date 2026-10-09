@@ -30,10 +30,10 @@ async function declare(
 }
 
 /** A task holding the values, placed by hand so a test can state its column. */
-async function task(orgId: string, id: string, data: Record<string, string>, status: Status = "todo") {
+async function task(orgId: string, title: string, data: Record<string, string>, status: Status = "todo") {
   await db
-    .prepare("INSERT INTO tasks (id, org_id, title, status, position, data) VALUES (?, ?, ?, ?, 1, ?)")
-    .bind(id, orgId, id, status, JSON.stringify(data))
+    .prepare("INSERT INTO tasks (org_id, title, status, position, data) VALUES (?, ?, ?, 1, ?)")
+    .bind(orgId, title, status, JSON.stringify(data))
     .run();
 }
 
@@ -164,7 +164,7 @@ describe("the sweep under a field filter", () => {
     const done = narrowed.columns.find((column) => column.status === "done")!;
     const request = post(`/o/${ada.org.slug}/board`, {
       intent: "archive",
-      id: done.tasks.map((one) => one.id),
+      id: done.tasks.map((one) => String(one.id)),
     });
     request.headers.set("cookie", ada.cookie);
     await boardRoute.action(routeArgs(request, { slug: ada.org.slug }));

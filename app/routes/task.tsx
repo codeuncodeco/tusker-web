@@ -23,8 +23,9 @@ import { listFields } from "../fields.server";
 import { backPath } from "../paths";
 import { postAndReport } from "../pending";
 import { refPickers } from "../refs.server";
-import { requireScope, type Scope } from "../scope.server";
+import { requireTaskScope, type Scope } from "../scope.server";
 import { TASK_FORM, TaskAside, TaskBar, useDrawnTask } from "../task-aside";
+import { taskLabel, type TaskId } from "../task-number";
 import { TaskTitle } from "../task-title";
 import {
   editTask,
@@ -38,14 +39,15 @@ import {
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [{ title: `${loaderData.task.title} — Tusker` }];
+  return [{ title: `${taskLabel(loaderData.task.id)} ${loaderData.task.title} — Tusker` }];
 }
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug, context);
+  // The layout found the org that holds the task, and proved the membership.
+  const { scope, taskId } = await requireTaskScope(request, env, params.n, context);
 
-  const task = await readTask(env.DB, scope, params.taskId);
+  const task = await readTask(env.DB, scope, taskId);
   if (!task) throw new Response("Not found", { status: 404 });
 
   const fields = await listFields(env.DB, scope);
@@ -118,7 +120,7 @@ async function heldColors(
 
 export async function action({ request, context, params }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const scope = await requireScope(request, env, params.slug, context);
+  const { scope, taskId } = await requireTaskScope(request, env, params.n, context);
 
   const form = await request.formData();
 
@@ -128,7 +130,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // neither act touches the status the task holds.
   if (intent === "archive" || intent === "restore") {
     const flip = intent === "archive" ? archiveTasks : restoreTasks;
-    const changed = await flip(env.DB, scope, [params.taskId]);
+    const changed = await flip(env.DB, scope, [taskId]);
     // Nothing changed means the org holds no such task, or it is already the
     // way the button asks for. The page reads back either way.
     return { ok: changed.length > 0 };
@@ -141,14 +143,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // posts on its own, so it reads no other box of the page.
   if (intent === "tick") {
     const box = Number(form.get("box"));
-    const ticked = await tickDescriptionBox(env.DB, scope, params.taskId, box);
+    const ticked = await tickDescriptionBox(env.DB, scope, taskId, box);
     if (!ticked) throw new Response("Not found", { status: 404 });
     return { ok: true };
   }
 
   // Every act below this line edits the task, and a finished task is not
   // edited: it is reopened first.
-  const task = await readTask(env.DB, scope, params.taskId);
+  const task = await readTask(env.DB, scope, taskId);
   if (!task) throw new Response("Not found", { status: 404 });
 
   // A finished task, back to To do. It is the same move a status change makes,
@@ -160,7 +162,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (task.archived === 1) {
       throw new Response("An archived task is restored before it is reopened.", { status: 409 });
     }
-    const moved = await moveAndAsk(env.DB, scope, request, params.taskId, "todo");
+    const moved = await moveAndAsk(env.DB, scope, request, taskId, "todo");
     if (!moved.moved) throw new Response("Not found", { status: 404 });
     // The page again, and not a "Saved." under the form Reopen opens.
     const url = new URL(request.url);
@@ -170,7 +172,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   refuseFinished(task.status);
 
   if (intent === "finish") {
-    const finished = await finishTask(env.DB, scope, request, params.taskId);
+    const finished = await finishTask(env.DB, scope, request, taskId);
     if (!finished.moved) throw new Response("Not found", { status: 404 });
     return finished.prompt ?? { ok: true };
   }
@@ -182,7 +184,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const described = await saveDescription(
       env.DB,
       scope,
-      params.taskId,
+      taskId,
       String(form.get("description") ?? ""),
     );
     if (!described) throw new Response("Not found", { status: 404 });
@@ -220,7 +222,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
   const status = form.has("status") ? readStatus(form) : task.status;
 
-  const saved = await saveTask(env.DB, scope, params.taskId, {
+  const saved = await saveTask(env.DB, scope, taskId, {
     title,
     data: read.data,
     // The box is absent from the post when it is unticked, which unmarks the
@@ -230,12 +232,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   });
   if (!saved) throw new Response("Not found", { status: 404 });
 
-  if (picked) await setAssignees(env.DB, scope, params.taskId, assigned.ids);
+  if (picked) await setAssignees(env.DB, scope, taskId, assigned.ids);
 
   // The no-script description is a textarea in the same form. A post that
   // carries none keeps the text the row holds.
   if (form.has("description")) {
-    await saveDescription(env.DB, scope, params.taskId, String(form.get("description")));
+    await saveDescription(env.DB, scope, taskId, String(form.get("description")));
   }
 
   // The status is a move, not a column of the row: it takes a place in the new
@@ -243,7 +245,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // unchanged status moves nothing, so a save does not send the card to the
   // bottom of its own column. See ADR-0010.
   if (status !== task.status) {
-    const moved = await moveAndAsk(env.DB, scope, request, params.taskId, status);
+    const moved = await moveAndAsk(env.DB, scope, request, taskId, status);
     if (!moved.moved) throw new Response("Not found", { status: 404 });
     if (moved.prompt) return moved.prompt;
   }
@@ -266,7 +268,7 @@ async function saveControl(
   db: D1Database,
   scope: Scope,
   request: Request,
-  task: { id: string; status: Status },
+  task: { id: TaskId; status: Status },
   intent: string,
   form: FormData,
 ) {
@@ -359,7 +361,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
 
       <div className="flex flex-col gap-6 sm:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <TaskTitle title={drawn.title} finished={task.finished} />
+          <TaskTitle id={task.id} title={drawn.title} finished={task.finished} />
 
           {/* A finished task still ticks its boxes, but its text is not
               edited. */}

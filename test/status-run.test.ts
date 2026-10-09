@@ -32,14 +32,14 @@ describe("the run a card steps along", () => {
 });
 
 describe("the place a step inside a column names", () => {
-  const ids = ["a", "b", "c", "d"];
+  const ids = [1, 2, 3, 4];
 
   it("lands above the card overhead", () => {
-    expect(stepInColumn(ids, 2, -1)).toEqual({ before: "b" });
+    expect(stepInColumn(ids, 2, -1)).toEqual({ before: 2 });
   });
 
   it("lands above the card after the next one", () => {
-    expect(stepInColumn(ids, 0, 1)).toEqual({ before: "c" });
+    expect(stepInColumn(ids, 0, 1)).toEqual({ before: 3 });
   });
 
   // The card leaves its own place as it moves, so the second-last card has

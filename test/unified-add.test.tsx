@@ -69,7 +69,7 @@ it("draws nothing for a person in no org", () => {
 describe("the line an add leaves", () => {
   /** The line for an add of `count` rows, filed in `org`. */
   function line(org: string | null, count = 1): string {
-    const ids = Array.from({ length: count }, (_, at) => `t${at}`);
+    const ids = Array.from({ length: count }, (_, at) => at + 1);
     return renderToStaticMarkup(
       <UndoLine
         added={{ slug: "acme", ids, text: "Ship it" }}

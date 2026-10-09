@@ -21,9 +21,10 @@ import { fires } from "./key-map";
 import { BOARD_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
 import { taskPath, useOrigin } from "./paths";
+import type { TaskId } from "./task-number";
 
 /** One column as the keys read it: its status, and the ids it draws in order. */
-export type KeyedColumn = { status: Status; ids: string[] };
+export type KeyedColumn = { status: Status; ids: TaskId[] };
 
 /**
  * Every act the board's keys give, which the Key guide names. No plan: a plan
@@ -43,21 +44,21 @@ export const BOARD_LINES: GuideLine[] = (
  */
 export type Act =
   /** A card by id, or null where the press takes the cursor off the board. */
-  | { act: "on"; id: string | null }
-  | { act: "open"; id: string }
-  | { act: "move"; id: string; status: Status }
-  | { act: "step"; id: string; way: "up" | "down" };
+  | { act: "on"; id: TaskId | null }
+  | { act: "open"; id: TaskId }
+  | { act: "move"; id: TaskId; status: Status }
+  | { act: "step"; id: TaskId; way: "up" | "down" };
 
 /**
  * What a press does to the board, or nothing where the press is not the
  * board's. It reads the columns and answers, so the whole key map is one pure
  * function and the hook only posts what it says.
  */
-export function boardPress(key: string, columns: KeyedColumn[], on: string | null): Act | null {
+export function boardPress(key: string, columns: KeyedColumn[], on: TaskId | null): Act | null {
   // One flat order, so `j` and `k` walk the board column by column, the way a
   // person reads it.
   const rows = columns.flatMap((column) => column.ids);
-  const at = rows.indexOf(on ?? "");
+  const at = on === null ? -1 : rows.indexOf(on);
 
   // An empty cursor sits outside the board, so a move key brings it back in
   // from the end the key comes from: `j` to the first card, `k` to the last.
@@ -103,7 +104,7 @@ export function boardPress(key: string, columns: KeyedColumn[], on: string | nul
 }
 
 /** The cursor on one card, or nothing where the board draws none. */
-function pick(id: string | undefined): Act | null {
+function pick(id: TaskId | undefined): Act | null {
   return id ? { act: "on", id } : null;
 }
 
@@ -119,13 +120,12 @@ function pick(id: string | undefined): Act | null {
  */
 export function useBoardKeys(
   columns: KeyedColumn[],
-  slug: string,
-  on: string | null,
-  setOn: (id: string | null) => void,
+  on: TaskId | null,
+  setOn: (id: TaskId | null) => void,
   /** Posts a move to another column, which lands at the bottom of it. */
-  move: (id: string, status: Status) => void,
+  move: (id: TaskId, status: Status) => void,
   /** Posts a step up or down the card's own column. */
-  step: (id: string, way: "up" | "down") => void,
+  step: (id: TaskId, way: "up" | "down") => void,
 ): (label: string) => Keyed {
   const navigate = useNavigate();
   const origin = useOrigin();
@@ -147,7 +147,7 @@ export function useBoardKeys(
     // Both posts put the cursor on the card they move, so the person can see
     // where it landed and keep working it by key.
     if (act.act === "on") setOn(act.id);
-    else if (act.act === "open") navigate(taskPath(slug, act.id, origin));
+    else if (act.act === "open") navigate(taskPath(act.id, origin));
     else if (act.act === "move") move(act.id, act.status);
     else step(act.id, act.way);
 

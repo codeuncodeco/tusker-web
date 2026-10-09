@@ -13,19 +13,20 @@ import {
   tasksSent,
   tickedSent,
 } from "../app/pending";
+import type { TaskId } from "../app/task-number";
 import type { LiveTask } from "../app/unified";
 
-/** One post, as a fetcher holds it while it is in flight. */
-function sent(fields: Record<string, string | string[]>): FormData {
+/** One post, as a fetcher holds it while it is in flight. A form posts text, so a task number goes out as its digits. */
+function sent(fields: Record<string, string | number | (string | number)[]>): FormData {
   const form = new FormData();
   for (const [name, value] of Object.entries(fields)) {
-    for (const one of Array.isArray(value) ? value : [value]) form.append(name, one);
+    for (const one of Array.isArray(value) ? value : [value]) form.append(name, String(one));
   }
   return form;
 }
 
 /** An org board with To do and Done, each card named by its id. */
-function board(todo: string[], done: string[] = []) {
+function board(todo: TaskId[], done: TaskId[] = []) {
   return [
     { status: "todo" as const, label: "To do", tasks: todo.map((id) => ({ id })) },
     { status: "done" as const, label: "Done", tasks: done.map((id) => ({ id })) },
@@ -39,78 +40,78 @@ function ids(columns: ReturnType<typeof board>) {
 
 describe("the org board, while a post is in flight", () => {
   it("draws what the server said when nothing is in flight", () => {
-    expect(ids(boardSent(board(["a", "b"]), []))).toEqual([["a", "b"], []]);
+    expect(ids(boardSent(board([1, 2]), []))).toEqual([[1, 2], []]);
   });
 
   it("draws a moved card in its new column at once, at the bottom", () => {
-    const columns = boardSent(board(["a", "b"], ["c"]), [
-      sent({ intent: "move", id: "a", status: "done", before: "" }),
+    const columns = boardSent(board([1, 2], [3]), [
+      sent({ intent: "move", id: 1, status: "done", before: "" }),
     ]);
 
-    expect(ids(columns)).toEqual([["b"], ["c", "a"]]);
+    expect(ids(columns)).toEqual([[2], [3, 1]]);
   });
 
   it("draws a dropped card above the card it was dropped on", () => {
-    const columns = boardSent(board(["a", "b"], ["c"]), [
-      sent({ intent: "move", id: "b", status: "done", before: "c" }),
+    const columns = boardSent(board([1, 2], [3]), [
+      sent({ intent: "move", id: 2, status: "done", before: 3 }),
     ]);
 
-    expect(ids(columns)).toEqual([["a"], ["b", "c"]]);
+    expect(ids(columns)).toEqual([[1], [2, 3]]);
   });
 
   it("takes a card off the board when it moves to a column the board does not draw", () => {
-    const columns = boardSent(board(["a", "b"]), [
-      sent({ intent: "move", id: "a", status: "backlog", before: "" }),
+    const columns = boardSent(board([1, 2]), [
+      sent({ intent: "move", id: 1, status: "backlog", before: "" }),
     ]);
 
-    expect(ids(columns)).toEqual([["b"], []]);
+    expect(ids(columns)).toEqual([[2], []]);
   });
 
   it("steps a card one place inside its column", () => {
-    expect(ids(boardSent(board(["a", "b", "c"]), [sent({ intent: "down", id: "a" })]))).toEqual([
-      ["b", "a", "c"],
+    expect(ids(boardSent(board([1, 2, 3]), [sent({ intent: "down", id: 1 })]))).toEqual([
+      [2, 1, 3],
       [],
     ]);
-    expect(ids(boardSent(board(["a", "b", "c"]), [sent({ intent: "up", id: "c" })]))).toEqual([
-      ["a", "c", "b"],
+    expect(ids(boardSent(board([1, 2, 3]), [sent({ intent: "up", id: 3 })]))).toEqual([
+      [1, 3, 2],
       [],
     ]);
   });
 
   it("lays a burst of steps over each other, so a held key walks the card", () => {
-    const burst = [1, 2, 3].map(() => sent({ intent: "down", id: "a" }));
+    const burst = [1, 2, 3].map(() => sent({ intent: "down", id: 1 }));
 
-    expect(ids(boardSent(board(["a", "b", "c", "d"]), burst))).toEqual([["b", "c", "d", "a"], []]);
+    expect(ids(boardSent(board([1, 2, 3, 4]), burst))).toEqual([[2, 3, 4, 1], []]);
   });
 
   it("stops a step at the end of the column", () => {
-    expect(ids(boardSent(board(["a", "b"]), [sent({ intent: "up", id: "a" })]))).toEqual([
-      ["a", "b"],
+    expect(ids(boardSent(board([1, 2]), [sent({ intent: "up", id: 1 })]))).toEqual([
+      [1, 2],
       [],
     ]);
   });
 
   it("takes archived cards off the board at once", () => {
-    const columns = boardSent(board(["a"], ["b", "c", "d"]), [
-      sent({ intent: "archive", id: ["b", "d"], slug: ["acme", "acme"] }),
+    const columns = boardSent(board([1], [2, 3, 4]), [
+      sent({ intent: "archive", id: [2, 4], slug: ["acme", "acme"] }),
     ]);
 
-    expect(ids(columns)).toEqual([["a"], ["c"]]);
+    expect(ids(columns)).toEqual([[1], [3]]);
   });
 
   it("ignores a post it has nothing to draw for", () => {
-    const columns = boardSent(board(["a"]), [sent({ intent: "restore", id: "x" })]);
+    const columns = boardSent(board([1]), [sent({ intent: "restore", id: 9 })]);
 
-    expect(ids(columns)).toEqual([["a"], []]);
+    expect(ids(columns)).toEqual([[1], []]);
   });
 });
 
 /** A live task of one org, named by its id. */
-function task(id: string, status: LiveTask["status"] = "todo", percentile = 0): LiveTask {
+function task(id: TaskId, status: LiveTask["status"] = "todo", percentile = 0): LiveTask {
   return {
     id,
     org: { slug: "me", name: "Me", color: null },
-    title: id,
+    title: `Task ${id}`,
     status,
     due_date: null,
     percentile,
@@ -122,11 +123,11 @@ function task(id: string, status: LiveTask["status"] = "todo", percentile = 0): 
 }
 
 describe("the cross-org lists, while a post is in flight", () => {
-  const tasks = [task("a"), task("b"), task("c", "in_progress")];
+  const tasks = [task(1), task(2), task(3, "in_progress")];
 
   it("draws a moved task in its new column, at the bottom of it", () => {
-    const after = tasksSent(tasks, [], [sent({ intent: "move", id: "a", slug: "me", status: "done" })]);
-    const moved = after.tasks.find((one) => one.id === "a")!;
+    const after = tasksSent(tasks, [], [sent({ intent: "move", id: 1, slug: "me", status: "done" })]);
+    const moved = after.tasks.find((one) => one.id === 1)!;
 
     expect(moved.status).toBe("done");
     expect(moved.finished).toBe(true);
@@ -134,94 +135,94 @@ describe("the cross-org lists, while a post is in flight", () => {
   });
 
   it("draws a finished task as done", () => {
-    const after = tasksSent(tasks, [], [sent({ intent: "finish", id: "c", slug: "me" })]);
+    const after = tasksSent(tasks, [], [sent({ intent: "finish", id: 3, slug: "me" })]);
 
-    expect(after.tasks.find((one) => one.id === "c")).toMatchObject({ status: "done", finished: true });
+    expect(after.tasks.find((one) => one.id === 3)).toMatchObject({ status: "done", finished: true });
   });
 
   it("takes archived tasks away", () => {
-    const after = tasksSent(tasks, [], [sent({ intent: "archive", id: ["a", "c"], slug: ["me", "me"] })]);
+    const after = tasksSent(tasks, [], [sent({ intent: "archive", id: [1, 3], slug: ["me", "me"] })]);
 
-    expect(after.tasks.map((one) => one.id)).toEqual(["b"]);
+    expect(after.tasks.map((one) => one.id)).toEqual([2]);
   });
 
   it("puts a pick at the foot of a plan, and takes an unpick out", () => {
-    expect(tasksSent(tasks, ["b"], [sent({ intent: "plan", id: "a", slug: "me" })]).picked).toEqual([
-      "b",
-      "a",
+    expect(tasksSent(tasks, [2], [sent({ intent: "plan", id: 1, slug: "me" })]).picked).toEqual([
+      2,
+      1,
     ]);
-    expect(tasksSent(tasks, ["b", "a"], [sent({ intent: "unplan", id: "b", slug: "me" })]).picked).toEqual([
-      "a",
+    expect(tasksSent(tasks, [2, 1], [sent({ intent: "unplan", id: 2, slug: "me" })]).picked).toEqual([
+      1,
     ]);
   });
 
   it("puts a pick on top where the page's picks claim the top", () => {
-    const after = tasksSent(tasks, ["b"], [sent({ intent: "plan", id: "a", slug: "me" })], "top");
+    const after = tasksSent(tasks, [2], [sent({ intent: "plan", id: 1, slug: "me" })], "top");
 
-    expect(after.picked).toEqual(["a", "b"]);
+    expect(after.picked).toEqual([1, 2]);
   });
 
   it("reads a second press against the first, so `p` twice is a pick and an unpick", () => {
     const after = tasksSent(tasks, [], [
-      sent({ intent: "plan", id: "a", slug: "me" }),
-      sent({ intent: "unplan", id: "a", slug: "me" }),
+      sent({ intent: "plan", id: 1, slug: "me" }),
+      sent({ intent: "unplan", id: 1, slug: "me" }),
     ]);
 
     expect(after.picked).toEqual([]);
   });
 
   it("moves a row through the picked order, one step at a time or to either end", () => {
-    const order = ["a", "b", "c"];
+    const order = [1, 2, 3];
 
-    expect(tasksSent(tasks, order, [sent({ intent: "down", id: "a" })]).picked).toEqual(["b", "a", "c"]);
-    expect(tasksSent(tasks, order, [sent({ intent: "top", id: "c" })]).picked).toEqual(["c", "a", "b"]);
-    expect(tasksSent(tasks, order, [sent({ intent: "bottom", id: "a" })]).picked).toEqual([
-      "b",
-      "c",
-      "a",
+    expect(tasksSent(tasks, order, [sent({ intent: "down", id: 1 })]).picked).toEqual([2, 1, 3]);
+    expect(tasksSent(tasks, order, [sent({ intent: "top", id: 3 })]).picked).toEqual([3, 1, 2]);
+    expect(tasksSent(tasks, order, [sent({ intent: "bottom", id: 1 })]).picked).toEqual([
+      2,
+      3,
+      1,
     ]);
   });
 
   it("lays a burst of `J` presses over each other", () => {
-    const burst = [1, 2].map(() => sent({ intent: "down", id: "a" }));
+    const burst = [1, 2].map(() => sent({ intent: "down", id: 1 }));
 
-    expect(tasksSent(tasks, ["a", "b", "c"], burst).picked).toEqual(["b", "c", "a"]);
+    expect(tasksSent(tasks, [1, 2, 3], burst).picked).toEqual([2, 3, 1]);
   });
 
   // A drag names the card of the same org it lands above. The server places
   // it there inside the org, so the guess draws it just above that card.
   // See ADR-0025.
   it("draws a dragged task just above the card the drop named", () => {
-    const spread = [task("a", "todo", 0.2), task("b", "todo", 0.5), task("c", "todo", 0.8)];
+    const spread = [task(1, "todo", 0.2), task(2, "todo", 0.5), task(3, "todo", 0.8)];
     const after = tasksSent(spread, [], [
-      sent({ intent: "move", id: "c", slug: "me", status: "todo", before: "b" }),
+      sent({ intent: "move", id: 3, slug: "me", status: "todo", before: 2 }),
     ]);
-    const moved = after.tasks.find((one) => one.id === "c")!;
+    const moved = after.tasks.find((one) => one.id === 3)!;
 
     expect(moved.percentile).toBeGreaterThan(0.2);
     expect(moved.percentile).toBeLessThan(0.5);
   });
 
   it("places a dragged row of the plan above the row the drop named, or at the foot", () => {
-    const order = ["a", "b", "c"];
+    const order = [1, 2, 3];
 
-    expect(tasksSent(tasks, order, [sent({ intent: "place", id: "c", before: "a" })]).picked).toEqual([
-      "c",
-      "a",
-      "b",
+    expect(tasksSent(tasks, order, [sent({ intent: "place", id: 3, before: 1 })]).picked).toEqual([
+      3,
+      1,
+      2,
     ]);
-    expect(tasksSent(tasks, order, [sent({ intent: "place", id: "a", before: "" })]).picked).toEqual([
-      "b",
-      "c",
-      "a",
+    expect(tasksSent(tasks, order, [sent({ intent: "place", id: 1, before: "" })]).picked).toEqual([
+      2,
+      3,
+      1,
     ]);
   });
 
   it("leaves the server's lists alone when nothing is in flight", () => {
-    const after = tasksSent(tasks, ["a"], []);
+    const after = tasksSent(tasks, [1], []);
 
     expect(after.tasks).toEqual(tasks);
-    expect(after.picked).toEqual(["a"]);
+    expect(after.picked).toEqual([1]);
   });
 });
 
@@ -231,7 +232,7 @@ describe("the tasks an add in flight draws", () => {
   });
 
   it("draws nothing for a post that is not an add", () => {
-    expect(addsSent([sent({ intent: "move", id: "a", status: "todo" })])).toEqual([]);
+    expect(addsSent([sent({ intent: "move", id: 1, status: "todo" })])).toEqual([]);
   });
 });
 

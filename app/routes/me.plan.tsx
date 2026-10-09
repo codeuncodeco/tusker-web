@@ -54,6 +54,7 @@ import { UnifiedList } from "../unified-list";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
 import type { Route } from "./+types/me.plan";
+import { readTaskId } from "../task-number";
 
 /**
  * The tab title names the day, weekday first: a row of tabs is read by its
@@ -167,15 +168,17 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // A move reads no task row. It moves an id the plan already holds, and an id
   // the plan does not hold moves nothing.
   if (isStep(intent)) {
-    await movePlan(env.DB, set.personId, day, String(form.get("id") ?? ""), intent);
+    const id = readTaskId(form.get("id"));
+    if (id !== null) await movePlan(env.DB, set.personId, day, id, intent);
     return { ok: true };
   }
 
   // A drag names the row it lands above, or none for the foot, because a drop
   // says where and not how far. See ADR-0025.
   if (intent === "place") {
-    const before = String(form.get("before") ?? "") || null;
-    await placePlan(env.DB, set.personId, day, String(form.get("id") ?? ""), before);
+    const id = readTaskId(form.get("id"));
+    const before = readTaskId(form.get("before"));
+    if (id !== null) await placePlan(env.DB, set.personId, day, id, before);
     return { ok: true };
   }
 

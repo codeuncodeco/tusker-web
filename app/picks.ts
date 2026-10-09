@@ -1,3 +1,5 @@
+import type { TaskId } from "./task-number";
+
 /**
  * Where a pick lands.
  *
@@ -14,7 +16,7 @@ export type Picks = {
    */
   onAdd: boolean;
   /** Puts a block of tasks in the list, leaving the ones it already holds. */
-  add(taskIds: string[]): Promise<void>;
+  add(taskIds: TaskId[]): Promise<void>;
   /** Takes a block of tasks out of the list. One task is a block of one. */
-  remove(taskIds: string[]): Promise<void>;
+  remove(taskIds: TaskId[]): Promise<void>;
 };
