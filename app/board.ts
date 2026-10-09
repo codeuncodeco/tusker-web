@@ -106,6 +106,14 @@ export function readStatus(form: FormData): Status {
 }
 
 /**
+ * The status an add files to. A board's quick-add box names none, so what it
+ * adds lands in To do. A post that names one is held to `readStatus`.
+ */
+export function addStatus(form: FormData): Status {
+  return form.get("status") === null ? "todo" : readStatus(form);
+}
+
+/**
  * The columns to draw, in board order.
  *
  * Backlog shows only when there is no work in hand — To do and In progress are

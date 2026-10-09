@@ -13,6 +13,7 @@ import { Link, useFetcher } from "react-router";
 
 import {
   BOARD_TOGGLES,
+  addStatus,
   STATUS_LABEL,
   backlogByRule,
   columnsToShow,
@@ -88,7 +89,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // glance. One query covers every card. See ADR-0006.
   const colors = await listColors(env.DB, scope);
   // Who holds each task, for the whole org in one read, and the org's members
-  // beside it: one list for the picker every quick-add box carries and for the
+  // beside it: one list for the picker the quick-add box carries and for the
   // filter select in the header. The two reads go together, because neither
   // waits on the other. A personal org draws no assignee, so it draws neither
   // control, and it holds no filter either, whatever the address says.
@@ -143,7 +144,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     org: { slug: scope.org.slug, name: scope.org.name },
     columns,
     /**
-     * The org's members, in name order: the picker on every box offers them,
+     * The org's members, in name order: the picker on the box offers them,
      * and so does the filter select. Empty draws neither.
      */
     members,
@@ -175,7 +176,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const intent = String(form.get("intent") ?? "");
 
   if (intent === "create") {
-    const status = readStatus(form);
+    const status = addStatus(form);
     const typed = newTasksFrom(form);
     if ("error" in typed) return typed;
     // The ids are checked before anything is written, so an add naming a
@@ -184,10 +185,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const assigned = await readAssignees(env.DB, scope, form);
     if ("error" in assigned) return assigned;
     const made = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
-    // The box sits on every column, Done included. A marked task typed
-    // straight into Done is finished the moment it is made, so it is asked
-    // now: no later move would ask it. One box is one prompt, so a pasted list
-    // is asked about the task on top of it.
+    // A post that names Done makes a task finished the moment it is made, so
+    // a marked one is asked now: no later move would ask it. One add is one
+    // prompt, so a pasted list is asked about the task on top of it.
     const prompt = await promptFor(env.DB, scope, request, made[0]);
     if (prompt) return prompt;
     return { ok: true };
@@ -247,26 +247,21 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 /**
- * The box at the top of a column. It posts on Enter and empties itself once
- * the tasks land, so a person can type the next one at once. The column names
- * the status, so the only extra this placement needs is a hidden field.
+ * The board's one box, above the columns. It posts on Enter and empties itself
+ * once the tasks land, so a person can type the next one at once. It names no
+ * column, so what it adds lands in To do. A task meant for another column is
+ * added and then moved.
  *
  * The picker names who holds the task. It keeps its set across an add, so a
  * person filing three tasks to one member names them once. A personal org
  * hands it no member and it draws nothing. See ADR-0013.
  *
- * `n` focuses the box on the To do column and Escape gives the board its keys
- * back, as they do on the unified board. One key names one box.
+ * `n` focuses the box and Escape gives the board its keys back, as they do on
+ * the unified board.
  */
 function QuickAdd({
-  status,
-  label,
-  addKey,
   members,
 }: {
-  status: Status;
-  label: string;
-  addKey: boolean;
   /** The org's members. Empty for a personal org, which draws no picker. */
   members: Assignee[];
 }) {
@@ -276,7 +271,7 @@ function QuickAdd({
   const { clear } = draft;
   const box = useRef<HTMLTextAreaElement>(null);
 
-  useAddKey(box, addKey);
+  useAddKey(box);
 
   useEffect(() => {
     if (add.state !== "idle" || !add.data || !("ok" in add.data)) return;
@@ -286,15 +281,15 @@ function QuickAdd({
   return (
     <QuickAddBox
       form={add.Form}
-      label={`Add to ${label}`}
+      label="Add to To do"
       draft={draft}
       error={error}
       titleRef={box}
+      bare
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
         (event.target as HTMLElement).blur();
       }}
-      fields={<input type="hidden" name="status" value={status} />}
       picker={
         <AssigneePicker
           members={members}
@@ -522,6 +517,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         </nav>
       </header>
 
+      {/* One box for the board, outside every keyed list, so a typed word is
+          never a press the page reads. See ADR-0022. */}
+      <QuickAdd members={members} />
+
       {/* The row holds still, and each column scrolls inside itself. */}
       <div ref={board} className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0">
         {columns.map((column) => (
@@ -551,21 +550,11 @@ export default function Board({ loaderData }: Route.ComponentProps) {
               ) : null}
             </div>
 
-            {/* One key names one box, and To do is where an add goes by hand. */}
-            <QuickAdd
-              status={column.status}
-              label={column.label}
-              addKey={column.status === "todo"}
-              members={members}
-            />
+            {/* The heading and the sweep stay pinned, and only this scrolls.
+                The gutter is reserved, so a full column is as wide as an empty
+                one, which is the point of the equal split.
 
-            {/* The heading, the box and the sweep stay pinned, and only this
-                scrolls. The gutter is reserved, so a full column is as wide as
-                an empty one, which is the point of the equal split.
-
-                This is the keyed list: the cards and nothing else. The box
-                stays outside it, so a typed word is never a press the page
-                reads. See ADR-0022. */}
+                This is the keyed list: the cards and nothing else. */}
             <ul
               {...keyed(`${column.label} tasks`)}
               className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"

@@ -9,7 +9,7 @@
  */
 
 import { readAssignees } from "./assignees.server";
-import { readStatus, type Status } from "./board";
+import { addStatus, readStatus, type Status } from "./board";
 import { decide, finishTask, moveAndAsk, promptFor } from "./decisions.server";
 import type { Picks } from "./picks";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
@@ -46,19 +46,17 @@ function scopeFrom(set: OrgSet, form: FormData): Scope {
 }
 
 /**
- * The column an add names, or To do.
- *
- * Each box of the unified board names its own column. The box of a page that
- * picks names none: an add there is a pick as well, and a pick is live work.
+ * The column an add lands in. No box names one, so it is To do. A page that
+ * picks holds To do whatever the post names: an add there is a pick as well,
+ * and a pick is live work.
  */
 function statusFor(form: FormData, picked: boolean): Status {
-  if (picked || form.get("status") === null) return "todo";
-  return readStatus(form);
+  return picked ? "todo" : addStatus(form);
 }
 
 /**
- * Makes a task of every line typed, in the org the picker named, the column
- * the box sits on, and held by the members the box named.
+ * Makes a task of every line typed, in the org the picker named, in To do,
+ * and held by the members the box named.
  *
  * The tasks land at the top of the column and in list order, where a person
  * looks for the ones they just typed. A page that picks also puts every one of
@@ -86,9 +84,9 @@ async function addTasks(
   const ids = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
   if (picks.onAdd) await picks.add(ids);
 
-  // A marked task typed straight into Done is finished the moment it is made,
-  // so it is asked now: no later move would ask it. One box is one prompt, so
-  // a pasted list is asked about the task on top of it.
+  // A post that names Done makes a task finished the moment it is made, so a
+  // marked one is asked now: no later move would ask it. One add is one
+  // prompt, so a pasted list is asked about the task on top of it.
   const prompt = await promptFor(env.DB, scope, request, ids[0]);
   if (prompt) return prompt;
 
