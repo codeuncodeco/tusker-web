@@ -30,6 +30,7 @@ import { requireOrgSet } from "../scope.server";
 import { readSwept } from "../sweep";
 import { restoreAcross, sweepAcross } from "../sweep.server";
 import { columnsFor, finishedSince, unifiedColumns } from "../unified";
+import { UnifiedAdd } from "../unified-add";
 import { UnifiedBoard } from "../unified-board";
 import { actOnTask } from "../unified-actions.server";
 import { listUnified, membersBySlug } from "../unified.server";
@@ -132,9 +133,17 @@ export default function Me({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
-      <header className="flex flex-wrap items-baseline gap-4">
-        {/* The header's org select is this page's heading. See ADR-0029. */}
-        <nav className="flex items-baseline gap-4">
+      {/* The top row: the box on the left and the filters on the right, on
+          one line where the width allows. The header's org select is this
+          page's heading. See ADR-0029. */}
+      <header className="flex flex-wrap items-start gap-x-6 gap-y-3">
+        {/* One box for the board, outside every keyed list, so no press of a
+            typed word is ever the page's. The picker starts with no org every
+            time. See ADR-0012 and ADR-0027. */}
+        <div className="min-w-64 max-w-xl flex-1">
+          <UnifiedAdd orgs={orgs} members={members} label="Add to To do" bare />
+        </div>
+        <nav className="ml-auto flex flex-wrap items-baseline gap-4 pt-1.5">
           {/* A person with no plan for today gets no chip: there is nothing
               to narrow to, and the header's ⋯ holds Plan on every page. The
               week set reads the same way, and ⋯ holds Week. */}
@@ -149,7 +158,6 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       <UnifiedBoard
         columns={columns}
         orgs={orgs}
-        members={members}
         planned={new Set(planned)}
         day={day}
       />

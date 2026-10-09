@@ -10,7 +10,7 @@
 
 import { readAssignees } from "./assignees.server";
 import { addStatus, readStatus, type Status } from "./board";
-import { decide, finishTask, moveAndAsk, promptFor } from "./decisions.server";
+import { decide, finishTask, moveAndAsk } from "./decisions.server";
 import type { Picks } from "./picks";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { createTasks, deleteTasks, newTasksFrom, readTask, type Task } from "./tasks.server";
@@ -92,15 +92,12 @@ async function addTasks(
   const ids = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
   if (picks.onAdd) await picks.add(ids);
 
-  // A post that names Done makes a task finished the moment it is made, so a
-  // marked one is asked now: no later move would ask it. One add is one
-  // prompt, so a pasted list is asked about the task on top of it.
-  const prompt = await promptFor(env.DB, scope, request, ids[0]);
-  if (prompt) return prompt;
-
+  // The box sets no decision mark, so a task it makes into Done raises no
+  // prompt. See ADR-0010.
+  //
   // The box keeps the words as they were typed, so an add into the wrong org
   // is filed again rather than typed again. See ADR-0012.
-  return { added: { ids, slug: scope.org.slug, text: typed.text, decides: typed.decides } };
+  return { added: { ids, slug: scope.org.slug, text: typed.text } };
 }
 
 /**

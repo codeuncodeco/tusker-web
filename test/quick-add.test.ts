@@ -60,7 +60,7 @@ async function planned(personId: string, day = DAY) {
 /** What a create answered with, once the act says it added the tasks. */
 function added(acted: unknown) {
   expect(acted).toHaveProperty("added");
-  return (acted as { added: { ids: string[]; slug: string; text: string; decides: boolean } }).added;
+  return (acted as { added: { ids: string[]; slug: string; text: string } }).added;
 }
 
 /** The titles one org holds, top of the column first. */
@@ -83,7 +83,7 @@ describe("the add", () => {
       title: "fix the map",
     });
 
-    expect(added(acted)).toMatchObject({ slug: "blrhikes", text: "fix the map", decides: false });
+    expect(added(acted)).toMatchObject({ slug: "blrhikes", text: "fix the map" });
     expect((await rowsIn(blr.id)).results).toEqual([
       { id: added(acted).ids[0], title: "fix the map", status: "todo", decides: 0 },
     ]);
@@ -98,19 +98,15 @@ describe("the add", () => {
     expect(await columnOf(ada.org.id)).toEqual(["second", "first"]);
   });
 
-  it("marks the task when the box is ticked, and leaves it unmarked when it is not", async () => {
+  // The box sets no mark: the task page does. A post that names one anyway is
+  // read as the box posts, and every task of it is unmarked. See ADR-0010.
+  it("marks no task, even when the post names a mark", async () => {
     const ada = await member("ada@example.test", "Ada");
 
-    const marked = added(
-      await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a", decides: "1" }),
-    );
-    const plain = added(await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "b" }));
+    await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a\nb", decides: "1" });
 
-    expect(marked.decides).toBe(true);
-    expect(plain.decides).toBe(false);
     const rows = (await rowsIn(ada.org.id)).results;
-    expect(rows.find((one) => one.id === marked.ids[0])!.decides).toBe(1);
-    expect(rows.find((one) => one.id === plain.ids[0])!.decides).toBe(0);
+    expect(rows.map((one) => one.decides)).toEqual([0, 0]);
   });
 
   it("plans nothing on the unified view", async () => {
@@ -210,7 +206,7 @@ describe("the undo", () => {
   it("leaves a decision the task produced, with the link cleared", async () => {
     const ada = await member("ada@example.test", "Ada");
     const one = added(
-      await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a", decides: "1" }),
+      await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a" }),
     );
     await db
       .prepare("INSERT INTO decisions (id, org_id, task_id, title) VALUES ('d1', ?, ?, 'why')")
@@ -288,18 +284,7 @@ describe("a list of lines", () => {
     expect(await columnOf(ada.org.id)).toEqual(["one", "two"]);
   });
 
-  it("marks every task the paste made, and an unticked box marks none", async () => {
-    const ada = await member("ada@example.test", "Ada");
-
-    await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "a\nb", decides: "1" });
-    await onMe(ada.cookie, { intent: "create", slug: ada.org.slug, title: "c\nd" });
-
-    const rows = (await rowsIn(ada.org.id)).results;
-    expect(rows.filter((one) => one.decides === 1).map((one) => one.title).sort()).toEqual(["a", "b"]);
-    expect(rows.filter((one) => one.decides === 0).map((one) => one.title).sort()).toEqual(["c", "d"]);
-  });
-
-  it("gives the whole text back, line breaks and all, for the undo to refill the box", async () => {
+  it("gives the whole text back, line breaks and all, and no mark, for the undo to refill the box", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     const acted = added(
@@ -307,6 +292,7 @@ describe("a list of lines", () => {
     );
 
     expect(acted.text).toBe("one\ntwo");
+    expect(acted).not.toHaveProperty("decides");
   });
 
   it("puts every task of the paste in today's plan, in plan mode", async () => {

@@ -72,7 +72,7 @@ describe("the line an add leaves", () => {
     const ids = Array.from({ length: count }, (_, at) => `t${at}`);
     return renderToStaticMarkup(
       <UndoLine
-        added={{ slug: "acme", ids, text: "Ship it", decides: false }}
+        added={{ slug: "acme", ids, text: "Ship it" }}
         org={org}
         undo={() => {}}
         dismiss={() => {}}

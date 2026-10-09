@@ -4,8 +4,10 @@
  * One box, two placements. On a board it sits once above the columns, outside
  * every one, and what it adds lands in To do. On the cross-org pages it carries
  * an org picker.
- * The body here holds what both have — the title, the mark, the submit and the
- * error — and each page adds what only it has.
+ * The body here holds what both have — the title, the submit and the error —
+ * and each page adds what only it has.
+ *
+ * The box sets no decision mark: the task page does. See ADR-0010.
  *
  * The body is controlled. The cross-org box must be, because an undo gives the
  * words back, and one state model is better than two that read the same on screen.
@@ -49,69 +51,58 @@ type FetcherForm = FetcherWithComponents<unknown>["Form"];
 export type Draft = {
   title: string;
   setTitle: (title: string) => void;
-  decides: boolean;
-  setDecides: (decides: boolean) => void;
   /** The members every task of the next add is held by. */
   assignees: string[];
   setAssignees: (ids: string[]) => void;
-  /** What an add empties: the words and the mark, and not the members. */
+  /** What an add empties: the words, and not the members. */
   clear: () => void;
 };
 
 /**
- * The words, the mark and the picked members, held for as long as the box is
- * on screen.
+ * The words and the picked members, held for as long as the box is on screen.
  *
- * An add empties the words and the mark. It leaves the members: a person
- * filing three tasks to one member names them once, as they name the org once.
+ * An add empties the words. It leaves the members: a person filing three tasks
+ * to one member names them once, as they name the org once.
  */
 export function useQuickAddDraft(): Draft {
   const [title, setTitle] = useState("");
-  const [decides, setDecides] = useState(false);
   const [assignees, setAssignees] = useState<string[]>([]);
   // Stable, so an effect that empties the box on an add runs once.
-  const clear = useCallback(() => {
-    setTitle("");
-    setDecides(false);
-  }, []);
-  return { title, setTitle, decides, setDecides, assignees, setAssignees, clear };
+  const clear = useCallback(() => setTitle(""), []);
+  return { title, setTitle, assignees, setAssignees, clear };
 }
 
 /**
  * Empties the box the moment an add is posted, so the task draws on the page
  * at once and the next one can be typed while the first is on its way.
  *
- * An add the server refuses gives the words and the mark back, because
- * nothing typed is lost. A box the person has started typing into again keeps
+ * An add the server refuses gives the words back, because nothing typed is
+ * lost. A box the person has started typing into again keeps
  * what it holds: the new words are the newer thought. See #168.
  */
 export function useSendDraft(
   add: { state: string; formData?: FormData; data?: unknown },
   draft: Draft,
 ) {
-  const sent = useRef<{ title: string; decides: boolean } | null>(null);
-  const { clear, title, setTitle, setDecides } = draft;
+  const sent = useRef<string | null>(null);
+  const { clear, title, setTitle } = draft;
 
   useEffect(() => {
     if (add.state !== "submitting" || !add.formData) return;
-    sent.current = {
-      title: String(add.formData.get("title") ?? ""),
-      decides: add.formData.get("decides") === "1",
-    };
+    sent.current = String(add.formData.get("title") ?? "");
     clear();
   }, [add.state, add.formData, clear]);
 
   useEffect(() => {
-    if (add.state !== "idle" || !sent.current) return;
+    if (add.state !== "idle" || sent.current === null) return;
     const back = sent.current;
     sent.current = null;
     const answer = add.data;
     const refused =
       typeof answer === "object" && answer !== null && ("error" in answer || "failed" in answer);
     if (!refused || title !== "") return;
-    setTitle(back.title);
-    setDecides(back.decides);
-  }, [add.state, add.data, title, setTitle, setDecides]);
+    setTitle(back);
+  }, [add.state, add.data, title, setTitle]);
 }
 
 export function QuickAddBox({
@@ -222,24 +213,9 @@ export function QuickAddBox({
         }`}
       />
 
-      {/* The picker and the decision box share one line, and wrap when the
-          box is too narrow to hold both. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        {picker}
-
-        {/* Off by default. Most tasks decide nothing, and a prompt people
-            learn to dismiss is how a log goes empty. See ADR-0010. */}
-        <label className="flex items-center gap-2 text-xs text-muted">
-          <input
-            type="checkbox"
-            name="decides"
-            value="1"
-            checked={draft.decides}
-            onChange={(event) => draft.setDecides(event.target.checked)}
-          />
-          Holds a decision
-        </label>
-      </div>
+      {/* The controls share one line, and wrap when the box is too narrow
+          to hold them. A box with none, as an org of one has, draws no line. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden">{picker}</div>
 
       <button className="sr-only">Add</button>
 

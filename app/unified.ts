@@ -221,7 +221,7 @@ function compare(a: string, b: string): number {
  * carries every id it wrote, and the text as the person typed it, line breaks
  * and all.
  */
-export type Added = { ids: string[]; slug: string; text: string; decides: boolean };
+export type Added = { ids: string[]; slug: string; text: string };
 
 /**
  * True for a task a plan can hold. Picking a task for today is the act of

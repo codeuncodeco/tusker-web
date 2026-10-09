@@ -79,7 +79,6 @@ function unified(columns: { status: Status; label: string; tasks: LiveTask[] }[]
         <UnifiedBoard
           columns={columns}
           orgs={orgs}
-          members={{}}
           planned={new Set()}
           day="2026-09-02"
         />
