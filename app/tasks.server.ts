@@ -188,10 +188,65 @@ export async function saveTask(
 }
 
 /**
+ * One value of a task, as one control of the task page saves it.
+ *
+ * A field names its key, and a null value clears it. Every other value of the
+ * row stays as it was, so a post for one control cannot clear another. See
+ * #204.
+ */
+export type TaskEdit =
+  | { title: string }
+  | { dueDate: string | null }
+  | { decides: boolean }
+  | { field: string; value: string | null };
+
+/**
+ * Writes one value of a task, and no other.
+ *
+ * A field is written into the JSON in place, so two fields saved at once do
+ * not write a stale copy of the data over each other. The key is a declared
+ * one, and a key holds letters, numbers and underscores only, so it is safe
+ * in a JSON path. See `fieldKey`.
+ *
+ * Returns false when no row matched, so the route can answer 404.
+ */
+export async function editTask(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+  edit: TaskEdit,
+): Promise<boolean> {
+  const [set, value] =
+    "title" in edit
+      ? ["title = ?", edit.title]
+      : "dueDate" in edit
+        ? ["due_date = ?", edit.dueDate]
+        : "decides" in edit
+          ? ["decides = ?", edit.decides ? 1 : 0]
+          : edit.value === null
+            ? ["data = json_remove(data, ?)", `$.${edit.field}`]
+            : ["data = json_set(data, ?, ?)", `$.${edit.field}`];
+
+  const values = "field" in edit && edit.value !== null ? [value, edit.value] : [value];
+
+  const done = await db
+    .prepare(
+      `UPDATE tasks SET ${set}, updated_at = ${NOW}
+       WHERE id = ? AND org_id = ?`,
+    )
+    .bind(...values, taskId, scope.org.id)
+    .run();
+
+  return done.meta.changes > 0;
+}
+
+/**
  * Writes the whole description the box saved.
  *
  * The text is raw markdown and is written as it was typed: the page renders it,
- * so nothing is escaped or normalised on the way in. The write is scoped like
+ * so nothing is escaped on the way in. Only the line breaks are made one kind:
+ * a form posts a textarea's breaks as CRLF, and a `\r` left at the end of a
+ * line stops `- [ ]` from reading as a checkbox line. The write is scoped like
  * every other, so a task another org holds is not reachable by its id.
  *
  * Returns false when no row matched, so the route can answer 404.
@@ -208,7 +263,7 @@ export async function saveDescription(
        SET description = ?, updated_at = ${NOW}
        WHERE id = ? AND org_id = ?`,
     )
-    .bind(description, taskId, scope.org.id)
+    .bind(description.replace(/\r\n?/g, "\n"), taskId, scope.org.id)
     .run();
 
   return done.meta.changes > 0;

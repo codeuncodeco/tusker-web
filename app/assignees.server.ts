@@ -142,6 +142,36 @@ export async function setAssignees(
 }
 
 /**
+ * Puts one member on a task, or takes them off, and leaves every other
+ * assignee where they are. One tick of the task page posts this, so two ticks
+ * in flight at once do not write over each other. See #204.
+ *
+ * The caller checked the id with `readAssignees`, and the foreign key checks
+ * it again. Assigning a member twice holds them once.
+ */
+export async function assignOne(
+  db: D1Database,
+  scope: Scope,
+  taskId: string,
+  userId: string,
+  held: boolean,
+): Promise<void> {
+  const orgId = scope.org.id;
+
+  await (held
+    ? db
+        .prepare(
+          `INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)
+           ON CONFLICT DO NOTHING`,
+        )
+        .bind(taskId, orgId, userId)
+    : db
+        .prepare("DELETE FROM task_assignees WHERE task_id = ? AND org_id = ? AND user_id = ?")
+        .bind(taskId, orgId, userId)
+  ).run();
+}
+
+/**
  * Every member of one org, as a picker offers them.
  *
  * The task page and the quick-add box both draw this list, and a card draws
