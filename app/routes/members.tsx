@@ -9,6 +9,7 @@ import {
   answerRequest,
   answersRequests,
   waitingOn,
+  type Answer,
   type Waiting,
 } from "../join-requests.server";
 import { createMailer } from "../mail.server";
@@ -140,26 +141,16 @@ function inviteDeps(env: Env, request: Request): InviteDeps {
  * An owner's answer to one join request. A plain member reads a refusal, and
  * the write refuses them as well, because only an owner answers. See ADR-0028.
  */
-async function answerJoin(
-  deps: InviteDeps,
-  scope: Scope,
-  form: FormData,
-  intent: "approve" | "decline",
-) {
-  const personId = String(form.get("person") ?? "");
-  const asker = (await waitingOn(deps.db, scope)).find((one) => one.id === personId);
+async function answerJoin(deps: InviteDeps, scope: Scope, form: FormData, answer: Answer) {
+  const done = await answerRequest(deps, scope, String(form.get("person") ?? ""), answer);
+  const org = scope.org.name;
 
-  const done = await answerRequest(deps, scope, personId, intent);
-  if (done === "not-owner") return { error: `Only an owner of ${scope.org.name} answers a join request.` };
-  if (done === "no-request" || !asker) {
-    return { error: `${scope.org.name} holds no waiting request from that person.` };
+  if (done.outcome === "not-owner") return { error: `Only an owner of ${org} answers a join request.` };
+  if (done.outcome === "no-request") return { error: `${org} holds no waiting request from that person.` };
+  if (done.outcome === "approved") {
+    return { ok: `${done.name} is a member of ${org} now. Tusker mailed them a link to sign in.` };
   }
-
-  const name = nameOf(asker);
-  if (done === "approved") {
-    return { ok: `${name} is a member of ${scope.org.name} now. Tusker mailed them a link to sign in.` };
-  }
-  return { ok: `${name}'s request to join ${scope.org.name} is declined.` };
+  return { ok: `${done.name}'s request to join ${org} is declined.` };
 }
 
 /** Gives one member the other role, unless that would leave the org ownerless. */

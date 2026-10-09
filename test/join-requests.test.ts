@@ -12,7 +12,9 @@ import * as personLayout from "../app/layouts/person";
 import * as accountRoute from "../app/routes/account";
 import * as authRoute from "../app/routes/api.auth";
 import * as meRoute from "../app/routes/me";
+import * as focusRoute from "../app/routes/me.focus";
 import * as planRoute from "../app/routes/me.plan";
+import * as weekRoute from "../app/routes/me.week";
 import * as membersRoute from "../app/routes/members";
 import * as directoryRoute from "../app/routes/orgs";
 import { member, signedIn } from "./accounts";
@@ -87,7 +89,7 @@ describe("who lands on the directory", () => {
   it("sends a person in no org from the person pages to the directory", async () => {
     const { dee } = await instance();
 
-    for (const path of ["/me", "/me/plan"]) {
+    for (const path of ["/me", "/me/plan", "/me/week", "/me/focus"]) {
       const response = await caught(personLayout.loader(routeArgs(get(path, dee.cookie))));
       expect(response.status).toBe(302);
       expect(response.headers.get("location")).toBe("/orgs");
@@ -95,8 +97,16 @@ describe("who lands on the directory", () => {
 
     const board = await caught(meRoute.loader(routeArgs(get("/me", dee.cookie))));
     expect(board.headers.get("location")).toBe("/orgs");
-    const plan = await caught(planRoute.loader(routeArgs(get("/me/plan", dee.cookie))));
-    expect(plan.headers.get("location")).toBe("/orgs");
+    // A child loader sends them as well, so a navigation that does not rerun
+    // the layout still lands on the directory.
+    for (const [route, path] of [
+      [planRoute, "/me/plan"],
+      [weekRoute, "/me/week"],
+      [focusRoute, "/me/focus"],
+    ] as const) {
+      const response = await caught(route.loader(routeArgs(get(path, dee.cookie))));
+      expect(response.headers.get("location")).toBe("/orgs");
+    }
   });
 
   it("leaves the directory, the account page and the new-org form open to them", async () => {
@@ -250,6 +260,25 @@ describe("approving", () => {
 
     expect(answer.error).toBe("Ada holds no waiting request from that person.");
     expect(await isMember(ada.org.id, dee.person.id)).toBe(false);
+  });
+
+  it("cannot undo a decline, nor bring in a person who withdrew", async () => {
+    const { ada, cy, dee } = await instance();
+    await onDirectory(dee.cookie, { intent: "ask", org: ada.org.id });
+    await onDirectory(dee.cookie, { intent: "ask", org: cy.org.id });
+    await onMembers(ada.cookie, "ada", { intent: "decline", person: dee.person.id });
+    await onDirectory(dee.cookie, { intent: "withdraw", org: cy.org.id });
+    outbox.length = 0;
+
+    const late = await onMembers(ada.cookie, "ada", { intent: "approve", person: dee.person.id });
+    const gone = await onMembers(cy.cookie, "cy", { intent: "approve", person: dee.person.id });
+
+    expect(late.error).toBe("Ada holds no waiting request from that person.");
+    expect(gone.error).toBe("Cy holds no waiting request from that person.");
+    expect(await requestTo(ada.org.id, dee.person.id)).toBe("declined");
+    expect(await isMember(ada.org.id, dee.person.id)).toBe(false);
+    expect(await isMember(cy.org.id, dee.person.id)).toBe(false);
+    expect(outbox).toEqual([]);
   });
 });
 

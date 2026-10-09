@@ -55,11 +55,29 @@ export async function inviteToOrg(
   }
 
   await addMemberById(db, invitation.org.id, person.id);
-
-  const by = await accountName(db, invitation.byId);
-  const url = await mintInviteLink(auth, email, boardPath);
-  await mailer.invitation(email, { by, ...mail, signIn: { url, days: INVITE_TTL / 86_400 } });
+  await mailSignInLink(deps, { ...invitation, email });
   return "invited";
+}
+
+/**
+ * Mails a new member of an org a link that signs them in and lands on the
+ * org's board. An invitation that made the account sends it, and so does an
+ * approved join request, because both roads in end the same way. See
+ * ADR-0028.
+ */
+export async function mailSignInLink(
+  deps: InviteDeps,
+  joined: { org: Org; byId: string; email: string },
+): Promise<void> {
+  const { db, auth, mailer, origin } = deps;
+  const boardPath = `/o/${joined.org.slug}/board`;
+  const url = await mintInviteLink(auth, joined.email, boardPath);
+  await mailer.invitation(joined.email, {
+    by: await accountName(db, joined.byId),
+    org: joined.org.name,
+    board: `${origin}${boardPath}`,
+    signIn: { url, days: INVITE_TTL / 86_400 },
+  });
 }
 
 /** The account this call made, or null when another call made it first. */

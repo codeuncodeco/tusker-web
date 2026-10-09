@@ -27,8 +27,8 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: "Orgs — Tusker" }];
 }
 
-/** The signed-in person, sent to their board when they belong to an org. */
-async function outsider(request: Request, env: Env): Promise<string> {
+/** The signed-in person's id, or a redirect to their board when they belong to an org. */
+async function requireNoOrg(request: Request, env: Env): Promise<string> {
   const set = await readOrgSet(request, env);
   if (set.orgs.length > 0) throw redirect("/me");
   return set.personId;
@@ -36,7 +36,7 @@ async function outsider(request: Request, env: Env): Promise<string> {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
-  const personId = await outsider(request, env);
+  const personId = await requireNoOrg(request, env);
   return {
     orgs: await listDirectory(env.DB, personId),
     owner: await instanceOwner(env.DB),
@@ -45,7 +45,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export async function action({ request, context }: Route.ActionArgs) {
   const env = context.get(cloudflareEnv);
-  const personId = await outsider(request, env);
+  const personId = await requireNoOrg(request, env);
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
@@ -87,7 +87,7 @@ export default function Directory({ loaderData, actionData }: Route.ComponentPro
                 <span className="truncate">{org.name}</span>
               </span>
               <span className="ml-auto">
-                <Answer org={org} />
+                <RequestControl org={org} />
               </span>
             </li>
           ))}
@@ -109,7 +109,7 @@ export default function Directory({ loaderData, actionData }: Route.ComponentPro
 }
 
 /** What one org's row offers: an ask, a withdraw while it waits, or the decline. */
-function Answer({ org }: { org: ListedOrg }) {
+function RequestControl({ org }: { org: ListedOrg }) {
   if (org.request === "declined") return <span className="text-muted">Declined</span>;
 
   if (org.request === "waiting") {

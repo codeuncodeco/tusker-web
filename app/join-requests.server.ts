@@ -1,8 +1,7 @@
 import { accountName } from "./accounts.server";
-import { INVITE_TTL, mintInviteLink } from "./auth.server";
-import type { InviteDeps } from "./invites.server";
-import type { Mailer } from "./mail.server";
-import { addMemberById, memberOf } from "./orgs.server";
+import { nameOf } from "./assignees";
+import { mailSignInLink, type InviteDeps } from "./invites.server";
+import { memberOf } from "./orgs.server";
 import type { Scope } from "./scope.server";
 
 /**
@@ -11,8 +10,11 @@ import type { Scope } from "./scope.server";
  * answers it. See ADR-0028.
  */
 
+/** The two states a join request row holds. */
+type Status = "waiting" | "declined";
+
 /** Where one person stands with one org of the directory. Null is no request. */
-export type RequestState = "waiting" | "declined" | null;
+export type RequestState = Status | null;
 
 /**
  * One org as the directory draws it. The directory names an org to somebody
@@ -55,7 +57,7 @@ export async function waitingFor(
 
 /** What became of one ask, with the name of the org it went to. */
 export type Asked =
-  | { outcome: "asked" | "waiting" | "declined"; org: string }
+  | { outcome: "asked" | Status; org: string }
   | { outcome: "no-org" };
 
 /**
@@ -64,7 +66,7 @@ export type Asked =
  * nobody. A declined request stays declined. See ADR-0028.
  */
 export async function askToJoin(
-  deps: { db: D1Database; mailer: Mailer; origin: string },
+  deps: Pick<InviteDeps, "db" | "mailer" | "origin">,
   personId: string,
   orgId: string,
 ): Promise<Asked> {
@@ -83,7 +85,7 @@ export async function askToJoin(
     const held = await db
       .prepare("SELECT status FROM join_requests WHERE org_id = ? AND user_id = ?")
       .bind(orgId, personId)
-      .first<{ status: "waiting" | "declined" }>();
+      .first<{ status: Status }>();
     return { outcome: held?.status ?? "waiting", org: org.name };
   }
 
@@ -141,8 +143,15 @@ export async function answersRequests(db: D1Database, scope: Scope): Promise<boo
   return (await memberOf(db, scope, scope.personId))?.role === "owner";
 }
 
-/** What became of an owner's answer. */
-export type Answered = "approved" | "declined" | "not-owner" | "no-request";
+/** The two answers an owner gives a join request. */
+export type Answer = "approve" | "decline";
+
+/** What became of an owner's answer, with the name of the person it answered. */
+export type Answered =
+  | { outcome: "approved"; name: string }
+  | { outcome: "declined"; name: string }
+  | { outcome: "not-owner" }
+  | { outcome: "no-request" };
 
 /**
  * An owner's answer to one waiting request.
@@ -151,6 +160,10 @@ export type Answered = "approved" | "declined" | "not-owner" | "no-request";
  * them a link that signs them in, as an invitation does. Declining is silent,
  * and the row stays so the person cannot ask again.
  *
+ * Each write is guarded by the request still waiting, in the statement, so an
+ * approval cannot undo a withdraw or a decline that landed first, and two
+ * approvals mail once.
+ *
  * A plain member is refused here and not only in the page, because only an
  * owner answers. See ADR-0028.
  */
@@ -158,10 +171,20 @@ export async function answerRequest(
   deps: InviteDeps,
   scope: Scope,
   personId: string,
-  answer: "approve" | "decline",
+  answer: Answer,
 ): Promise<Answered> {
-  const { db, auth, mailer, origin } = deps;
-  if (!(await answersRequests(db, scope))) return "not-owner";
+  const { db } = deps;
+  if (!(await answersRequests(db, scope))) return { outcome: "not-owner" };
+
+  const asker = await db
+    .prepare(
+      `SELECT u.name, u.email FROM join_requests r JOIN "user" u ON u.id = r.user_id
+       WHERE r.org_id = ? AND r.user_id = ? AND r.status = 'waiting'`,
+    )
+    .bind(scope.org.id, personId)
+    .first<{ name: string; email: string }>();
+  if (!asker) return { outcome: "no-request" };
+  const name = nameOf(asker);
 
   if (answer === "decline") {
     const done = await db
@@ -171,29 +194,25 @@ export async function answerRequest(
       )
       .bind(scope.org.id, personId)
       .run();
-    return done.meta.changes > 0 ? "declined" : "no-request";
+    return done.meta.changes > 0 ? { outcome: "declined", name } : { outcome: "no-request" };
   }
 
-  const asker = await db
-    .prepare(
-      `SELECT u.email FROM join_requests r JOIN "user" u ON u.id = r.user_id
-       WHERE r.org_id = ? AND r.user_id = ? AND r.status = 'waiting'`,
-    )
-    .bind(scope.org.id, personId)
-    .first<{ email: string }>();
-  if (!asker) return "no-request";
+  // The membership comes from the waiting row itself, and the row goes in the
+  // same batch, as `addMemberById` clears it for an invitation.
+  const [added] = await db.batch([
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO memberships (org_id, user_id, role)
+         SELECT org_id, user_id, 'member' FROM join_requests
+         WHERE org_id = ? AND user_id = ? AND status = 'waiting'`,
+      )
+      .bind(scope.org.id, personId),
+    db
+      .prepare("DELETE FROM join_requests WHERE org_id = ? AND user_id = ? AND status = 'waiting'")
+      .bind(scope.org.id, personId),
+  ]);
+  if (added!.meta.changes === 0) return { outcome: "no-request" };
 
-  // Another owner can approve between the read and here, and then the person
-  // is a member already. They had their mail from that approval.
-  if ((await addMemberById(db, scope.org.id, personId)) === "already") return "approved";
-
-  const boardPath = `/o/${scope.org.slug}/board`;
-  const url = await mintInviteLink(auth, asker.email, boardPath);
-  await mailer.invitation(asker.email, {
-    by: await accountName(db, scope.personId),
-    org: scope.org.name,
-    board: `${origin}${boardPath}`,
-    signIn: { url, days: INVITE_TTL / 86_400 },
-  });
-  return "approved";
+  await mailSignInLink(deps, { org: scope.org, byId: scope.personId, email: asker.email });
+  return { outcome: "approved", name };
 }

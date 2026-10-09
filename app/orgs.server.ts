@@ -338,9 +338,10 @@ export async function addMember(db: D1Database, orgId: string, email: string): P
 /**
  * Adds an account Tusker holds the id of. Every new member lands as `member`.
  *
- * Both roads in, an invitation and an approved join request, end here, so the
- * person's join request to the org goes in the same batch, waiting or
- * declined. Being taken out later is then not a decline. See ADR-0028.
+ * An invitation ends here, so the person's join request to the org goes in the
+ * same batch, waiting or declined. Being taken out later is then not a
+ * decline. An approval clears it the same way, in `answerRequest`. See
+ * ADR-0028.
  */
 export async function addMemberById(
   db: D1Database,
