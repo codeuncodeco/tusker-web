@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { narrowedTo, readNarrowing, type Status } from "../app/board";
 import * as boardRoute from "../app/routes/board";
 import * as unifiedRoute from "../app/routes/me";
-import { member } from "./accounts";
+import { aside, member } from "./accounts";
 import { get, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -226,6 +226,7 @@ describe("the two narrowings are exclusive", () => {
 describe("the Week chip on the unified board", () => {
   it("narrows every column to the tasks this week's set holds", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada);
     await task(ada.org.id, "meant");
     await task(ada.org.id, "running", { status: "in_progress" });
     await task(ada.org.id, "loose");
@@ -239,6 +240,7 @@ describe("the Week chip on the unified board", () => {
 
   it("narrows a column there too, and leaves its order alone", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada);
     await task(ada.org.id, "top", { position: 1 });
     await task(ada.org.id, "middle", { position: 2 });
     await task(ada.org.id, "foot", { position: 3 });
@@ -249,6 +251,7 @@ describe("the Week chip on the unified board", () => {
 
   it("draws no chip for a person with no set this week", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada);
     await task(ada.org.id, "a");
 
     expect((await unified(ada.cookie)).hasSet).toBe(false);
@@ -258,6 +261,7 @@ describe("the Week chip on the unified board", () => {
 
   it("takes Today over Week there as well", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada);
     await task(ada.org.id, "planned");
     await task(ada.org.id, "meant");
     await plan(ada.person.id, ["planned"]);

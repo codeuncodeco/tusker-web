@@ -470,7 +470,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   return (
     <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl tracking-tight">{org.name}</h1>
+        {/* The header's org select is this page's heading. See ADR-0029. */}
         <nav className="flex items-baseline gap-4">
           <SearchBox search={search} />
           <AssigneeFilter assignee={assignee} members={members} />

@@ -3,10 +3,8 @@
  * left with.
  *
  * It belongs to the person and not to the org, so the browser holds it, one
- * entry per org. The current org takes a cookie instead, because the header is
- * server rendered and a wrong first frame there is a wrong page. A board is
- * not that: the address is the truth, and this only fills it in when a board
- * is opened with none.
+ * entry per org. The address is the truth, and this only fills it in when a
+ * board is opened with none.
  */
 
 import { useEffect } from "react";

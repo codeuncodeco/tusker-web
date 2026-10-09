@@ -142,7 +142,7 @@ describe("the header", () => {
     return { slug, name: slug, color };
   }
 
-  it("puts a dot before the current org and before every org in the switcher", () => {
+  it("puts the dot of the org the select names inside the select's border", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
     const markup = renderToStaticMarkup(
       <StaticRouter location="/o/acme/board">
@@ -150,9 +150,9 @@ describe("the header", () => {
       </StaticRouter>,
     );
 
-    // Row 1 names the current org once, and the menu names both.
-    expect(markup.match(/--color-opt-teal/g)).toHaveLength(2);
-    expect(markup).toContain("var(--color-opt-pink)");
+    // An option cannot draw a dot, so the header draws the named org's alone.
+    expect(markup).toMatch(/<label[^>]*>[\s\S]*--color-opt-teal[\s\S]*<select/);
+    expect(markup).not.toContain("var(--color-opt-pink)");
   });
 
   it("gives a colourless org a grey dot, so the menu keeps one shape", () => {

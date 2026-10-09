@@ -13,6 +13,8 @@
  * ADR-0015.
  */
 
+import { redirect } from "react-router";
+
 import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
 import { ColumnSwitch, TodayChip, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
@@ -21,6 +23,7 @@ import { postAndReport } from "../pending";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
+import { boardOf, onlyOrg } from "../org-select";
 import { planPicks } from "../picks.server";
 import { readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
@@ -44,6 +47,12 @@ export function meta(_: Route.MetaArgs) {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const set = await requireOrgSet(request, env);
+  // All and one org are the same tasks, and the org board has the powers, so
+  // a person in one org always stands there. The page's own loader sends them,
+  // so a step from Week to here, which reruns no layout, sends them too. See
+  // ADR-0029.
+  const only = onlyOrg(set.orgs);
+  if (only) throw redirect(boardOf(only.slug));
 
   const day = dayOf(request);
   const query = new URL(request.url).searchParams;
@@ -124,7 +133,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
   return (
     <main className="flex flex-1 flex-col gap-6 p-8 sm:min-h-0">
       <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl tracking-tight">Your tasks</h1>
+        {/* The header's org select is this page's heading. See ADR-0029. */}
         <nav className="flex items-baseline gap-4">
           {/* A person with no plan for today gets no chip: there is nothing
               to narrow to, and the header carries Plan on every page. The

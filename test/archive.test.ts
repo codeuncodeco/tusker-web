@@ -13,7 +13,7 @@ import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
 import * as taskRoute from "../app/routes/task";
 import type { Swept } from "../app/sweep";
-import { member } from "./accounts";
+import { aside, member } from "./accounts";
 import { get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -311,6 +311,7 @@ describe("the archive screen", () => {
 describe("an archived task", () => {
   it("leaves the unified board", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada);
     const id = await made(ada.org.slug, ada.cookie, "done", "Ship it");
 
     const before = (await meRoute.loader(

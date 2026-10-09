@@ -2,17 +2,18 @@
  * The person axis: the unified board, plan mode, focus mode, the account page,
  * the org directory and the form that makes an org.
  *
- * The org half of the header needs a subject on a person page, and the current
- * org is it. `/orgs/new` sits here and not under an org, because no org exists
- * yet when a person opens it.
+ * A person page names no org, so the header's select reads All, except for a
+ * person in one org, who always stands in it. See ADR-0029. `/orgs/new` sits
+ * here and not under an org, because no org exists yet when a person opens it.
  */
 
 import { Outlet, redirect } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
-import { currentOrg, held, slugOfCurrentOrg } from "../current-org";
+import { held } from "../current-org";
 import { useFrame } from "../frame";
 import { Header } from "../header";
+import { namedOrg } from "../org-select";
 import { DIRECTORY, readOrgSet } from "../scope.server";
 import type { Route } from "./+types/person";
 
@@ -30,7 +31,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   if (set.orgs.length === 0 && !OPEN_WITHOUT_ORG.has(pathname)) throw redirect(DIRECTORY);
 
   const orgs = set.orgs.map(held);
-  return { orgs, org: currentOrg(orgs, slugOfCurrentOrg(request)) };
+  return { orgs, org: namedOrg(orgs, null) };
 }
 
 export default function Person({ loaderData }: Route.ComponentProps) {
@@ -43,8 +44,8 @@ export default function Person({ loaderData }: Route.ComponentProps) {
       className={`flex min-h-full flex-col ${frame ? "sm:h-full sm:min-h-0" : ""}`}
     >
       <Header orgs={loaderData.orgs} org={loaderData.org} />
-      {/* The clip sits under the header, and not around it, because the org
-          menu and Manage are drawn over the page from inside the header. */}
+      {/* The clip sits under the header, and not around it, because the
+          header's menus are drawn over the page from inside it. */}
       <div className={`flex flex-1 flex-col ${frame ? "sm:min-h-0 sm:overflow-hidden" : ""}`}>
         <Outlet />
       </div>

@@ -37,3 +37,18 @@ export async function member(email: string, name: string) {
   if (!made) throw new Error(`Another org already holds the slug of ${email}.`);
   return { person, org: { id: made.id, slug: made.slug }, cookie };
 }
+
+/**
+ * A second org for one person, holding nothing. A person in one org always
+ * stands in it, so `/me` sends them to its board: a test of the unified board
+ * gives its person this one first. See ADR-0029.
+ */
+export async function aside(person: { person: { id: string } }) {
+  const made = await createOrg(env.DB, {
+    name: "Aside",
+    slug: slugify(`aside-${person.person.id}`),
+    personId: person.person.id,
+  });
+  if (!made) throw new Error("Another org already holds the aside slug.");
+  return made;
+}
