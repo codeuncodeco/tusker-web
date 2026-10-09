@@ -40,9 +40,10 @@ import { held } from "../current-org";
 import { dayAfter, dayBefore, dayLabel, dayName, dayOf, isDay } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
+import { addsSent, postAndReport, tasksSent, useSent } from "../pending";
 import { planPicks } from "../picks.server";
 import { isStep } from "../plan";
-import { movePlan, readPlan } from "../plans.server";
+import { movePlan, placePlan, readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { pickedOnly, planGroups } from "../unified";
 import { UnifiedAdd } from "../unified-add";
@@ -132,6 +133,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     next: dayAfter(day),
     groups,
     planned: inPlan.tasks.map((one) => one.id),
+    /**
+     * This week's set, in week order, which the shelf is drawn from. The page
+     * reads it to draw a pick or an unpick before the server answers.
+     */
+    weekSet: members,
     // The prompt a finished row raised, if the query string still holds one.
     ask: await askedAcross(env.DB, set, request),
   };
@@ -164,6 +170,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // A drag names the row it lands above, or none for the foot, because a drop
+  // says where and not how far. See ADR-0025.
+  if (intent === "place") {
+    const before = String(form.get("before") ?? "") || null;
+    await placePlan(env.DB, set.personId, day, String(form.get("id") ?? ""), before);
+    return { ok: true };
+  }
+
   // An add here is a pick as well, so the task goes to the end of the day.
   const picks = planPicks(env.DB, set.personId, day, true);
   const acted = await actOnTask(env, request, set, picks, form);
@@ -172,12 +186,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   return acted;
 }
 
+/** A post the server refuses raises a toast, not the error page. See `app/pending.ts`. */
+export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
+
 export default function Plan({ loaderData }: Route.ComponentProps) {
   const {
     orgs,
     members,
-    groups,
-    planned,
+    weekSet,
     day,
     today,
     named,
@@ -188,6 +204,20 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
     next,
     ask,
   } = loaderData;
+
+  // The page as the server holds it, with every post still in flight laid
+  // over it, drawn by the rules the loader draws by. A pick joins the week as
+  // well, at its foot, as the write-back puts it. See #168.
+  const sent = useSent();
+  const drawn = tasksSent(
+    loaderData.groups.flatMap((group) => group.tasks),
+    loaderData.planned,
+    sent,
+  );
+  const week = [...weekSet, ...drawn.picked.filter((id) => !weekSet.includes(id))];
+  const groups = canPlan
+    ? planGroups(drawn.tasks, drawn.picked, week)
+    : pickedOnly(drawn.tasks, drawn.picked);
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -212,7 +242,8 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
 
       <UnifiedList
         groups={groups}
-        planned={new Set(planned)}
+        planned={new Set(drawn.picked)}
+        adds={addsSent(sent)}
         day={day}
         namedDay={named}
         // The plan is the one order here that belongs to the person, so it is
@@ -220,6 +251,9 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         // A day past its own steps nothing: the order it was worked in stands.
         ordered={canPlan ? "today" : null}
         picks={canPlan}
+        // A drag places a row of the plan, and a day read back takes none.
+        // See ADR-0025.
+        drags={canPlan}
         label={(group) => (group.key === "today" ? "Plan" : group.label)}
       />
 

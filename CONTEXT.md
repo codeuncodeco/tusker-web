@@ -35,7 +35,7 @@ person can withdraw it, from the directory or, once they belong to an org,
 from their account page. Approval by one org leaves the person's other join
 requests waiting. A person holds at most one join request per org, and becoming
 a member of that org, by either road, clears it, so being taken out later is
-not a decline. See ADR-0025.
+not a decline. See ADR-0028.
 _Avoid_: Access request, application
 
 **Current org**:
@@ -208,8 +208,16 @@ _Avoid_: Decision dialog, done modal
 
 **Decision log**:
 One org's decisions, newest first, at `/o/:slug/decisions`. A line with no task
-is a record still standing after the work is gone.
+is a record still standing after the work is gone, or one no task ever produced.
+The page carries the decision box, so it is where a decision is read and where
+one is written by hand. See ADR-0024.
 _Avoid_: Decision history, changelog
+
+**Decision box**:
+The box at the top of the decision log. It takes the same two fields as the
+decision prompt, and writes a decision with no task. It is the way in for a
+decision no task produced, and for one on a task nobody marked. See ADR-0024.
+_Avoid_: Manual decision, decision form
 
 **Archive**:
 A flag on a task, not a status. An archived task keeps its Done or Cancelled
@@ -231,6 +239,14 @@ restores those. The batch reports itself in a **Toast**, which holds the one
 undo. See ADR-0019.
 _Avoid_: Bulk archive, clear column
 
+**Drawn ahead**:
+A change a page draws the moment it is posted, before the server answers: a
+move, a step, an archive, a pick or an add. The page lays the posts React
+Router holds in flight over what the loader said, so there is no second store,
+and the guess goes when the loaders answer. A refused post leaves the page as
+the server holds it and raises a **Toast**. See `app/pending.ts` and ADR-0004.
+_Avoid_: Optimistic store, local state, cache
+
 **Toast**:
 One short message about an act that is already done, with at most one way to
 take it back. It is drawn over every page, one at a time, and it goes by itself
@@ -239,7 +255,9 @@ a sweep takes several cards away at once, and the count is the only proof of
 what happened. The region is live, so a reader announces the message. The undo
 is a form button, so a keyboard reaches it. A message also carries a link per
 org the act touched, because there is no cross-org **Archive screen**, and an
-undo that stopped part way says so and asks for a second press.
+undo that stopped part way says so and asks for a second press. A change the
+server refused, or never received, says so in a toast as well, because the
+page drew it before the answer came. See **Drawn ahead**.
 _Avoid_: Snackbar, notification, flash message
 
 **Archive screen**:
@@ -270,6 +288,15 @@ writes it, a move out clears it, and every other write leaves it alone. The
 unified board's seven-day cap reads it, because `updated_at` moves on every
 edit and a typo fix would otherwise read as a finish.
 _Avoid_: Completed at, closed date
+
+**Reopen**:
+Moving a finished task back to To do. A Done or Cancelled task is read on its
+page, not edited: the page draws no form, and the server refuses a save or a
+description for it. Ticking a box, archiving and answering the decision prompt
+still work. Reopen is the way back to an edit, and it is a move like any other,
+so it clears the finish time. An archived task is restored before it is
+reopened. A move out of Done on a board reopens the task too.
+_Avoid_: Undo, unfinish
 
 ### Order
 
@@ -389,8 +416,9 @@ _Avoid_: Kanban, board view
 **Org board**:
 The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
 Backlog and Cancelled shown by rule. The order inside a column is the org's and
-it is stored, so this is the one board where a card is dragged into a place, and
-the one that binds `J` and `K`. See ADR-0016.
+it is stored, so this is the one board that binds `J` and `K`. A drag draws
+where the card will land, and the drop writes that place. A card carries no
+reorder button, and the board names `J` and `K` once, under the quick-add box. See ADR-0016, ADR-0025 and ADR-0026.
 _Avoid_: Team board, project board, the org's board
 
 **Unified board**:
@@ -401,25 +429,27 @@ and where work ended is never a request. See ADR-0018. Backlog and Cancelled are
 switches here, the same two the org board offers. Backlog takes no rule here,
 because the org board's rule reads "this person holds no live task anywhere" and
 is therefore dead. Done and Cancelled cap to the last seven days of finish time.
-Inside a column the order is percentile order, and it is derived: no card is
-dragged into a place and no card steps. A card still moves between columns,
-because a column is a status: by drag, by key or by the card's select. See
-ADR-0015.
+Inside a column the order is percentile order, and it is derived: no card
+steps. A card moves by key, which names a column, or by drag, which draws where
+the card will land and writes a place inside the card's own org: above the
+nearest card of that org below the drop. Percentile order then draws the card,
+which can sit a little away from the drop. See ADR-0015 and ADR-0025.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
-The box that makes a task from a typed title. On a board it sits at the top of a
-column, and the column names the status. On the unified board and in plan mode
-it carries an org picker, which starts with no org picked every time a person
-opens Tusker, and the box refuses an add until one is picked. A person who
-belongs to one org has no org picker, and that org is implied. A person who
+The box that makes a task from a typed title. A board has one, above the row of
+columns and outside every column, and what it adds lands in To do. A task meant
+for another column is added and then moved. On the unified board and in plan
+mode it carries an org picker, which starts with no org picked every time a
+person opens Tusker, and the box refuses an add until one is picked. A person
+who belongs to one org has no org picker, and that org is implied. A person who
 belongs to several sees a chip that names the picked org while the box holds
 it. The decision mark is set here. The box also names the assignees, out of the
 members of the org it files into: the set starts empty, it stays across an add,
 and a change of org empties it. An org that holds one member has nobody else to
 name, so no box filing there draws the assignee picker. The title is a textarea
 one line high: Enter posts and Shift+Enter makes a line, so a pasted list keeps
-its line breaks. See ADR-0013 and ADR-0024.
+its line breaks. See ADR-0013 and ADR-0027.
 _Avoid_: Composer, capture box, new task form
 
 **Pasted list**:
@@ -427,9 +457,7 @@ Several lines posted from one quick-add box. Each non-empty line, trimmed, is
 one task, in the order the lines appear, and the block lands at the top of the
 column with the first line topmost. The mark and the picked members go on all
 of them or on none, because one box holds one tick and one set. A list of more
-than 100 lines is refused and writes nothing. One box raises one decision
-prompt, so a marked list typed straight into Done is asked about the task on
-top of it.
+than 100 lines is refused and writes nothing.
 _Avoid_: Bulk add, batch, import
 
 **Undo an add**:
@@ -439,7 +467,7 @@ gives the box back the whole text as it was typed and the mark, with the picker
 reset to no org picked and the assignee set emptied with it, so a task typed
 into the wrong org is filed again rather than typed again. One add is one act,
 so its undo is one act. It is the only delete Tusker has. See ADR-0012 and
-ADR-0024.
+ADR-0027.
 _Avoid_: Trash, revert
 
 **Week set**:
@@ -477,9 +505,10 @@ day. Plan mode, focus and the unified board share the live set and the sort,
 and lay them out differently: a plan drawn from a Done column is nonsense. The
 week set comes first, in week order, and the rest of the live set under a
 heading below it. Plan mode reads that order and never writes it: the one order
-it owns is the plan's. Every pick and every step writes the plan row, so
-nothing waits on a tab and there is no Commit button. All of that is the day the person is in, and the days
-ahead of it. Reading a finished day back is not plan mode's act, so a **Day
+it owns is the plan's. A row of the plan steps by key and drags by pointer, and
+the drag draws where it will land (ADR-0025). It carries no reorder button
+(ADR-0026). Every pick, step and drag writes the plan row, so nothing waits on a tab and there is no Commit button. All of
+that is the day the person is in, and the days ahead of it. Reading a finished day back is not plan mode's act, so a **Day
 walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.
 _Avoid_: Daily planner, plan builder
 
@@ -640,9 +669,13 @@ the org board, the day's in plan mode, and the week's on the week page. `T` and
 `B` send a card to the top or the foot of one, on the two pages that hold an
 order of the person's own: plan mode and the week page. A move names the card
 and the way, never a place, because the page's copy of the order is one load
-old. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and
-`d`, which drops a task from the batch. Every key posts what a control
-on the page posts, so no act is reachable by key alone. See ADR-0016.
+old. A drag is the one move that names a place: it names the card the person
+saw it land above, and a card the order no longer holds names the foot. See
+ADR-0025. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and
+`d`, which drops a task from the batch. Every act is reachable by a key or a
+drag. A row that drags carries no reorder button, and a list of them names its
+reorder keys above the rows. The week set has no drag and keeps its buttons.
+See ADR-0026.
 _Avoid_: Shortcuts, hotkeys, bindings
 
 **Keyed list**:
@@ -668,6 +701,13 @@ takes the cursor with it, and every key that needs a card does nothing while
 the cursor is empty. Focus mode draws three rows and gives no click.
 See ADR-0015 and ADR-0022.
 _Avoid_: Selection, focus, highlight
+
+**Grip**:
+The six-dot mark at the left edge of a card or a plan row, and the one part of
+it a drag starts from. The rest of the card is for reading and for the cursor,
+so a swipe over it scrolls. The grip adds width and never a line, and it is for
+the pointer alone: the keys already move a card.
+_Avoid_: Drag handle, handle, grabber
 
 ### Look
 

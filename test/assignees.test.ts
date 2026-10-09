@@ -196,14 +196,14 @@ describe("the metadata aside", () => {
     expect(new URL(answer.headers.get("location")!, "https://tusker.test").searchParams.get(ASK)).toBe(id);
   });
 
-  it("asks nothing when the status does not move", async () => {
+  it("asks nothing of a finished task, because its save is refused", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const org = await team("hikes", [ada.person]);
     const id = await task(org.id, "walk", { decides: true, status: "done" });
 
-    expect(await save(ada.cookie, org.slug, id, { status: "done", decides: "1" })).toEqual({
-      ok: true,
-    });
+    // A finished task is reopened before it is saved. See #164.
+    const answer = await caught(save(ada.cookie, org.slug, id, { status: "done", decides: "1" }));
+    expect(answer.status).toBe(409);
   });
 
   it("is a row the database refuses when the two orgs disagree", async () => {

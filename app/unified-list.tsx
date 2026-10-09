@@ -8,9 +8,13 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useFetcher } from "react-router";
 
+import { landing } from "./drag";
+import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
+import { KeyLegend } from "./key-hint";
 import { useLocalDay } from "./local-day";
+import { usePost } from "./pending";
+import { PendingAdds } from "./pending-adds";
 import type { Group, GroupKey, LiveTask } from "./unified";
 import { ALL_ACTS, NO_STEP_ACTS, READ_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
@@ -24,6 +28,9 @@ export function UnifiedList({
   picks = true,
   label = (group) => group.label,
   verbs = PLAN_VERBS,
+  drags = false,
+  adds = [],
+  addsAt = "bottom",
 }: {
   groups: Group[];
   /** The task ids the page's list holds, which turn the pick verb over. */
@@ -42,15 +49,29 @@ export function UnifiedList({
   label?: (group: Group) => string;
   /** What the pick button reads, where a page picks into a list of its own. */
   verbs?: Verbs;
+  /**
+   * True where a drag places a row of the `ordered` group: plan mode. A drop
+   * posts the row it lands above, through the same route as the steps.
+   * See ADR-0025.
+   */
+  drags?: boolean;
+  /**
+   * The titles an add in flight will make. An add is a pick, so they draw in
+   * the ordered group, at the end the page's picks land on. See #168.
+   */
+  adds?: string[];
+  addsAt?: "top" | "bottom";
 }) {
-  const post = useFetcher();
+  // A post per press, so every press of a burst is drawn.
+  const post = usePost();
   const [on, setOn] = useState<string | null>(null);
   const list = useRef<HTMLDivElement>(null);
 
   // One flat order, so `j` and `k` walk the page the way a person reads it.
   const rows = groups.flatMap((group) => group.tasks);
-  // The rows the page's own order ranks. It draws the move buttons and it
-  // binds `J`, `K` and `T`, so a key reaches no act a control withholds.
+  // The rows the page's own order ranks. It draws the move buttons where the
+  // rows do not drag, and it binds `J`, `K`, `T` and `B`, so a key reaches no
+  // row the order does not rank.
   const ranked = rankedIn(groups.find((group) => group.key === ordered));
   // The cursor starts empty, and stays on its task while the list moves. A
   // task the list stops drawing takes the cursor off with it. See ADR-0015.
@@ -66,7 +87,7 @@ export function UnifiedList({
     acts,
     on: cursor,
     setOn,
-    act: (fields) => post.submit(fields, { method: "post" }),
+    act: post,
     ranked: new Set(ranked.map((one) => one.id)),
   });
 
@@ -75,34 +96,82 @@ export function UnifiedList({
     list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
 
-  return (
-    <div ref={list} className="flex flex-col gap-6">
-      {groups.map((group) => (
-        <section key={group.key} className="flex flex-col gap-2">
-          <h2 className="font-mono uppercase tracking-wide text-muted">
-            {label(group)} <span className="text-dim">{group.tasks.length}</span>
-          </h2>
+  // Only the ranked rows drag: they are the order the person owns. A list
+  // with no such group holds nothing to drag.
+  const dragGroup = drags && ordered !== null ? ordered : null;
+  const tasks = new Map(rows.map((one) => [one.id, one]));
 
-          {/* The rows and nothing else: the box a page draws sits above this,
-              outside every keyed list. */}
-          <ul {...keyed(`${label(group)} tasks`)} className="flex flex-col gap-2">
-            {group.tasks.map((task) => (
-              <UnifiedRow
-                key={task.id}
-                task={task}
-                planned={planned.has(task.id)}
-                plannable={picks}
-                verbs={verbs}
-                selected={cursor === task.id}
-                domId={`row-${task.id}`}
-                place={() => setOn(task.id)}
-                moves={movesFor(ranked, task)}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
+  /** A drop names the row it lands above, or none for the foot. */
+  function onDrop({ id, order }: Drop) {
+    setOn(id);
+    post({ intent: "place", id, before: landing(order, id) ?? "" });
+  }
+
+  return (
+    <DragLists
+      lists={dragGroup === null ? {} : { [dragGroup]: ranked.map((one) => one.id) }}
+      onDrop={onDrop}
+      overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
+    >
+      {(shown) => (
+        <div ref={list} className="flex flex-col gap-6">
+          {groups.map((group) => {
+            const dragsHere = group.key === dragGroup;
+            // A ranked group draws its rows in the order the drag holds, and
+            // the rows no order ranks after them, where they always sit.
+            const drawn = dragsHere
+              ? [
+                  ...shown[group.key].flatMap((id) => tasks.get(id) ?? []),
+                  ...group.tasks.filter((one) => !ranked.includes(one)),
+                ]
+              : group.tasks;
+            const order = dragsHere ? drawn.filter((one) => ranked.includes(one)) : ranked;
+            return (
+              <section key={group.key} className="flex flex-col gap-2">
+                <h2 className="font-mono uppercase tracking-wide text-muted">
+                  {label(group)} <span className="text-dim">{group.tasks.length}</span>
+                </h2>
+
+                {/* A row that drags carries no reorder button, so the keys
+                    that reorder it are named here. See ADR-0026. */}
+                {dragsHere ? <KeyLegend acts={["up", "down", "top", "bottom"]} /> : null}
+
+                {/* The rows and nothing else: the box a page draws sits above
+                    this, outside every keyed list. */}
+                <DropList
+                  id={group.key}
+                  ids={dragsHere ? shown[group.key] : []}
+                  props={keyed(`${label(group)} tasks`)}
+                  className="flex flex-col gap-2"
+                >
+                  {group.key === ordered && addsAt === "top" ? <PendingAdds titles={adds} /> : null}
+                  {drawn.map((task) => (
+                    <UnifiedRow
+                      key={task.id}
+                      task={task}
+                      planned={planned.has(task.id)}
+                      plannable={picks}
+                      verbs={verbs}
+                      selected={cursor === task.id}
+                      domId={`row-${task.id}`}
+                      place={() => setOn(task.id)}
+                      // A row that drags is moved by the drag and the keys. A
+                      // ranked row that does not keeps its buttons, because a
+                      // phone has no other way to move it. See ADR-0026.
+                      moves={dragsHere ? undefined : movesFor(order, task)}
+                      drags={dragsHere && ranked.includes(task)}
+                    />
+                  ))}
+                  {group.key === ordered && addsAt === "bottom" ? (
+                    <PendingAdds titles={adds} />
+                  ) : null}
+                </DropList>
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </DragLists>
   );
 }
 

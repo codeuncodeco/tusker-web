@@ -10,7 +10,7 @@ export const PASSWORD = "correct horse battery";
 
 /**
  * An account and a cookie that signs its requests. It holds no org, because
- * Tusker makes none at signup. See ADR-0024.
+ * Tusker makes none at signup. See ADR-0027.
  */
 export async function signedIn(email: string, name: string) {
   const auth = createAuth(env, get("/"));

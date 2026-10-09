@@ -8,7 +8,7 @@
  *
  * No org is safe to start at. A task that lands in the wrong org is on every
  * member's board, an org of one today can take a member tomorrow, and Tusker
- * cannot move a task between orgs. See ADR-0012 and ADR-0024.
+ * cannot move a task between orgs. See ADR-0012 and ADR-0027.
  */
 
 import { createContext, useContext, useState } from "react";

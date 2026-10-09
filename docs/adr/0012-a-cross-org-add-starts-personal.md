@@ -1,12 +1,16 @@
 # A cross-org add starts personal
 
-The org the picker starts at is superseded by ADR-0024: there is no personal
+The org the picker starts at is superseded by ADR-0027: there is no personal
 org, and the picker starts with no org picked.
+
+Amended in place by #165: a board has one quick-add box, not one per column,
+and what it adds lands in To do. The sentence on the org board's box was
+rewritten. Everything else here stands.
 
 `/me` is one person's tasks across every org they belong to. A task belongs to
 one org and never to two, so a quick-add box on that page must name an org that
 the page itself does not hold. The board has no such problem: the org is the
-page, and the column is the only choice left.
+page.
 
 The obvious answer is to remember the last org a person added to. It is also
 the wrong one, because the two mistakes it allows do not cost the same. A task

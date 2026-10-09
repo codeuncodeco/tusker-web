@@ -428,6 +428,46 @@ describe("moving a task", () => {
     expect(ids(await page(ada.cookie), "in_progress")).toEqual(["first", "second", "moved"]);
   });
 
+  // A drop on the board names the card of the same org it lands above, so the
+  // place it was dropped holds inside its own org column. See ADR-0025.
+  it("lands it above the card a drop names", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    await task(ada.org.id, "first", { status: "in_progress", position: 1 });
+    await task(ada.org.id, "second", { status: "in_progress", position: 2 });
+    await task(ada.org.id, "moved");
+
+    await act(ada.cookie, {
+      intent: "move",
+      id: "moved",
+      slug: ada.org.slug,
+      status: "in_progress",
+      before: "second",
+    });
+
+    expect(ids(await page(ada.cookie), "in_progress")).toEqual(["first", "moved", "second"]);
+  });
+
+  it("lands it at the bottom of its own org when the card named is another org's", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const acme = await team(ada.person.id, "acme");
+    await task(ada.org.id, "mine", { status: "in_progress", position: 1 });
+    await task(acme.id, "theirs", { status: "in_progress", position: 1 });
+    await task(ada.org.id, "moved");
+
+    await act(ada.cookie, {
+      intent: "move",
+      id: "moved",
+      slug: ada.org.slug,
+      status: "in_progress",
+      before: "theirs",
+    });
+
+    const row = await db
+      .prepare("SELECT position FROM tasks WHERE id = 'moved'")
+      .first<{ position: number }>();
+    expect(row!.position).toBeGreaterThan(1);
+  });
+
   it("does not move a task from an org the person is not in", async () => {
     const ada = await member("ada@example.test", "Ada");
     const bo = await member("bo@example.test", "Bo");

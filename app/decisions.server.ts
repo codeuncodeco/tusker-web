@@ -14,7 +14,7 @@
 import { redirect } from "react-router";
 
 import type { Status } from "./board";
-import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
+import { ASK, ORG, pageOf, withPrompt, withoutPrompt } from "./decisions";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
 
@@ -57,7 +57,7 @@ export async function promptFor(
   if (!task) return null;
 
   const url = new URL(request.url);
-  return redirect(withPrompt(url.pathname, url.search, { id: task.id, slug: scope.org.slug }));
+  return redirect(withPrompt(pageOf(url.pathname), url.search, { id: task.id, slug: scope.org.slug }));
 }
 
 /**
@@ -75,8 +75,10 @@ export async function moveAndAsk(
   request: Request,
   taskId: string,
   status: Status,
+  /** The card of the same org the task lands above. Nothing names the bottom. */
+  before: string | null = null,
 ): Promise<{ moved: boolean; prompt: Response | null }> {
-  const moved = await moveTask(db, scope, { taskId, status, before: null });
+  const moved = await moveTask(db, scope, { taskId, status, before });
   return {
     moved: moved.moved,
     prompt: moved.finished ? await promptFor(db, scope, request, taskId) : null,
@@ -163,23 +165,63 @@ export async function decide(
   const task = await askable(db, scope, String(form.get("id") ?? ""));
   if (!task) throw new Response("Not found", { status: 404 });
 
-  await db
+  await write(db, scope, task.id, title, rationale(form));
+
+  const url = new URL(request.url);
+  return redirect(withoutPrompt(pageOf(url.pathname), url.search));
+}
+
+/**
+ * Writes a decision the decision box asked for: one no task produced.
+ *
+ * It takes a function of its own rather than a flag on `decide()`, because the
+ * once-only guard `decide()` keeps is a guard on a task, and there is no task
+ * here. See ADR-0024.
+ *
+ * An empty title is an error the box shows, and the answer carries the words
+ * the person typed, so the box can put them back.
+ */
+export async function recordDecision(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+  form: FormData,
+): Promise<Response | Typed> {
+  const title = String(form.get("title") ?? "").trim();
+  const typed = { title: String(form.get("title") ?? ""), rationale: rationale(form) };
+  if (!title) return { error: "A decision needs a title.", ...typed };
+
+  await write(db, scope, null, title, typed.rationale);
+
+  // Post, then redirect to this page again: the new line reads at the top, the
+  // box is empty, and a reload does not write the decision twice.
+  const url = new URL(request.url);
+  return redirect(`${pageOf(url.pathname)}${url.search}`);
+}
+
+/** What a refused box answers with: why, and what to put back in the fields. */
+export type Typed = { error: string; title: string; rationale: string };
+
+/** The rationale a form carries. It is optional, so an absent one is empty. */
+function rationale(form: FormData): string {
+  return String(form.get("rationale") ?? "").trim();
+}
+
+/** The one write. Both doors reach the table through it. */
+function write(
+  db: D1Database,
+  scope: Scope,
+  taskId: string | null,
+  title: string,
+  why: string,
+): Promise<unknown> {
+  return db
     .prepare(
       `INSERT INTO decisions (id, org_id, task_id, decided_by, title, rationale)
        VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .bind(
-      crypto.randomUUID(),
-      scope.org.id,
-      task.id,
-      scope.personId,
-      title,
-      String(form.get("rationale") ?? "").trim(),
-    )
+    .bind(crypto.randomUUID(), scope.org.id, taskId, scope.personId, title, why)
     .run();
-
-  const url = new URL(request.url);
-  return redirect(withoutPrompt(url.pathname, url.search));
 }
 
 /**

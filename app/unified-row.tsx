@@ -2,6 +2,7 @@ import { Link, useFetcher } from "react-router";
 
 import type { Status } from "./board";
 import { Dot } from "./dot";
+import { useDragItem } from "./drag-lists";
 import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
 import { OrgChip } from "./org-chip";
@@ -22,13 +23,13 @@ export type Verbs = { pick: string; drop: string };
 export const PLAN_VERBS: Verbs = { pick: KEY_MAP.plan.label, drop: KEY_MAP.unplan.label };
 
 /**
- * What a move posts: the column the card lands in, and no place inside it. The
- * `>` and `<` keys send this, and so does a drop on a unified column. The
- * card's select posts the same four fields as a form, so it needs no script.
- * See ADR-0015.
+ * What a move posts: the column the card lands in, and the card of its own org
+ * it lands above. The `>` and `<` keys name no card, and the task lands at the
+ * bottom of its org. A drop on the unified board names the card. See ADR-0025.
  */
-export function moveFields(task: LiveTask, status: Status) {
-  return { intent: "move", id: task.id, slug: task.org.slug, status };
+export function moveFields(task: LiveTask, status: Status, before: string | null = null) {
+  const move = { intent: "move", id: task.id, slug: task.org.slug, status };
+  return before === null ? move : { ...move, before };
 }
 
 export function finishFields(task: LiveTask) {
@@ -55,6 +56,7 @@ export function UnifiedRow({
   moves,
   plannable = true,
   verbs = PLAN_VERBS,
+  drags = false,
 }: {
   task: LiveTask;
   /** True when the page's list holds the task, which turns the verb over. */
@@ -68,10 +70,11 @@ export function UnifiedRow({
    */
   place?: () => void;
   /**
-   * Which way the row can move, in a list whose order a person owns: the plan
-   * and the week set. Nothing here leaves the buttons off, which is every
-   * other list: that order is derived, and to say "this first" is to plan it.
-   * See ADR-0006, "One order per column", and ADR-0021.
+   * Which way the row can move, in a list whose order a person owns and that
+   * takes no drag: the week set. Nothing here leaves the buttons off. The plan
+   * gives none, because a drag and the keys move its rows (ADR-0026). Every
+   * other list gives none, because that order is derived, and to say "this
+   * first" is to plan it. See ADR-0006, "One order per column", and ADR-0021.
    *
    * A promote is offered wherever a step up is, and a move to the foot
    * wherever a step down is: the row on top is the one row already at the top,
@@ -82,9 +85,15 @@ export function UnifiedRow({
   plannable?: boolean;
   /** What the pick button reads, where a page picks into a list of its own. */
   verbs?: Verbs;
+  /**
+   * True where a drag places the row: the plan, inside a `DragLists`. Every
+   * other list draws its rows still. See ADR-0025.
+   */
+  drags?: boolean;
 }) {
   const post = useFetcher();
   const origin = useOrigin();
+  const drag = useDragItem(task.id, !drags);
   const plan = planFields(task, planned);
   const up = keyHint("up");
   const down = keyHint("down");
@@ -98,14 +107,21 @@ export function UnifiedRow({
       id={domId}
       aria-current={selected ? "true" : undefined}
       onClick={place}
+      ref={drag.ref}
+      style={drag.style}
+      {...drag.listeners}
+      // The row being dragged stays faded where it will land, and the copy
+      // under the pointer is the one that moves.
       className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border p-3 ${
         selected
           ? "border-fg bg-surface-2"
           : "border-border"
-      }`}
+      } ${drags ? "cursor-grab bg-surface" : ""} ${drag.dragging ? "opacity-40" : ""}`}
     >
       <Link
         to={taskPath(task.org.slug, task.id, origin)}
+        // A link drags itself, natively, and that would end the row's drag.
+        draggable={drags ? false : undefined}
         className={`underline-offset-2 hover:underline ${
           task.finished ? "text-muted line-through" : ""
         }`}

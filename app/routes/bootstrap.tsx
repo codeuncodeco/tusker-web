@@ -48,7 +48,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     .catch(() => null);
 
   // An instance with no org has nothing to join, so the first person makes
-  // one. Tusker makes none for them. See ADR-0024.
+  // one. Tusker makes none for them. See ADR-0027.
   if (!response?.ok) throw redirect("/login");
   return withCookies(response, redirect("/orgs/new"));
 }

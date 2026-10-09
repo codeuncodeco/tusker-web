@@ -51,6 +51,18 @@ export function useToast(): (toast: Toast) => void {
   return useContext(Raise);
 }
 
+/** The event a message raised outside the tree travels on. */
+const RAISED = "tusker:toast";
+
+/**
+ * Raises a message from outside every component. A client action runs before
+ * any component hears of the post, so this is how a post that did not land
+ * says so. See `app/pending.ts`.
+ */
+export function raiseOutside(toast: Toast) {
+  window.dispatchEvent(new CustomEvent<Toast>(RAISED, { detail: toast }));
+}
+
 /** Holds the message that stands, and draws it over the page. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [held, hold] = useState<Held | null>(null);
@@ -62,6 +74,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     hold({ toast, raised: raised.current });
   }, []);
   const drop = useCallback(() => hold(null), []);
+
+  useEffect(() => {
+    const heard = (event: Event) => raise((event as CustomEvent<Toast>).detail);
+    window.addEventListener(RAISED, heard);
+    return () => window.removeEventListener(RAISED, heard);
+  }, [raise]);
 
   // A message is about the page it was raised on, and its act posts there. A
   // person who has left that page is done with both, so the message goes.

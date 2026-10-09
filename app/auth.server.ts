@@ -31,7 +31,7 @@ export type AuthDeps = {
  * invitation or a hand-made row.
  *
  * Tusker makes no org when an account lands. A person makes their own, or
- * starts with the org that invited them. See ADR-0024.
+ * starts with the org that invited them. See ADR-0027.
  */
 export function authOptions({ db, secret, baseURL, mailer }: AuthDeps) {
   return {

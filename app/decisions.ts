@@ -13,6 +13,15 @@ export const ASK = "ask";
 /** The org that holds it, which a cross-org page has no path to read. */
 export const ORG = "org";
 
+/**
+ * The page a post came from. A fetcher posts to the page's data address,
+ * `/me.data`, and a redirect there is a 404: the prompt is a place on the page.
+ */
+export function pageOf(pathname: string): string {
+  if (pathname === "/_root.data") return "/";
+  return pathname.endsWith(".data") ? pathname.slice(0, -".data".length) : pathname;
+}
+
 /** This page with the prompt raised on one task. */
 export function withPrompt(
   pathname: string,

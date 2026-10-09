@@ -7,7 +7,7 @@ import type { Auth } from "./auth.server";
  * the bootstrap page, an invitation, or a hand-run script calls it.
  *
  * The account holds no org. The caller adds the org that invited it, or the
- * person makes one. See ADR-0024.
+ * person makes one. See ADR-0027.
  *
  * This reaches into `auth.$context` because better-auth publishes no endpoint
  * that makes an account without a signup. `sign-up/email` is off, and the
@@ -58,7 +58,7 @@ export type InstanceOwner = { name: string; email: string };
 /**
  * The instance owner: the account the bootstrap page made, which is the oldest
  * user row. A person who belongs to no org is told to ask them to be added.
- * It reads no org it is not a member of. See ADR-0024.
+ * It reads no org it is not a member of. See ADR-0027.
  *
  * Null only while the instance holds no account, when nobody is signed in to
  * ask.

@@ -9,7 +9,7 @@
  */
 
 import { readAssignees } from "./assignees.server";
-import { readStatus, type Status } from "./board";
+import { addStatus, readStatus, type Status } from "./board";
 import { decide, finishTask, moveAndAsk, promptFor } from "./decisions.server";
 import type { Picks } from "./picks";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
@@ -46,22 +46,20 @@ function scopeFrom(set: OrgSet, form: FormData): Scope {
 }
 
 /**
- * The column an add names, or To do.
- *
- * Each box of the unified board names its own column. The box of a page that
- * picks names none: an add there is a pick as well, and a pick is live work.
+ * The column an add lands in. No box names one, so it is To do. A page that
+ * picks holds To do whatever the post names: an add there is a pick as well,
+ * and a pick is live work.
  */
 function statusFor(form: FormData, picked: boolean): Status {
-  if (picked || form.get("status") === null) return "todo";
-  return readStatus(form);
+  return picked ? "todo" : addStatus(form);
 }
 
 /** What an add that names no org answers. */
 export const NO_ORG_PICKED = "Pick an org to add to.";
 
 /**
- * Makes a task of every line typed, in the org the picker named, the column
- * the box sits on, and held by the members the box named.
+ * Makes a task of every line typed, in the org the picker named, in To do,
+ * and held by the members the box named.
  *
  * The tasks land at the top of the column and in list order, where a person
  * looks for the ones they just typed. A page that picks also puts every one of
@@ -77,7 +75,7 @@ async function addTasks(
 ): Promise<Acted> {
   // The box starts with no org picked, so an add that names none is a person
   // who has not picked yet, not a stranger guessing slugs. It answers with a
-  // sentence, and the box keeps the words. See ADR-0024.
+  // sentence, and the box keeps the words. See ADR-0027.
   if (!form.get("slug")) return { error: NO_ORG_PICKED };
 
   const scope = scopeFrom(set, form);
@@ -94,9 +92,9 @@ async function addTasks(
   const ids = await createTasks(env.DB, scope, { ...typed, status, assignees: assigned.ids });
   if (picks.onAdd) await picks.add(ids);
 
-  // A marked task typed straight into Done is finished the moment it is made,
-  // so it is asked now: no later move would ask it. One box is one prompt, so
-  // a pasted list is asked about the task on top of it.
+  // A post that names Done makes a task finished the moment it is made, so a
+  // marked one is asked now: no later move would ask it. One add is one
+  // prompt, so a pasted list is asked about the task on top of it.
   const prompt = await promptFor(env.DB, scope, request, ids[0]);
   if (prompt) return prompt;
 
@@ -181,11 +179,15 @@ export async function actOnTask(
   const { scope, task } = await taskFrom(env, set, form);
   const taskId = task.id;
 
-  // The select of a unified card. The task lands at the bottom of that column
-  // in its own org: a task nobody placed sits at the bottom. Moving is the
-  // board's act, so a marked task raises the prompt here as it does there.
+  // A key or a drag. A key names no card, and the task lands at the bottom of
+  // that column in its own org: a task nobody placed sits at the bottom. A drag
+  // names the card of the same org it lands above, and a card of another org
+  // names no place in this one, so it lands at the bottom too. See ADR-0025.
+  // Moving is the board's act, so a marked task raises the prompt here as it
+  // does there.
   if (intent === "move") {
-    const moved = await moveAndAsk(env.DB, scope, request, taskId, readStatus(form));
+    const before = String(form.get("before") ?? "") || null;
+    const moved = await moveAndAsk(env.DB, scope, request, taskId, readStatus(form), before);
     if (!moved.moved) throw new Response("Not found", { status: 404 });
     return moved.prompt ?? { ok: true };
   }

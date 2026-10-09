@@ -163,9 +163,9 @@ describe("the empty cursor", () => {
 });
 
 describe("the rows an order ranks", () => {
-  // Every key posts what a control posts, so a row the page draws no move
-  // button on answers none of the three keys. A week page draws none on a
-  // member finished this week. See ADR-0021.
+  // A key moves only a row the order ranks, which is the row a page draws a
+  // move button or a drag on. A week page draws neither on a member finished
+  // this week, so it answers none of the four keys. See ADR-0021 and ADR-0026.
   it("answers no move on a row the order leaves out", () => {
     for (const key of [KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key, KEY_MAP.bottom.key])
       expect(pressed(key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["a"]))).toBe(null);

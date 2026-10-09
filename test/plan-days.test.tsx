@@ -44,6 +44,7 @@ function page(some: { day?: string; prev?: string; next?: string; canPlan?: bool
     next: some.next ?? "2026-09-02",
     groups: [{ key: "today" as const, label: "Today", tasks: [TASK] }],
     planned: ["a"],
+    weekSet: ["a"],
     ask: null,
   };
   const props = { loaderData } as unknown as React.ComponentProps<typeof Plan>;
@@ -128,12 +129,17 @@ describe("a day past its own", () => {
     expect(html).not.toContain('value="plan"');
     expect(html).not.toContain('value="unplan"');
     expect(html).not.toContain('value="up"');
+    expect(html).not.toContain('aria-keyshortcuts="Shift+K"');
   });
 
+  // A row of the plan steps by key and drags, and carries no step button: the
+  // list names the step keys instead. See ADR-0026.
   it("draws the pick and the step on the day the plan is made", () => {
     const html = page({});
 
     expect(html).toContain('value="unplan"');
-    expect(html).toContain('value="up"');
+    expect(html).not.toContain('value="up"');
+    expect(html).toContain('aria-keyshortcuts="Shift+K"');
+    expect(html).toContain("cursor-grab");
   });
 });

@@ -7,7 +7,7 @@ import * as logRoute from "../app/routes/decisions";
 import * as focusRoute from "../app/routes/me.focus";
 import * as meRoute from "../app/routes/me";
 import * as taskRoute from "../app/routes/task";
-import { withPrompt, withoutPrompt } from "../app/decisions";
+import { pageOf, withPrompt, withoutPrompt } from "../app/decisions";
 import { member } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
 
@@ -93,6 +93,13 @@ function taskPage(cookie: string, slug: string, taskId: string, query = "") {
 /** The decision log of one org. */
 function log(cookie: string, slug: string) {
   return logRoute.loader(routeArgs(get(`/o/${slug}/decisions`, cookie), { slug }));
+}
+
+/** A post to the decision log, which is where a decision with no task is written. */
+function onLog(cookie: string, slug: string, fields: Record<string, string>) {
+  const request = post(`/o/${slug}/decisions`, { intent: "record", ...fields });
+  request.headers.set("cookie", cookie);
+  return logRoute.action(routeArgs(request, { slug }));
 }
 
 /** The query string a redirect answered with. */
@@ -366,8 +373,9 @@ describe("skipping the prompt", () => {
     await task(ada.org.id, "ship");
     await finish(ada.cookie, ada.org.slug, "ship");
 
+    // A finished task is reopened before it is saved. See #164.
+    await onTask(ada.cookie, ada.org.slug, "ship", { intent: "reopen" });
     await onTask(ada.cookie, ada.org.slug, "ship", { title: "ship" });
-    await onBoard(ada.cookie, ada.org.slug, { intent: "move", id: "ship", status: "todo" });
     const again = await finish(ada.cookie, ada.org.slug, "ship");
 
     expect(again).toEqual({ ok: true });
@@ -493,6 +501,87 @@ describe("saving a decision", () => {
   });
 });
 
+describe("writing a decision on the log itself", () => {
+  it("writes it to the org, with no task, named by the person who decided", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const response = await onLog(ada.cookie, ada.org.slug, {
+      title: "Ship on Friday",
+      rationale: "Nobody made a task of it.",
+    });
+
+    expect((response as Response).headers.get("location")).toBe(`/o/${ada.org.slug}/decisions`);
+    const [written] = await rows();
+    expect(written.org_id).toBe(ada.org.id);
+    expect(written.task_id).toBe(null);
+    expect(written.title).toBe("Ship on Friday");
+    expect(written.rationale).toBe("Nobody made a task of it.");
+    const row = await db
+      .prepare("SELECT decided_by FROM decisions")
+      .first<{ decided_by: string }>();
+    expect(row!.decided_by).toBe(ada.person.id);
+  });
+
+  it("reads back in the log as a line with no task", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    await onLog(ada.cookie, ada.org.slug, { title: "Ship on Friday" });
+
+    const { decisions } = await log(ada.cookie, ada.org.slug);
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].title).toBe("Ship on Friday");
+    expect(decisions[0].task).toBe(null);
+  });
+
+  it("takes an empty rationale", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    await onLog(ada.cookie, ada.org.slug, { title: "Ship on Friday" });
+
+    const [written] = await rows();
+    expect(written.rationale).toBe("");
+  });
+
+  it("refuses an empty title, and gives back the words the person typed", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const answer = await onLog(ada.cookie, ada.org.slug, {
+      title: "  ",
+      rationale: "The test is green.",
+    });
+
+    expect(answer).toEqual({
+      error: "A decision needs a title.",
+      title: "  ",
+      rationale: "The test is green.",
+    });
+    expect(await rows()).toEqual([]);
+  });
+
+  it("refuses a post that names no action", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    const request = post(`/o/${ada.org.slug}/decisions`, { title: "Ship on Friday" });
+    request.headers.set("cookie", ada.cookie);
+    const response = await caught(
+      logRoute.action(routeArgs(request, { slug: ada.org.slug })) as Promise<unknown>,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await rows()).toEqual([]);
+  });
+
+  it("is a 404 for a person the org does not hold", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    const bob = await member("bob@example.test", "Bob");
+
+    const response = await caught(onLog(ada.cookie, bob.org.slug, { title: "Not mine to make" }));
+
+    expect(response.status).toBe(404);
+    expect(await rows()).toEqual([]);
+  });
+});
+
 describe("a decision outliving its task", () => {
   it("stays in the log with the link cleared when the task is deleted", async () => {
     const ada = await member("ada@example.test", "Ada");
@@ -564,5 +653,23 @@ describe("where the prompt lives", () => {
   it("closes it, and leaves a page with nothing else to say no query string", () => {
     expect(withoutPrompt("/me", "?ask=ship&org=acme")).toBe("/me");
     expect(withoutPrompt("/me", "?ask=ship&org=acme&today=1")).toBe("/me?today=1");
+  });
+});
+
+// A fetcher posts to the page's data address, and the prompt is a place on the
+// page, not on that address. A redirect to `/me.data` is a 404.
+describe("the page a post came from", () => {
+  it("is the page itself for a post to its data address", () => {
+    expect(pageOf("/me.data")).toBe("/me");
+    expect(pageOf("/o/acme/board.data")).toBe("/o/acme/board");
+  });
+
+  it("is the root for a post to the root's data address", () => {
+    expect(pageOf("/_root.data")).toBe("/");
+  });
+
+  it("is the path as it came for a plain post", () => {
+    expect(pageOf("/me")).toBe("/me");
+    expect(pageOf("/o/acme/board")).toBe("/o/acme/board");
   });
 });

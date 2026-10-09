@@ -1,5 +1,8 @@
 # A keyed list's keys are live only where focus is
 
+Amended in place by #165: a board has one quick-add box, above the columns, so
+`n` has one box to focus and no column to pick. Everything else here stands.
+
 Amends [ADR-0015](./0015-a-drop-names-a-column-not-a-place.md) and
 [ADR-0016](./0016-the-org-board-takes-the-same-keys.md). "The keys are the first
 way" still holds. It is narrowed by one clause: in the list that holds the
@@ -31,10 +34,10 @@ A keyed list wraps rows and nothing else. It takes `tabindex="0"` and an
 
 A board draws five of them, one per column, and they share one cursor and one
 binding: one hook, spread on every element it binds. That is what keeps the
-rule true on a board. The board's quick-add box sat inside the element the keys
-would have been bound to, and a box inside a keyed list is a box whose every
-typed word is a press the page could read. So the rule is flat, and it holds on
-all five surfaces: a box is never inside a keyed list.
+rule true on a board. The board's quick-add boxes sat inside the elements the
+keys would have been bound to, and a box inside a keyed list is a box whose
+every typed word is a press the page could read. So the rule is flat, and it
+holds on all five surfaces: a box is never inside a keyed list.
 
 The listener reads bubbling `keydown`, so `x` still works while the focus sits
 on a row's own button. Anything narrower silently disarms the list under a person who

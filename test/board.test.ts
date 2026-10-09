@@ -57,7 +57,18 @@ describe("who can load the board", () => {
 });
 
 describe("quick add", () => {
-  it("creates a task in that column's status", async () => {
+  it("files an add that names no column to To do", async () => {
+    const ada = await member("ada@example.test", "Ada");
+
+    await act("ada", ada.cookie, { intent: "create", title: "Write the board" });
+
+    const data = await board("ada", ada.cookie);
+    expect(column(data, "todo")!.tasks).toEqual([
+      expect.objectContaining({ title: "Write the board" }),
+    ]);
+  });
+
+  it("creates a task in the status the post names", async () => {
     const ada = await member("ada@example.test", "Ada");
 
     await act("ada", ada.cookie, { intent: "create", status: "in_progress", title: "Write the board" });

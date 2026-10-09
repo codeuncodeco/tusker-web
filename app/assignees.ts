@@ -50,7 +50,7 @@ function compare(a: string, b: string): number {
  * True when the org draws an assignee. An org of one member has nobody else to
  * name, so a picker whose only value is "me" is noise on every card. The count
  * decides and not who made the org: an org of one draws a picker the day a
- * second member joins. See ADR-0013 and ADR-0024.
+ * second member joins. See ADR-0013 and ADR-0027.
  */
 export function drawsAssignees(org: { members: number }): boolean {
   return org.members > 1;

@@ -136,7 +136,7 @@ curl -X POST http://localhost:5173/api/invite \
 
 Tusker makes no org for the new account. Until somebody adds the person to an
 org, `/me` tells them to ask the instance owner, the first account, to add
-them. See ADR-0024.
+them. See ADR-0027.
 
 ## Migrate
 

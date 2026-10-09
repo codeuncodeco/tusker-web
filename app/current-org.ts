@@ -42,7 +42,7 @@ export function rememberOrg(slug: string): string {
  * current org is the first joined. A slug no membership answers for reads as
  * none, so an org a person left, or one they never held, falls back the same
  * way rather than naming an org the header cannot link to. A person who
- * belongs to nothing has none. See ADR-0024.
+ * belongs to nothing has none. See ADR-0027.
  */
 export function currentOrg<T extends OrgHeld>(orgs: T[], slug: string | null): T | null {
   const named = slug ? orgs.find((org) => org.slug === slug) : undefined;

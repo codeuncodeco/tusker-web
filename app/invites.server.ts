@@ -23,7 +23,7 @@ export type InviteDeps = { db: D1Database; auth: Auth; mailer: Mailer; origin: s
  *
  * - `added` — an account held the email, and it is a member now
  * - `invited` — no account held it, so Tusker made one, holding this org and
- *   no other. See ADR-0024
+ *   no other. See ADR-0027
  * - `already` — the account is a member of this org. Nothing changes, and
  *   nobody is mailed
  */

@@ -38,6 +38,7 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { unfinishedOf, type Leftovers } from "../leftovers";
 import { leftoversFor, unfinishedIn } from "../leftovers.server";
+import { addsSent, postAndReport, tasksSent, useSent } from "../pending";
 import { weekPicks } from "../picks.server";
 import { isStep } from "../plan";
 import { requireOrgSet } from "../scope.server";
@@ -206,15 +207,15 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   return acted;
 }
 
+/** A post the server refuses raises a toast, not the error page. See `app/pending.ts`. */
+export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
+
 export default function Week({ loaderData }: Route.ComponentProps) {
   const {
     orgs,
     members,
-    groups,
-    picked,
     week,
     day,
-    done,
     leftovers,
     take,
     canPick,
@@ -223,6 +224,22 @@ export default function Week({ loaderData }: Route.ComponentProps) {
     next,
     ask,
   } = loaderData;
+
+  // The page as the server holds it, with every post still in flight laid
+  // over it, drawn by the rules the loader draws by. A pick on this page
+  // claims the top of the set. See #168.
+  const sent = useSent();
+  const drawn = tasksSent(
+    loaderData.groups.flatMap((group) => group.tasks),
+    loaderData.picked,
+    sent,
+    "top",
+  );
+  const groups = canPick
+    ? groupsFor(drawn.tasks, drawn.picked, "week")
+    : pickedOnly(drawn.tasks, drawn.picked, "week");
+  const inWeek = groups.find((group) => group.key === "week")!.tasks;
+  const done = inWeek.filter((one) => one.finished).length;
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -240,9 +257,9 @@ export default function Week({ loaderData }: Route.ComponentProps) {
           </Link>
         </h1>
         <WeekWalk today={day} prev={prev} next={next} onThisWeek={onThisWeek} />
-        {picked.length > 0 ? (
+        {inWeek.length > 0 ? (
           <span className="tabular-nums text-muted">
-            {done} of {picked.length} done
+            {done} of {inWeek.length} done
           </span>
         ) : null}
         {/* The one word that says why the page offers no pick and no step. */}
@@ -260,7 +277,9 @@ export default function Week({ loaderData }: Route.ComponentProps) {
 
       <UnifiedList
         groups={groups}
-        planned={new Set(picked)}
+        planned={new Set(drawn.picked)}
+        adds={addsSent(sent)}
+        addsAt="top"
         day={day}
         // The page names a week and never a day, so the browser says which day
         // it is in, named week and all: that day is what names an unnamed week,

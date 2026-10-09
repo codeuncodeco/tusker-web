@@ -16,7 +16,7 @@ export type Org = {
   color: string | null;
   /**
    * How many people belong to the org. An org of one draws no assignee,
-   * whoever made it. See ADR-0013 and ADR-0024.
+   * whoever made it. See ADR-0013 and ADR-0027.
    */
   members: number;
 };
@@ -32,7 +32,7 @@ export const ORG_COLUMNS =
 
 /**
  * The orgs one person is a member of, in the order they joined them. The first
- * is the one a person with no current org stands in. See ADR-0024.
+ * is the one a person with no current org stands in. See ADR-0027.
  *
  * Two memberships can land in one millisecond, so the row order breaks a tie.
  */

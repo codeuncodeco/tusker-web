@@ -1,6 +1,6 @@
 /**
  * The org picker on the cross-org quick-add box. It starts with no org picked,
- * and a person who belongs to one org has none at all. See ADR-0024.
+ * and a person who belongs to one org has none at all. See ADR-0027.
  */
 
 import { renderToStaticMarkup } from "react-dom/server";

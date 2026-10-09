@@ -9,7 +9,7 @@
  *
  * The unified board, plan mode, the week and focus mode draw the same tasks in
  * different layouts, so one hook serves all four. Tusker is keyboard first, so
- * the buttons are the second way, not the only one.
+ * the buttons and the drag are the second way, not the only one.
  *
  * The org board binds the same letters from `app/board-keys.ts`. It draws
  * different rows and writes different intents, so it keeps a map of its own,
@@ -120,9 +120,9 @@ export function pressed(
   // rank, and a page with no order of the person's own, have nothing to move.
   // The plan is one such order and a week set is the other. See ADR-0021.
   //
-  // `ranked` is what the page draws the move buttons from, so a key reaches no
-  // act a control withholds: a member finished this week is drawn out of the
-  // order, and it answers none of the four.
+  // `ranked` is what the page draws the move buttons and the drag from, so a
+  // key reaches no row a control withholds: a member finished this week is
+  // drawn out of the order, and it answers none of the four.
   //
   // The intent a press posts is the step's own name, so `STEPS` is the whole
   // binding.
