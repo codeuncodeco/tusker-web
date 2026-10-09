@@ -37,6 +37,13 @@ function names(name: string): string[] {
   return classes(sourceOf(name)).flatMap((one) => one.split(/\s+/)).filter(Boolean);
 }
 
+/** The first class string in one file that holds `wanted`, so a test can read its neighbours. */
+function classWith(name: string, wanted: string): string {
+  const found = classes(sourceOf(name)).find((each) => each.split(/\s+/).includes(wanted));
+  if (!found) throw new Error(`No class with ${wanted} in ${name}`);
+  return found;
+}
+
 it("leaves no board column at a fixed width", () => {
   // `w-72 shrink-0` is what wasted the width: five narrow columns and an empty
   // strip. The minimum is now a floor the column grows off, not a size.
@@ -75,16 +82,9 @@ it("declares the frame on the two board routes, and on no other route", () => {
   expect(declaring.sort()).toEqual(["routes/board.tsx", "routes/me.tsx"]);
 });
 
-/** The class string that holds one name, so a test can read its neighbours. */
-function classWith(name: string, one: string): string {
-  const found = classes(sourceOf(name)).find((each) => each.split(/\s+/).includes(one));
-  if (!found) throw new Error(`No class with ${one} in ${name}`);
-  return found;
-}
-
 it("draws no box round a board column", () => {
-  // A card is the one box on the board. The column is a pane, and only a
-  // divider marks where one ends. See #184.
+  // A card is the one thing on the board with an edge. The column is a pane,
+  // and only a divider marks where one ends. See #184.
   for (const board of BOARDS) {
     const column = classWith(board, "min-w-72").split(/\s+/);
     const box = column.filter((one) => /^(rounded|border)/.test(one));

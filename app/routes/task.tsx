@@ -347,6 +347,14 @@ function FieldBox({
 }
 
 /**
+ * The aside, live and finished: a pane split off by a divider, on top when it
+ * stacks on a phone and on its left beside the fields. It draws no box. See
+ * #184.
+ */
+const asideClass =
+  "flex w-full shrink-0 flex-col gap-3 border-t border-border pt-6 sm:w-64 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6";
+
+/**
  * The metadata aside: status, due date and the members who hold the task.
  *
  * It sits beside the task rather than in the run of fields, because these
@@ -368,7 +376,7 @@ function MetadataAside({
   const held = new Set(assignees.map((one) => one.id));
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-border pt-6 sm:w-64 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+    <aside className={asideClass}>
       <label className="flex flex-col gap-1">
         Status
         {/* Moving to Done here is the same act as the Finish button, so a
@@ -446,7 +454,7 @@ function FinishedTask({
         ))}
       </dl>
 
-      <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-border pt-6 sm:w-64 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+      <aside className={asideClass}>
         <dl className="flex flex-col gap-3">
           <ReadLine label="Status">{STATUS_LABEL[task.status]}</ReadLine>
           <ReadLine label="Due date">{task.due_date ?? "—"}</ReadLine>

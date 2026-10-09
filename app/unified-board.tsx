@@ -143,8 +143,8 @@ export function UnifiedBoard({
       >
         {(shown) => (
           // The row holds still, and each column scrolls inside itself. The
-          // columns are panes, not boxes: a divider splits them, and a card is
-          // the one box on the board. See #184.
+          // columns are panes: a divider splits them, and a card is the one
+          // thing on the board with an edge. See #184.
           <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto sm:min-h-0">
             {columns.map((column) => {
               const cards = shown[column.status].flatMap((id) => tasks.get(id) ?? []);
