@@ -265,10 +265,10 @@ export function useKeyedList(
 
   // The guide reads the lines as it opens, so a page whose acts change, as
   // plan mode's do from one day to the next, names the ones it gives now.
-  const given = useRef(lines);
-  given.current = lines;
+  const listLines = useRef(lines);
+  listLines.current = lines;
   useEffect(() => {
-    surface.give(() => guideFor(given.current, Boolean(surface.box.current?.current)));
+    surface.give(() => guideFor(listLines.current, Boolean(surface.box.current?.current)));
     return () => surface.give(null);
   }, [surface]);
 

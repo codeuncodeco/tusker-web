@@ -103,9 +103,9 @@ function KeysItem() {
       <button
         type="button"
         {...mark.keys}
-        // The menu closes as this opens the guide, so the focus goes back to
-        // the menu's own button as the guide closes.
-        onClick={(event) => guide.open(event.currentTarget.closest("details")?.querySelector("summary") ?? null)}
+        // No place to go back to: the menu closes as the guide opens, so the
+        // guide gives the focus to the page's keyed list, where the keys are.
+        onClick={() => guide.open(null)}
         className="flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-muted hover:bg-border hover:text-fg"
       >
         {KEY_MAP.guide.label}

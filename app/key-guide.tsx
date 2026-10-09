@@ -30,7 +30,7 @@ const ORDER = Object.keys(KEY_MAP) as ActionName[];
  * The lines in the key map's order, so every page lists its keys the same way
  * round whichever of them it gives.
  */
-export function inMapOrder(lines: GuideLine[]): GuideLine[] {
+function inMapOrder(lines: GuideLine[]): GuideLine[] {
   return [...lines].sort((one, next) => ORDER.indexOf(one.act) - ORDER.indexOf(next.act));
 }
 
