@@ -56,6 +56,13 @@ needs no keyboard, or a key, and the keyboard-first acts have both.
 
 ## The keys are still named
 
+*Amended by #206.* No list names its keys above its rows any more. The **Key
+guide** names them: a dialog that `?` opens from inside a keyed list, and
+"Keys ?" in the person menu opens from anywhere on the page. It names every
+list key the page gives, the reorder keys among them, so one place teaches
+the keys no control carries. The two paragraphs that follow are what this section
+first decided, and both are replaced.
+
 A button carried its key (`⇧K` on Up), and that was how a person found the key.
 A row that drags has no button to carry one. So a list whose rows drag names
 its reorder keys once, above the rows: Up `⇧K`, Down `⇧J`, Top `⇧T`, Bottom `⇧B`.

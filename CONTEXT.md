@@ -140,7 +140,8 @@ _Avoid_: Description editor, description form
 The keys a keyed list binds, in `app/unified-keys.ts`: `j` and `k` move the
 cursor, `Escape` empties it, `Enter` opens, `p` plans, `x` finishes, `>` and
 `<` walk a task between columns, `J` and `K` step a planned task through the
-plan, and `T` and `B` send one to either end of it. One table,
+plan, `T` and `B` send one to either end of it, and `?` opens the **Key
+guide**. One table,
 `app/key-map.ts`, holds the key of every act, and one hook binds the list's
 own, so the board, the plan, the week and focus mode cannot drift apart. The
 keys are live while the focus is inside the **Keyed list** and nowhere else, and
@@ -427,7 +428,7 @@ The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
 Backlog and Cancelled shown by rule. The order inside a column is the org's and
 it is stored, so this is the one board that binds `J` and `K`. A drag draws
 where the card will land, and the drop writes that place. A card carries no
-reorder button, and the board names `J` and `K` once, under the quick-add box. See ADR-0016, ADR-0025 and ADR-0026.
+reorder button, and the **Key guide** names `J` and `K`. See ADR-0016, ADR-0025 and ADR-0026.
 _Avoid_: Team board, project board, the org's board
 
 **Unified board**:
@@ -694,8 +695,8 @@ old. A drag is the one move that names a place: it names the card the person
 saw it land above, and a card the order no longer holds names the foot. See
 ADR-0025. Focus mode narrows the map to `j`, `k`, `Escape`, `Enter`, `x`, `n` and
 `d`, which drops a task from the batch. Every act is reachable by a key or a
-drag. A row that drags carries no reorder button, and a list of them names its
-reorder keys above the rows. The week set has no drag and keeps its buttons.
+drag. A row that drags carries no reorder button, and the **Key guide** names
+its reorder keys. The week set has no drag and keeps its buttons.
 See ADR-0026.
 _Avoid_: Shortcuts, hotkeys, bindings
 

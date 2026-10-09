@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { landing } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
-import { KeyLegend } from "./key-hint";
 import { useLocalDay } from "./local-day";
 import { usePost } from "./pending";
 import { PendingAdds } from "./pending-adds";
@@ -92,6 +91,7 @@ export function UnifiedList({
     setOn,
     act: post,
     ranked: new Set(ranked.map((one) => one.id)),
+    verbs,
   });
 
   // The cursor follows the keys down a list longer than the window.
@@ -134,10 +134,6 @@ export function UnifiedList({
                 <h2 className="font-mono uppercase tracking-wide text-muted">
                   {label(group)} <span className="text-dim">{group.tasks.length}</span>
                 </h2>
-
-                {/* A row that drags carries no reorder button, so the keys
-                    that reorder it are named here. See ADR-0026. */}
-                {dragsHere ? <KeyLegend acts={["up", "down", "top", "bottom"]} /> : null}
 
                 {/* The rows and nothing else: the box a page draws sits above
                     this, outside every keyed list. */}

@@ -43,7 +43,6 @@ import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
-import { KeyLegend } from "../key-hint";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels } from "../refs.server";
 import { useLocalDay } from "../local-day";
@@ -482,10 +481,6 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>
       </header>
-
-      {/* A card carries no reorder button, so the keys that step it are named
-          once, here. See ADR-0026. */}
-      <KeyLegend acts={["up", "down"]} />
 
       <DragLists
         lists={Object.fromEntries(
