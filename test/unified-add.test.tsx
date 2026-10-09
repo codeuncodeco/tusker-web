@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { AddingProvider } from "../app/adding";
 import type { OrgHeld } from "../app/current-org";
-import { UndoLine, UnifiedAdd } from "../app/unified-add";
+import { UndoLine, UnifiedAdd, addedTo } from "../app/unified-add";
 
 const ACME: OrgHeld = { slug: "acme", name: "Acme", color: "blue" };
 const ADA: OrgHeld = { slug: "ada", name: "Ada", color: "red" };
@@ -83,6 +83,11 @@ describe("the line an add leaves", () => {
   it("names the org for a person in several", () => {
     expect(line("Acme")).toContain("Added to Acme");
     expect(line("Acme", 3)).toContain("Added 3 tasks to Acme");
+  });
+
+  it("is told the org's name for a person in several, and no org for a person in one", () => {
+    expect(addedTo([ADA, ACME], "acme")).toBe("Acme");
+    expect(addedTo([ACME], "acme")).toBeNull();
   });
 
   it("names no org for a person in one", () => {

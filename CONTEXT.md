@@ -50,7 +50,8 @@ The colour one org carries, drawn wherever a page names that org beside
 another: the unified board, plan mode and the week page. It is a palette name
 or an exact colour, as an option colour is. A new org takes the first palette
 name no org of its maker holds, and any member changes it on the org's settings
-page. An org with no colour draws grey. See ADR-0020.
+page. An org with no colour draws grey. A person in one org sees no org chip,
+because there is no other org to tell it from. See ADR-0020.
 _Avoid_: Org theme, org tag, workspace colour
 
 **Member**:
@@ -444,7 +445,8 @@ mode it carries an org picker, which starts with no org picked every time a
 person opens Tusker, and the box refuses an add until one is picked. A person
 who belongs to one org has no org picker, and that org is implied. A person who
 belongs to several sees a chip that names the picked org while the box holds
-it. The decision mark is set here. The box also names the assignees, out of the
+it, and the line an add leaves names the org. For a person in one org, that
+line says "Added" and names no org. The decision mark is set here. The box also names the assignees, out of the
 members of the org it files into: the set starts empty, it stays across an add,
 and a change of org empties it. An org that holds one member has nobody else to
 name, so no box filing there draws the assignee picker. The title is a textarea

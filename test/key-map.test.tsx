@@ -247,7 +247,7 @@ describe("the cursor a page draws first", () => {
   // a key has no card named at them. `aria-current` is what names one, and
   // the mark a person sees is drawn beside it. See ADR-0015.
   it("names no card until a person picks one", () => {
-    const html = markup(<FocusList tasks={ROWS} />);
+    const html = markup(<FocusList tasks={ROWS} showsOrg />);
 
     expect(html).not.toContain("aria-current");
   });
@@ -259,6 +259,7 @@ describe("the hint a control carries", () => {
       <ul>
         <UnifiedRow
           task={ROWS[0]}
+          showsOrg
           planned={false}
           selected={false}
           domId="row-a"
@@ -285,6 +286,7 @@ describe("the hint a control carries", () => {
       <ul>
         <UnifiedRow
           task={ROWS[0]}
+          showsOrg
           planned={false}
           selected={false}
           domId="row-a"
@@ -302,7 +304,7 @@ describe("the hint a control carries", () => {
   it("turns the plan hint over with the verb, and keeps the key", () => {
     const html = markup(
       <ul>
-        <UnifiedRow task={ROWS[0]} planned={true} selected={false} domId="row-a" />
+        <UnifiedRow task={ROWS[0]} planned={true} selected={false} domId="row-a" showsOrg />
       </ul>,
     );
 
@@ -315,6 +317,7 @@ describe("the hint a control carries", () => {
       <ul>
         <UnifiedRow
           task={ROWS[0]}
+          showsOrg
           planned={false}
           selected={false}
           domId="row-a"

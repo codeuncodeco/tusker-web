@@ -40,6 +40,7 @@ import { held } from "../current-org";
 import { dayAfter, dayBefore, dayLabel, dayName, dayOf, isDay } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
+import { tellsOrgsApart } from "../org-chip";
 import { addsSent, postAndReport, tasksSent, useSent } from "../pending";
 import { planPicks } from "../picks.server";
 import { isStep } from "../plan";
@@ -245,6 +246,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         planned={new Set(drawn.picked)}
         adds={addsSent(sent)}
         day={day}
+        showsOrg={tellsOrgsApart(orgs)}
         namedDay={named}
         // The plan is the one order here that belongs to the person, so it is
         // the one group whose rows step. See ADR-0006, "One order per column".

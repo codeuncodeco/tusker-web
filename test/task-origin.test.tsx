@@ -176,7 +176,7 @@ describe("the link a list draws into a task", () => {
   it("records the list, from plan mode and focus mode", () => {
     const html = markup(
       <ul>
-        <UnifiedRow task={live("a")} planned={false} selected={false} domId="row-a" />
+        <UnifiedRow task={live("a")} planned={false} selected={false} domId="row-a" showsOrg />
       </ul>,
     );
 
@@ -186,7 +186,7 @@ describe("the link a list draws into a task", () => {
   it("records the unified board, with the query that narrowed it", () => {
     const html = markup(
       <ul>
-        <UnifiedCard task={live("a")} rank={1} selected={false} domId="card-a" place={() => {}} named />
+        <UnifiedCard task={live("a")} rank={1} selected={false} domId="card-a" place={() => {}} showsOrg />
       </ul>,
       "/me?backlog=1",
     );
@@ -200,7 +200,7 @@ describe("the link a list draws into a task", () => {
   it("drops the decision prompt the list stands under", () => {
     const html = markup(
       <ul>
-        <UnifiedRow task={live("a")} planned={false} selected={false} domId="row-a" />
+        <UnifiedRow task={live("a")} planned={false} selected={false} domId="row-a" showsOrg />
       </ul>,
       "/me?backlog=1&ask=b&org=acme",
     );

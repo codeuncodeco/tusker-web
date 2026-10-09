@@ -19,6 +19,7 @@ import { askedAcross } from "../decisions.server";
 import { FocusList, TakeMore } from "../focus-list";
 import { holdBatch, readFocus, takeMore } from "../focus.server";
 import { useLocalDay } from "../local-day";
+import { tellsOrgsApart } from "../org-chip";
 import { planPicks } from "../picks.server";
 import { requireOrgSet } from "../scope.server";
 import { actOnTask } from "../unified-actions.server";
@@ -36,6 +37,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return {
     day,
+    /** True for a person in two orgs or more, whose rows name their org. */
+    showsOrg: tellsOrgsApart(set.orgs),
     focus: await readFocus(env.DB, set, set.personId, day),
     // The prompt a finished task raised, if the query string still holds one.
     ask: await askedAcross(env.DB, set, request),
@@ -70,7 +73,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Focus({ loaderData }: Route.ComponentProps) {
-  const { focus, day, ask } = loaderData;
+  const { focus, day, ask, showsOrg } = loaderData;
   const { batch, planned, planEmpty, weekEmpty, more } = focus;
   useLocalDay(day);
 
@@ -85,7 +88,7 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
 
       {batch.tasks.length > 0 ? (
         <>
-          <FocusList tasks={batch.tasks} />
+          <FocusList tasks={batch.tasks} showsOrg={showsOrg} />
           {/* Finish draws a button, and the button carries `x`. These two keys
               move and open, and no control on the page says them. */}
           <p className="text-muted">

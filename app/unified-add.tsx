@@ -21,7 +21,7 @@ import { AssigneePicker } from "./assignee-picker";
 import type { Assignee } from "./assignees";
 import type { OrgHeld } from "./current-org";
 import { smallFieldClass } from "./forms";
-import { OrgChip } from "./org-chip";
+import { OrgChip, tellsOrgsApart } from "./org-chip";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -196,14 +196,22 @@ export function UnifiedAdd({
       {last ? (
         <UndoLine
           added={last}
-          // A person in one org has no other org to mistake it for.
-          org={several ? (orgs.find((org) => org.slug === last.slug)?.name ?? last.slug) : null}
+          org={addedTo(orgs, last.slug)}
           undo={refile}
           dismiss={() => setLast(null)}
         />
       ) : null}
     </section>
   );
+}
+
+/**
+ * The org the undo line names: the one an add landed in, as a person reads it.
+ * A person in one org has no other to mistake it for, so the line names none.
+ */
+export function addedTo(orgs: OrgHeld[], slug: string): string | null {
+  if (!tellsOrgsApart(orgs)) return null;
+  return orgs.find((org) => org.slug === slug)?.name ?? slug;
 }
 
 /**

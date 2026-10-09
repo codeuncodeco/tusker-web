@@ -10,12 +10,13 @@ import type { LiveTask } from "./unified";
  * The field strip truncates before the due date does: the due date is the one
  * signal that reads the same in every org. A part with nothing to show draws
  * nothing, and the line collapses once no part is left. The chip is left off
- * for a person in one org, because there is no other org to tell it from.
+ * for a person in one org, because there is no other org to tell it from. See
+ * `tellsOrgsApart`.
  */
-export function ContentLine({ task, named = true }: { task: LiveTask; named?: boolean }) {
+export function ContentLine({ task, showsOrg }: { task: LiveTask; showsOrg: boolean }) {
   return (
     <span className="flex items-center gap-2 text-xs text-muted empty:hidden">
-      {named ? <OrgChip org={task.org} /> : null}
+      {showsOrg ? <OrgChip org={task.org} /> : null}
       {task.fields.length > 0 ? (
         <span className="flex min-w-0 flex-1 gap-1 truncate">
           {task.fields.map((field, at) => (

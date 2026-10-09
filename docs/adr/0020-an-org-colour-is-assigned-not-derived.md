@@ -64,6 +64,10 @@ The header takes the dot alone, because a menu row is not a chip: one before
 every org in the switcher, and one before the current org's name in row 1.
 
 An org page draws no chip. There is one org there and nothing to tell apart.
+For the same reason, a person in one org sees no chip on a cross-org page
+either, and the line an add leaves says "Added" with no org name. The chip is a
+label, not a control, so it does not break the rule against a control that
+comes and goes. See #183.
 
 An org that holds a name a later palette drops draws grey and throws no page
 away, which is the rule ADR-0006 already set for an option colour.
