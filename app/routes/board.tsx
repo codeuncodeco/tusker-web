@@ -543,12 +543,14 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                       wide as an empty one, which is the point of the equal
                       split.
 
-                      This is the keyed list: the cards and nothing else. */}
+                      This is the keyed list: the cards and nothing else. Its focus
+                      outline is drawn inside, as the row clips what is past its
+                      edge. See #193. */}
                   <DropList
                     id={column.status}
                     ids={drawn.map((one) => one.id)}
                     props={keyed(`${column.label} tasks`)}
-                    className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+                    className="flex flex-col gap-2 focus-visible:-outline-offset-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
                   >
                     {/* The box files into To do, so an add in flight draws there. */}
                     {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}

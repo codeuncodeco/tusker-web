@@ -104,3 +104,16 @@ it("splits the board columns with a divider in the token colour", () => {
     ]);
   }
 });
+
+it("draws a focused column's outline inside the column, on both boards", () => {
+  // The row scrolls sideways, and a scroll box clips what is outside it. The
+  // first column has no left pad and the last no right pad, so an outline
+  // drawn outside the card list loses an edge. Inset, it keeps all four. See #193.
+  for (const board of BOARDS) {
+    const list = /props=\{keyed\([^)]*\)\}\s*className="([^"]*)"/.exec(sourceOf(board));
+    expect([board, list?.[1].split(/\s+/).includes("focus-visible:-outline-offset-2")]).toEqual([
+      board,
+      true,
+    ]);
+  }
+});
