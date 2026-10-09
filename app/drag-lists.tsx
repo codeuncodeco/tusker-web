@@ -5,10 +5,10 @@
  * gesture is one gesture wherever it is offered. See ADR-0025.
  *
  * It is `@dnd-kit/sortable`, the pattern Payload's admin uses for a row drag.
- * A mouse drags once it has moved a few pixels, so a click on a card still
- * places the cursor. A finger drags after a short hold, so a swipe still
- * scrolls the column. No key drags: the keys are the list keys, and they do not
- * change.
+ * A drag starts from the grip and nowhere else, so the rest of the card places
+ * the cursor on a click and scrolls the column on a swipe. On the grip, a
+ * mouse drags once it has moved a few pixels and a finger drags at once. No
+ * key drags: the keys are the list keys, and they do not change.
  *
  * The page hands this the lists it draws and gets back the lists to draw,
  * which are the same lists until a drag moves a card. A drop calls `onDrop`
@@ -75,7 +75,8 @@ export function DragLists({
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    // No hold: only the grip starts a drag, so a touch there is never a swipe.
+    useSensor(TouchSensor),
   );
 
   // After a drop the held copy stays until the page draws the post, so the
@@ -192,19 +193,55 @@ export function DropList({
 
 /**
  * What one card needs to drag: its ref, the style that slides it out of the
- * way, and the handlers that start the drag. The card being dragged is drawn
- * faded where it will land, and the overlay follows the pointer.
+ * way, and the grip a drag starts from. The card being dragged is drawn faded
+ * where it will land, and the overlay follows the pointer.
  */
 export function useDragItem(id: string, disabled = false) {
-  const { setNodeRef, transform, transition, listeners, isDragging } = useSortable({ id, disabled });
+  const { setNodeRef, setActivatorNodeRef, transform, transition, listeners, isDragging } =
+    useSortable({ id, disabled });
   return {
     ref: setNodeRef,
     style: { transform: CSS.Translate.toString(transform), transition },
-    // No `attributes`: they would make every card a tab stop and a button,
-    // and the list, not the card, holds the focus and the keys. See ADR-0022.
-    listeners: disabled ? {} : listeners,
+    // No `attributes`: they would make the grip a tab stop and a button, and
+    // the list, not the card, holds the focus and the keys. See ADR-0022.
+    grip: { ref: setActivatorNodeRef, listeners: disabled ? undefined : listeners },
     dragging: isDragging,
   };
+}
+
+/** What the grip takes from `useDragItem`: the node a drag starts from. */
+type DragGrip = ReturnType<typeof useDragItem>["grip"];
+
+/**
+ * The six dots at the left edge of a card, and the one part of it a drag
+ * starts from. It adds width and never a line. It is for the pointer alone:
+ * the keys already move a card, so it is hidden and takes no focus.
+ *
+ * `touch-none` keeps the browser from scrolling under a finger on the grip,
+ * which would take the touch before the drag could. See ADR-0025.
+ *
+ * The dots are drawn here and not in `icons.tsx`: they are six circles, not a
+ * Font Awesome path, and the grip is their one use.
+ */
+export function Grip({ grip }: { grip: DragGrip }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-grip=""
+      ref={grip.ref}
+      {...grip.listeners}
+      className="-ml-1.5 shrink-0 cursor-grab touch-none self-center px-1.5 py-1 text-dim hover:text-fg"
+    >
+      <svg viewBox="0 0 10 16" fill="currentColor" className="block h-4 w-2.5">
+        <circle cx="2.5" cy="3" r="1.5" />
+        <circle cx="7.5" cy="3" r="1.5" />
+        <circle cx="2.5" cy="8" r="1.5" />
+        <circle cx="7.5" cy="8" r="1.5" />
+        <circle cx="2.5" cy="13" r="1.5" />
+        <circle cx="7.5" cy="13" r="1.5" />
+      </svg>
+    </span>
+  );
 }
 
 /**
