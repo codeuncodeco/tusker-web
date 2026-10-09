@@ -1,5 +1,10 @@
 # A drop names a column, not a place
 
+Amended by [ADR-0025](./0025-a-drop-lands-where-the-preview-shows.md).
+"Why the column and not the gap" and "Where the card lands" below are replaced:
+a drag now draws where the card will land, and the drop writes a place inside
+the card's own org.
+
 Amended by [ADR-0022](./0022-a-keyed-lists-keys-are-live-where-focus-is.md).
 "The keys are the first way" below stands, narrowed by one clause: the keys are
 live in the list that holds the focus, and not on the whole window. The empty
@@ -19,6 +24,8 @@ offering the same act by another control.
 
 ## Why the column and not the gap
 
+*Replaced by ADR-0025.*
+
 A card's place in a unified column is percentile order: a fractional place
 inside its own org column, with the due date breaking a tie. It is derived and
 it drifts between loads. Drop a card third from the top and it will re-sort
@@ -36,6 +43,8 @@ this board can answer honestly, and the plan stays the place a person says what
 comes first.
 
 ## Where the card lands
+
+*Replaced by ADR-0025.*
 
 `moveTask` runs with `before: null`, which puts the card at the bottom of its
 own org's column for the new status. It is what the org board's column drop

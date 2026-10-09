@@ -371,8 +371,9 @@ _Avoid_: Kanban, board view
 **Org board**:
 The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
 Backlog and Cancelled shown by rule. The order inside a column is the org's and
-it is stored, so this is the one board where a card is dragged into a place, and
-the one that binds `J` and `K`. See ADR-0016.
+it is stored, so this is the one board that binds `J` and `K`. A drag draws
+where the card will land, and the drop writes that place. See ADR-0016 and
+ADR-0025.
 _Avoid_: Team board, project board, the org's board
 
 **Unified board**:
@@ -383,10 +384,11 @@ and where work ended is never a request. See ADR-0018. Backlog and Cancelled are
 switches here, the same two the org board offers. Backlog takes no rule here,
 because the org board's rule reads "this person holds no live task anywhere" and
 is therefore dead. Done and Cancelled cap to the last seven days of finish time.
-Inside a column the order is percentile order, and it is derived: no card is
-dragged into a place and no card steps. A card still moves between columns,
-because a column is a status: by drag, by key or by the card's select. See
-ADR-0015.
+Inside a column the order is percentile order, and it is derived: no card
+steps. A card moves by key, which names a column, or by drag, which draws where
+the card will land and writes a place inside the card's own org: above the
+nearest card of that org below the drop. Percentile order then draws the card,
+which can sit a little away from the drop. See ADR-0015 and ADR-0025.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
@@ -456,7 +458,9 @@ day. Plan mode, focus and the unified board share the live set and the sort,
 and lay them out differently: a plan drawn from a Done column is nonsense. The
 week set comes first, in week order, and the rest of the live set under a
 heading below it. Plan mode reads that order and never writes it: the one order
-it owns is the plan's. Every pick and every step writes the plan row, so
+it owns is the plan's. A row of the plan steps by key and drags by pointer, and
+the drag draws where it will land (ADR-0025). Every pick, step and drop writes
+the plan row, so
 nothing waits on a tab and there is no Commit button. All of that is the day the person is in, and the days
 ahead of it. Reading a finished day back is not plan mode's act, so a **Day
 walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.

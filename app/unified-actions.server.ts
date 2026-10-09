@@ -173,11 +173,15 @@ export async function actOnTask(
   const { scope, task } = await taskFrom(env, set, form);
   const taskId = task.id;
 
-  // The select of a unified card. The task lands at the bottom of that column
-  // in its own org: a task nobody placed sits at the bottom. Moving is the
-  // board's act, so a marked task raises the prompt here as it does there.
+  // A key or a drag. A key names no card, and the task lands at the bottom of
+  // that column in its own org: a task nobody placed sits at the bottom. A drag
+  // names the card of the same org it lands above, and a card of another org
+  // names no place in this one, so it lands at the bottom too. See ADR-0025.
+  // Moving is the board's act, so a marked task raises the prompt here as it
+  // does there.
   if (intent === "move") {
-    const moved = await moveAndAsk(env.DB, scope, request, taskId, readStatus(form));
+    const before = String(form.get("before") ?? "") || null;
+    const moved = await moveAndAsk(env.DB, scope, request, taskId, readStatus(form), before);
     if (!moved.moved) throw new Response("Not found", { status: 404 });
     return moved.prompt ?? { ok: true };
   }

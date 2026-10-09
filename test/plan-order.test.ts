@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { moveInPlan } from "../app/plan";
+import { moveInPlan, placeInPlan } from "../app/plan";
 
 describe("moving a task inside a plan", () => {
   it("swaps a task with the one above it", () => {
@@ -49,5 +49,32 @@ describe("sinking a task to the foot of a plan", () => {
 
   it("leaves a plan that does not hold the task alone", () => {
     expect(moveInPlan(["a", "b"], "c", "bottom")).toEqual(["a", "b"]);
+  });
+});
+
+describe("placing a dragged task in a plan", () => {
+  it("puts the task above the one it was dropped on", () => {
+    expect(placeInPlan(["a", "b", "c"], "c", "a")).toEqual(["c", "a", "b"]);
+    expect(placeInPlan(["a", "b", "c"], "a", "c")).toEqual(["b", "a", "c"]);
+  });
+
+  it("puts the task last when the drop names no task", () => {
+    expect(placeInPlan(["a", "b", "c"], "a", null)).toEqual(["b", "c", "a"]);
+  });
+
+  it("puts the task last when the task named is not in the plan", () => {
+    expect(placeInPlan(["a", "b", "c"], "a", "z")).toEqual(["b", "c", "a"]);
+  });
+
+  it("answers with the same array when nothing moves", () => {
+    const order = ["a", "b", "c"];
+    expect(placeInPlan(order, "b", "c")).toBe(order);
+    expect(placeInPlan(order, "c", null)).toBe(order);
+    expect(placeInPlan(order, "b", "b")).toBe(order);
+  });
+
+  it("leaves a plan that does not hold the task alone", () => {
+    const order = ["a", "b"];
+    expect(placeInPlan(order, "z", "a")).toBe(order);
   });
 });
