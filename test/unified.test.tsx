@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { isFinished, type Status } from "../app/board";
 import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
-import { member, signedIn } from "./accounts";
+import { aside, member, signedIn } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -117,6 +117,7 @@ describe("the org set", () => {
 
   it("holds no task from an org the person is not in", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     const bo = await member("bo@example.test", "Bo");
     await task(bo.org.id, "theirs");
     await task(ada.org.id, "mine");
@@ -126,6 +127,7 @@ describe("the org set", () => {
 
   it("holds no archived task", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "gone");
     await db.prepare("UPDATE tasks SET archived = 1 WHERE id = 'gone'").run();
     await task(ada.org.id, "shown");
@@ -137,12 +139,14 @@ describe("the org set", () => {
 describe("the columns", () => {
   it("draws To do, In progress and Done, and nothing else, by default", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
 
     expect(columns(await page(ada.cookie))).toEqual(["todo", "in_progress", "done"]);
   });
 
   it("draws Done on a day the person finished nothing", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "next");
 
     expect(columns(await page(ada.cookie))).toContain("done");
@@ -151,6 +155,7 @@ describe("the columns", () => {
 
   it("reads an address still carrying done=1 as the board itself", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "over", { status: "done" });
 
     expect(columns(await page(ada.cookie, "?done=1"))).toEqual(columns(await page(ada.cookie)));
@@ -159,6 +164,7 @@ describe("the columns", () => {
 
   it("draws Backlog, To do, In progress, Done and Cancelled, in that order", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
 
     const data = await page(ada.cookie, "?backlog=1&cancelled=1");
 
@@ -167,6 +173,7 @@ describe("the columns", () => {
 
   it("draws Backlog only when the toggle asks, whatever the live columns hold", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "later", { status: "backlog" });
 
     // The org board would show Backlog here, because no live task is left.
@@ -176,6 +183,7 @@ describe("the columns", () => {
 
   it("puts each task in the column its status names", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "later", { status: "backlog" });
     await task(ada.org.id, "now", { status: "in_progress" });
     await task(ada.org.id, "over", { status: "done" });
@@ -195,6 +203,7 @@ describe("the columns", () => {
 describe("the seven-day cap", () => {
   it("holds a task finished inside the last seven days", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "recent", { status: "done", finished: "2026-08-27T00:00:00.000Z" });
 
     expect(ids(await page(ada.cookie), "done")).toEqual(["recent"]);
@@ -202,6 +211,7 @@ describe("the seven-day cap", () => {
 
   it("drops a task finished more than seven days ago", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "old", { status: "done", finished: "2026-08-20T00:00:00.000Z" });
     await task(ada.org.id, "gone", { status: "cancelled", finished: "2026-08-20T00:00:00.000Z" });
 
@@ -213,6 +223,7 @@ describe("the seven-day cap", () => {
 
   it("reads the finish time, so an edit does not drag an old task back in", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "typo-fixed", {
       status: "done",
       finished: "2026-03-01T00:00:00.000Z",
@@ -224,6 +235,7 @@ describe("the seven-day cap", () => {
 
   it("holds a task finished this week and untouched since", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "clean", {
       status: "done",
       finished: "2026-08-30T00:00:00.000Z",
@@ -235,6 +247,7 @@ describe("the seven-day cap", () => {
 
   it("caps no live column, so an old To do task still shows", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "ancient", { updated: "2020-01-01T00:00:00.000Z" });
 
     expect(ids(await page(ada.cookie), "todo")).toEqual(["ancient"]);
@@ -263,6 +276,7 @@ describe("the order inside a column", () => {
 
   it("measures a Done card against its own Done column", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "live-1", { position: 1 });
     await task(ada.org.id, "over-1", { status: "done", position: 1 });
     await task(ada.org.id, "over-2", { status: "done", position: 2 });
@@ -297,6 +311,7 @@ describe("the order inside a column", () => {
 
   it("gives the same order on two loads of an unchanged board", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     for (const id of ["a", "b", "c", "d"]) await task(ada.org.id, id, { position: 1 });
 
     const first = await page(ada.cookie);
@@ -334,6 +349,7 @@ describe("what a card carries", () => {
 
   it("shows the org's card fields, and a ref id the cache does not hold raw", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await db.batch([
       db
         .prepare(
@@ -362,6 +378,7 @@ describe("what a card carries", () => {
 
   it("gives a card the dot the org board draws", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await db.batch([
       db
         .prepare(
@@ -387,6 +404,7 @@ describe("what a card carries", () => {
 describe("moving a task", () => {
   it("moves it to the column the select names", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "a");
 
     await act(ada.cookie, { intent: "move", id: "a", slug: ada.org.slug, status: "in_progress" });
@@ -396,6 +414,7 @@ describe("moving a task", () => {
 
   it("lands it at the bottom of that column in its own org", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "first", { status: "in_progress", position: 1 });
     await task(ada.org.id, "second", { status: "in_progress", position: 2 });
     await task(ada.org.id, "moved");
@@ -409,6 +428,7 @@ describe("moving a task", () => {
   // place it was dropped holds inside its own org column. See ADR-0025.
   it("lands it above the card a drop names", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "first", { status: "in_progress", position: 1 });
     await task(ada.org.id, "second", { status: "in_progress", position: 2 });
     await task(ada.org.id, "moved");
@@ -570,6 +590,7 @@ describe("the quick-add box", () => {
 describe("the Today chip", () => {
   it("narrows every column to the tasks today's plan holds", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "planned");
     await task(ada.org.id, "running", { status: "in_progress" });
     await task(ada.org.id, "loose");
@@ -585,6 +606,7 @@ describe("the Today chip", () => {
 
   it("draws no chip for a person with no plan for today", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "a");
 
     expect((await page(ada.cookie)).hasPlan).toBe(false);
@@ -592,6 +614,7 @@ describe("the Today chip", () => {
 
   it("draws no chip once the plan is emptied, and narrows nothing", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "a");
 
     await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });
@@ -605,6 +628,7 @@ describe("the Today chip", () => {
 
   it("keeps a planned task in its own column, not in a Today column", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     await task(ada.org.id, "a");
 
     await act(ada.cookie, { intent: "plan", id: "a", slug: ada.org.slug });

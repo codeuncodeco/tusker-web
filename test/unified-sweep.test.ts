@@ -11,7 +11,7 @@ import * as meRoute from "../app/routes/me";
 import type { OrgSet } from "../app/scope.server";
 import { restoreAcross, sweepAcross } from "../app/sweep.server";
 import type { Swept } from "../app/sweep";
-import { member } from "./accounts";
+import { aside, member } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
@@ -111,6 +111,7 @@ describe("a sweep over several orgs", () => {
 
   it("sweeps Cancelled as it sweeps Done", async () => {
     const ada = await member("ada@example.test", "Ada");
+    await aside(ada.person);
     const dropped = await task(ada.org.id, "dropped", "cancelled");
 
     await act(ada.cookie, cards({ slug: ada.org.slug, ids: [dropped] }));

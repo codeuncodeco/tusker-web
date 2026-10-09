@@ -39,6 +39,10 @@ export default [
     route("settings", "routes/settings.tsx"),
   ]),
 
+  // The org select's road with no script: a GET form that redirects to the
+  // board it names. See ADR-0029.
+  route("go", "routes/go.ts"),
+
   route("api/auth/*", "routes/api.auth.ts"),
   route("api/tasks", "routes/api.tasks.ts"),
   route("api/invite", "routes/invite.ts"),

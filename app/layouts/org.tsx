@@ -3,14 +3,14 @@
  * pages of one org.
  *
  * The layout proves the org once, in middleware, and every page under it reads
- * that scope rather than proving it again. The visit is what makes this org
- * the current one, so the reply carries the cookie that remembers it.
+ * that scope rather than proving it again. The address names the org, so the
+ * header's select reads it from here. See ADR-0029.
  */
 
-import { Outlet, data } from "react-router";
+import { Outlet } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
-import { held, rememberOrg, slugOfCurrentOrg } from "../current-org";
+import { held } from "../current-org";
 import { useFrame } from "../frame";
 import { Header } from "../header";
 import { listOrgsForPerson } from "../orgs.server";
@@ -34,15 +34,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const scope = await requireScope(request, env, params.slug, context);
 
   const orgs = await listOrgsForPerson(env.DB, scope.personId);
-  const org = held(scope.org);
-
-  // The cookie is rewritten only when it names another org, so the common
-  // visit answers with no header of its own.
-  const remembered = slugOfCurrentOrg(request) === org.slug;
-  return data(
-    { org, orgs: orgs.map(held) },
-    remembered ? undefined : { headers: { "set-cookie": rememberOrg(org.slug) } },
-  );
+  return { org: held(scope.org), orgs: orgs.map(held) };
 }
 
 export default function Org({ loaderData }: Route.ComponentProps) {
@@ -55,8 +47,8 @@ export default function Org({ loaderData }: Route.ComponentProps) {
       className={`flex min-h-full flex-col ${frame ? "sm:h-full sm:min-h-0" : ""}`}
     >
       <Header orgs={loaderData.orgs} org={loaderData.org} />
-      {/* The clip sits under the header, and not around it, because the org
-          menu and Manage are drawn over the page from inside the header. */}
+      {/* The clip sits under the header, and not around it, because the
+          header's menus are drawn over the page from inside it. */}
       <div className={`flex flex-1 flex-col ${frame ? "sm:min-h-0 sm:overflow-hidden" : ""}`}>
         <Outlet />
       </div>

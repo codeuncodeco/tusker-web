@@ -31,8 +31,8 @@ export const ORG_COLUMNS =
   "(SELECT COUNT(*) FROM memberships held WHERE held.org_id = o.id) AS members";
 
 /**
- * The orgs one person is a member of, in the order they joined them. The first
- * is the one a person with no current org stands in. See ADR-0027.
+ * The orgs one person is a member of, in the order they joined them. The
+ * header's select lists them in this order. See ADR-0027.
  *
  * Two memberships can land in one millisecond, so the row order breaks a tie.
  */

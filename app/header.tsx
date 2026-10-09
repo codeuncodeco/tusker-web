@@ -1,110 +1,108 @@
 /**
- * The one header every signed-in page draws.
+ * The one header every signed-in page draws, in one row.
  *
- * The bar has two rows. Row 1 answers "who and where am I": the wordmark, the
- * current org and the account, all plain text. Row 2 answers "where can I go":
- * every page, as a bordered button. The person axis and the org axis are peers,
- * so row 2 draws both halves at once and dims neither. See ADR-0011.
+ * At the centre, the org select and ⋯ beside it. The select sets the board's
+ * scope: All, or one org. ⋯ names the page a person stands on and holds every
+ * page: one Board, whose scope the select sets, then Week, Plan and Focus, then
+ * the pages of the org the select names. While the select reads All, no org is
+ * named, so ⋯ holds no org page. At the far right, a person menu holds what is
+ * no org's. See ADR-0029.
  *
- * Nothing here is drawn by rule. A control that comes and goes teaches
- * nothing, which is the defect this header replaces.
+ * The address is the only current org. The select reads it, and a pick goes to
+ * the board of that scope at once.
  *
  * The page a person is on takes no link, and the header reads which page that
  * is from the location, so no route has to say.
  */
 
 import { useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 import type { OrgHeld } from "./current-org";
+import { Ellipsis, User } from "./icons";
 import { OrgDot } from "./org-chip";
-
-/** The pages of one org the header lists inline, in that order. */
-const INLINE = [
-  { to: "board", label: "Board" },
-  { to: "decisions", label: "Decisions" },
-  { to: "archive", label: "Archive" },
-] as const;
-
-/** The rare admin pages, behind the Manage menu. */
-const MANAGE = [
-  { to: "fields", label: "Fields" },
-  { to: "members", label: "Members" },
-  { to: "settings", label: "Settings" },
-] as const;
+import { boardOf } from "./org-select";
 
 /**
- * The pages of the person axis. Tasks is `/me` itself, so it matches exactly.
+ * The pages of the person axis after the board, which the select scopes.
  *
  * A label names the destination and never what the page holds, which is why
  * "Plan" and "Week" stand while those pages head with a day and a week. See
  * #146.
  */
 const PERSON = [
-  { to: "/me", label: "Tasks", exact: true },
-  { to: "/me/week", label: "Week", exact: false },
-  { to: "/me/plan", label: "Plan", exact: false },
-  { to: "/me/focus", label: "Focus", exact: false },
+  { to: "/me/week", label: "Week" },
+  { to: "/me/plan", label: "Plan" },
+  { to: "/me/focus", label: "Focus" },
 ] as const;
 
-/** The address of one page of one org. Every link in the org half is one. */
+/** The pages of one org after its board, in the order ⋯ lists them. */
+const ORG = [
+  { to: "decisions", label: "Decisions" },
+  { to: "archive", label: "Archive" },
+  { to: "fields", label: "Fields" },
+  { to: "members", label: "Members" },
+  { to: "settings", label: "Settings" },
+] as const;
+
+/** The pages of the person menu. They belong to no org and to no board. */
+const YOURS = [
+  { to: "/account", label: "Account" },
+  { to: "/orgs/new", label: "New org" },
+] as const;
+
+/** The address of one page of one org. Every org link in ⋯ is one. */
 function pageOf(slug: string, page: string): string {
   return `/o/${slug}/${page}`;
 }
 
 /**
- * The look of one button of row 2. The page a person stands on fills, which is
- * the pressed look the Today chip already carries: one idiom, not two.
+ * The look of the two menu buttons, as tall as the select beside them. The
+ * person menu fills softly while a person stands on one of its pages.
  */
 function buttonClass(here: boolean): string {
-  return `rounded border px-3 py-1 ${here ? "border-fg bg-fg text-bg" : "border-border"}`;
+  return `flex h-[38px] items-center rounded border px-3 leading-none ${here ? "border-dim bg-surface-2 font-medium text-fg" : "border-border"}`;
 }
 
 /**
- * One page of row 2, as a button. The current page takes no link, so the
- * header says where you are by what it does not offer, and colour repeats it.
+ * One row of a menu: a link, or the plain word where the person stands. The
+ * whole row is the target, not only its words.
  */
-function Page({ to, here, children }: { to: string; here: boolean; children: React.ReactNode }) {
-  if (here) {
-    return (
-      <span aria-current="page" className={buttonClass(true)}>
-        {children}
-      </span>
-    );
-  }
+function Item({ to, here, children }: { to: string; here: boolean; children: React.ReactNode }) {
+  const row = "flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5";
   return (
-    <Link to={to} className={buttonClass(false)}>
-      {children}
-    </Link>
+    <li>
+      {here ? (
+        <span aria-current="page" className={`${row} bg-surface-2 font-medium`}>
+          {children}
+        </span>
+      ) : (
+        <Link to={to} className={`${row} text-muted hover:bg-border hover:text-fg`}>
+          {children}
+        </Link>
+      )}
+    </li>
   );
 }
 
-/**
- * A plain link, or the plain word when the person already stands on the page.
- * Row 1 and the inside of a menu draw these; row 2 draws buttons.
- */
-function Here({ to, here, children }: { to: string; here: boolean; children: React.ReactNode }) {
-  if (here) {
-    return (
-      <span aria-current="page" className="font-medium">
-        {children}
-      </span>
-    );
-  }
+/** A rule between two groups of a menu. */
+function Rule() {
+  return <li aria-hidden="true" className="border-t border-border" />;
+}
+
+/** The heading of one org's group in ⋯: its dot and its name. */
+function Section({ org }: { org: OrgHeld }) {
   return (
-    <Link to={to} className="text-muted hover:underline">
-      {children}
-    </Link>
+    <li className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-xs uppercase tracking-wide text-muted">
+      <OrgDot color={org.color} />
+      <span className="truncate">{org.name}</span>
+    </li>
   );
 }
 
 /**
  * A menu that needs no script. `details` opens on click and on Enter, and a
- * browser with no script still opens it, which keeps every page of an org
- * reachable the way the switcher was.
- *
- * The `▾` stays whatever the summary looks like: a dropdown with no affordance
- * is a trap.
+ * browser with no script still opens it, which keeps every page reachable.
  *
  * Script only closes it. A click outside and Esc close the menu, which every
  * other menu does. With no script the menu still opens, and a second click on
@@ -112,18 +110,22 @@ function Here({ to, here, children }: { to: string; here: boolean; children: Rea
  */
 function Menu({
   label,
-  mark,
-  summaryClass = "",
+  icon,
+  name,
+  here = false,
+  align,
   children,
 }: {
-  label: React.ReactNode;
-  /**
-   * A mark drawn before the label, outside the truncating span, so a long org
-   * name clips and the dot stays. The org switcher draws its colour here.
-   */
-  mark?: React.ReactNode;
-  /** What the summary looks like. Row 1 draws plain text; row 2 a button. */
-  summaryClass?: string;
+  /** Words drawn before the glyph: ⋯ names the page you stand on here. */
+  label?: string;
+  /** The glyph on the button. */
+  icon: React.ReactNode;
+  /** What a screen reader reads for the glyph. */
+  name: string;
+  /** True while the person stands on a page only this menu holds. */
+  here?: boolean;
+  /** The edge of the summary the panel lines up with. */
+  align: "left" | "right";
   children: React.ReactNode;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
@@ -160,11 +162,11 @@ function Menu({
   return (
     <details ref={menu} className="relative">
       <summary
-        className={`flex cursor-pointer list-none items-center gap-1 whitespace-nowrap marker:content-none hover:underline ${summaryClass}`}
+        className={`cursor-pointer list-none gap-2 whitespace-nowrap marker:content-none ${buttonClass(here)}`}
       >
-        {mark}
-        <span className="max-w-48 truncate">{label}</span>
-        <span aria-hidden="true">▾</span>
+        {label ? <span className="max-w-48 truncate font-medium">{label}</span> : null}
+        {icon}
+        <span className="sr-only">{name}</span>
       </summary>
       {/* The panel grows to its widest item (`w-max`) and stops at `max-w-72`.
           A name longer than that clips; it does not wrap. */}
@@ -173,7 +175,7 @@ function Menu({
         onClick={() => {
           if (menu.current) menu.current.open = false;
         }}
-        className="absolute right-0 z-10 mt-1 flex w-max min-w-40 max-w-72 flex-col gap-1 whitespace-nowrap rounded border border-border bg-surface p-2 shadow-lg"
+        className={`absolute ${align === "left" ? "left-0" : "right-0"} z-10 mt-1 flex w-max min-w-40 max-w-72 flex-col overflow-hidden whitespace-nowrap rounded border border-border bg-surface shadow-lg`}
       >
         {children}
       </ul>
@@ -182,95 +184,152 @@ function Menu({
 }
 
 /**
+ * The org select: All, then every org the person belongs to. A pick goes to
+ * that scope's board at once. With no script it is a GET form to `/go`, which
+ * redirects, and the button inside `<noscript>` sends it.
+ *
+ * On the board the select is the page's heading. A heading holds no form, so
+ * the `h1` sits inside the form and around the control.
+ */
+function OrgSelect({
+  orgs,
+  org,
+  heading,
+}: {
+  orgs: OrgHeld[];
+  /** The org of the address, or null on a person page, where it reads All. */
+  org: OrgHeld | null;
+  heading: boolean;
+}) {
+  const navigate = useNavigate();
+
+  // The border is the label's, so it rings the dot and the select as one
+  // control. The select draws no border of its own, and an option cannot draw
+  // a dot, so the named org's dot sits before it.
+  const control = (
+    <label className="flex items-center rounded border border-border bg-bg focus-within:border-fg">
+      {org ? (
+        <span className="pl-2.5">
+          <OrgDot color={org.color} />
+        </span>
+      ) : null}
+      {/* The select holds its own value, so a pick shows at once. The key
+          draws it again from the address on every move, so a step back reads
+          the board it lands on. */}
+      <select
+        key={org?.slug ?? ""}
+        name="to"
+        aria-label="Board"
+        defaultValue={org?.slug ?? ""}
+        onChange={(event) => navigate(boardOf(event.target.value || null))}
+        className="h-9 rounded bg-transparent px-2 text-lg font-medium focus:outline-none"
+      >
+        <option value="">All</option>
+        {orgs.map((one) => (
+          <option key={one.slug} value={one.slug}>
+            {one.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  return (
+    <form method="get" action="/go" className="flex items-center gap-2">
+      {heading ? <h1 className="font-normal">{control}</h1> : control}
+      <noscript>
+        <button className={buttonClass(false)}>Go</button>
+      </noscript>
+    </form>
+  );
+}
+
+/**
  * The header, on every signed-in page.
  *
- * `orgs` is every org the person belongs to, first joined first, and `org` is the
- * current one. The menu lists orgs and nothing else; New org lives on the
- * account page. A person who belongs to no org gets no menu, because an empty
- * menu says nothing.
+ * `orgs` is every org the person belongs to, first joined first. `org` is the
+ * org the header names: the org of the address, or the one org of a person in
+ * one, and null on a person page of a person in several. A person in one org
+ * has nothing to pick, so the select is not drawn and the org's name stands in
+ * its place.
  */
 export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
   const { pathname } = useLocation();
-  // A task belongs to one org and never to two, so a task page stands in the
-  // org half like every other org page.
+  // A task belongs to one org and never to two, so a task page stands in that
+  // org like every other org page.
   const inOrg = pathname.startsWith("/o/");
-  /** True while the person stands on this page of the current org. */
-  const here = (page: string) => inOrg && org !== null && pathname === pageOf(org.slug, page);
+  // One Board, whose scope the select sets.
+  const board = boardOf(org?.slug ?? null);
+  const onBoard = pathname === "/me" || (org !== null && pathname === boardOf(org.slug));
+  const hereOrg = (page: string) => inOrg && org !== null && pathname === pageOf(org.slug, page);
+
+  // The page you stand on, named on ⋯. A task page names no page of the menu,
+  // and the person menu's pages are named there instead.
+  const page = onBoard
+    ? "Board"
+    : (PERSON.find((one) => pathname.startsWith(one.to))?.label ??
+      ORG.find((one) => hereOrg(one.to))?.label ??
+      (inOrg && pathname.includes("/t/") ? "Task" : undefined));
+
+  const name = org ? (
+    <span className="flex items-center gap-1.5 text-lg font-medium">
+      <OrgDot color={org.color} />
+      <span className="max-w-48 truncate">{org.name}</span>
+    </span>
+  ) : null;
 
   return (
-    <header className="flex flex-col gap-2 border-b border-border px-8 py-3">
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-        <Link to="/me" className="text-lg font-semibold tracking-tight">
-          Tusker
-        </Link>
+    // Three columns: an empty left, the select and ⋯ at the centre, the person
+    // menu at the right. The outer two share the rest equally, so the centre
+    // stays centred whatever either side holds.
+    <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 border-b border-border px-8 py-3">
+      <span aria-hidden="true" />
+      <div className="flex items-center gap-2">
+        {orgs.length > 1 ? (
+          <OrgSelect orgs={orgs} org={org} heading={onBoard} />
+        ) : onBoard && name ? (
+          <h1 className="font-normal">{name}</h1>
+        ) : (
+          name
+        )}
 
-        {/* The header takes the dot alone and no chip: a menu row is not a
-            chip, and row 1 already names one org and no other. */}
-        {orgs.length > 0 ? (
-          <Menu
-            label={org ? org.name : "Orgs"}
-            mark={org ? <OrgDot color={org.color} /> : null}
-          >
-            {orgs.map((one) => (
-              <li key={one.slug} className="flex min-w-0 items-center gap-2">
-                <Link
-                  to={pageOf(one.slug, "board")}
-                  className="flex min-w-0 items-center gap-1.5 hover:underline"
-                >
-                  <OrgDot color={one.color} />
-                  {/* The name truncates on its own, or the flex row would clip
-                      the dot before it clips the name. */}
-                  <span className="truncate">{one.name}</span>
-                </Link>
-              </li>
-            ))}
-          </Menu>
-        ) : null}
-
-        <span className="ml-auto">
-          <Here to="/account" here={pathname === "/account"}>
-            Account
-          </Here>
-        </span>
+        <Menu label={page} icon={<Ellipsis />} name="Pages" align="left">
+          <Item to={board} here={onBoard}>
+            Board
+          </Item>
+          {PERSON.map((one) => (
+            <Item key={one.to} to={one.to} here={pathname.startsWith(one.to)}>
+              {one.label}
+            </Item>
+          ))}
+          {org ? (
+            <>
+              <Rule />
+              <Section org={org} />
+              {ORG.map((one) => (
+                <Item key={one.to} to={pageOf(org.slug, one.to)} here={hereOrg(one.to)}>
+                  {one.label}
+                </Item>
+              ))}
+            </>
+          ) : null}
+        </Menu>
       </div>
 
-      {/* The two halves sit side by side, parted by whitespace alone: the bar
-          already carries a bottom border, and a rule between peers reads as a
-          split. */}
-      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
-        <nav aria-label="You" className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
-          {PERSON.map((page) => (
-            <Page
-              key={page.to}
-              to={page.to}
-              here={!inOrg && (page.exact ? pathname === page.to : pathname.startsWith(page.to))}
-            >
-              {page.label}
-            </Page>
+      {/* What is yours and no org's, at the far right. */}
+      <div className="justify-self-end">
+        <Menu
+          icon={<User />}
+          name="You"
+          here={YOURS.some((one) => pathname === one.to)}
+          align="right"
+        >
+          {YOURS.map((one) => (
+            <Item key={one.to} to={one.to} here={pathname === one.to}>
+              {one.label}
+            </Item>
           ))}
-        </nav>
-
-        {org ? (
-          <nav aria-label="Org" className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
-            {INLINE.map((page) => (
-              <Page key={page.to} to={pageOf(org.slug, page.to)} here={here(page.to)}>
-                {page.label}
-              </Page>
-            ))}
-            <Menu
-              label="Manage"
-              summaryClass={buttonClass(MANAGE.some((page) => here(page.to)))}
-            >
-              {MANAGE.map((page) => (
-                <li key={page.to}>
-                  <Here to={pageOf(org.slug, page.to)} here={here(page.to)}>
-                    {page.label}
-                  </Here>
-                </li>
-              ))}
-            </Menu>
-          </nav>
-        ) : null}
+        </Menu>
       </div>
     </header>
   );
