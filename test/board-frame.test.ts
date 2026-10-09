@@ -104,3 +104,23 @@ it("splits the board columns with a divider in the token colour", () => {
     ]);
   }
 });
+
+/** The class names of one board's keyed list, the card list that takes the focus. */
+function keyedList(name: string): string[] {
+  const found = /props=\{keyed\([^)]*\)\}\s*className="([^"]*)"/.exec(sourceOf(name));
+  if (!found) throw new Error(`No keyed list in ${name}`);
+  return found[1].split(/\s+/);
+}
+
+it("draws the keyed list's focus outline inside it, on both boards", () => {
+  // The row scrolls sideways, and a scroll box clips what is outside it. The
+  // first column has no left pad and the last no right pad, so an outline
+  // drawn outside the card list loses an edge. Inset, it keeps all four. An
+  // inset outline on an empty list has no box to draw on, so the list has a
+  // floor. See #193.
+  for (const board of BOARDS) {
+    for (const one of ["focus-visible:-outline-offset-2", "min-h-12"]) {
+      expect([board, one, keyedList(board).includes(one)]).toEqual([board, one, true]);
+    }
+  }
+});
