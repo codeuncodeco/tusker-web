@@ -1,8 +1,9 @@
 /**
  * The quick-add box: the control that makes a task from a typed title.
  *
- * One box, two placements. On a board it sits at the top of a column, and the
- * column names the status. On the cross-org pages it carries an org picker.
+ * One box, two placements. On a board it sits once above the columns, outside
+ * every one, and what it adds lands in To do. On the cross-org pages it carries
+ * an org picker.
  * The body here holds what both have — the title, the mark, the submit and the
  * error — and each page adds what only it has.
  *
@@ -18,12 +19,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { FetcherWithComponents } from "react-router";
 
+import { fieldClass } from "./forms";
 import { useSurface } from "./keyed-list";
 
 /**
  * `n` focuses one box, so a page keyed for the board still adds a task without
- * the pointer. A page with several boxes gives the key to one of them, because
- * one key names one box: on a board that is the To do column.
+ * the pointer. One key names one box, so a page binds it to one.
  *
  * The press is the keyed list's, not the window's: `n` on a window is live on
  * the whole page, and a speech-input user's next sentence lands in a task
@@ -87,6 +88,7 @@ export function QuickAddBox({
   fields,
   chip,
   picker,
+  bare = false,
 }: {
   /** The `Form` of the fetcher that posts the add. */
   form: FetcherForm;
@@ -106,6 +108,11 @@ export function QuickAddBox({
    * members who hold what it makes.
    */
   picker?: ReactNode;
+  /**
+   * True on a board, where the box sits above the columns. There it reads as a
+   * field and not as a card, so a person does not take it for a task.
+   */
+  bare?: boolean;
 }) {
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -119,12 +126,17 @@ export function QuickAddBox({
   }, [draft.title]);
 
   return (
-    // The box reads as one card and not as three stacked boxes, so the form
-    // carries the chrome a card carries. Focus shows on the card, in the
-    // border a selected card takes: the fill and the focus stay two signals.
+    // Off a board, the box reads as one card and not as three stacked boxes,
+    // so the form carries the chrome a card carries. Focus shows on the card,
+    // in the border a selected card takes: the fill and the focus stay two
+    // signals. On a board the form has no chrome, and the title is a field.
     <Form
       method="post"
-      className="flex flex-col gap-2 rounded border border-border bg-surface p-3 focus-within:border-fg"
+      className={
+        bare
+          ? "flex flex-col gap-2"
+          : "flex flex-col gap-2 rounded border border-border bg-surface p-3 focus-within:border-fg"
+      }
       onKeyDown={onKeyDown}
     >
       <input type="hidden" name="intent" value="create" />
@@ -151,13 +163,16 @@ export function QuickAddBox({
         }}
         placeholder={label}
         aria-label={label}
-        // No border and no rectangle of its own: the fill alone says where
-        // the words go, and it reads as a well inside the card.
-        className="resize-none overflow-y-auto max-h-40 rounded bg-surface-2 px-3 py-2"
+        // In a card, no border and no rectangle of its own: the fill alone
+        // says where the words go, and it reads as a well inside the card. With
+        // no card around it, it is a text field like every other.
+        className={`resize-none overflow-y-auto max-h-40 ${
+          bare ? `${fieldClass} focus:border-fg` : "rounded bg-surface-2 px-3 py-2"
+        }`}
       />
 
       {/* The picker and the decision box share one line, and wrap when the
-          card is too narrow to hold both. */}
+          box is too narrow to hold both. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         {picker}
 
