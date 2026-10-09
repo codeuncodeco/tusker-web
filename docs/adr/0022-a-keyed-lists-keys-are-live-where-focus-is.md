@@ -125,7 +125,9 @@ card in it: the arrows carry the cursor from card to card, and Tab walks the
 five lists whether they hold a card or not.
 
 The row controls stay in the tab order: taking them out would strand a person
-who does not know the letters, and there is no screen that teaches the keys yet.
+who does not know the letters. *Amended by #206:* the Key guide is now the
+screen that teaches the keys. `?` opens it, and it is bound on the keyed list
+like every other list key, so it is live only where the focus is.
 
 2.1.4 is met by focus scope alone. No key can be turned off and no key can be
 remapped, because focus scope needs no setting and no screen to hold one.

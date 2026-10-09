@@ -23,3 +23,7 @@ This repo uses a bare repo + worktrees setup (`.bare` + sibling folders per bran
   `git checkout -b`.
 - When given a task that is not scoped to an existing branch/worktree, create a new branch +
   worktree for it (based on `main`). Do not work in the current one.
+- Never run `git checkout`/`git switch` to change branches inside an existing worktree.
+  Each folder stays on the branch it is named after; `main/` always holds `main`.
+- Before starting work, check that the folder name matches `git branch --show-current`.
+  If it doesn't, stop and say so instead of carrying on.

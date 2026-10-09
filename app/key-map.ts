@@ -27,7 +27,8 @@ export type ActionName =
   | "finish"
   | "more"
   | "add"
-  | "clear";
+  | "clear"
+  | "guide";
 
 export type KeyRow = {
   /** The press, as `KeyboardEvent.key` gives it. */
@@ -75,4 +76,8 @@ export const KEY_MAP: Record<ActionName, KeyRow> = {
   // The one act with no control to carry it: a cleared cursor names nothing,
   // so there is no card for a button to sit on. See ADR-0015.
   clear: { key: "Escape", label: "Clear cursor" },
+  // Opens the Key guide, which names every other row the page gives. The
+  // person menu carries it too, because a key nobody names is a key nobody
+  // finds. See #206.
+  guide: { key: "?", label: "Keys" },
 };
