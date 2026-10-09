@@ -1,4 +1,4 @@
-import { createContext, type RouterContextProvider } from "react-router";
+import { createContext, redirect, type RouterContextProvider } from "react-router";
 
 import { bearerKey } from "./org-keys";
 import { orgForKey } from "./org-keys.server";
@@ -70,10 +70,25 @@ export type OrgSet = { orgs: Org[]; personId: string };
 
 /**
  * Every org the signed-in person belongs to, or a redirect to sign-in. A
- * person who belongs to nothing gets an empty set, not a 404: they have no
- * work, which is a thing the page can say.
+ * person who belongs to nothing is sent to the org directory, because they
+ * have no work to read and the directory is where they ask to join an org.
+ * See ADR-0027.
  */
 export async function requireOrgSet(request: Request, env: Env): Promise<OrgSet> {
+  const set = await readOrgSet(request, env);
+  if (set.orgs.length === 0) throw redirect(DIRECTORY);
+  return set;
+}
+
+/** The org directory, where a person who belongs to no org lands. */
+export const DIRECTORY = "/orgs";
+
+/**
+ * The same set, empty for a person who belongs to nothing. The person layout
+ * reads this, because the directory, the account page and the new-org form sit
+ * under it and are open to such a person.
+ */
+export async function readOrgSet(request: Request, env: Env): Promise<OrgSet> {
   const person = await requirePerson(request, env);
   return { orgs: await listOrgsForPerson(env.DB, person.id), personId: person.id };
 }

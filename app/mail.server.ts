@@ -18,10 +18,17 @@ export type InvitationMail = {
   signIn?: { url: string; days: number };
 };
 
+/**
+ * What the mail to an org's owners carries when a person asks to join it. The
+ * members page is where they answer. See ADR-0028.
+ */
+export type JoinRequestMail = { who: string; org: string; members: string };
+
 export type Mailer = {
   signIn(to: string, mail: SignInMail): Promise<void>;
   passwordReset(to: string, url: string): Promise<void>;
   invitation(to: string, mail: InvitationMail): Promise<void>;
+  joinRequest(to: string, mail: JoinRequestMail): Promise<void>;
 };
 
 /** A mail the log mailer kept. Local runs and tests read this. */
@@ -58,6 +65,10 @@ function resendMailer(env: Env): Mailer {
       const { subject, text } = invitationBody(mail);
       await resend.emails.send({ from, to, subject, text });
     },
+    async joinRequest(to, mail) {
+      const { subject, text } = joinRequestBody(mail);
+      await resend.emails.send({ from, to, subject, text });
+    },
   };
 }
 
@@ -71,6 +82,9 @@ function logMailer(): Mailer {
     },
     async invitation(to, mail) {
       keep({ to, ...invitationBody(mail) });
+    },
+    async joinRequest(to, mail) {
+      keep({ to, ...joinRequestBody(mail) });
     },
   };
 }
@@ -107,6 +121,18 @@ function invitationBody(mail: InvitationMail) {
   return { subject: `${mail.by} added you to ${mail.org} on Tusker`, text: lines.join("\n") };
 }
 
+function joinRequestBody(mail: JoinRequestMail) {
+  return {
+    subject: `${mail.who} asks to join ${mail.org} on Tusker`,
+    text: [
+      `${mail.who} asks to join ${mail.org} on Tusker.`,
+      "",
+      "Approve or decline on the members page:",
+      mail.members,
+    ].join("\n"),
+  };
+}
+
 /**
  * Merges the link and the code into one mail. better-auth sends the magic link
  * and the code through two callbacks, so the sign-in action collects both and
@@ -124,6 +150,7 @@ export function oneMail(mailer: Mailer): { mailer: Mailer; flush(): Promise<void
       },
       passwordReset: mailer.passwordReset,
       invitation: mailer.invitation,
+      joinRequest: mailer.joinRequest,
     },
     async flush() {
       if (to) await mailer.signIn(to, merged);

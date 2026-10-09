@@ -18,6 +18,7 @@ export async function wipe() {
     env.DB.prepare("DELETE FROM org_field_colors"),
     env.DB.prepare("DELETE FROM org_fields"),
     env.DB.prepare("DELETE FROM org_keys"),
+    env.DB.prepare("DELETE FROM join_requests"),
     env.DB.prepare("DELETE FROM memberships"),
     env.DB.prepare("DELETE FROM orgs"),
     env.DB.prepare("DELETE FROM session"),

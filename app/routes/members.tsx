@@ -4,7 +4,14 @@ import { nameOf } from "../assignees";
 import { createAuth } from "../auth.server";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
-import { inviteToOrg } from "../invites.server";
+import { inviteToOrg, type InviteDeps } from "../invites.server";
+import {
+  answerRequest,
+  answersRequests,
+  waitingOn,
+  type Answer,
+  type Waiting,
+} from "../join-requests.server";
 import { createMailer } from "../mail.server";
 import {
   heldUnfinishedTasks,
@@ -54,6 +61,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     members: await listMembers(env.DB, scope.org.id),
     // Which row is the reader's own, so the page says Leave rather than Remove.
     you: scope.personId,
+    // Every member sees the waiting join requests, so one who knows the
+    // person can tell an owner. Only an owner answers them. See ADR-0028.
+    requests: await waitingOn(env.DB, scope),
+    answers: await answersRequests(env.DB, scope),
   };
 }
 
@@ -67,16 +78,15 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (intent === "remove") return remove(env, scope, form);
   if (intent === "role") return changeRole(env, scope, form);
 
+  const deps = inviteDeps(env, request);
+  if (intent === "approve" || intent === "decline") return answerJoin(deps, scope, form, intent);
+
   const email = String(form.get("email") ?? "")
     .trim()
     .toLowerCase();
   if (!email) return { error: "Name the email of the person to invite." };
 
-  const mailer = createMailer(env);
-  const invited = await inviteToOrg(
-    { db: env.DB, auth: createAuth(env, request, mailer), mailer, origin: new URL(request.url).origin },
-    { org: scope.org, byId: scope.personId, email },
-  );
+  const invited = await inviteToOrg(deps, { org: scope.org, byId: scope.personId, email });
 
   if (invited === "already") return { error: `${email} is already a member.` };
   if (invited === "invited") {
@@ -116,6 +126,33 @@ async function remove(env: Env, scope: Scope, form: FormData) {
   return answer(done, scope, `${nameOf(member)} is out of ${scope.org.name}.`);
 }
 
+/** Everything an invitation and an approval read and write, for this request. */
+function inviteDeps(env: Env, request: Request): InviteDeps {
+  const mailer = createMailer(env);
+  return {
+    db: env.DB,
+    auth: createAuth(env, request, mailer),
+    mailer,
+    origin: new URL(request.url).origin,
+  };
+}
+
+/**
+ * An owner's answer to one join request. A plain member reads a refusal, and
+ * the write refuses them as well, because only an owner answers. See ADR-0028.
+ */
+async function answerJoin(deps: InviteDeps, scope: Scope, form: FormData, answer: Answer) {
+  const done = await answerRequest(deps, scope, String(form.get("person") ?? ""), answer);
+  const org = scope.org.name;
+
+  if (done.outcome === "not-owner") return { error: `Only an owner of ${org} answers a join request.` };
+  if (done.outcome === "no-request") return { error: `${org} holds no waiting request from that person.` };
+  if (done.outcome === "approved") {
+    return { ok: `${done.name} is a member of ${org} now. Tusker mailed them a link to sign in.` };
+  }
+  return { ok: `${done.name}'s request to join ${org} is declined.` };
+}
+
 /** Gives one member the other role, unless that would leave the org ownerless. */
 async function changeRole(env: Env, scope: Scope, form: FormData) {
   const wanted = String(form.get("role") ?? "");
@@ -130,7 +167,7 @@ async function changeRole(env: Env, scope: Scope, form: FormData) {
 }
 
 export default function Members({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, members, you } = loaderData;
+  const { org, members, you, requests, answers } = loaderData;
   const confirm = actionData && "confirm" in actionData ? actionData.confirm : null;
   // One count for the whole list, because the answer is the org's and not the
   // row's: it decides which single row draws no control.
@@ -155,6 +192,8 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
           </li>
         ))}
       </ul>
+
+      <JoinRequests requests={requests} answers={answers} />
 
       {confirm ? <ConfirmRemoval confirm={confirm} org={org} /> : null}
 
@@ -206,6 +245,41 @@ function MemberControls({
         <button className="text-danger underline">{member.id === you ? "Leave" : "Remove"}</button>
       </Form>
     </span>
+  );
+}
+
+/**
+ * The join requests waiting on the org. Every member reads them, so one who
+ * knows the person can tell an owner or invite them. Only an owner gets
+ * Approve and Decline. See ADR-0028.
+ */
+function JoinRequests({ requests, answers }: { requests: Waiting[]; answers: boolean }) {
+  if (requests.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="uppercase tracking-wide text-muted">Asking to join</h2>
+      <ul className="flex flex-col gap-2">
+        {requests.map((asker) => (
+          <li key={asker.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span>{nameOf(asker)}</span>
+            <span className="text-muted">{asker.email}</span>
+            {answers ? (
+              <Form method="post" className="flex items-baseline gap-3">
+                <input type="hidden" name="person" value={asker.id} />
+                <button name="intent" value="approve" className="underline">
+                  Approve
+                </button>
+                <button name="intent" value="decline" className="text-danger underline">
+                  Decline
+                </button>
+              </Form>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {answers ? null : <p className="text-muted">An owner answers these.</p>}
+    </section>
   );
 }
 

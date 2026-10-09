@@ -1,10 +1,8 @@
 import { env } from "cloudflare:workers";
-import { renderToStaticMarkup } from "react-dom/server";
-import { createRoutesStub } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { isFinished, type Status } from "../app/board";
-import Me, * as meRoute from "../app/routes/me";
+import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
 import { member, signedIn } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
@@ -96,35 +94,14 @@ describe("who can read the unified board", () => {
 });
 
 describe("a person who belongs to no org", () => {
-  it("reads no board, and is told to ask the instance owner to be added", async () => {
-    // Ada's is the first account, the one the bootstrap page made.
+  it("reads no board, and is sent to the org directory", async () => {
     await member("ada@example.test", "Ada");
     const bo = await signedIn("bo@example.test", "Bo");
 
-    const data = await meRoute.loader(routeArgs(get("/me", `${bo.cookie}; day=${DAY}`)));
+    const response = await caught(meRoute.loader(routeArgs(get("/me", `${bo.cookie}; day=${DAY}`))));
 
-    expect(data.orgs).toEqual([]);
-    expect(data.owner).toEqual({ name: "Ada", email: "ada@example.test" });
-  });
-
-  it("names no owner to a person who belongs to an org", async () => {
-    const ada = await member("ada@example.test", "Ada");
-
-    const data = await meRoute.loader(routeArgs(get("/me", `${ada.cookie}; day=${DAY}`)));
-
-    expect(data.owner).toBeNull();
-  });
-
-  it("draws a page that names the owner", () => {
-    const props = {
-      loaderData: { orgs: [], owner: { name: "Ada", email: "ada@example.test" } },
-    } as unknown as React.ComponentProps<typeof Me>;
-    const Stub = createRoutesStub([{ path: "/me", Component: () => <Me {...props} /> }]);
-    const html = renderToStaticMarkup(<Stub initialEntries={["/me"]} />);
-
-    expect(html).toContain("You belong to no org yet");
-    expect(html).toContain("Ada");
-    expect(html).toContain("ada@example.test");
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("/orgs");
   });
 });
 
