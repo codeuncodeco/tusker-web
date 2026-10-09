@@ -159,6 +159,14 @@ where the pointer is fine, because a phone has no keyboard, and it rides beside
 sentence under a list that teaches the same key is a repeat, and goes.
 _Avoid_: Shortcut badge, keycap, tooltip
 
+**Key guide**:
+The dialog that names every list key the page a person stands on gives. `?`
+opens it from inside a keyed list, and "Keys ?" in the person menu opens it
+from anywhere on that page. A page that gives no list keys has no key guide,
+and a phone draws none, because it has no keyboard. It is the one place a
+person learns the keys that no control carries a hint for.
+_Avoid_: Key list, cheat sheet, shortcuts, help
+
 **Editor keys**:
 What a description textarea does with a press, in `app/editor.ts`. Enter inside
 a list item continues the list at the same indent and keeps the checkbox
@@ -438,8 +446,8 @@ which can sit a little away from the drop. See ADR-0015 and ADR-0025.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
-The box that makes a task from a typed title. A board has one, above the row of
-columns and outside every column, and what it adds lands in To do. A task meant
+The box that makes a task from a typed title. A board has one, at the left of
+the **Top row** and outside every column, and what it adds lands in To do. A task meant
 for another column is added and then moved. On the unified board and in plan
 mode it carries an org picker, which starts with no org picked every time a
 person opens Tusker, and the box refuses an add until one is picked. A person
@@ -626,6 +634,14 @@ destination and never what the page holds, so "Week" and "Plan" stand while
 those pages head with the week and the day they draw. The address is the only
 place the header reads an org from. See ADR-0011 and ADR-0029.
 _Avoid_: Chrome, nav bar, top bar
+
+**Top row**:
+The row of a board under the header: the quick-add box at the left, and the
+search, the filters, the chips and the column switches at the right. A border
+splits it from the columns. On a wide screen it stays in sight with the header
+while the page scrolls, and the columns do not scroll on their own. On a phone
+it scrolls away with the page.
+_Avoid_: Top bar, toolbar, board controls
 
 **Assignee filter**:
 The select on the org board that narrows it to the tasks one member holds:
