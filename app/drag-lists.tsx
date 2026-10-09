@@ -20,12 +20,14 @@
 import {
   closestCorners,
   DndContext,
+  pointerWithin,
   DragOverlay,
   MouseSensor,
   TouchSensor,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -44,6 +46,33 @@ import {
 
 import { crossOver, listOf, settle, type Lists } from "./drag";
 import { useSent } from "./pending";
+
+/**
+ * What a dragged card is over: the closest card of the list the pointer is in,
+ * or that list itself where it is empty or the card is past its cards.
+ *
+ * A list is as long as its cards and no shorter than its column, so the
+ * corners of a long one are far from the pointer, and the closest corners of
+ * all would pick a card of the next column level with it. So the pointer picks
+ * the list first. Where it is in no list, the closest of all decides, as it did
+ * before. See #191.
+ */
+export function whereOver(lists: Lists): CollisionDetection {
+  return (args) => {
+    const names = new Set(Object.keys(lists));
+    const list = pointerWithin({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((one) => names.has(String(one.id))),
+    })[0];
+    if (!list) return closestCorners(args);
+    const name = String(list.id);
+    const inList = new Set([name, ...lists[name]]);
+    return closestCorners({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((one) => inList.has(String(one.id))),
+    });
+  };
+}
 
 /** One drop: the card, the list it landed in, and that list's new order. */
 export type Drop = { id: string; list: string; order: string[] };
@@ -137,7 +166,7 @@ export function DragLists({
     <DndContext
       id={id}
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={whereOver(shown)}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
