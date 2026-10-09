@@ -73,13 +73,10 @@ describe("the grip", () => {
     expect(grips(orgBoard())).toBe(2);
   });
 
-  it("is drawn on a unified board card, before the rank", () => {
-    const html = markup(
-      <UnifiedCard task={live("a")} rank={3} selected={false} domId="c1" place={() => {}} showsOrg />,
-    );
+  it("is drawn on a unified board card", () => {
+    const html = markup(<UnifiedCard task={live("a")} selected={false} domId="c1" place={() => {}} showsOrg />);
 
     expect(grips(html)).toBe(1);
-    expect(html.search(GRIP)).toBeLessThan(html.indexOf(">3<"));
   });
 
   it("is drawn on a row of the plan, and on no row that does not drag", () => {
@@ -114,6 +111,26 @@ describe("the org board card", () => {
   });
 });
 
+/**
+ * A grip with the title link straight after it. The grip leads the title line,
+ * and nothing sits between them: a card shows no rank. See #192.
+ */
+const GRIP_THEN_TITLE = new RegExp(`${GRIP.source}<a `, "g");
+
+describe("a board card", () => {
+  it("shows no rank on the org board, so the grip leads straight into the title", () => {
+    const html = orgBoard();
+
+    expect(html.match(GRIP_THEN_TITLE)?.length).toBe(2);
+  });
+
+  it("shows no rank on the unified board, so the grip leads straight into the title", () => {
+    const html = markup(<UnifiedCard task={live("a")} selected={false} domId="c1" place={() => {}} showsOrg />);
+
+    expect(html.match(GRIP_THEN_TITLE)?.length).toBe(1);
+  });
+});
+
 /** The elements directly inside the first `<li>` of the markup: a card's lines. */
 function lines(html: string): string[] {
   const VOID = new Set(["input", "br", "img", "hr"]);
@@ -138,7 +155,7 @@ function lines(html: string): string[] {
 
 describe("the unified card's lines", () => {
   function card(task: LiveTask): string {
-    return markup(<UnifiedCard task={task} rank={1} selected={false} domId="c1" place={() => {}} showsOrg />);
+    return markup(<UnifiedCard task={task} selected={false} domId="c1" place={() => {}} showsOrg />);
   }
 
   it("are the title line and the org chip's line when the task has no fields and no due date", () => {

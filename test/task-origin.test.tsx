@@ -186,7 +186,7 @@ describe("the link a list draws into a task", () => {
   it("records the unified board, with the query that narrowed it", () => {
     const html = markup(
       <ul>
-        <UnifiedCard task={live("a")} rank={1} selected={false} domId="card-a" place={() => {}} showsOrg />
+        <UnifiedCard task={live("a")} selected={false} domId="card-a" place={() => {}} showsOrg />
       </ul>,
       "/me?backlog=1",
     );

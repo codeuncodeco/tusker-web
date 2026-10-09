@@ -37,5 +37,8 @@ then by the due date. Nothing overrides that any more.
 `task_ranks` is not built. The word **rank** stays, and names the number a card
 shows in its column, which is a place in the order and not a stored field.
 
+*Amended by #192.* A card no longer shows that number, on the org board or the
+unified board, so the glossary drops **rank** as a term.
+
 The reasoning that keeps the feature out is in
 [`.out-of-scope/order-is-personal.md`](../../.out-of-scope/order-is-personal.md).

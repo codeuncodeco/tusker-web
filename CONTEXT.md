@@ -306,22 +306,17 @@ The sequence of tasks in a column. A column has one order, the org's, and any
 member can change it. Tusker has no priority levels. The sequence is the
 priority. One person's own order is the plan, not a second order of the org
 board. See ADR-0006.
-_Avoid_: Priority
+_Avoid_: Priority, personal priority, personal rank
 
 **Position**:
 The org's shared number for a task, a fraction so that a drop between two cards
 takes the midpoint. Any member can change it.
 
-**Rank**:
-The number a card shows in its column, counting from one. It is the place the
-order puts the card, read at draw time, and no row stores it.
-_Avoid_: Personal priority, personal rank
-
 **Percentile order**:
 The rule that sorts a cross-org column. A task takes its fractional place inside
-its own org column, and the due date breaks a tie. It is what makes the unified
-rank drift between loads: the place is an index over a column length that
-changes.
+its own org column, and the due date breaks a tie. It is what makes a card's
+place in a unified column drift between loads: the place is an index over a
+column length that changes.
 
 ### Fields
 
@@ -477,7 +472,7 @@ The tasks one person means to finish in one named week, in the order they mean
 to take them. It holds no day: the week set says what and how it ranks, and the
 plan says when. A pick lands on top, a task written back from a day lands at the
 foot, and a member finished this week sinks under the live ones and keeps its
-rank. It belongs to the person and can hold tasks from several orgs. Membership
+place. It belongs to the person and can hold tasks from several orgs. Membership
 is always per named week, so a task is in the set of week 36 and not "in the
 week set". See ADR-0014 and ADR-0021.
 _Avoid_: Week plan, weekly backlog, commitment

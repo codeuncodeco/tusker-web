@@ -191,11 +191,10 @@ export function UnifiedBoard({
                   >
                     {/* The box files into To do, so an add in flight draws there. */}
                     {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
-                    {cards.map((task, at) => (
+                    {cards.map((task) => (
                       <UnifiedCard
                         key={task.id}
                         task={task}
-                        rank={at + 1}
                         selected={cursor === task.id}
                         domId={`card-${task.id}`}
                         place={() => setOn(task.id)}
