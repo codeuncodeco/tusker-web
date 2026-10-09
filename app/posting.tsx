@@ -19,9 +19,9 @@ export function isPosting(
   navigation: Pick<Navigation, "state" | "formMethod" | "formData">,
   intent: string | null,
 ): boolean {
-  if (navigation.state === "idle" || !navigation.formData) return false;
-  if (navigation.formMethod?.toUpperCase() !== "POST") return false;
-  return (navigation.formData.get("intent") ?? null) === intent;
+  // An idle navigation, or a plain page load, holds no form data.
+  if (!navigation.formData || navigation.formMethod?.toUpperCase() !== "POST") return false;
+  return navigation.formData.get("intent") === intent;
 }
 
 /** A submit button of the task page, with the label it reads while it posts. */
