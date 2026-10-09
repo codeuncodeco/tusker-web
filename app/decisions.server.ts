@@ -14,7 +14,7 @@
 import { redirect } from "react-router";
 
 import type { Status } from "./board";
-import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
+import { ASK, ORG, pageOf, withPrompt, withoutPrompt } from "./decisions";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
 
@@ -57,7 +57,7 @@ export async function promptFor(
   if (!task) return null;
 
   const url = new URL(request.url);
-  return redirect(withPrompt(url.pathname, url.search, { id: task.id, slug: scope.org.slug }));
+  return redirect(withPrompt(pageOf(url.pathname), url.search, { id: task.id, slug: scope.org.slug }));
 }
 
 /**
@@ -75,8 +75,10 @@ export async function moveAndAsk(
   request: Request,
   taskId: string,
   status: Status,
+  /** The card of the same org the task lands above. Nothing names the bottom. */
+  before: string | null = null,
 ): Promise<{ moved: boolean; prompt: Response | null }> {
-  const moved = await moveTask(db, scope, { taskId, status, before: null });
+  const moved = await moveTask(db, scope, { taskId, status, before });
   return {
     moved: moved.moved,
     prompt: moved.finished ? await promptFor(db, scope, request, taskId) : null,
@@ -166,7 +168,7 @@ export async function decide(
   await write(db, scope, task.id, title, rationale(form));
 
   const url = new URL(request.url);
-  return redirect(withoutPrompt(url.pathname, url.search));
+  return redirect(withoutPrompt(pageOf(url.pathname), url.search));
 }
 
 /**
@@ -194,7 +196,7 @@ export async function recordDecision(
   // Post, then redirect to this page again: the new line reads at the top, the
   // box is empty, and a reload does not write the decision twice.
   const url = new URL(request.url);
-  return redirect(`${url.pathname}${url.search}`);
+  return redirect(`${pageOf(url.pathname)}${url.search}`);
 }
 
 /** What a refused box answers with: why, and what to put back in the fields. */

@@ -297,6 +297,32 @@ describe("picking and ordering a day", () => {
     expect(ids(await planPage(ada.cookie), "today")).toEqual(["b", "c", "a"]);
   });
 
+  // A drag drops a row above another, or at the foot. See ADR-0025.
+  it("places a dragged task above the row it was dropped on, and a reload keeps it", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    for (const [at, id] of ["a", "b", "c"].entries()) {
+      await task(ada.org.id, id, { position: at + 1 });
+      await act(ada.cookie, { intent: "plan", id, slug: ada.org.slug });
+    }
+
+    await act(ada.cookie, { intent: "place", id: "c", before: "b" });
+
+    expect(await stored(ada.person.id)).toEqual(["a", "c", "b"]);
+    expect(ids(await planPage(ada.cookie), "today")).toEqual(["a", "c", "b"]);
+  });
+
+  it("places a dragged task at the foot when the drop names no row", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    for (const [at, id] of ["a", "b", "c"].entries()) {
+      await task(ada.org.id, id, { position: at + 1 });
+      await act(ada.cookie, { intent: "plan", id, slug: ada.org.slug });
+    }
+
+    await act(ada.cookie, { intent: "place", id: "a", before: "" });
+
+    expect(await stored(ada.person.id)).toEqual(["b", "c", "a"]);
+  });
+
   it("takes a picked task back out", async () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, "a");
@@ -624,11 +650,11 @@ describe("a day past its own", () => {
     expect(await stored(ada.person.id, "2026-09-02")).toEqual(["a"]);
   });
 
-  it("refuses a step, a promote and a sink, and leaves the order as the day left it", async () => {
+  it("refuses a step, a promote, a sink and a drag, and leaves the order as the day left it", async () => {
     const ada = await planned();
 
-    for (const intent of ["up", "top", "bottom"]) {
-      const response = await caught(actOn(ada.cookie, PAST, { intent, id: "b" }));
+    for (const intent of ["up", "top", "bottom", "place"]) {
+      const response = await caught(actOn(ada.cookie, PAST, { intent, id: "b", before: "a" }));
       expect(response.status).toBe(400);
     }
 

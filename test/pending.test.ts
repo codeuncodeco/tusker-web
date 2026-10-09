@@ -99,14 +99,14 @@ describe("the org board, while a post is in flight", () => {
 });
 
 /** A live task of the personal org, named by its id. */
-function task(id: string, status: LiveTask["status"] = "todo"): LiveTask {
+function task(id: string, status: LiveTask["status"] = "todo", percentile = 0): LiveTask {
   return {
     id,
     org: { slug: "me", name: "Me", color: null },
     title: id,
     status,
     due_date: null,
-    percentile: 0,
+    percentile,
     created_at: "2026-10-01T00:00:00.000Z",
     fields: [],
     assignees: [],
@@ -179,6 +179,35 @@ describe("the cross-org lists, while a post is in flight", () => {
     const burst = [1, 2].map(() => sent({ intent: "down", id: "a" }));
 
     expect(tasksSent(tasks, ["a", "b", "c"], burst).picked).toEqual(["b", "c", "a"]);
+  });
+
+  // A drag names the card of the same org it lands above. The server places
+  // it there inside the org, so the guess draws it just above that card.
+  // See ADR-0025.
+  it("draws a dragged task just above the card the drop named", () => {
+    const spread = [task("a", "todo", 0.2), task("b", "todo", 0.5), task("c", "todo", 0.8)];
+    const after = tasksSent(spread, [], [
+      sent({ intent: "move", id: "c", slug: "me", status: "todo", before: "b" }),
+    ]);
+    const moved = after.tasks.find((one) => one.id === "c")!;
+
+    expect(moved.percentile).toBeGreaterThan(0.2);
+    expect(moved.percentile).toBeLessThan(0.5);
+  });
+
+  it("places a dragged row of the plan above the row the drop named, or at the foot", () => {
+    const order = ["a", "b", "c"];
+
+    expect(tasksSent(tasks, order, [sent({ intent: "place", id: "c", before: "a" })]).picked).toEqual([
+      "c",
+      "a",
+      "b",
+    ]);
+    expect(tasksSent(tasks, order, [sent({ intent: "place", id: "a", before: "" })]).picked).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
   });
 
   it("leaves the server's lists alone when nothing is in flight", () => {

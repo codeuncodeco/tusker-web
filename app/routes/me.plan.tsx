@@ -43,7 +43,7 @@ import { askedAcross } from "../decisions.server";
 import { addsSent, postAndReport, tasksSent, useSent } from "../pending";
 import { planPicks } from "../picks.server";
 import { isStep } from "../plan";
-import { movePlan, readPlan } from "../plans.server";
+import { movePlan, placePlan, readPlan } from "../plans.server";
 import { requireOrgSet } from "../scope.server";
 import { pickedOnly, planGroups } from "../unified";
 import { UnifiedAdd } from "../unified-add";
@@ -170,6 +170,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  // A drag names the row it lands above, or none for the foot, because a drop
+  // says where and not how far. See ADR-0025.
+  if (intent === "place") {
+    const before = String(form.get("before") ?? "") || null;
+    await placePlan(env.DB, set.personId, day, String(form.get("id") ?? ""), before);
+    return { ok: true };
+  }
+
   // An add here is a pick as well, so the task goes to the end of the day.
   const picks = planPicks(env.DB, set.personId, day, true);
   const acted = await actOnTask(env, request, set, picks, form);
@@ -243,6 +251,9 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
         // A day past its own steps nothing: the order it was worked in stands.
         ordered={canPlan ? "today" : null}
         picks={canPlan}
+        // A drag places a row of the plan, and a day read back takes none.
+        // See ADR-0025.
+        drags={canPlan}
         label={(group) => (group.key === "today" ? "Plan" : group.label)}
       />
 

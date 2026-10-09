@@ -9,7 +9,7 @@
  */
 
 import type { Picks } from "./picks";
-import { moveInPlan, type Step } from "./plan";
+import { moveInPlan, placeInPlan, type Step } from "./plan";
 
 /**
  * The ordered task ids one person planned for one day, or null when they
@@ -93,6 +93,24 @@ export async function movePlan(
   const moved = moveInPlan(plan, taskId, step);
   if (moved === plan) return;
   await writePlan(db, personId, day, moved);
+}
+
+/**
+ * Drops one task of a day's plan above another, or at the foot. A drag posts
+ * this, and the keys post `movePlan`. See ADR-0025.
+ */
+export async function placePlan(
+  db: D1Database,
+  personId: string,
+  day: string,
+  taskId: string,
+  before: string | null,
+): Promise<void> {
+  const plan = await readPlan(db, personId, day);
+  if (!plan) return;
+  const placed = placeInPlan(plan, taskId, before);
+  if (placed === plan) return;
+  await writePlan(db, personId, day, placed);
 }
 
 /**

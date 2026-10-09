@@ -2,7 +2,8 @@
  * The org board: one org's five columns, at `/o/:slug/board`.
  *
  * The order inside a column is the org's and it is stored, so this is the one
- * board where a card is dragged into a place and where `J` and `K` step it.
+ * board where `J` and `K` step a card. A drag draws where the card will land,
+ * and the drop writes that place. See ADR-0025.
  * The keys are in `app/board-keys.ts`, and they are the letters the cross-org
  * lists bind, so a person who learns the board on `/me` finds it here.
  * See ADR-0016.
@@ -26,6 +27,8 @@ import {
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { AssigneeFilter, ColumnSwitch, SearchBox, TodayChip, WeekChip } from "../board-chrome";
 import { ColumnSweep } from "../column-sweep";
+import { landing } from "../drag";
+import { DragCopy, DragLists, DropList, useDragItem, type Drop } from "../drag-lists";
 import { useBoardKeys } from "../board-keys";
 import { ANYONE, keeps, readAssignee } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
@@ -318,13 +321,15 @@ type Move = (id: string, status: Status, before?: string | null) => void;
  * own, so it needs no script. Tusker is keyboard first, so the drag is the
  * second way, not the only one: `>` and `<` move the card to another column,
  * and `J` and `K` post what the arrows post. See ADR-0016.
+ *
+ * The rank and the arrows read the order the drag holds, so a card dragged in
+ * from another column counts its new place.
  */
 function CardItem({
   cards,
   index,
   status,
   slug,
-  move,
   selected,
   domId,
   place,
@@ -333,7 +338,6 @@ function CardItem({
   index: number;
   status: Status;
   slug: string;
-  move: Move;
   selected: boolean;
   domId: string;
   /**
@@ -345,6 +349,7 @@ function CardItem({
 }) {
   const card = cards[index];
   const origin = useOrigin();
+  const drag = useDragItem(card.id);
   const step = useFetcher();
   // Its own form, because a form posts one intent and a step is not an
   // archive.
@@ -355,23 +360,23 @@ function CardItem({
       id={domId}
       aria-current={selected ? "true" : undefined}
       onClick={place}
-      draggable
-      onDragStart={(event) => event.dataTransfer.setData("text/plain", card.id)}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => {
-        // The dragged card takes this one's place, so this one slides down.
-        event.stopPropagation();
-        event.preventDefault();
-        const dragged = event.dataTransfer.getData("text/plain");
-        if (dragged && dragged !== card.id) move(dragged, status, card.id);
-      }}
+      ref={drag.ref}
+      style={drag.style}
+      {...drag.listeners}
+      // The card being dragged stays faded where it will land, and the copy
+      // under the pointer is the one that moves.
       className={`flex cursor-grab flex-col gap-2 rounded border p-3 shadow-sm ${
         selected ? "border-fg bg-surface-2" : "border-border bg-surface"
-      }`}
+      } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
         <span className="tabular-nums text-dim">{index + 1}</span>
-        <Link to={taskPath(slug, card.id, origin)} className="flex-1 underline-offset-2 hover:underline">
+        <Link
+          to={taskPath(slug, card.id, origin)}
+          // A link drags itself, natively, and that would end the card's drag.
+          draggable={false}
+          className="flex-1 underline-offset-2 hover:underline"
+        >
           {card.title}
         </Link>
         <Initials assignees={card.assignees} />
@@ -485,12 +490,18 @@ export default function Board({ loaderData }: Route.ComponentProps) {
     post({ intent: way, id });
   };
 
-  /** A drop on the column itself, past the last card, lands at the bottom. */
-  function onDrop(status: Status, event: React.DragEvent) {
-    event.preventDefault();
-    const id = event.dataTransfer.getData("text/plain");
-    if (id) move(id, status, null);
+  /**
+   * A drop lands where the drag drew it: above the card just below it, or at
+   * the bottom of the column. This order is stored, so the place holds.
+   * See ADR-0025.
+   */
+  function onDrop({ id, list, order }: Drop) {
+    move(id, list as Status, landing(order, id));
   }
+
+  // Every card the board draws, by id, so a column the drag reorders can draw
+  // its cards in the order it holds.
+  const cards = new Map(rows.map((one) => [one.id, one]));
 
   // The keys post what the card's own controls post. The board hands them the
   // ids it draws, in board order, because a key that steps the order needs the
@@ -529,63 +540,76 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           never a press the page reads. See ADR-0022. */}
       <QuickAdd members={members} />
 
-      {/* The row holds still, and each column scrolls inside itself. */}
-      <div ref={board} className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0">
-        {columns.map((column) => (
-          <section
-            key={column.status}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => onDrop(column.status, event)}
-            // Every column takes an equal share of the width, down to the
-            // width it always had. Past that the row scrolls sideways.
-            className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
-          >
-            <div className="flex items-baseline gap-3">
-              <h2 className="font-mono uppercase tracking-wide text-muted">
-                {column.label} <span className="text-dim">{column.tasks.length}</span>
-              </h2>
-              {/* The sweep acts on the whole column, so it is column chrome.
-                  It sits with the name and the count, the way the extension
-                  drew it, so the act on the column is where the column says
-                  what it holds. The head is pinned, so the sweep stays in
-                  sight while the cards scroll. */}
-              {isFinished(column.status) ? (
-                <ColumnSweep
-                  label={column.label}
-                  cards={column.tasks.map((card) => ({ id: card.id, slug: org.slug }))}
-                  undoAt={`/o/${org.slug}/board`}
-                />
-              ) : null}
-            </div>
+      <DragLists
+        lists={Object.fromEntries(
+          columns.map((column) => [column.status, column.tasks.map((one) => one.id)]),
+        )}
+        onDrop={onDrop}
+        overlay={(id) => <DragCopy title={cards.get(id)?.title ?? ""} />}
+      >
+        {(shown) => (
+          // The row holds still, and each column scrolls inside itself.
+          <div ref={board} className="flex flex-1 gap-4 overflow-x-auto sm:min-h-0">
+            {columns.map((column) => {
+              const drawn = shown[column.status].flatMap((id) => cards.get(id) ?? []);
+              return (
+                <section
+                  key={column.status}
+                  // Every column takes an equal share of the width, down to the
+                  // width it always had. Past that the row scrolls sideways.
+                  className="flex min-w-72 flex-1 flex-col gap-3 rounded-lg border border-border p-3"
+                >
+                  <div className="flex items-baseline gap-3">
+                    <h2 className="font-mono uppercase tracking-wide text-muted">
+                      {column.label} <span className="text-dim">{column.tasks.length}</span>
+                    </h2>
+                    {/* The sweep acts on the whole column, so it is column chrome.
+                        It sits with the name and the count, the way the extension
+                        drew it, so the act on the column is where the column says
+                        what it holds. The head is pinned, so the sweep stays in
+                        sight while the cards scroll. */}
+                    {isFinished(column.status) ? (
+                      <ColumnSweep
+                        label={column.label}
+                        cards={column.tasks.map((card) => ({ id: card.id, slug: org.slug }))}
+                        undoAt={`/o/${org.slug}/board`}
+                      />
+                    ) : null}
+                  </div>
 
-            {/* The heading and the sweep stay pinned, and only this scrolls.
-                The gutter is reserved, so a full column is as wide as an empty
-                one, which is the point of the equal split.
+                  {/* The heading and the sweep stay pinned, and only this
+                      scrolls. The gutter is reserved, so a full column is as
+                      wide as an empty one, which is the point of the equal
+                      split.
 
-                This is the keyed list: the cards and nothing else. */}
-            <ul
-              {...keyed(`${column.label} tasks`)}
-              className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
-            >
-              {/* The box files into To do, so an add in flight draws there. */}
-              {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
-              {column.tasks.map((card, index) => (
-                <CardItem
-                  key={card.id}
-                  cards={column.tasks}
-                  index={index}
-                  status={column.status}
-                  slug={org.slug}
-                  move={move}
-                  selected={cursor === card.id}
-                  domId={`card-${card.id}`}
-                  place={() => setOn(card.id)}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
+                      This is the keyed list: the cards and nothing else. */}
+                  <DropList
+                    id={column.status}
+                    ids={drawn.map((one) => one.id)}
+                    props={keyed(`${column.label} tasks`)}
+                    className="flex flex-col gap-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+                  >
+                    {/* The box files into To do, so an add in flight draws there. */}
+                    {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
+                    {drawn.map((card, index) => (
+                      <CardItem
+                        key={card.id}
+                        cards={drawn}
+                        index={index}
+                        status={column.status}
+                        slug={org.slug}
+                        selected={cursor === card.id}
+                        domId={`card-${card.id}`}
+                        place={() => setOn(card.id)}
+                      />
+                    ))}
+                  </DropList>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </DragLists>
 
       <DecisionPrompt ask={ask} />
     </main>

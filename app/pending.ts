@@ -21,7 +21,7 @@ import { isRouteErrorResponse, useFetchers, useLocation, useSubmit } from "react
 
 import type { Status } from "./board";
 import { isFinished } from "./board";
-import { isStep, moveInPlan } from "./plan";
+import { isStep, moveInPlan, placeInPlan } from "./plan";
 import { titlesIn } from "./titles";
 import { raiseOutside } from "./toast";
 import type { LiveTask } from "./unified";
@@ -125,7 +125,8 @@ export function boardSent<C extends { id: string }, K extends BoardColumn<C>>(
  * archived one gone, and a pick, an unpick or a step in the picked order.
  *
  * A move lands at the bottom of its column in its own org, so it draws with
- * the last percentile. A pick lands at the foot of a plan and on top of a week
+ * the last percentile. A drag lands above the card it names, so it draws just
+ * above that card. A pick lands at the foot of a plan and on top of a week
  * set, so the page says which. See ADR-0021.
  */
 export function tasksSent(
@@ -141,10 +142,14 @@ export function tasksSent(
 
       if (intent === "move" || intent === "finish") {
         const status = (intent === "finish" ? "done" : String(form.get("status") ?? "")) as Status;
+        // A drag names the card of the same org it lands above, and the server
+        // places it there, so it draws just above that card. See ADR-0025.
+        const below = drawn.tasks.find((one) => one.id === String(form.get("before") ?? ""));
+        const percentile = below ? below.percentile - 1e-9 : 1;
         return {
           ...drawn,
           tasks: drawn.tasks.map((one) =>
-            one.id === id ? { ...one, status, finished: isFinished(status), percentile: 1 } : one,
+            one.id === id ? { ...one, status, finished: isFinished(status), percentile } : one,
           ),
         };
       }
@@ -166,6 +171,11 @@ export function tasksSent(
       }
 
       if (isStep(intent)) return { ...drawn, picked: moveInPlan(drawn.picked, id, intent) };
+
+      if (intent === "place") {
+        const before = String(form.get("before") ?? "") || null;
+        return { ...drawn, picked: placeInPlan(drawn.picked, id, before) };
+      }
 
       return drawn;
     },

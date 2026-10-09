@@ -5,16 +5,17 @@
  * draws it in, counting from one. No row stores it, and it drifts between
  * loads, because the percentile is an index over a column length that changes.
  *
- * Two things move the card to another column: the `>` and `<` keys, and a drag
- * onto the column. Both name a column and no place inside it, because the
- * order in a unified column is derived. There are no arrows for the same
- * reason: to say "this first" is to plan it. See ADR-0006, "One order per
- * column", and ADR-0015, "A drop names a column, not a place".
+ * Two things move the card: the `>` and `<` keys, which name a column, and a
+ * drag, which draws where the card will land and writes that place inside its
+ * own org. The order in a unified column is derived, so the card can then sit
+ * a little away from the drop. There are no arrows: to say "this first" is to
+ * plan it. See ADR-0006, "One order per column", and ADR-0025.
  */
 
 import { Link } from "react-router";
 
 import { Dot } from "./dot";
+import { useDragItem } from "./drag-lists";
 import { Initials } from "./initials";
 import { OrgChip } from "./org-chip";
 import { taskPath, useOrigin } from "./paths";
@@ -40,28 +41,30 @@ export function UnifiedCard({
   place: () => void;
 }) {
   const origin = useOrigin();
+  const drag = useDragItem(task.id);
 
   return (
     <li
       id={domId}
       aria-current={selected ? "true" : undefined}
       onClick={place}
-      // The column takes the drop, so a card carries no drop handler of its
-      // own: a drop on a card bubbles to the column under it.
-      draggable
-      onDragStart={(event) => event.dataTransfer.setData("text/plain", task.id)}
+      ref={drag.ref}
+      style={drag.style}
+      {...drag.listeners}
+      // The card being dragged stays faded where it will land, and the copy
+      // under the pointer is the one that moves.
       className={`flex cursor-grab flex-col gap-2 rounded border p-3 ${
         selected
           ? "border-fg bg-surface-2"
           : "border-border bg-surface"
-      }`}
+      } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
         <span className="tabular-nums text-dim">{rank}</span>
         <Link
           to={taskPath(task.org.slug, task.id, origin)}
-          // A link drags itself, and its own drag carries a URL and no task
-          // id. The card is what drags, so the title gives the gesture up.
+          // A link drags itself, natively, and that would end the card's
+          // drag. The card is what drags, so the title gives the gesture up.
           draggable={false}
           className={`flex-1 underline-offset-2 hover:underline ${
             task.finished ? "text-muted line-through" : ""

@@ -60,3 +60,22 @@ export function moveInPlan(order: string[], taskId: string, step: Step): string[
   moved[to] = order[at];
   return moved;
 }
+
+/**
+ * The plan with one task dropped above another, or at the foot where the drop
+ * names no task. A drag says where a row lands, not how far it went, so this
+ * is the one move that names a neighbour. See ADR-0025.
+ *
+ * A neighbour the plan no longer holds names the foot, as no neighbour does: a
+ * drop is made on a list one load old. A drop that leaves the task where it
+ * was answers with the order that came in, the same array, as a step does.
+ */
+export function placeInPlan(order: string[], taskId: string, before: string | null): string[] {
+  const at = order.indexOf(taskId);
+  if (at === -1 || before === taskId) return order;
+
+  const rest = order.filter((one) => one !== taskId);
+  const to = before === null ? -1 : rest.indexOf(before);
+  const placed = to === -1 ? [...rest, taskId] : [...rest.slice(0, to), taskId, ...rest.slice(to)];
+  return placed.every((one, index) => one === order[index]) ? order : placed;
+}
