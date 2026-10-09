@@ -399,9 +399,10 @@ ADR-0015.
 _Avoid_: Unified view, my tasks page, global board
 
 **Quick-add box**:
-The box that makes a task from a typed title. On a board it sits at the top of a
-column, and the column names the status. On the unified board and in plan mode
-it carries an org picker, which starts at the personal org every time a
+The box that makes a task from a typed title. A board has one, above the row of
+columns and outside every column, and what it adds lands in To do. A task meant
+for another column is added and then moved. On the unified board and in plan
+mode it carries an org picker, which starts at the personal org every time a
 person opens Tusker. A team org draws a chip that names it while the box holds
 it. The decision mark is set here. The box also names the assignees, out of the
 members of the org it files into: the set starts empty, it stays across an add,
@@ -416,9 +417,7 @@ Several lines posted from one quick-add box. Each non-empty line, trimmed, is
 one task, in the order the lines appear, and the block lands at the top of the
 column with the first line topmost. The mark and the picked members go on all
 of them or on none, because one box holds one tick and one set. A list of more
-than 100 lines is refused and writes nothing. One box raises one decision
-prompt, so a marked list typed straight into Done is asked about the task on
-top of it.
+than 100 lines is refused and writes nothing.
 _Avoid_: Bulk add, batch, import
 
 **Undo an add**:
