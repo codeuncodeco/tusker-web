@@ -57,6 +57,7 @@ export function UnifiedRow({
   plannable = true,
   verbs = PLAN_VERBS,
   drags = false,
+  showsOrg,
 }: {
   task: LiveTask;
   /** True when the page's list holds the task, which turns the verb over. */
@@ -90,6 +91,8 @@ export function UnifiedRow({
    * other list draws its rows still. See ADR-0025.
    */
   drags?: boolean;
+  /** True when the row names its org with a chip. See `tellsOrgsApart`. */
+  showsOrg: boolean;
 }) {
   const post = useFetcher();
   const origin = useOrigin();
@@ -203,7 +206,7 @@ export function UnifiedRow({
         </post.Form>
       </span>
 
-      <ContentLine task={task} />
+      <ContentLine task={task} showsOrg={showsOrg} />
     </li>
   );
 }

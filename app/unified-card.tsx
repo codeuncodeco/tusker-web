@@ -29,6 +29,7 @@ export function UnifiedCard({
   selected,
   domId,
   place,
+  showsOrg,
 }: {
   task: LiveTask;
   /** The place the board draws the card in, counting from one. */
@@ -41,6 +42,8 @@ export function UnifiedCard({
    * the top and nowhere else. See ADR-0015.
    */
   place: () => void;
+  /** True when the card names its org with a chip. See `tellsOrgsApart`. */
+  showsOrg: boolean;
 }) {
   const origin = useOrigin();
   const drag = useDragItem(task.id);
@@ -74,7 +77,7 @@ export function UnifiedCard({
         <Initials assignees={task.assignees} />
       </span>
 
-      <ContentLine task={task} />
+      <ContentLine task={task} showsOrg={showsOrg} />
     </li>
   );
 }

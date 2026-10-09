@@ -31,6 +31,7 @@ export function UnifiedList({
   drags = false,
   adds = [],
   addsAt = "bottom",
+  showsOrg,
 }: {
   groups: Group[];
   /** The task ids the page's list holds, which turn the pick verb over. */
@@ -61,6 +62,8 @@ export function UnifiedList({
    */
   adds?: string[];
   addsAt?: "top" | "bottom";
+  /** True when each row names its org with a chip. See `tellsOrgsApart`. */
+  showsOrg: boolean;
 }) {
   // A post per press, so every press of a burst is drawn.
   const post = usePost();
@@ -160,6 +163,7 @@ export function UnifiedList({
                       // phone has no other way to move it. See ADR-0026.
                       moves={dragsHere ? undefined : movesFor(order, task)}
                       drags={dragsHere && ranked.includes(task)}
+                      showsOrg={showsOrg}
                     />
                   ))}
                   {group.key === ordered && addsAt === "bottom" ? (

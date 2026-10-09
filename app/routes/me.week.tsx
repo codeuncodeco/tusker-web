@@ -38,6 +38,7 @@ import { DecisionPrompt } from "../decision-prompt";
 import { askedAcross } from "../decisions.server";
 import { unfinishedOf, type Leftovers } from "../leftovers";
 import { leftoversFor, unfinishedIn } from "../leftovers.server";
+import { tellsOrgsApart } from "../org-chip";
 import { addsSent, postAndReport, tasksSent, useSent } from "../pending";
 import { weekPicks } from "../picks.server";
 import { isStep } from "../plan";
@@ -281,6 +282,7 @@ export default function Week({ loaderData }: Route.ComponentProps) {
         adds={addsSent(sent)}
         addsAt="top"
         day={day}
+        showsOrg={tellsOrgsApart(orgs)}
         // The page names a week and never a day, so the browser says which day
         // it is in, named week and all: that day is what names an unnamed week,
         // and the cookie is where the whole app reads it.

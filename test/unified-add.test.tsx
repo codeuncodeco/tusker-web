@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { AddingProvider } from "../app/adding";
 import type { OrgHeld } from "../app/current-org";
-import { UnifiedAdd } from "../app/unified-add";
+import { UndoLine, UnifiedAdd, addedTo } from "../app/unified-add";
 
 const ACME: OrgHeld = { slug: "acme", name: "Acme", color: "blue" };
 const ADA: OrgHeld = { slug: "ada", name: "Ada", color: "red" };
@@ -64,4 +64,34 @@ describe("a box for a person in one org", () => {
 
 it("draws nothing for a person in no org", () => {
   expect(box([])).not.toContain("<form");
+});
+
+describe("the line an add leaves", () => {
+  /** The line for an add of `count` rows, filed in `org`. */
+  function line(org: string | null, count = 1): string {
+    const ids = Array.from({ length: count }, (_, at) => `t${at}`);
+    return renderToStaticMarkup(
+      <UndoLine
+        added={{ slug: "acme", ids, text: "Ship it", decides: false }}
+        org={org}
+        undo={() => {}}
+        dismiss={() => {}}
+      />,
+    );
+  }
+
+  it("names the org for a person in several", () => {
+    expect(line("Acme")).toContain("Added to Acme");
+    expect(line("Acme", 3)).toContain("Added 3 tasks to Acme");
+  });
+
+  it("is told the org's name for a person in several, and no org for a person in one", () => {
+    expect(addedTo([ADA, ACME], "acme")).toBe("Acme");
+    expect(addedTo([ACME], "acme")).toBeNull();
+  });
+
+  it("names no org for a person in one", () => {
+    expect(line(null)).toMatch(/<span class="grow">Added<\/span>/);
+    expect(line(null, 3)).toMatch(/<span class="grow">Added 3 tasks<\/span>/);
+  });
 });

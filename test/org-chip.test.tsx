@@ -3,10 +3,13 @@ import { StaticRouter, createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import type { OrgHeld } from "../app/current-org";
+import { FocusList } from "../app/focus-list";
 import { Header } from "../app/header";
-import { OrgChip } from "../app/org-chip";
-import type { LiveTask } from "../app/unified";
+import { OrgChip, tellsOrgsApart } from "../app/org-chip";
+import type { Group, LiveTask } from "../app/unified";
 import { UnifiedCard } from "../app/unified-card";
+import { UnifiedList } from "../app/unified-list";
+import { UnifiedRow } from "../app/unified-row";
 
 /** One task of an org that carries the named colour. */
 function live(color: string | null): LiveTask {
@@ -62,11 +65,74 @@ describe("the chip that names an org", () => {
 describe("a card of the unified board", () => {
   it("names its org with the chip, colour and all", () => {
     const markup = draw(() => (
-      <UnifiedCard task={live("purple")} rank={1} selected={false} domId="c1" place={() => {}} />
+      <UnifiedCard task={live("purple")} rank={1} selected={false} domId="c1" place={() => {}} showsOrg />
     ));
 
     expect(markup).toContain("var(--color-opt-purple)");
     expect(markup).toContain("Acme");
+  });
+
+  it("names no org for a person in one, because there is no other to tell it from", () => {
+    const markup = draw(() => (
+      <UnifiedCard task={live("purple")} rank={1} selected={false} domId="c1" place={() => {}} showsOrg={false} />
+    ));
+
+    expect(markup).not.toContain("var(--color-opt-purple)");
+    expect(markup).not.toContain("Acme");
+    expect(markup).toContain("Ship it");
+  });
+});
+
+describe("a page that mixes orgs", () => {
+  const acme: OrgHeld = { slug: "acme", name: "Acme", color: "purple" };
+  const ada: OrgHeld = { slug: "ada", name: "Ada", color: "pink" };
+
+  it("names each task's org for a person in two orgs or more", () => {
+    expect(tellsOrgsApart([acme, ada])).toBe(true);
+  });
+
+  it("names no org for a person in one, or in none", () => {
+    expect(tellsOrgsApart([acme])).toBe(false);
+    expect(tellsOrgsApart([])).toBe(false);
+  });
+});
+
+describe("a row of plan mode, the week page and focus mode", () => {
+  const groups: Group[] = [{ key: "today", label: "Plan", tasks: [live("purple")], sinks: false }];
+
+  it("names its org with the chip for a person in several", () => {
+    const row = draw(() => (
+      <ul>
+        <UnifiedRow task={live("purple")} planned={false} selected={false} domId="r1" showsOrg />
+      </ul>
+    ));
+
+    expect(row).toContain("Acme");
+  });
+
+  it("names no org on a row, a list or a batch for a person in one", () => {
+    const row = draw(() => (
+      <ul>
+        <UnifiedRow task={live("purple")} planned={false} selected={false} domId="r1" showsOrg={false} />
+      </ul>
+    ));
+    const list = draw(() => (
+      <UnifiedList groups={groups} planned={new Set()} day="2026-10-09" showsOrg={false} />
+    ));
+    const batch = draw(() => <FocusList tasks={[live("purple")]} showsOrg={false} />);
+
+    for (const html of [row, list, batch]) {
+      expect(html).toContain("Ship it");
+      expect(html).not.toContain("Acme");
+    }
+  });
+
+  it("passes the chip down a list and a batch for a person in several", () => {
+    const list = draw(() => <UnifiedList groups={groups} planned={new Set()} day="2026-10-09" showsOrg />);
+    const batch = draw(() => <FocusList tasks={[live("purple")]} showsOrg />);
+
+    expect(list).toContain("Acme");
+    expect(batch).toContain("Acme");
   });
 });
 

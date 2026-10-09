@@ -75,7 +75,7 @@ describe("the grip", () => {
 
   it("is drawn on a unified board card, before the rank", () => {
     const html = markup(
-      <UnifiedCard task={live("a")} rank={3} selected={false} domId="c1" place={() => {}} />,
+      <UnifiedCard task={live("a")} rank={3} selected={false} domId="c1" place={() => {}} showsOrg />,
     );
 
     expect(grips(html)).toBe(1);
@@ -87,8 +87,8 @@ describe("the grip", () => {
     const week: Group[] = [{ key: "week", label: "This week", tasks: [live("a")], sinks: true }];
     const planned = new Set(["a", "b"]);
 
-    const dragging = markup(<UnifiedList groups={plan} planned={planned} day="2026-10-09" ordered="today" drags />);
-    const still = markup(<UnifiedList groups={week} planned={planned} day="2026-10-09" ordered="week" />);
+    const dragging = markup(<UnifiedList groups={plan} planned={planned} day="2026-10-09" showsOrg ordered="today" drags />);
+    const still = markup(<UnifiedList groups={week} planned={planned} day="2026-10-09" showsOrg ordered="week" />);
 
     expect(grips(dragging)).toBe(2);
     expect(grips(still)).toBe(0);
@@ -138,7 +138,7 @@ function lines(html: string): string[] {
 
 describe("the unified card's lines", () => {
   function card(task: LiveTask): string {
-    return markup(<UnifiedCard task={task} rank={1} selected={false} domId="c1" place={() => {}} />);
+    return markup(<UnifiedCard task={task} rank={1} selected={false} domId="c1" place={() => {}} showsOrg />);
   }
 
   it("are the title line and the org chip's line when the task has no fields and no due date", () => {

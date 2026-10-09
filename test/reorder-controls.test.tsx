@@ -40,7 +40,7 @@ describe("the reorder buttons", () => {
       { key: "today", label: "Plan", tasks: [live("a"), live("b")], sinks: false },
     ];
     const html = markup(
-      <UnifiedList groups={groups} planned={new Set(["a", "b"])} day="2026-10-09" ordered="today" drags />,
+      <UnifiedList groups={groups} planned={new Set(["a", "b"])} day="2026-10-09" showsOrg ordered="today" drags />,
     );
 
     expect(html).not.toMatch(REORDERS);
@@ -56,7 +56,7 @@ describe("the reorder buttons", () => {
       { key: "week", label: "This week", tasks: [live("a"), live("b")], sinks: true },
     ];
     const html = markup(
-      <UnifiedList groups={groups} planned={new Set(["a", "b"])} day="2026-10-09" ordered="week" />,
+      <UnifiedList groups={groups} planned={new Set(["a", "b"])} day="2026-10-09" showsOrg ordered="week" />,
     );
 
     expect(html).toMatch(REORDERS);

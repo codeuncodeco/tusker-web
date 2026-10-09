@@ -27,7 +27,14 @@ const FOCUS_ACTS: ListActs = { plan: false, step: false, move: false };
 /** The plan set a focus row reads. Focus plans nothing, so it holds nothing. */
 const NO_PLAN: Set<string> = new Set();
 
-export function FocusList({ tasks }: { tasks: LiveTask[] }) {
+export function FocusList({
+  tasks,
+  showsOrg,
+}: {
+  tasks: LiveTask[];
+  /** True when each row names its org with a chip. See `tellsOrgsApart`. */
+  showsOrg: boolean;
+}) {
   const post = useFetcher();
   const [on, setOn] = useState<string | null>(null);
 
@@ -55,6 +62,7 @@ export function FocusList({ tasks }: { tasks: LiveTask[] }) {
           selected={cursor === task.id}
           domId={`row-${task.id}`}
           plannable={false}
+          showsOrg={showsOrg}
         />
       ))}
     </ul>

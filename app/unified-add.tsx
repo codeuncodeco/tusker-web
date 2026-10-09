@@ -21,7 +21,7 @@ import { AssigneePicker } from "./assignee-picker";
 import type { Assignee } from "./assignees";
 import type { OrgHeld } from "./current-org";
 import { smallFieldClass } from "./forms";
-import { OrgChip } from "./org-chip";
+import { OrgChip, tellsOrgsApart } from "./org-chip";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -196,7 +196,7 @@ export function UnifiedAdd({
       {last ? (
         <UndoLine
           added={last}
-          org={orgs.find((org) => org.slug === last.slug)?.name ?? last.slug}
+          org={addedTo(orgs, last.slug)}
           undo={refile}
           dismiss={() => setLast(null)}
         />
@@ -206,19 +206,31 @@ export function UnifiedAdd({
 }
 
 /**
+ * The org the undo line names: the one an add landed in, as a person reads it.
+ * A person in one org has no other to mistake it for, so the line names none.
+ */
+export function addedTo(orgs: OrgHeld[], slug: string): string | null {
+  if (!tellsOrgsApart(orgs)) return null;
+  return orgs.find((org) => org.slug === slug)?.name ?? slug;
+}
+
+/**
  * The line one add leaves behind. It counts what the add made, because a
  * pasted list is one act with several rows in it. It has no timer: it stays
  * until the next add, the dismiss, or the end of the page.
  */
-function UndoLine({
+export function UndoLine({
   added,
   org,
   undo,
   dismiss,
 }: {
   added: Added;
-  /** The org the task landed in, named as a person reads it. */
-  org: string;
+  /**
+   * The org the task landed in, named as a person reads it, or null for a
+   * person in one org, who has no other to mistake it for.
+   */
+  org: string | null;
   undo: (one: Added) => void;
   dismiss: () => void;
 }) {
@@ -228,7 +240,8 @@ function UndoLine({
       className="flex items-center gap-3 text-muted"
     >
       <span className="grow">
-        {added.ids.length === 1 ? "Added" : `Added ${added.ids.length} tasks`} to {org}
+        {added.ids.length === 1 ? "Added" : `Added ${added.ids.length} tasks`}
+        {org === null ? null : ` to ${org}`}
       </span>
       <button type="button" onClick={() => undo(added)} className="underline">
         Undo

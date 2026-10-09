@@ -17,6 +17,8 @@ export function OrgDot({ color }: { color: string | null }) {
  * alone, and nothing sorts, groups or filters by the colour.
  *
  * An org page draws no chip. There is one org there and nothing to tell apart.
+ * Nor does a cross-org page for a person in one org, for the same reason: see
+ * `tellsOrgsApart`.
  */
 export function OrgChip({ org }: { org: { name: string; color: string | null } }) {
   return (
@@ -25,4 +27,13 @@ export function OrgChip({ org }: { org: { name: string; color: string | null } }
       {org.name}
     </span>
   );
+}
+
+/**
+ * True when a cross-org page names the org of each task: for a person in two
+ * orgs or more. With one org the chip tells nothing apart, so it says nothing,
+ * and the line an add leaves names no org either. See #183.
+ */
+export function tellsOrgsApart(orgs: readonly unknown[]): boolean {
+  return orgs.length > 1;
 }

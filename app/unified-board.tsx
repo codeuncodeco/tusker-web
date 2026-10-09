@@ -27,6 +27,7 @@ import type { OrgHeld } from "./current-org";
 import type { Assignee } from "./assignees";
 import { useLocalDay } from "./local-day";
 import { addsSent, tasksSent, usePost, useSent } from "./pending";
+import { tellsOrgsApart } from "./org-chip";
 import { PendingAdds } from "./pending-adds";
 import { columnsFor, type Column } from "./unified";
 import { UnifiedAdd } from "./unified-add";
@@ -74,6 +75,7 @@ export function UnifiedBoard({
     [orgs],
   );
   const board = useRef<HTMLDivElement>(null);
+  const showsOrg = tellsOrgsApart(orgs);
 
   // One flat order, so `j` and `k` walk the board column by column, the way a
   // person reads it.
@@ -162,9 +164,9 @@ export function UnifiedBoard({
                     {/* The sweep acts on the whole column, so it is column chrome,
                         and it sits with the name and the count as it does on the
                         org board. A column of this board holds cards of several
-                        orgs, so each card names the org that holds it, and the
-                        toast links to the archive of every org the sweep touched.
-                        See ADR-0019. */}
+                        orgs, so each card names the org that holds it where the
+                        person is in more than one, and the toast links to the
+                        archive of every org the sweep touched. See ADR-0019. */}
                     {isFinished(column.status) ? (
                       <ColumnSweep
                         label={column.label}
@@ -194,6 +196,7 @@ export function UnifiedBoard({
                         selected={cursor === task.id}
                         domId={`card-${task.id}`}
                         place={() => setOn(task.id)}
+                        showsOrg={showsOrg}
                       />
                     ))}
                   </DropList>
