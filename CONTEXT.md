@@ -672,6 +672,13 @@ the cursor is empty. Focus mode draws three rows and gives no click.
 See ADR-0015 and ADR-0022.
 _Avoid_: Selection, focus, highlight
 
+**Grip**:
+The six-dot mark at the left edge of a card or a plan row, and the one part of
+it a drag starts from. The rest of the card is for reading and for the cursor,
+so a swipe over it scrolls. The grip adds width and never a line, and it is for
+the pointer alone: the keys already move a card.
+_Avoid_: Drag handle, handle, grabber
+
 ### Look
 
 **Design token**:
