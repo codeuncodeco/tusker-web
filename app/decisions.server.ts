@@ -163,23 +163,63 @@ export async function decide(
   const task = await askable(db, scope, String(form.get("id") ?? ""));
   if (!task) throw new Response("Not found", { status: 404 });
 
-  await db
+  await write(db, scope, task.id, title, rationale(form));
+
+  const url = new URL(request.url);
+  return redirect(withoutPrompt(url.pathname, url.search));
+}
+
+/**
+ * Writes a decision the decision box asked for: one no task produced.
+ *
+ * It takes a function of its own rather than a flag on `decide()`, because the
+ * once-only guard `decide()` keeps is a guard on a task, and there is no task
+ * here. See ADR-0024.
+ *
+ * An empty title is an error the box shows, and the answer carries the words
+ * the person typed, so the box can put them back.
+ */
+export async function recordDecision(
+  db: D1Database,
+  scope: Scope,
+  request: Request,
+  form: FormData,
+): Promise<Response | Typed> {
+  const title = String(form.get("title") ?? "").trim();
+  const typed = { title: String(form.get("title") ?? ""), rationale: rationale(form) };
+  if (!title) return { error: "A decision needs a title.", ...typed };
+
+  await write(db, scope, null, title, typed.rationale);
+
+  // Post, then redirect to this page again: the new line reads at the top, the
+  // box is empty, and a reload does not write the decision twice.
+  const url = new URL(request.url);
+  return redirect(`${url.pathname}${url.search}`);
+}
+
+/** What a refused box answers with: why, and what to put back in the fields. */
+export type Typed = { error: string; title: string; rationale: string };
+
+/** The rationale a form carries. It is optional, so an absent one is empty. */
+function rationale(form: FormData): string {
+  return String(form.get("rationale") ?? "").trim();
+}
+
+/** The one write. Both doors reach the table through it. */
+function write(
+  db: D1Database,
+  scope: Scope,
+  taskId: string | null,
+  title: string,
+  why: string,
+): Promise<unknown> {
+  return db
     .prepare(
       `INSERT INTO decisions (id, org_id, task_id, decided_by, title, rationale)
        VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .bind(
-      crypto.randomUUID(),
-      scope.org.id,
-      task.id,
-      scope.personId,
-      title,
-      String(form.get("rationale") ?? "").trim(),
-    )
+    .bind(crypto.randomUUID(), scope.org.id, taskId, scope.personId, title, why)
     .run();
-
-  const url = new URL(request.url);
-  return redirect(withoutPrompt(url.pathname, url.search));
 }
 
 /**

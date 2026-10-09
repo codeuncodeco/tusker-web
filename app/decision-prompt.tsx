@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Link, useFetcher, useLocation, useNavigate } from "react-router";
 
+import { DecisionFields } from "./decision-fields";
 import type { Ask } from "./decisions.server";
 import { useKeyedFocus } from "./keyed-list";
 import { withoutPrompt } from "./decisions";
-import { fieldClass } from "./forms";
 
 /**
  * The prompt a finished task raises: a title, and the reasoning while it is
@@ -73,29 +73,10 @@ export function DecisionPrompt({ ask }: { ask: Ask | null }) {
           <input type="hidden" name="id" value={ask.id} />
           <input type="hidden" name="slug" value={ask.slug} />
 
-          <label className="flex flex-col gap-1">
-            Title
-            {/* Empty, with the task named beside it. A title that repeats
-                the task says nothing the log did not already hold. */}
-            <input
-              name="title"
-              required
-              autoFocus
-              placeholder={`What ${ask.title} settled`}
-              className={fieldClass}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            Rationale
-            <textarea name="rationale" rows={4} className={fieldClass} />
-          </label>
-
-          {error ? (
-            <p role="alert" className="text-danger">
-              {error}
-            </p>
-          ) : null}
+          {/* The title starts empty, with the task named beside it. A title
+              that repeats the task says nothing the log did not already
+              hold. */}
+          <DecisionFields first placeholder={`What ${ask.title} settled`} error={error} />
 
           <div className="flex items-baseline gap-4">
             <button className="rounded border border-border px-3 py-2">
