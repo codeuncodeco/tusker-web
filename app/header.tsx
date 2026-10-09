@@ -282,7 +282,13 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     // Three columns: an empty left, the select and ⋯ at the centre, the person
     // menu at the right. The outer two share the rest equally, so the centre
     // stays centred whatever either side holds.
-    <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 border-b border-border px-8 py-3">
+    //
+    // On a board, from `sm` up, the header sticks, and the board's Top row
+    // sticks under it at `top-16`, so the height is fixed and not its
+    // content's. Every other page scrolls it away. See #191.
+    <header
+      className={`top-0 z-20 grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-x-4 border-b border-border bg-bg px-8 ${onBoard ? "sm:sticky" : ""}`}
+    >
       <span aria-hidden="true" />
       <div className="flex items-center gap-2">
         {orgs.length > 1 ? (

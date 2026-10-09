@@ -28,6 +28,7 @@ import { useLocalDay } from "./local-day";
 import { addsSent, tasksSent, usePost, useSent } from "./pending";
 import { tellsOrgsApart } from "./org-chip";
 import { PendingAdds } from "./pending-adds";
+import { revealCursor } from "./top-row";
 import { columnsFor, type Column } from "./unified";
 import { UnifiedCard } from "./unified-card";
 import { NO_STEP_ACTS, useTaskKeys } from "./unified-keys";
@@ -119,10 +120,9 @@ export function UnifiedBoard({
     post(moveFields(dragged, list as Status, before));
   }
 
-  // The cursor follows the keys down a column longer than the window.
-  useEffect(() => {
-    board.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [cursor]);
+  // The cursor follows the keys down a column longer than the window, and
+  // stays clear of the Top row stuck over it.
+  useEffect(() => revealCursor(board.current), [cursor]);
 
   return (
     <>
@@ -134,10 +134,10 @@ export function UnifiedBoard({
         overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
       >
         {(shown) => (
-          // The row holds still, and each column scrolls inside itself. The
+          // Each column is as long as its cards, and the page scrolls. The
           // columns are panes: a divider splits them, and a card is the one
-          // thing on the board with an edge. See #184.
-          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto sm:min-h-0">
+          // thing on the board with an edge. See #184 and #191.
+          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
             {columns.map((column) => {
               const cards = shown[column.status].flatMap((id) => tasks.get(id) ?? []);
               return (
@@ -167,17 +167,17 @@ export function UnifiedBoard({
                     ) : null}
                   </div>
 
-                  {/* The heading stays pinned, and only this scrolls. The gutter
-                      is reserved, so a full column is as wide as an empty one,
-                      which is the point of the equal split. The focus outline is
-                      drawn inside, as the row clips what is past its edge, and
+                  {/* As long as its cards, and the page scrolls, not the list.
+                      It fills the rest of a short column, so a drop below the
+                      last card still lands in it. The focus outline is drawn
+                      inside, as the row clips what is past its edge, and
                       the floor gives an empty column a box to draw it on. See
                       #193. */}
                   <DropList
                     id={column.status}
                     ids={cards.map((one) => one.id)}
                     props={keyed(`${column.label} tasks`)}
-                    className="flex min-h-12 flex-col gap-2 focus-visible:-outline-offset-2 [scrollbar-gutter:stable] sm:min-h-0 sm:flex-1 sm:overflow-y-auto"
+                    className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
                   >
                     {/* The box files into To do, so an add in flight draws there. */}
                     {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
