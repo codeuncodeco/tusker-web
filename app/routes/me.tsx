@@ -126,11 +126,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { orgs, members, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } =
-    loaderData;
+  const { orgs, members, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } = loaderData;
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-8">
+    <main className="flex flex-1 flex-col p-8">
       <TopRow>
         {/* One box for the board, outside every keyed list, so no press of a
             typed word is ever the page's. The picker starts with no org every
@@ -153,12 +152,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
         </nav>
       </TopRow>
 
-      <UnifiedBoard
-        columns={columns}
-        orgs={orgs}
-        planned={new Set(planned)}
-        day={day}
-      />
+      <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />
 
       <DecisionPrompt ask={ask} />
     </main>
