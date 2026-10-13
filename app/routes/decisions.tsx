@@ -49,8 +49,17 @@ export default function Decisions({ loaderData, actionData }: Route.ComponentPro
       <h1 className="text-2xl tracking-tight">Decisions</h1>
 
       {/* The decision box. The prompt catches a decision a task produced, and
-          this catches one no task did. See ADR-0024. */}
-      <Form method="post" className="flex flex-col gap-3 rounded border border-border p-4">
+          this catches one no task did. See ADR-0024.
+
+          The fields are uncontrolled, and a good save redirects to this same
+          page, which does not remount it. So the box is keyed on the newest
+          decision: a save puts a new line at the top, and the box draws again,
+          empty. A refusal writes no line, so the box keeps what was typed. */}
+      <Form
+        key={decisions[0]?.id ?? "none"}
+        method="post"
+        className="flex flex-col gap-3 rounded border border-border p-4"
+      >
         <input type="hidden" name="intent" value="record" />
 
         <DecisionFields
