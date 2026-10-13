@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { StaticRouter, createRoutesStub } from "react-router";
+import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import type { OrgHeld } from "../app/current-org";
@@ -31,6 +31,14 @@ function live(color: string | null): LiveTask {
 function draw(Component: () => React.ReactNode): string {
   const Stub = createRoutesStub([{ path: "/me", Component }]);
   return renderToStaticMarkup(<Stub initialEntries={["/me"]} />);
+}
+
+/** The header of the Acme board, inside a data router as the app draws it. */
+function boardHeader(orgs: OrgHeld[]): string {
+  const Stub = createRoutesStub([
+    { path: "/o/acme/board", Component: () => <Header orgs={orgs} org={orgs[0]!} /> },
+  ]);
+  return renderToStaticMarkup(<Stub initialEntries={["/o/acme/board"]} />);
 }
 
 describe("the chip that names an org", () => {
@@ -144,11 +152,7 @@ describe("the header", () => {
 
   it("puts the dot of the org the select names inside the select's border", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
-    const markup = renderToStaticMarkup(
-      <StaticRouter location="/o/acme/board">
-        <Header orgs={orgs} org={orgs[0]!} />
-      </StaticRouter>,
-    );
+    const markup = boardHeader(orgs);
 
     // An option cannot draw a dot, so the header draws the named org's alone.
     expect(markup).toMatch(/<label[^>]*>[\s\S]*--color-opt-teal[\s\S]*<select/);
@@ -157,11 +161,7 @@ describe("the header", () => {
 
   it("gives a colourless org a grey dot, so the header keeps one shape", () => {
     const orgs = [org("acme", null)];
-    const markup = renderToStaticMarkup(
-      <StaticRouter location="/o/acme/board">
-        <Header orgs={orgs} org={orgs[0]!} />
-      </StaticRouter>,
-    );
+    const markup = boardHeader(orgs);
 
     expect(markup).toContain("var(--color-opt-grey)");
   });

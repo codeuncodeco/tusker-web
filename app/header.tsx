@@ -6,7 +6,8 @@
  * page: one Board, whose scope the select sets, then Week, Plan and Focus, then
  * the pages of the org the select names. While the select reads All, no org is
  * named, so ⋯ holds no org page. At the far right, a person menu holds what is
- * no org's, and "Keys ?" on a page that gives list keys. See ADR-0029.
+ * no org's, and "Keys ?" on a page that gives list keys. Beside it, a select
+ * sets the colour scheme. See ADR-0029 and #223.
  *
  * The address is the only current org. The select reads it, and a pick goes to
  * the board of that scope at once.
@@ -18,8 +19,16 @@
 import { useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
+import {
+  COLOUR_SCHEME_ACTION,
+  COLOUR_SCHEMES,
+  type ColourScheme,
+  isColourScheme,
+  useColourScheme,
+  useColourSchemeFetcher,
+} from "./colour-scheme";
 import type { OrgHeld } from "./current-org";
-import { Ellipsis, User } from "./icons";
+import { Desktop, Ellipsis, Moon, Sun, User } from "./icons";
 import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
 import { useKeyGuide } from "./keyed-list";
@@ -64,7 +73,7 @@ function pageOf(slug: string, page: string): string {
  * person menu fills softly while a person stands on one of its pages.
  */
 function buttonClass(here: boolean): string {
-  return `flex h-[38px] items-center rounded border px-3 leading-none ${here ? "border-dim bg-surface-2 font-medium text-fg" : "border-border"}`;
+  return `flex h-[38px] items-center rounded border px-1.5 leading-none sm:px-3 ${here ? "border-dim bg-surface-2 font-medium text-fg" : "border-border"}`;
 }
 
 /**
@@ -192,7 +201,7 @@ function Menu({
   return (
     <details ref={menu} className="relative">
       <summary
-        className={`cursor-pointer list-none gap-2 whitespace-nowrap marker:content-none ${buttonClass(here)}`}
+        className={`cursor-pointer list-none gap-1 whitespace-nowrap sm:gap-2 marker:content-none ${buttonClass(here)}`}
       >
         {label ? <span className="max-w-48 truncate font-medium">{label}</span> : null}
         {icon}
@@ -239,7 +248,7 @@ function OrgSelect({
   const control = (
     <label className="flex items-center rounded border border-border bg-bg focus-within:border-fg">
       {org ? (
-        <span className="pl-2.5">
+        <span className="pl-2 sm:pl-2.5">
           <OrgDot color={org.color} />
         </span>
       ) : null}
@@ -252,7 +261,7 @@ function OrgSelect({
         aria-label="Board"
         defaultValue={org?.slug ?? ""}
         onChange={(event) => navigate(boardOf(event.target.value || null))}
-        className="h-9 rounded bg-transparent px-2 text-lg font-medium focus:outline-none"
+        className="h-9 rounded bg-transparent px-1.5 text-base font-medium sm:px-2 sm:text-lg focus:outline-none"
       >
         <option value="">All</option>
         {orgs.map((one) => (
@@ -269,6 +278,62 @@ function OrgSelect({
       {heading ? <h1 className="font-normal">{control}</h1> : control}
       <noscript>
         <button className={buttonClass(false)}>Go</button>
+      </noscript>
+    </form>
+  );
+}
+
+/** The name and the glyph of each colour scheme, as the select draws them. */
+const SCHEMES: Record<ColourScheme, { label: string; icon: React.ReactNode }> = {
+  light: { label: "Light", icon: <Sun /> },
+  dark: { label: "Dark", icon: <Moon /> },
+  system: { label: "System", icon: <Desktop /> },
+};
+
+/**
+ * The colour scheme select: Light, Dark or System. A pick posts through a
+ * fetcher, and the page draws it while the post is in flight, so it changes at
+ * once. The post reloads no page's data: only the root reads the cookie.
+ *
+ * With no script it is a plain POST form, and the button inside `<noscript>`
+ * sends it. The form names the page the person stands on, and the reply
+ * redirects back there.
+ */
+function ColourSchemeSelect() {
+  const scheme = useColourScheme();
+  const fetcher = useColourSchemeFetcher();
+  const { pathname, search } = useLocation();
+
+  return (
+    <form method="post" action={COLOUR_SCHEME_ACTION} className="flex items-center gap-2">
+      <input type="hidden" name="back" value={`${pathname}${search}`} />
+      {/* The border is the label's, so it rings the glyph and the select as
+          one control, the way the org select rings its dot. */}
+      <label className="flex items-center rounded border border-border bg-bg pl-1.5 focus-within:border-fg sm:pl-2">
+        {SCHEMES[scheme].icon}
+        <select
+          name="scheme"
+          aria-label="Colour scheme"
+          value={scheme}
+          onChange={(event) => {
+            const picked = event.target.value;
+            if (!isColourScheme(picked)) return;
+            void fetcher.submit(
+              { scheme: picked },
+              { method: "post", action: COLOUR_SCHEME_ACTION, defaultShouldRevalidate: false },
+            );
+          }}
+          className="h-9 rounded bg-transparent pl-1 pr-0.5 focus:outline-none sm:pl-1.5 sm:pr-1"
+        >
+          {COLOUR_SCHEMES.map((one) => (
+            <option key={one} value={one}>
+              {SCHEMES[one].label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <noscript>
+        <button className={buttonClass(false)}>Set</button>
       </noscript>
     </form>
   );
@@ -318,10 +383,10 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     // sticks under it at `top-16`, so the height is fixed and not its
     // content's. Every other page scrolls it away. See #191.
     <header
-      className={`top-0 z-20 grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-x-4 border-b border-border bg-bg px-8 ${onBoard ? "sm:sticky" : ""}`}
+      className={`top-0 z-20 grid h-16 grid-cols-[auto_1fr] items-center gap-x-2 border-b border-border bg-bg px-2 sm:grid-cols-[1fr_auto_1fr] sm:gap-x-4 sm:px-8 ${onBoard ? "sm:sticky" : ""}`}
     >
-      <span aria-hidden="true" />
-      <div className="flex items-center gap-2">
+      <span aria-hidden="true" className="hidden sm:block" />
+      <div className="flex items-center gap-1 sm:gap-2">
         {orgs.length > 1 ? (
           <OrgSelect orgs={orgs} org={org} heading={onBoard} />
         ) : onBoard && name ? (
@@ -353,8 +418,10 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
         </Menu>
       </div>
 
-      {/* What is yours and no org's, at the far right. */}
-      <div className="justify-self-end">
+      {/* What is yours and no org's, at the far right, and the colour scheme
+          beside it. */}
+      <div className="flex items-center gap-1 justify-self-end sm:gap-2">
+        <ColourSchemeSelect />
         <Menu
           icon={<User />}
           name="You"

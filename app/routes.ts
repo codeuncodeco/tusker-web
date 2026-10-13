@@ -46,6 +46,9 @@ export default [
   // board it names. See ADR-0029.
   route("go", "routes/go.ts"),
 
+  // Where the colour scheme control sends a pick. See #223.
+  route("colour-scheme", "routes/colour-scheme.ts"),
+
   route("api/auth/*", "routes/api.auth.ts"),
   route("api/tasks", "routes/api.tasks.ts"),
   route("api/invite", "routes/invite.ts"),

@@ -9,7 +9,7 @@
 
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StaticRouter } from "react-router";
+import { createRoutesStub } from "react-router";
 import { expect, it } from "vitest";
 
 import { Header } from "../app/header";
@@ -124,10 +124,10 @@ const ACME = { slug: "acme", name: "Acme", color: "blue" as const };
 /** The header's own class names, drawn at one address. */
 function headerAt(pathname: string): string[] {
   const org = pathname.startsWith("/o/") ? ACME : null;
-  const markup = renderToStaticMarkup(
-    createElement(StaticRouter, { location: pathname }, createElement(Header, { orgs: [], org })),
-  );
-  return classesIn(markup);
+  const Stub = createRoutesStub([
+    { path: "*", Component: () => createElement(Header, { orgs: [], org }) },
+  ]);
+  return classesIn(renderToStaticMarkup(createElement(Stub, { initialEntries: [pathname] })));
 }
 
 it("sticks the header from sm up on both boards, as tall as the Top row's offset", () => {
