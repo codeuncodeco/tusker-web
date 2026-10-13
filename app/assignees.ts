@@ -31,8 +31,8 @@ export function initialsOf(member: { name: string; email: string }): string {
   const words = member.name.trim().split(/\s+/).filter(Boolean);
   if (words.length > 0) return words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join("");
 
-  const local = member.email.split("@")[0]!;
-  const letters = local.match(/\p{L}/gu)?.slice(0, 2) ?? [Array.from(local)[0]!];
+  const beforeAt = member.email.split("@")[0]!;
+  const letters = beforeAt.match(/\p{L}/gu)?.slice(0, 2) ?? [Array.from(beforeAt)[0]!];
   return letters.join("").toUpperCase();
 }
 
