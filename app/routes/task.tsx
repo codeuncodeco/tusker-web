@@ -20,7 +20,7 @@ import { DescriptionBox } from "../description-box";
 import { DescriptionView } from "../description-view";
 import { readData, readValue, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
-import { backPath } from "../paths";
+import { backPath, pageAddress } from "../paths";
 import { postAndReport } from "../pending";
 import { refPickers } from "../refs.server";
 import { requireTaskScope, type Scope } from "../scope.server";
@@ -165,8 +165,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const moved = await moveAndAsk(env.DB, scope, request, taskId, "todo");
     if (!moved.moved) throw new Response("Not found", { status: 404 });
     // The page again, and not a "Saved." under the form Reopen opens.
-    const url = new URL(request.url);
-    return redirect(`${url.pathname}${url.search}`);
+    return redirect(pageAddress(request.url));
   }
 
   refuseFinished(task.status);
