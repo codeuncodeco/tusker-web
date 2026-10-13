@@ -25,14 +25,7 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import {
-  AssigneeFilter,
-  ColumnSwitch,
-  FieldFilterSelect,
-  SearchBox,
-  TodayChip,
-  WeekChip,
-} from "../board-chrome";
+import { AssigneeFilter, ColumnSwitch, FieldFilterSelect, SearchBox, TodayChip, WeekChip } from "../board-chrome";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
 import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
@@ -70,14 +63,7 @@ import { readWeekSet } from "../weeks.server";
 import { useRemembered } from "../remembered";
 import { requireScope } from "../scope.server";
 import { readSearch } from "../search";
-import {
-  countByStatus,
-  createTasks,
-  listTasks,
-  moveTask,
-  newTasksFrom,
-  stepTask,
-} from "../tasks.server";
+import { countByStatus, createTasks, listTasks, moveTask, newTasksFrom, stepTask } from "../tasks.server";
 import { revealCursor, TopRow, TopRowBox } from "../top-row";
 import type { Route } from "./+types/board";
 import { readTaskId, type TaskId } from "../task-number";
@@ -338,13 +324,7 @@ function QuickAdd({
         if (event.key !== "Escape") return;
         (event.target as HTMLElement).blur();
       }}
-      picker={
-        <AssigneePicker
-          members={members}
-          picked={draft.assignees}
-          onPick={draft.setAssignees}
-        />
-      }
+      picker={<AssigneePicker members={members} picked={draft.assignees} onPick={draft.setAssignees} />}
     />
   );
 }
@@ -398,10 +378,7 @@ function CardItem({
     >
       <span className="flex items-baseline gap-2">
         <Grip grip={drag.grip} />
-        <Link
-          to={taskPath(card.id, origin)}
-          className="flex-1 underline-offset-2 hover:underline"
-        >
+        <Link to={taskPath(card.id, origin)} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
         <Initials assignees={card.assignees} />
@@ -421,7 +398,6 @@ function CardItem({
           ))}
         </ul>
       ) : null}
-
     </li>
   );
 }
@@ -505,7 +481,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   useEffect(() => revealCursor(board.current), [cursor]);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-8">
+    <main className="flex flex-1 flex-col p-8">
       <TopRow>
         {/* One box for the board, outside every keyed list, so a typed word is
             never a press the page reads. See ADR-0022. */}
@@ -528,9 +504,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       </TopRow>
 
       <DragLists
-        lists={Object.fromEntries(
-          columns.map((column) => [column.status, column.tasks.map((one) => one.id)]),
-        )}
+        lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
         onDrop={onDrop}
         overlay={(id) => <DragCopy title={cards.get(id)?.title ?? ""} />}
       >
@@ -546,7 +520,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                   key={column.status}
                   // Every column takes an equal share of the width, down to the
                   // width it always had. Past that the row scrolls sideways.
-                  className="flex min-w-72 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
+                  className="flex min-w-72 pt-6 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
                 >
                   <div className="flex items-baseline gap-3">
                     <h2 className="font-mono uppercase tracking-wide text-muted">

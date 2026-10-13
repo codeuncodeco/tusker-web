@@ -67,10 +67,7 @@ export function UnifiedBoard({
   const [on, setOn] = useState<TaskId | null>(null);
   // The name of every org, for the archive links the swept toast carries. It
   // is made once, because the sweep re-binds its effect on a new object.
-  const names = useMemo(
-    () => Object.fromEntries(orgs.map((org) => [org.slug, org.name])),
-    [orgs],
-  );
+  const names = useMemo(() => Object.fromEntries(orgs.map((org) => [org.slug, org.name])), [orgs]);
   const board = useRef<HTMLDivElement>(null);
   const showsOrg = tellsOrgsApart(orgs);
 
@@ -128,9 +125,7 @@ export function UnifiedBoard({
   return (
     <>
       <DragLists
-        lists={Object.fromEntries(
-          columns.map((column) => [column.status, column.tasks.map((one) => one.id)]),
-        )}
+        lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
         onDrop={onDrop}
         overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
       >
@@ -146,7 +141,7 @@ export function UnifiedBoard({
                   key={column.status}
                   // Every column takes an equal share of the width, down to the
                   // width it always had. Past that the row scrolls sideways.
-                  className="flex min-w-72 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
+                  className="flex pt-6 min-w-72 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
                 >
                   <div className="flex items-baseline gap-3">
                     <h2 className="font-mono uppercase tracking-wide text-muted">
