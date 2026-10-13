@@ -150,6 +150,13 @@ describe("/account", () => {
     expect(response.headers.get("location")).toBe("/login?next=%2Faccount");
   });
 
+  it("sends sign-in back to the page, not to its data address", async () => {
+    const response = await caught(accountRoute.loader(routeArgs(get("/account.data"))));
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("/login?next=%2Faccount");
+  });
+
   it("shows the signed-in person and their orgs, first joined first", async () => {
     const ada = await invite();
     await createOrg(db, { name: "Ada", slug: "ada", personId: ada.id });

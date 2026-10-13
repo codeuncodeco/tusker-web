@@ -14,7 +14,8 @@
 import { redirect } from "react-router";
 
 import type { Status } from "./board";
-import { ASK, ORG, pageOf, withPrompt, withoutPrompt } from "./decisions";
+import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
+import { pageAddress, pageUrl } from "./paths";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
 import { readTaskId, type TaskId } from "./task-number";
@@ -57,8 +58,8 @@ export async function promptFor(
   const task = await askable(db, scope, taskId);
   if (!task) return null;
 
-  const url = new URL(request.url);
-  return redirect(withPrompt(pageOf(url.pathname), url.search, { id: task.id, slug: scope.org.slug }));
+  const page = pageUrl(request.url);
+  return redirect(withPrompt(page.pathname, page.search, { id: task.id, slug: scope.org.slug }));
 }
 
 /**
@@ -169,8 +170,8 @@ export async function decide(
 
   await write(db, scope, task.id, title, rationale(form));
 
-  const url = new URL(request.url);
-  return redirect(withoutPrompt(pageOf(url.pathname), url.search));
+  const page = pageUrl(request.url);
+  return redirect(withoutPrompt(page.pathname, page.search));
 }
 
 /**
@@ -197,8 +198,7 @@ export async function recordDecision(
 
   // Post, then redirect to this page again: the new line reads at the top, the
   // box is empty, and a reload does not write the decision twice.
-  const url = new URL(request.url);
-  return redirect(`${pageOf(url.pathname)}${url.search}`);
+  return redirect(pageAddress(request.url));
 }
 
 /** What a refused box answers with: why, and what to put back in the fields. */

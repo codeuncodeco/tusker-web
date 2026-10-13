@@ -13,6 +13,7 @@ import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { Header } from "../header";
 import { namedOrg } from "../org-select";
+import { pageUrl } from "../paths";
 import { DIRECTORY, readOrgSet } from "../scope.server";
 import type { Route } from "./+types/person";
 
@@ -26,7 +27,7 @@ const OPEN_WITHOUT_ORG = new Set([DIRECTORY, "/account", "/orgs/new"]);
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.get(cloudflareEnv);
   const set = await readOrgSet(request, env);
-  const { pathname } = new URL(request.url);
+  const { pathname } = pageUrl(request.url);
   if (set.orgs.length === 0 && !OPEN_WITHOUT_ORG.has(pathname)) throw redirect(DIRECTORY);
 
   const orgs = set.orgs.map(held);
