@@ -671,7 +671,8 @@ heading, and every other page heads itself. At the far right, a person menu
 holds Account and New org, which belong to no org. A label names the
 destination and never what the page holds, so "Week" and "Plan" stand while
 those pages head with the week and the day they draw. The address is the only
-place the header reads an org from. See ADR-0011 and ADR-0029.
+place the header reads an org from. Beside the person menu, a control sets
+the **Colour scheme**. See ADR-0011 and ADR-0029.
 _Avoid_: Chrome, nav bar, top bar
 
 **Top row**:
@@ -788,11 +789,20 @@ _Avoid_: Drag handle, handle, grabber
 
 **Design token**:
 One named colour or face that every screen draws through, declared in
-`@theme` in `app/app.css`. A colour token is a `light-dark()` pair, and
-`<html>` carries `color-scheme: light dark`, so the token flips itself. This
-is why no component carries a `dark:` variant, and why a raw Tailwind colour
-class in a component is a drift to fix and not a choice.
+`@theme` in `app/app.css`. A colour token is a `light-dark()` pair, and the
+colour scheme on `<html>` picks which half draws, so the token flips itself.
+This is why no component carries a `dark:` variant, and why a raw Tailwind
+colour class in a component is a drift to fix and not a choice.
 _Avoid_: Theme variable, CSS custom property, design system
+
+**Colour scheme**:
+Whether a page draws light or dark: Light, Dark, or System, which follows the
+operating system. System is what a browser holds until a person picks. The
+pick belongs to the browser and not to the person, so a laptop and a phone can
+differ, and it outlives a sign-out. Every page honours it, the signed-out ones
+too, but only a signed-in page draws the control that changes it, beside the
+person menu.
+_Avoid_: Theme, appearance, dark mode
 
 **Ground**:
 What a token names when it names a background: `bg` for the page, `surface`

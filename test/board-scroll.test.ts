@@ -9,11 +9,10 @@
 
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StaticRouter } from "react-router";
 import { expect, it } from "vitest";
 
-import { Header } from "../app/header";
 import { covered, TopRow, TopRowBox } from "../app/top-row";
+import { headerAt } from "./routes";
 
 const sources = import.meta.glob("../app/**/*.tsx", {
   query: "?raw",
@@ -122,17 +121,14 @@ it("gives the quick-add box all the Top row on a phone, half at sm and a third a
 const ACME = { slug: "acme", name: "Acme", color: "blue" as const };
 
 /** The header's own class names, drawn at one address. */
-function headerAt(pathname: string): string[] {
+function headerClasses(pathname: string): string[] {
   const org = pathname.startsWith("/o/") ? ACME : null;
-  const markup = renderToStaticMarkup(
-    createElement(StaticRouter, { location: pathname }, createElement(Header, { orgs: [], org })),
-  );
-  return classesIn(markup);
+  return classesIn(headerAt(pathname, [], org));
 }
 
 it("sticks the header from sm up on both boards, as tall as the Top row's offset", () => {
   for (const pathname of ["/me", "/o/acme/board"]) {
-    const header = headerAt(pathname);
+    const header = headerClasses(pathname);
     for (const one of ["sm:sticky", "top-0", "h-16", "bg-bg"]) {
       expect([pathname, one, header.includes(one)]).toEqual([pathname, one, true]);
     }
@@ -142,7 +138,7 @@ it("sticks the header from sm up on both boards, as tall as the Top row's offset
 
 it("leaves the header in the page on every page but a board", () => {
   for (const pathname of ["/me/week", "/me/plan", "/account", "/o/acme/members"]) {
-    expect([pathname, headerAt(pathname).includes("sm:sticky")]).toEqual([pathname, false]);
+    expect([pathname, headerClasses(pathname).includes("sm:sticky")]).toEqual([pathname, false]);
   }
 });
 

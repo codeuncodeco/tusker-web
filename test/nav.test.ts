@@ -1,10 +1,7 @@
 import { env } from "cloudflare:workers";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { RouterContextProvider, StaticRouter } from "react-router";
+import { RouterContextProvider } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Header } from "../app/header";
 import * as orgLayout from "../app/layouts/org";
 import * as personLayout from "../app/layouts/person";
 import { boardOf, namedOrg } from "../app/org-select";
@@ -15,7 +12,7 @@ import * as meRoute from "../app/routes/me";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import { orgScope, requireScope } from "../app/scope.server";
 import { member } from "./accounts";
-import { caught, get, post, routeArgs, wipe } from "./routes";
+import { caught, get, headerAt, post, routeArgs, wipe } from "./routes";
 
 const db = env.DB;
 
@@ -229,17 +226,6 @@ describe("the scope of a page under the org layout", () => {
   });
 });
 
-/** The header's markup for one address, as one string of HTML. */
-function headerAt(pathname: string, orgs: Org[], named: Org | null): string {
-  return renderToStaticMarkup(
-    createElement(
-      StaticRouter,
-      { location: pathname },
-      createElement(Header, { orgs, org: named }),
-    ),
-  );
-}
-
 /** The option the select reads, out of the header's markup. */
 function picked(markup: string): string | null {
   return markup.match(/<option value="([^"]*)" selected=""/)?.[1] ?? null;
@@ -266,6 +252,22 @@ describe("the header", () => {
     for (const path of ["/o/acme/board", "/o/acme/decisions", "/t/12", "/o/acme/settings"]) {
       expect(picked(headerAt(path, [ada, acme], acme))).toBe("acme");
     }
+  });
+
+  it("sets the colour scheme beside the person menu, in a form that works with no script", () => {
+    const markup = headerAt("/me/week?day=2026-10-13", [ada, acme], null);
+
+    const form = markup.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
+    expect(form).toContain('method="post"');
+    expect(form).toContain('<input type="hidden" name="next" value="/me/week?day=2026-10-13"/>');
+    expect(form).toMatch(/<select name="scheme" aria-label="Colour scheme"/);
+    expect(form.replace(/ selected=""/g, "")).toMatch(/<option value="light">Light<\/option><option value="dark">Dark<\/option><option value="system">System<\/option>/);
+    // With no loader data and nothing in flight, the pick reads System.
+    expect(form).toContain('<option value="system" selected="">System</option>');
+    expect(form).toMatch(/<svg[^>]*aria-hidden="true"/);
+    expect(form).toMatch(/<noscript>[\s\S]*Set[\s\S]*<\/noscript>/);
+    // The person menu stays at the far right edge.
+    expect(markup.indexOf('aria-label="Colour scheme"')).toBeLessThan(markup.indexOf(">You<"));
   });
 
   it("calls a task page Task, though its path names no org", () => {
@@ -323,7 +325,7 @@ describe("the header", () => {
   it("draws no select for a person in one org, and always holds their org's pages", () => {
     const markup = headerAt("/me/week", [ada], ada);
 
-    expect(markup).not.toContain("<select");
+    expect(markup).not.toContain('aria-label="Board"');
     expect(markup).toMatch(/<a[^>]*href="\/o\/ada\/decisions"/);
     expect(markup).toMatch(/<a[^>]*href="\/o\/ada\/board"[^>]*>Board</);
   });

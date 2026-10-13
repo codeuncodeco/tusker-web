@@ -5,17 +5,49 @@ import {
   Scripts,
   ScrollRestoration,
   isRouteErrorResponse,
+  type ShouldRevalidateFunctionArgs,
 } from "react-router";
 
 import { AddingProvider } from "./adding";
+import {
+  COLOUR_SCHEME_ACTION,
+  COLOUR_SCHEME_CSS,
+  colourSchemeOf,
+  useColourScheme,
+} from "./colour-scheme";
 import { KeyedSurfaceProvider } from "./keyed-list";
 import type { Route } from "./+types/root";
 import { ToastProvider } from "./toast";
 import "./app.css";
 
+/**
+ * The colour scheme, read on every request, so the server draws the pick on
+ * the first paint with no script and no flash. See #223.
+ */
+export function loader({ request }: Route.LoaderArgs) {
+  return { colourScheme: colourSchemeOf(request) };
+}
+
+/**
+ * Only a pick changes what the root loads, so the root asks again after one,
+ * and after whatever else asks it to. A pick asks no other route: the control
+ * posts with `defaultShouldRevalidate: false`, so the board keeps its data.
+ */
+export function shouldRevalidate({
+  formAction,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  return formAction === COLOUR_SCHEME_ACTION || defaultShouldRevalidate;
+}
+
+/**
+ * Every colour token is a `light-dark()` pair, so the `color-scheme` on
+ * `<html>` is the one thing that picks light or dark.
+ */
 export function Layout({ children }: { children: React.ReactNode }) {
+  const scheme = useColourScheme();
   return (
-    <html lang="en" className="h-full" style={{ colorScheme: "light dark" }}>
+    <html lang="en" className="h-full" style={{ colorScheme: COLOUR_SCHEME_CSS[scheme] }}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

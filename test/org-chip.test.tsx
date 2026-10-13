@@ -1,15 +1,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { StaticRouter, createRoutesStub } from "react-router";
+import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import type { OrgHeld } from "../app/current-org";
 import { FocusList } from "../app/focus-list";
-import { Header } from "../app/header";
 import { OrgChip, tellsOrgsApart } from "../app/org-chip";
 import type { Group, LiveTask } from "../app/unified";
 import { UnifiedCard } from "../app/unified-card";
 import { UnifiedList } from "../app/unified-list";
 import { UnifiedRow } from "../app/unified-row";
+import { headerAt } from "./routes";
 
 /** One task of an org that carries the named colour. */
 function live(color: string | null): LiveTask {
@@ -144,11 +144,7 @@ describe("the header", () => {
 
   it("puts the dot of the org the select names inside the select's border", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
-    const markup = renderToStaticMarkup(
-      <StaticRouter location="/o/acme/board">
-        <Header orgs={orgs} org={orgs[0]!} />
-      </StaticRouter>,
-    );
+    const markup = headerAt("/o/acme/board", orgs, orgs[0]!);
 
     // An option cannot draw a dot, so the header draws the named org's alone.
     expect(markup).toMatch(/<label[^>]*>[\s\S]*--color-opt-teal[\s\S]*<select/);
@@ -157,11 +153,7 @@ describe("the header", () => {
 
   it("gives a colourless org a grey dot, so the header keeps one shape", () => {
     const orgs = [org("acme", null)];
-    const markup = renderToStaticMarkup(
-      <StaticRouter location="/o/acme/board">
-        <Header orgs={orgs} org={orgs[0]!} />
-      </StaticRouter>,
-    );
+    const markup = headerAt("/o/acme/board", orgs, orgs[0]!);
 
     expect(markup).toContain("var(--color-opt-grey)");
   });
