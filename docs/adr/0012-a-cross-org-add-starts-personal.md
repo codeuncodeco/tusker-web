@@ -59,6 +59,9 @@ That delete is a hard delete of a row made seconds ago, and it is the only
 delete Tusker has. Archiving instead would leave a real row in a team org that
 its members can find, which is the failure this whole ADR sets out to prevent.
 
+*Amended by #220.* Tusker now has a second delete, from the task page, and
+it keeps the row out of reach (ADR-0031). The undo stays a hard delete.
+
 The box takes a pasted list, so one add can make many rows (#23). One add is
 still one act: the undo line counts what the add made, and the undo deletes
 every row of it, drops them all from the day's plan, and gives the box back the
