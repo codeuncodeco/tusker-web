@@ -17,16 +17,23 @@ export function nameOf(member: { name: string; email: string }): string {
 
 /**
  * The letters a card draws for one member: the first letter of the first two
- * words of the name, or the first letter of the email for an account that
- * carries no name.
+ * words of the name. A one-word name draws one letter.
+ *
+ * An account that carries no name draws the first two letters of the part of
+ * the email before the `@`, and skips digits, dots and other marks. A part
+ * with one letter draws one, and a part with no letter draws its first
+ * character, so the mark is never empty.
  *
  * A card has room for a mark, not for a name. The extension drew initials, and
  * a person reads their own two letters at a glance.
  */
 export function initialsOf(member: { name: string; email: string }): string {
   const words = member.name.trim().split(/\s+/).filter(Boolean);
-  const letters = words.length > 0 ? words.slice(0, 2) : [member.email];
-  return letters.map((word) => word[0]!.toUpperCase()).join("");
+  if (words.length > 0) return words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join("");
+
+  const local = member.email.split("@")[0]!;
+  const letters = local.match(/\p{L}/gu)?.slice(0, 2) ?? [Array.from(local)[0]!];
+  return letters.join("").toUpperCase();
 }
 
 /** One member, as both a card and a picker read them. */

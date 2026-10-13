@@ -90,7 +90,22 @@ describe("initials", () => {
   });
 
   it("uses the email when the account has no name", () => {
-    expect(initialsOf({ name: "", email: "grace@tusker.test" })).toBe("G");
+    expect(initialsOf({ name: "", email: "grace@tusker.test" })).toBe("GR");
+    expect(initialsOf({ name: "  ", email: "grace@tusker.test" })).toBe("GR");
+  });
+
+  it("takes the first two letters of the email, and skips what is not a letter", () => {
+    expect(initialsOf({ name: "", email: "g.hopper@tusker.test" })).toBe("GH");
+    expect(initialsOf({ name: "", email: "1grace@tusker.test" })).toBe("GR");
+    expect(initialsOf({ name: "", email: "émile@tusker.test" })).toBe("ÉM");
+  });
+
+  it("draws one letter for an email that holds one", () => {
+    expect(initialsOf({ name: "", email: "g@tusker.test" })).toBe("G");
+  });
+
+  it("draws the first character for an email that holds no letter", () => {
+    expect(initialsOf({ name: "", email: "123@tusker.test" })).toBe("1");
   });
 });
 
