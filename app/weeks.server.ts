@@ -9,6 +9,7 @@
  * task that leaves takes its memberships with it.
  */
 
+import { notDeleted } from "./deleted.server";
 import { placesAbove, placesBelow } from "./order";
 import type { Step } from "./plan";
 import { movedInSet, type Member } from "./week-order";
@@ -182,6 +183,7 @@ async function placesInSet(db: D1Database, personId: string, week: string): Prom
               (tasks.archived = 1 OR tasks.status IN ('done', 'cancelled')) AS done
        FROM week_plan_tasks JOIN tasks ON tasks.id = week_plan_tasks.task_id
        WHERE week_plan_tasks.user_id = ? AND week_plan_tasks.week = ?
+         AND ${notDeleted("tasks")}
        ORDER BY week_plan_tasks.position, week_plan_tasks.task_id`,
     )
     .bind(personId, week)

@@ -1,5 +1,6 @@
 import { FINISHED_STATUSES } from "./board";
 import { nextColor, type PaletteName } from "./colors";
+import { notDeleted } from "./deleted.server";
 import type { OrgApp } from "./refs";
 import type { ReadScope, Scope } from "./scope.server";
 import type { TaskId } from "./task-number";
@@ -92,7 +93,7 @@ export async function orgOfTask(
        FROM tasks t
        JOIN orgs o ON o.id = t.org_id
        JOIN memberships m ON m.org_id = o.id
-       WHERE t.id = ? AND m.user_id = ?`,
+       WHERE t.id = ? AND m.user_id = ? AND ${notDeleted("t")}`,
     )
     .bind(taskId, personId)
     .first<Org>();
@@ -262,7 +263,7 @@ export async function heldUnfinishedTasks(
        FROM task_assignees a
        JOIN tasks t ON t.id = a.task_id AND t.org_id = a.org_id
        WHERE a.org_id = ? AND a.user_id = ?
-         AND t.archived = 0 AND t.status NOT IN (${finished})`,
+         AND t.archived = 0 AND ${notDeleted("t")} AND t.status NOT IN (${finished})`,
     )
     .bind(scope.org.id, personId, ...FINISHED_STATUSES)
     .first<{ held: number }>();

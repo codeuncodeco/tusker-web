@@ -11,6 +11,7 @@
  */
 
 import { FINISHED_STATUSES } from "./board";
+import { notDeleted } from "./deleted.server";
 import type { Scope } from "./scope.server";
 import { asTask, CARD_FIELDS, NOW, type Task } from "./tasks.server";
 import { taskIdsIn, type TaskId } from "./task-number";
@@ -85,7 +86,7 @@ async function setArchived(
         db
           .prepare(
             `UPDATE tasks SET ${set}, updated_at = ${NOW}
-             WHERE id = ? AND org_id = ? AND archived = ?${finished}`,
+             WHERE id = ? AND org_id = ? AND archived = ? AND ${notDeleted()}${finished}`,
           )
           .bind(taskId, scope.org.id, was),
       ),
@@ -113,7 +114,7 @@ export async function listArchived(db: D1Database, scope: Scope): Promise<Task[]
   const { results } = await db
     .prepare(
       `SELECT ${CARD_FIELDS} FROM tasks
-       WHERE org_id = ? AND archived = 1
+       WHERE org_id = ? AND archived = 1 AND ${notDeleted()}
        ORDER BY archived_at DESC, id`,
     )
     .bind(scope.org.id)

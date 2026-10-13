@@ -16,7 +16,7 @@
  * `form`, and the form's Save posts the whole task.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Form } from "react-router";
 
 import type { Assignee } from "./assignees";
@@ -28,12 +28,14 @@ import { taskSent, usePost, useSent, type TaskHeld } from "./pending";
 import { PostButton } from "./posting";
 import type { RefPicker } from "./refs.server";
 import { SavedInput } from "./saved-input";
+import { taskLabel, type TaskId } from "./task-number";
 
 /** The id of the page's one form. Every control of the page names it. */
 export const TASK_FORM = "task-form";
 
 /** The task, as the aside reads it. */
 export type AsideTask = Omit<TaskHeld, "assignees"> & {
+  id: TaskId;
   archived: boolean;
   finished: boolean;
 };
@@ -90,8 +92,8 @@ export function TaskAside(props: AsideProps) {
 
 /**
  * The acts, at the top of the aside: the primary act, then Archive where it
- * applies. Archive keeps finished work, so live work is offered none, as on
- * the board.
+ * applies, then Delete. Archive keeps finished work, so live work is offered
+ * none, as on the board. Delete is offered on every task.
  */
 function ActsRow({ task }: { task: AsideTask }) {
   return (
@@ -102,7 +104,67 @@ function ActsRow({ task }: { task: AsideTask }) {
           <PostButton intent="archive" label="Archive" busyLabel="Archiving…" />
         </Form>
       ) : null}
+      <DeleteAct taskId={task.id} />
     </div>
+  );
+}
+
+/**
+ * Delete, which asks before it writes. The first click turns the button into a
+ * confirm in its place, and only the confirm's Delete posts. Keep puts the
+ * button back. The ask is this block's own state: no route, no dialog, and no
+ * key reaches it. See ADR-0031.
+ */
+function DeleteAct({ taskId }: { taskId: TaskId }) {
+  const [asking, setAsking] = useState(false);
+  // Focus follows the swap, so a person on the keyboard is not dropped at the
+  // top of the page: the confirm takes it on Keep, so a second Enter deletes
+  // nothing, and Keep gives it back to the button. The button takes no focus
+  // when the page first draws.
+  const [asked, setAsked] = useState(false);
+
+  return asking ? (
+    <DeleteAsk taskId={taskId} onKeep={() => setAsking(false)} />
+  ) : (
+    <DeleteButton
+      focused={asked}
+      onAsk={() => {
+        setAsking(true);
+        setAsked(true);
+      }}
+    />
+  );
+}
+
+/** Delete as it first draws: a plain button that posts nothing. */
+export function DeleteButton({ onAsk, focused = false }: { onAsk: () => void; focused?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onAsk}
+      autoFocus={focused}
+      className="self-start rounded border border-border px-3 py-2 text-danger"
+    >
+      Delete
+    </button>
+  );
+}
+
+/** The confirm Delete turns into: the task named, a Delete that posts, and Keep. */
+export function DeleteAsk({ taskId, onKeep }: { taskId: TaskId; onKeep: () => void }) {
+  return (
+    <Form method="post" className="flex basis-full flex-wrap items-center gap-2">
+      <span className="basis-full">Delete {taskLabel(taskId)}?</span>
+      <PostButton intent="delete" label="Delete" busyLabel="Deleting…" />
+      <button
+        type="button"
+        onClick={onKeep}
+        autoFocus
+        className="self-start rounded border border-border px-3 py-2"
+      >
+        Keep
+      </button>
+    </Form>
   );
 }
 

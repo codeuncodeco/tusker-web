@@ -11,6 +11,7 @@ import { drawsAssignees, type Assignee } from "./assignees";
 import { assigneesByTask, membersInOrgs } from "./assignees.server";
 import { FINISHED_STATUSES, type Status } from "./board";
 import { listColors } from "./colors.server";
+import { notDeleted } from "./deleted.server";
 import { shownOnCard, type Shown } from "./fields";
 import { listFields } from "./fields.server";
 import { refLabels } from "./refs.server";
@@ -142,7 +143,7 @@ async function placedRows(
                      ) AS REAL)
                   / COUNT(*) OVER (PARTITION BY org_id, status) AS percentile
          FROM tasks
-         WHERE archived = 0 AND org_id IN (${holes(set.orgs.length)})
+         WHERE archived = 0 AND ${notDeleted()} AND org_id IN (${holes(set.orgs.length)})
        )
        SELECT * FROM placed WHERE ${keep.join(" OR ")}`,
     )
