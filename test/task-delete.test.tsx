@@ -1,6 +1,6 @@
 /**
- * Delete, from the task aside: a soft delete that keeps the row and takes the
- * task out of every page, every plan and every week set. See ADR-0031.
+ * Delete, from the task aside: it keeps the row and takes the task out of
+ * every page, every plan and every week set. See ADR-0031.
  */
 
 import { env } from "cloudflare:workers";
@@ -67,7 +67,7 @@ function act(cookie: string, id: TaskId, fields: Record<string, string>, query =
 }
 
 /** The delete, as the confirm's second click posts it. */
-function remove(cookie: string, id: TaskId, query = "") {
+function confirmDelete(cookie: string, id: TaskId, query = "") {
   return caught(act(cookie, id, { intent: "delete" }, query));
 }
 
@@ -147,7 +147,7 @@ describe("the delete act", () => {
     await task(ada.org.id, 5);
     const from = encodeURIComponent(`/o/${ada.org.slug}/board?due=today`);
 
-    const response = await remove(ada.cookie, 5, `?from=${from}`);
+    const response = await confirmDelete(ada.cookie, 5, `?from=${from}`);
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(`/o/${ada.org.slug}/board?due=today`);
@@ -158,7 +158,7 @@ describe("the delete act", () => {
     const ada = await member("ada@example.test", "Ada");
     await task(ada.org.id, 5);
 
-    const response = await remove(ada.cookie, 5);
+    const response = await confirmDelete(ada.cookie, 5);
 
     expect(response.headers.get("location")).toBe(`/o/${ada.org.slug}/board`);
   });
@@ -185,7 +185,7 @@ describe("the delete act", () => {
       const ada = await member("ada@example.test", "Ada");
       await task(ada.org.id, 5, some);
 
-      await remove(ada.cookie, 5);
+      await confirmDelete(ada.cookie, 5);
 
       expect(await mark(5)).toBeTruthy();
     });
@@ -197,7 +197,7 @@ describe("the delete act", () => {
     await task(ada.org.id, 5);
     await plan(ada.person.id, DAY, [5]);
 
-    const response = await remove(bo.cookie, 5);
+    const response = await confirmDelete(bo.cookie, 5);
 
     expect(response.status).toBe(404);
     expect(await mark(5)).toBeNull();
@@ -212,7 +212,7 @@ describe("the delete act", () => {
       .bind(5, ada.org.id, ada.person.id)
       .run();
 
-    await remove(ada.cookie, 5);
+    await confirmDelete(ada.cookie, 5);
 
     const held = await db
       .prepare("SELECT user_id FROM task_assignees WHERE task_id = ?")
@@ -230,7 +230,7 @@ describe("the delete act", () => {
     await boardRoute.action(routeArgs(request, { slug: ada.org.slug }));
     const first = (await db.prepare("SELECT MAX(id) AS id FROM tasks").first<{ id: TaskId }>())!.id;
 
-    await remove(ada.cookie, first);
+    await confirmDelete(ada.cookie, first);
     const again = post(`/o/${ada.org.slug}/board`, { intent: "create", status: "todo", title: "Next" });
     again.headers.set("cookie", ada.cookie);
     await boardRoute.action(routeArgs(again, { slug: ada.org.slug }));
@@ -247,7 +247,7 @@ describe("plans and week sets", () => {
     await plan(ada.person.id, "2026-07-20", [6, 5, 4]);
     await plan(ada.person.id, DAY, [4, 5, 6]);
 
-    await remove(ada.cookie, 5);
+    await confirmDelete(ada.cookie, 5);
 
     expect(await planOf(ada.person.id, "2026-07-20")).toEqual([6, 4]);
     expect(await planOf(ada.person.id, DAY)).toEqual([4, 6]);
@@ -259,7 +259,7 @@ describe("plans and week sets", () => {
     await weekSet(ada.person.id, PAST, [6, 5, 4]);
     await weekSet(ada.person.id, WEEK, [4, 5, 6]);
 
-    await remove(ada.cookie, 5);
+    await confirmDelete(ada.cookie, 5);
 
     expect(await setOf(ada.person.id, PAST)).toEqual([6, 4]);
     expect(await setOf(ada.person.id, WEEK)).toEqual([4, 6]);
@@ -276,7 +276,7 @@ describe("plans and week sets", () => {
     await plan(bo.person.id, DAY, [5]);
     await weekSet(bo.person.id, WEEK, [5]);
 
-    await remove(ada.cookie, 5);
+    await confirmDelete(ada.cookie, 5);
 
     expect(await planOf(bo.person.id, DAY)).toEqual([]);
     expect(await setOf(bo.person.id, WEEK)).toEqual([]);
@@ -292,7 +292,7 @@ describe("a deleted task, on every page", () => {
     await task(ada.org.id, 5, some);
     await plan(ada.person.id, DAY, [4, 5]);
     await weekSet(ada.person.id, WEEK, [4, 5]);
-    await remove(ada.cookie, 5);
+    await confirmDelete(ada.cookie, 5);
     return ada;
   }
 
@@ -426,7 +426,7 @@ describe("the decision a deleted task produced", () => {
       .bind(ada.org.id, ada.person.id)
       .run();
 
-    await remove(ada.cookie, 5);
+    await confirmDelete(ada.cookie, 5);
 
     const row = await db.prepare("SELECT task_id FROM decisions WHERE id = 'd1'").first();
     expect(row).toEqual({ task_id: 5 });

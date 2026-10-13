@@ -118,17 +118,19 @@ function ActsRow({ task }: { task: AsideTask }) {
 function DeleteAct({ taskId }: { taskId: TaskId }) {
   const [asking, setAsking] = useState(false);
   // Focus follows the swap, so a person on the keyboard is not dropped at the
-  // top of the page. It lands on Keep first, so a second Enter deletes nothing.
-  const [moved, setMoved] = useState(false);
+  // top of the page: the confirm takes it on Keep, so a second Enter deletes
+  // nothing, and Keep gives it back to the button. The button takes no focus
+  // when the page first draws.
+  const [asked, setAsked] = useState(false);
 
   return asking ? (
     <DeleteAsk taskId={taskId} onKeep={() => setAsking(false)} />
   ) : (
     <DeleteButton
-      focused={moved}
+      focused={asked}
       onAsk={() => {
         setAsking(true);
-        setMoved(true);
+        setAsked(true);
       }}
     />
   );
