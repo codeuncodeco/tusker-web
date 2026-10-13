@@ -8,7 +8,7 @@ import * as focusRoute from "../app/routes/me.focus";
 import * as meRoute from "../app/routes/me";
 import * as taskRoute from "../app/routes/task";
 import type { TaskId } from "../app/task-number";
-import { pageOf, withPrompt, withoutPrompt } from "../app/decisions";
+import { withPrompt, withoutPrompt } from "../app/decisions";
 import { aside, member } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
 
@@ -642,23 +642,5 @@ describe("where the prompt lives", () => {
   it("closes it, and leaves a page with nothing else to say no query string", () => {
     expect(withoutPrompt("/me", "?ask=1&org=acme")).toBe("/me");
     expect(withoutPrompt("/me", "?ask=1&org=acme&today=1")).toBe("/me?today=1");
-  });
-});
-
-// A fetcher posts to the page's data address, and the prompt is a place on the
-// page, not on that address. A redirect to `/me.data` is a 404.
-describe("the page a post came from", () => {
-  it("is the page itself for a post to its data address", () => {
-    expect(pageOf("/me.data")).toBe("/me");
-    expect(pageOf("/o/acme/board.data")).toBe("/o/acme/board");
-  });
-
-  it("is the root for a post to the root's data address", () => {
-    expect(pageOf("/_root.data")).toBe("/");
-  });
-
-  it("is the path as it came for a plain post", () => {
-    expect(pageOf("/me")).toBe("/me");
-    expect(pageOf("/o/acme/board")).toBe("/o/acme/board");
   });
 });

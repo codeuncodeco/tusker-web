@@ -183,6 +183,20 @@ describe("Reopen", () => {
     expect(response.headers.get("location")).toBe("/t/1");
   });
 
+  // A client-side submit posts to the page's data address. The browser follows
+  // the redirect to the page, and keeps the query that names the origin.
+  it("answers with the page for a post to its data address, query kept", async () => {
+    const one = await member("data@example.test", "Data");
+    await task(one.org.id, 1, { status: "done" });
+    const request = post("/t/1.data?from=%2Fme&_routes=routes%2Ftask", { intent: "reopen" });
+    request.headers.set("cookie", one.cookie);
+
+    const response = await caught(taskRoute.action(routeArgs(request, { n: "1" })));
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("/t/1?from=%2Fme");
+  });
+
   it("is refused on an archived task, which is restored first", async () => {
     const one = await member("kept@example.test", "Kept");
     await task(one.org.id, 1, { status: "done" });

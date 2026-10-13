@@ -15,6 +15,29 @@ export function safeNext(value: unknown, fallback = "/me"): string {
 }
 
 /**
+ * The page a request came from. With single fetch, a client-side submit or
+ * link goes to the page's data address, `/me.data`, and a redirect there is a
+ * 404. The root's data address has two names: `/_root.data` and `/_.data`.
+ */
+export function pageOf(pathname: string): string {
+  if (pathname === "/_root.data" || pathname === "/_.data") return "/";
+  return pathname.endsWith(".data") ? pathname.slice(0, -".data".length) : pathname;
+}
+
+/** The single-fetch query key that names the loaders to run. */
+const ROUTES = "_routes";
+
+/**
+ * The address a request came from, as the address bar reads it: the page and
+ * its query, with no data address and no single-fetch query.
+ */
+export function pageAddress(requestUrl: string): string {
+  const url = new URL(requestUrl);
+  url.searchParams.delete(ROUTES);
+  return `${pageOf(url.pathname)}${url.search}`;
+}
+
+/**
  * The query key a task page carries its origin in.
  *
  * `Enter` opens a task from four keyed lists, and the task page has to know

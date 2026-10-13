@@ -1,6 +1,7 @@
 import { redirect } from "react-router";
 
 import { createAuth } from "./auth.server";
+import { pageOf } from "./paths";
 
 /** The signed-in person and their session, or null when nobody is signed in. */
 export async function getSession(request: Request, env: Env) {
@@ -16,7 +17,7 @@ export async function requirePerson(request: Request, env: Env) {
   const found = await getSession(request, env);
   if (found) return found.user;
 
-  const next = new URL(request.url).pathname;
+  const next = pageOf(new URL(request.url).pathname);
   throw redirect(`/login?next=${encodeURIComponent(next)}`);
 }
 

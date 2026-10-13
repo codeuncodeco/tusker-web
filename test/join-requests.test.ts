@@ -118,6 +118,19 @@ describe("who lands on the directory", () => {
     }
   });
 
+  // A client-side link loads the page's data address, not the page.
+  it("reads a data address as its page", async () => {
+    const { dee } = await instance();
+
+    for (const path of ["/orgs.data", "/account.data", "/orgs/new.data"]) {
+      const data = await personLayout.loader(routeArgs(get(path, dee.cookie)));
+      expect(data.orgs).toEqual([]);
+    }
+
+    const response = await caught(personLayout.loader(routeArgs(get("/me/week.data", dee.cookie))));
+    expect(response.headers.get("location")).toBe("/orgs");
+  });
+
   it("sends a person who belongs to an org away from the directory", async () => {
     const { bo } = await instance();
 

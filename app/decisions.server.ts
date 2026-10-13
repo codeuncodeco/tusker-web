@@ -14,7 +14,8 @@
 import { redirect } from "react-router";
 
 import type { Status } from "./board";
-import { ASK, ORG, pageOf, withPrompt, withoutPrompt } from "./decisions";
+import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
+import { pageAddress, pageOf } from "./paths";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
 import { readTaskId, type TaskId } from "./task-number";
@@ -197,8 +198,7 @@ export async function recordDecision(
 
   // Post, then redirect to this page again: the new line reads at the top, the
   // box is empty, and a reload does not write the decision twice.
-  const url = new URL(request.url);
-  return redirect(`${pageOf(url.pathname)}${url.search}`);
+  return redirect(pageAddress(request.url));
 }
 
 /** What a refused box answers with: why, and what to put back in the fields. */
