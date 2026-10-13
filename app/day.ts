@@ -70,6 +70,15 @@ export function dayShort(day: string, year: boolean): string {
 }
 
 /**
+ * The date a record was kept on: "13 Oct 2026". It has no weekday and always
+ * has the year, because a decision or an archived task is read back long
+ * after, and the year is the part a reader cannot guess.
+ */
+export function dayDate(day: string): string {
+  return written(day, { day: "numeric", month: "short", year: "numeric" });
+}
+
+/**
  * The day as a heading names it: the same date, behind the word a person
  * counts by where there is one. "Today, Thursday 3 September" says both the
  * step and the day, and two steps back says the day alone.

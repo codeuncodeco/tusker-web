@@ -19,7 +19,7 @@ import { narrowingFor, STATUS_LABEL } from "../board";
 import { TodayChip } from "../board-chrome";
 import { listColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
-import { dayOf } from "../day";
+import { dayDate, dayOf } from "../day";
 import { Dot } from "../dot";
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
@@ -174,7 +174,7 @@ export default function Archive({ loaderData }: Route.ComponentProps) {
                 {line.status}
               </span>
               <span className="text-xs tabular-nums text-muted">
-                {line.archivedAt?.slice(0, 10) ?? "—"}
+                {line.archivedAt ? dayDate(line.archivedAt.slice(0, 10)) : "—"}
               </span>
               <Restore id={line.id} title={line.title} />
             </li>
