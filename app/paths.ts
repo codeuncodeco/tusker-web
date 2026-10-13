@@ -25,16 +25,24 @@ export function pageOf(pathname: string): string {
 }
 
 /** The single-fetch query key that names the loaders to run. */
-const ROUTES = "_routes";
+const SINGLE_FETCH_ROUTES = "_routes";
 
 /**
  * The address a request came from, as the address bar reads it: the page and
- * its query, with no data address and no single-fetch query.
+ * its query, with no data address and no single-fetch query. Server code reads
+ * the page from here and never from `request.url` itself.
  */
-export function pageAddress(requestUrl: string): string {
+export function pageUrl(requestUrl: string): URL {
   const url = new URL(requestUrl);
-  url.searchParams.delete(ROUTES);
-  return `${pageOf(url.pathname)}${url.search}`;
+  url.pathname = pageOf(url.pathname);
+  url.searchParams.delete(SINGLE_FETCH_ROUTES);
+  return url;
+}
+
+/** The same address, as a path and query a redirect can name. */
+export function pageAddress(requestUrl: string): string {
+  const { pathname, search } = pageUrl(requestUrl);
+  return `${pathname}${search}`;
 }
 
 /**

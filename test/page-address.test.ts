@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { pageAddress, pageOf } from "../app/paths";
+import { pageAddress, pageOf, pageUrl } from "../app/paths";
 
 describe("the page a request came from", () => {
   it("is the page itself for a request to its data address", () => {
@@ -36,5 +36,11 @@ describe("the address a request came from", () => {
       "/t/1?from=%2Fme",
     );
     expect(pageAddress("https://tusker.test/t/1.data?_routes=routes%2Ftask")).toBe("/t/1");
+  });
+
+  it("reads the same through the page URL a redirect builds on", () => {
+    const page = pageUrl("https://tusker.test/me.data?ask=1&_routes=routes%2Fme");
+    expect(page.pathname).toBe("/me");
+    expect(page.search).toBe("?ask=1");
   });
 });
