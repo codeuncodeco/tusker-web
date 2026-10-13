@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   dayAfter,
   dayBefore,
+  dayDate,
   dayLabel,
   dayName,
   dayOf,
@@ -104,5 +105,20 @@ describe("the short day a span is written in", () => {
   it("writes the year where the span asks for one", () => {
     expect(dayShort("2025-12-29", true)).toBe("Mon 29 Dec 2025");
     expect(dayShort("2027-01-01", true)).toBe("Fri 1 Jan 2027");
+  });
+});
+
+describe("the date a record was kept on", () => {
+  it("writes the day, the short month and the year", () => {
+    expect(dayDate("2026-10-13")).toBe("13 Oct 2026");
+  });
+
+  it("writes a single-digit day without a leading zero", () => {
+    expect(dayDate("2026-09-03")).toBe("3 Sept 2026");
+  });
+
+  it("writes each end of a year end as its own year", () => {
+    expect(dayDate("2025-12-31")).toBe("31 Dec 2025");
+    expect(dayDate("2026-01-01")).toBe("1 Jan 2026");
   });
 });

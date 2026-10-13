@@ -8,6 +8,7 @@
 import { Form, Link } from "react-router";
 
 import { cloudflareEnv } from "../context.server";
+import { dayDate } from "../day";
 import { DecisionFields } from "../decision-fields";
 import { listDecisions, recordDecision } from "../decisions.server";
 import { taskPath, useOrigin } from "../paths";
@@ -80,7 +81,7 @@ export default function Decisions({ loaderData, actionData }: Route.ComponentPro
             >
               <h2>{decision.title}</h2>
               <p className="text-xs tabular-nums text-muted">
-                {decision.created_at.slice(0, 10)}
+                {dayDate(decision.created_at.slice(0, 10))}
                 {decision.task ? (
                   <>
                     {" · "}
