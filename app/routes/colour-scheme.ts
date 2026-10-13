@@ -18,7 +18,7 @@ export async function action({ request }: Route.ActionArgs) {
   const headers = { "Set-Cookie": colourSchemeCookie(scheme) };
   // The page to go back to comes from the form, so it passes the guard: a
   // crafted one lands on a page of this app and never off-site.
-  const back = form.get("back");
-  if (back !== null) throw redirect(safeNext(back), { headers });
+  const next = form.get("next");
+  if (next !== null) throw redirect(safeNext(next), { headers });
   return Response.json({ scheme }, { headers });
 }

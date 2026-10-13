@@ -284,7 +284,7 @@ function OrgSelect({
 }
 
 /** The name and the glyph of each colour scheme, as the select draws them. */
-const SCHEMES: Record<ColourScheme, { label: string; icon: React.ReactNode }> = {
+const SCHEME_LOOKS: Record<ColourScheme, { label: string; icon: React.ReactNode }> = {
   light: { label: "Light", icon: <Sun /> },
   dark: { label: "Dark", icon: <Moon /> },
   system: { label: "System", icon: <Desktop /> },
@@ -306,11 +306,11 @@ function ColourSchemeSelect() {
 
   return (
     <form method="post" action={COLOUR_SCHEME_ACTION} className="flex items-center gap-2">
-      <input type="hidden" name="back" value={`${pathname}${search}`} />
+      <input type="hidden" name="next" value={`${pathname}${search}`} />
       {/* The border is the label's, so it rings the glyph and the select as
           one control, the way the org select rings its dot. */}
       <label className="flex items-center rounded border border-border bg-bg pl-1.5 focus-within:border-fg sm:pl-2">
-        {SCHEMES[scheme].icon}
+        {SCHEME_LOOKS[scheme].icon}
         <select
           name="scheme"
           aria-label="Colour scheme"
@@ -327,7 +327,7 @@ function ColourSchemeSelect() {
         >
           {COLOUR_SCHEMES.map((one) => (
             <option key={one} value={one}>
-              {SCHEMES[one].label}
+              {SCHEME_LOOKS[one].label}
             </option>
           ))}
         </select>
@@ -378,6 +378,10 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     // Three columns: an empty left, the select and ⋯ at the centre, the person
     // menu at the right. The outer two share the rest equally, so the centre
     // stays centred whatever either side holds.
+    //
+    // Below `sm` the empty left column goes and the gaps, padding and the
+    // select's text shrink, so the header still fits one row at 360px with
+    // the colour scheme select in it. See #223.
     //
     // On a board, from `sm` up, the header sticks, and the board's Top row
     // sticks under it at `top-16`, so the height is fixed and not its

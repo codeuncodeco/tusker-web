@@ -1,15 +1,15 @@
 /**
  * The icons the app draws, inline.
  *
- * Two glyphs do not earn a package, a font and a build step, so each icon is
- * one `<svg>` holding one path. Every icon draws in `currentColor` and is
+ * A handful of glyphs do not earn a package, a font and a build step, so each
+ * icon is one `<svg>` holding one path. Every icon draws in `currentColor` and is
  * hidden from a screen reader: the control beside it carries the name.
  *
  * This file is the precedent for every icon after it. Add the path, not a
  * dependency.
  *
- * Paths: Font Awesome Free 6, regular style. CC BY 4.0
- * (https://fontawesome.com/license/free).
+ * Paths: Font Awesome Free 6, regular style, or solid where the free set has
+ * no regular glyph. CC BY 4.0 (https://fontawesome.com/license/free).
  */
 
 /**

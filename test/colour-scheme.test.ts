@@ -58,7 +58,7 @@ describe("picking a colour scheme", () => {
   });
 
   it("lands a browser with no script back on the page it stood on", async () => {
-    const response = await pick({ scheme: "light", back: "/o/acme/board?due=today" });
+    const response = await pick({ scheme: "light", next: "/o/acme/board?due=today" });
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("/o/acme/board?due=today");
@@ -66,8 +66,8 @@ describe("picking a colour scheme", () => {
   });
 
   it("never lands a browser off the site", async () => {
-    for (const back of ["//evil.example", "https://evil.example/", "evil"]) {
-      const response = await pick({ scheme: "dark", back });
+    for (const next of ["//evil.example", "/\\evil.example", "https://evil.example/", "evil"]) {
+      const response = await pick({ scheme: "dark", next });
 
       expect(response.status).toBe(302);
       expect(response.headers.get("location")).toBe("/me");

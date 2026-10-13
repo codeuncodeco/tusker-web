@@ -1,7 +1,11 @@
 import { env } from "cloudflare:workers";
-import { RouterContextProvider } from "react-router";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { RouterContextProvider, createRoutesStub } from "react-router";
 
 import { cloudflareEnv } from "../app/context.server";
+import type { OrgHeld } from "../app/current-org";
+import { Header } from "../app/header";
 
 export const SITE = "https://tusker.test";
 
@@ -67,4 +71,14 @@ export async function caught(work: Promise<unknown>): Promise<Response> {
     if (thrown instanceof Response) return thrown;
     throw thrown;
   }
+}
+
+/**
+ * The header's markup at one address, as one string of HTML. It draws inside
+ * a data router, as the app draws it, because its colour scheme select posts
+ * through a fetcher.
+ */
+export function headerAt(pathname: string, orgs: OrgHeld[], org: OrgHeld | null): string {
+  const Stub = createRoutesStub([{ path: "*", Component: () => createElement(Header, { orgs, org }) }]);
+  return renderToStaticMarkup(createElement(Stub, { initialEntries: [pathname] }));
 }
