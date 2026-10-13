@@ -20,7 +20,7 @@ import { DescriptionBox } from "../description-box";
 import { DescriptionView } from "../description-view";
 import { readData, readValue, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
-import { backPath, pageAddress } from "../paths";
+import { backPath, pageAddress, pageUrl } from "../paths";
 import { postAndReport } from "../pending";
 import { refPickers } from "../refs.server";
 import { requireTaskScope, type Scope } from "../scope.server";
@@ -29,6 +29,7 @@ import { taskLabel, type TaskId } from "../task-number";
 import { TaskTitle } from "../task-title";
 import {
   editTask,
+  markDeleted,
   readDueDate,
   readTask,
   saveDescription,
@@ -125,6 +126,15 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const form = await request.formData();
 
   const intent = String(form.get("intent") ?? "");
+
+  // The task, out of Tusker. The row is kept and no page shows it again, so
+  // the page goes back to where the task was opened from, as `Esc` does. Any
+  // task can be deleted, whatever its status. See ADR-0031.
+  if (intent === "delete") {
+    const deleted = await markDeleted(env.DB, scope, taskId);
+    if (!deleted) throw new Response("Not found", { status: 404 });
+    return redirect(backPath(pageUrl(request.url).search, scope.org.slug));
+  }
 
   // One task, off the board and kept, or put back. Archive is a flag, so
   // neither act touches the status the task holds.

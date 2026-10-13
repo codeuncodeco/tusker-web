@@ -164,8 +164,8 @@ export async function actOnTask(
   const intent = String(form.get("intent") ?? "");
   // An add names an org and no task, so it proves its scope and stops here.
   if (intent === "create") return addTasks(env, set, picks, form);
-  // Taking an add back is the one delete Tusker has. It names every row that
-  // add made, so it stands apart as well. See ADR-0012.
+  // Taking an add back removes every row that add made, for good. It names
+  // them all, so it stands apart as well. See ADR-0012.
   if (intent === "undo") return undoAdd(env, set, picks, form);
   if (!ACTS.some((act) => act === intent)) return null;
 

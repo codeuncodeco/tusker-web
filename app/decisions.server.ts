@@ -7,14 +7,17 @@
  * once-only guard, so a skip is a not-now and a task that already holds a
  * decision is never asked again. See ADR-0010.
  *
- * A decision outlives the task that produced it: `task_id` is nullable, and a
- * deleted task leaves the record in place with the link cleared.
+ * A decision outlives the task that produced it: `task_id` is nullable, and an
+ * undone add leaves the record in place with the link cleared. A deleted task
+ * keeps the link, and the log draws its decision as one with no task. See
+ * ADR-0031.
  */
 
 import { redirect } from "react-router";
 
 import type { Status } from "./board";
 import { ASK, ORG, withPrompt, withoutPrompt } from "./decisions";
+import { notDeleted } from "./deleted.server";
 import { pageAddress, pageUrl } from "./paths";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
@@ -113,7 +116,7 @@ async function askable(
   const row = await db
     .prepare(
       `SELECT t.id, t.title FROM tasks t
-       WHERE t.id = ? AND t.org_id = ? AND t.decides = 1 AND t.status = 'done'
+       WHERE t.id = ? AND t.org_id = ? AND ${notDeleted("t")} AND t.decides = 1 AND t.status = 'done'
          AND NOT EXISTS (SELECT 1 FROM decisions d WHERE d.task_id = t.id)`,
     )
     .bind(taskId, scope.org.id)
@@ -239,7 +242,7 @@ export async function listDecisions(db: D1Database, scope: Scope): Promise<Logge
       `SELECT d.id, d.title, d.rationale, d.created_at,
               t.id AS task_id, t.title AS task_title
        FROM decisions d
-       LEFT JOIN tasks t ON t.id = d.task_id AND t.org_id = d.org_id
+       LEFT JOIN tasks t ON t.id = d.task_id AND t.org_id = d.org_id AND ${notDeleted("t")}
        WHERE d.org_id = ?
        ORDER BY d.created_at DESC, d.rowid DESC`,
     )

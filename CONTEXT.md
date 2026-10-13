@@ -241,6 +241,18 @@ it puts it back in the column it held. `tasks.archived_at` holds when it was
 archived, and the archive screen sorts by it.
 _Avoid_: Closed, hidden
 
+**Delete**:
+Taking a task out of Tusker. Any member of the task's org may delete it,
+whatever its status, archived or not. A deleted task is gone from every page and
+answers the same 404 as a task that never was, but its row is kept, so a person
+with direct access to the database can bring it back. Tusker itself has no
+restore for it. Delete takes the task out of every plan and week set, past ones
+included, and a decision it produced reads as a decision with no task. The
+person confirms in the task aside before anything is deleted, and the page then
+goes back to the task's origin. Archive keeps a task in view on the archive
+screen; delete keeps it in view nowhere. See ADR-0031.
+_Avoid_: Trash, remove
+
 **Sweep**:
 Archiving a whole column in one act. Both boards carry it: the Done and
 Cancelled columns hold the button in their head, beside the name and the count,
@@ -416,10 +428,10 @@ tabs cannot fight over it.
 _Avoid_: Referrer, back stack, return URL, here
 
 **Task aside**:
-The pane beside a task that holds its properties and its acts — the status,
-the due date, the assignees, the org's fields, the decision mark, and Finish,
-Reopen, Archive and Restore; on a phone it is a drawer opened from a bar at the
-foot of the page; the task page and the task popup draw the same aside.
+The pane beside a task that holds its properties and its acts — the status, the
+due date, the assignees, the org's fields, the decision mark, and Finish,
+Reopen, Archive, Restore and Delete; on a phone it is a drawer opened from a bar
+at the foot of the page; the task page and the task popup draw the same aside.
 _Avoid_: Sidebar, metadata panel
 
 **Board**:
@@ -500,12 +512,12 @@ _Avoid_: Bulk add, batch, import
 
 **Undo an add**:
 The line the quick-add box shows after it makes a task. It counts what the add
-made, deletes every row that add wrote, drops them all from the day's plan, and
-gives the box back the whole text as it was typed, with the picker
+made, removes every row that add wrote for good, drops them all from the day's
+plan, and gives the box back the whole text as it was typed, with the picker
 reset to no org picked and the assignee set emptied with it, so a task typed
 into the wrong org is filed again rather than typed again. One add is one act,
-so its undo is one act. It is the only delete Tusker has. See ADR-0012 and
-ADR-0027.
+so its undo is one act. It is not a **Delete**: nothing of the add is kept. See
+ADR-0012 and ADR-0027.
 _Avoid_: Trash, revert
 
 **Week set**:
@@ -591,10 +603,10 @@ _Avoid_: Week range, week dates
 
 **Leftovers**:
 The unfinished members of a week that is over. Two doorways reach them, the
-**carry** and the **take**, and both copy the memberships and leave the old
-ones as they were, so a task is in both sets: a week set is never rewritten
-after its week. A day carries nothing: each plan starts empty, and the week set
-is where unfinished work waits. See ADR-0014.
+**carry** and the **take**, and both copy the memberships and leave the old ones
+as they were, so a task is in both sets: a week set is never rewritten after its
+week, except by a **Delete**. A day carries nothing: each plan starts empty, and
+the week set is where unfinished work waits. See ADR-0014.
 _Avoid_: Rollover, unfinished carry-over
 
 **Carry**:
