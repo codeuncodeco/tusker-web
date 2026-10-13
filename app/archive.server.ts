@@ -13,6 +13,7 @@
 import { FINISHED_STATUSES } from "./board";
 import type { Scope } from "./scope.server";
 import { asTask, CARD_FIELDS, NOW, type Task } from "./tasks.server";
+import { taskIdsIn, type TaskId } from "./task-number";
 
 /**
  * How many statements go into one batch. A sweep is as long as the column a
@@ -33,8 +34,8 @@ const BATCH = 100;
 export async function archiveTasks(
   db: D1Database,
   scope: Scope,
-  taskIds: string[],
-): Promise<string[]> {
+  taskIds: TaskId[],
+): Promise<TaskId[]> {
   return setArchived(db, scope, taskIds, true);
 }
 
@@ -46,8 +47,8 @@ export async function archiveTasks(
 export async function restoreTasks(
   db: D1Database,
   scope: Scope,
-  taskIds: string[],
-): Promise<string[]> {
+  taskIds: TaskId[],
+): Promise<TaskId[]> {
   return setArchived(db, scope, taskIds, false);
 }
 
@@ -65,9 +66,9 @@ export async function restoreTasks(
 async function setArchived(
   db: D1Database,
   scope: Scope,
-  taskIds: string[],
+  taskIds: TaskId[],
   archived: boolean,
-): Promise<string[]> {
+): Promise<TaskId[]> {
   const set = archived ? `archived = 1, archived_at = ${NOW}` : "archived = 0, archived_at = NULL";
   const was = archived ? 0 : 1;
   // Only finished work is archived. Restoring reads no status: a task keeps
@@ -75,7 +76,7 @@ async function setArchived(
   const finished = archived
     ? ` AND status IN (${FINISHED_STATUSES.map((one) => `'${one}'`).join(", ")})`
     : "";
-  const changed: string[] = [];
+  const changed: TaskId[] = [];
 
   for (let at = 0; at < taskIds.length; at += BATCH) {
     const batch = taskIds.slice(at, at + BATCH);
@@ -124,6 +125,6 @@ export async function listArchived(db: D1Database, scope: Scope): Promise<Task[]
  * The task ids a sweep or an undo names. Both post the ids one at a time, so
  * the set is exactly what the person was looking at when they pressed.
  */
-export function readTaskIds(form: FormData): string[] {
-  return form.getAll("id").map(String).filter(Boolean);
+export function readTaskIds(form: FormData): TaskId[] {
+  return taskIdsIn(form.getAll("id"));
 }

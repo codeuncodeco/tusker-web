@@ -27,6 +27,7 @@ import { taskPath, useOrigin } from "./paths";
 import { STEPS } from "./plan";
 import { isPlannable, type LiveTask } from "./unified";
 import { PLAN_VERBS, finishFields, moveFields, planFields, type Verbs } from "./unified-row";
+import type { TaskId } from "./task-number";
 
 /**
  * Which acts a page gives, past the two every list has: moving the cursor, and
@@ -83,7 +84,7 @@ export function guideLines(acts: ListActs, verbs: Verbs = PLAN_VERBS): GuideLine
 /** What one press does to the list, or null where the list ignores it. */
 export type Press =
   /** A card by id, or null where the press takes the cursor off the list. */
-  | { kind: "cursor"; id: string | null }
+  | { kind: "cursor"; id: TaskId | null }
   | { kind: "open"; task: LiveTask }
   | { kind: "act"; fields: Record<string, string> };
 
@@ -94,14 +95,14 @@ export type Press =
 export function pressed(
   key: string,
   rows: LiveTask[],
-  planned: Set<string>,
+  planned: Set<TaskId>,
   acts: ListActs,
-  on: string | null,
+  on: TaskId | null,
   /**
    * The rows the page's order ranks, where that is narrower than the picked
    * set. A week page ranks its live members and not the finished ones.
    */
-  ranked: Set<string> = planned,
+  ranked: Set<TaskId> = planned,
 ): Press | null {
   const at = rows.findIndex((one) => one.id === on);
   const task = rows[at];
@@ -148,7 +149,7 @@ export function pressed(
   const moves = STEPS.find((step) => fires(step, key));
   if (moves) {
     if (!acts.step || !ranked.has(task.id)) return null;
-    return { kind: "act", fields: { intent: moves, id: task.id } };
+    return { kind: "act", fields: { intent: moves, id: String(task.id) } };
   }
 
   // `>` and `<` walk the card along the run and stop at both ends. They post
@@ -194,18 +195,18 @@ export function useTaskKeys({
   verbs = PLAN_VERBS,
 }: {
   rows: LiveTask[];
-  planned: Set<string>;
+  planned: Set<TaskId>;
   acts: ListActs;
-  on: string | null;
-  setOn: (id: string | null) => void;
+  on: TaskId | null;
+  setOn: (id: TaskId | null) => void;
   act: (fields: Record<string, string>) => void;
   /** The rows the page's order ranks. See `pressed`. */
-  ranked?: Set<string>;
+  ranked?: Set<TaskId>;
   /**
    * The ids each column draws, where the list is a board. The arrows cross
    * them, and a list with one run of rows has none to cross.
    */
-  columns?: string[][] | null;
+  columns?: TaskId[][] | null;
   /** What the page's pick button reads, which the Key guide names `p` by. */
   verbs?: Verbs;
 }): (label: string) => Keyed {
@@ -226,7 +227,7 @@ export function useTaskKeys({
 
     if (press.kind === "cursor") setOn(press.id);
     else if (press.kind === "open")
-      navigate(taskPath(press.task.org.slug, press.task.id, origin));
+      navigate(taskPath(press.task.id, origin));
     else act(press.fields);
 
     return true;

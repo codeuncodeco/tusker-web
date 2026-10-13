@@ -17,9 +17,10 @@ import type { Status } from "./board";
 import { ASK, ORG, pageOf, withPrompt, withoutPrompt } from "./decisions";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { moveTask } from "./tasks.server";
+import { readTaskId, type TaskId } from "./task-number";
 
 /** The task a page has the prompt raised on: the id, its org, and its title. */
-export type Ask = { id: string; slug: string; title: string };
+export type Ask = { id: TaskId; slug: string; title: string };
 
 /** One line of the log. `task` is null once the task is gone. */
 export type Logged = {
@@ -27,7 +28,7 @@ export type Logged = {
   title: string;
   rationale: string;
   created_at: string;
-  task: { id: string; title: string } | null;
+  task: { id: TaskId; title: string } | null;
 };
 
 /** The row the log reads, with the task flattened by the join. */
@@ -36,7 +37,7 @@ type LogRow = {
   title: string;
   rationale: string;
   created_at: string;
-  task_id: string | null;
+  task_id: TaskId | null;
   task_title: string | null;
 };
 
@@ -51,7 +52,7 @@ export async function promptFor(
   db: D1Database,
   scope: Scope,
   request: Request,
-  taskId: string,
+  taskId: TaskId,
 ): Promise<Response | null> {
   const task = await askable(db, scope, taskId);
   if (!task) return null;
@@ -73,10 +74,10 @@ export async function moveAndAsk(
   db: D1Database,
   scope: Scope,
   request: Request,
-  taskId: string,
+  taskId: TaskId,
   status: Status,
   /** The card of the same org the task lands above. Nothing names the bottom. */
-  before: string | null = null,
+  before: TaskId | null = null,
 ): Promise<{ moved: boolean; prompt: Response | null }> {
   const moved = await moveTask(db, scope, { taskId, status, before });
   return {
@@ -90,7 +91,7 @@ export function finishTask(
   db: D1Database,
   scope: Scope,
   request: Request,
-  taskId: string,
+  taskId: TaskId,
 ): Promise<{ moved: boolean; prompt: Response | null }> {
   return moveAndAsk(db, scope, request, taskId, "done");
 }
@@ -106,8 +107,8 @@ export function finishTask(
 async function askable(
   db: D1Database,
   scope: Scope,
-  taskId: string,
-): Promise<{ id: string; title: string } | null> {
+  taskId: TaskId,
+): Promise<{ id: TaskId; title: string } | null> {
   const row = await db
     .prepare(
       `SELECT t.id, t.title FROM tasks t
@@ -115,7 +116,7 @@ async function askable(
          AND NOT EXISTS (SELECT 1 FROM decisions d WHERE d.task_id = t.id)`,
     )
     .bind(taskId, scope.org.id)
-    .first<{ id: string; title: string }>();
+    .first<{ id: TaskId; title: string }>();
   return row ?? null;
 }
 
@@ -125,8 +126,8 @@ export async function askedOn(
   scope: Scope,
   request: Request,
 ): Promise<Ask | null> {
-  const id = new URL(request.url).searchParams.get(ASK);
-  if (!id) return null;
+  const id = readTaskId(new URL(request.url).searchParams.get(ASK));
+  if (id === null) return null;
 
   const task = await askable(db, scope, id);
   return task ? { id: task.id, slug: scope.org.slug, title: task.title } : null;
@@ -162,7 +163,8 @@ export async function decide(
 
   // The task is read through the scope, and only a task with a prompt still
   // open answers, so no post can hang a second decision on one task.
-  const task = await askable(db, scope, String(form.get("id") ?? ""));
+  const id = readTaskId(form.get("id"));
+  const task = id === null ? null : await askable(db, scope, id);
   if (!task) throw new Response("Not found", { status: 404 });
 
   await write(db, scope, task.id, title, rationale(form));
@@ -211,7 +213,7 @@ function rationale(form: FormData): string {
 function write(
   db: D1Database,
   scope: Scope,
-  taskId: string | null,
+  taskId: TaskId | null,
   title: string,
   why: string,
 ): Promise<unknown> {

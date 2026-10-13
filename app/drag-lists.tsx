@@ -31,6 +31,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -46,6 +47,7 @@ import {
 
 import { crossOver, listOf, settle, type Lists } from "./drag";
 import { useSent } from "./pending";
+import type { TaskId } from "./task-number";
 
 /**
  * What a dragged card is over: the closest card of the list the pointer is in,
@@ -66,16 +68,16 @@ export function whereOver(lists: Lists): CollisionDetection {
     })[0];
     if (!list) return closestCorners(args);
     const name = String(list.id);
-    const inList = new Set([name, ...lists[name]]);
+    const inList = new Set<UniqueIdentifier>([name, ...lists[name]]);
     return closestCorners({
       ...args,
-      droppableContainers: args.droppableContainers.filter((one) => inList.has(String(one.id))),
+      droppableContainers: args.droppableContainers.filter((one) => inList.has(one.id)),
     });
   };
 }
 
 /** One drop: the card, the list it landed in, and that list's new order. */
-export type Drop = { id: string; list: string; order: string[] };
+export type Drop = { id: TaskId; list: string; order: TaskId[] };
 
 export function DragLists({
   lists,
@@ -92,12 +94,12 @@ export function DragLists({
    */
   onDrop: (drop: Drop) => void;
   /** What follows the pointer: a copy of the card being dragged. */
-  overlay: (id: string) => ReactNode;
+  overlay: (id: TaskId) => ReactNode;
   /** Draws the lists, in the order the drag has them now. */
   children: (shown: Lists) => ReactNode;
 }) {
   const id = useId();
-  const [active, setActive] = useState<string | null>(null);
+  const [active, setActive] = useState<TaskId | null>(null);
   // The lists while a drag is under way, and after a drop until the page draws
   // the post. Null is the page's own lists.
   const [held, setHeld] = useState<Lists | null>(null);
@@ -129,7 +131,7 @@ export function DragLists({
 
   function onDragStart(event: DragStartEvent) {
     drop.current = null;
-    setActive(String(event.active.id));
+    setActive(event.active.id as TaskId);
     setHeld(lists);
   }
 
@@ -137,15 +139,16 @@ export function DragLists({
     if (!over) return;
     const translated = dragged.rect.current.translated;
     const below = translated !== null && translated.top > over.rect.top + over.rect.height / 2;
-    setHeld((now) => crossOver(now ?? lists, String(dragged.id), String(over.id), below));
+    setHeld((now) => crossOver(now ?? lists, dragged.id as TaskId, over.id, below));
   }
 
   function onDragEnd({ active: dragged, over }: DragEndEvent) {
     setActive(null);
-    const card = String(dragged.id);
+    // A card is dragged by its task number, and a list is never dragged.
+    const card = dragged.id as TaskId;
     if (!over || !held) return setHeld(null);
 
-    const ended = settle(held, card, String(over.id));
+    const ended = settle(held, card, over.id);
     const list = listOf(ended, card);
     const order = list === null ? [] : ended[list];
     // A card let go where it started writes nothing.
@@ -173,7 +176,7 @@ export function DragLists({
       onDragCancel={onDragCancel}
     >
       {children(shown)}
-      <DragOverlay>{active ? overlay(active) : null}</DragOverlay>
+      <DragOverlay>{active !== null ? overlay(active) : null}</DragOverlay>
     </DndContext>
   );
 }
@@ -196,7 +199,7 @@ export function DropList({
   /** The list's own id: a column's status, or a group's key. */
   id: string;
   /** The cards it holds, in the order they are drawn. */
-  ids: string[];
+  ids: TaskId[];
   props?: { ref?: (node: HTMLElement | null) => void } & HTMLAttributes<HTMLUListElement>;
   className?: string;
   children: ReactNode;
@@ -225,7 +228,7 @@ export function DropList({
  * way, and the grip a drag starts from. The card being dragged is drawn faded
  * where it will land, and the overlay follows the pointer.
  */
-export function useDragItem(id: string, disabled = false) {
+export function useDragItem(id: TaskId, disabled = false) {
   const { setNodeRef, setActivatorNodeRef, transform, transition, listeners, isDragging } =
     useSortable({ id, disabled });
   return {

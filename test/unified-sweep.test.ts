@@ -11,6 +11,7 @@ import * as meRoute from "../app/routes/me";
 import type { OrgSet } from "../app/scope.server";
 import { restoreAcross, sweepAcross } from "../app/sweep.server";
 import type { Swept } from "../app/sweep";
+import type { TaskId } from "../app/task-number";
 import { aside, member } from "./accounts";
 import { caught, get, post, routeArgs, wipe } from "./routes";
 
@@ -34,7 +35,7 @@ async function team(personId: string, slug: string) {
 }
 
 /** One task of one org, placed by hand. */
-async function task(orgId: string, id: string, status: Status = "done") {
+async function task(orgId: string, id: TaskId, status: Status = "done") {
   await db
     .prepare(
       `INSERT INTO tasks (id, org_id, title, status, position, created_at, updated_at, finished_at)
@@ -43,7 +44,7 @@ async function task(orgId: string, id: string, status: Status = "done") {
     .bind(
       id,
       orgId,
-      id,
+      String(id),
       status,
       "2026-01-01T00:00:00.000Z",
       `${DAY}T09:00:00.000Z`,
@@ -61,17 +62,17 @@ function act(cookie: string, fields: Record<string, string | string[]>) {
 }
 
 /** The cards the sweep form posts for a set of tasks, in card order. */
-function cards(...held: { slug: string; ids: string[] }[]) {
+function cards(...held: { slug: string; ids: TaskId[] }[]) {
   const drawn = held.flatMap((one) => one.ids.map((id) => ({ id, slug: one.slug })));
   return {
     intent: "archive",
-    id: drawn.map((card) => card.id),
+    id: drawn.map((card) => String(card.id)),
     slug: drawn.map((card) => card.slug),
   };
 }
 
 /** The archive flag of one row. */
-async function flagOf(id: string) {
+async function flagOf(id: TaskId) {
   const row = await db
     .prepare("SELECT archived FROM tasks WHERE id = ?")
     .bind(id)
@@ -83,7 +84,7 @@ async function flagOf(id: string) {
 async function column(cookie: string, status: string) {
   const board = (await meRoute.loader(
     routeArgs(get("/me?cancelled=1", `${cookie}; day=${DAY}`)),
-  )) as { columns: { status: string; tasks: { id: string }[] }[] };
+  )) as { columns: { status: string; tasks: { id: TaskId }[] }[] };
   return board.columns.find((one) => one.status === status)?.tasks.map((one) => one.id) ?? [];
 }
 
@@ -91,8 +92,8 @@ describe("a sweep over several orgs", () => {
   it("archives the cards of every org the column drew", async () => {
     const ada = await member("ada@example.test", "Ada");
     const acme = await team(ada.person.id, "acme");
-    const mine = await task(ada.org.id, "mine");
-    const ours = await task(acme.id, "ours");
+    const mine = await task(ada.org.id, 1);
+    const ours = await task(acme.id, 2);
 
     const swept = (await act(
       ada.cookie,
@@ -112,7 +113,7 @@ describe("a sweep over several orgs", () => {
   it("sweeps Cancelled as it sweeps Done", async () => {
     const ada = await member("ada@example.test", "Ada");
     await aside(ada.person);
-    const dropped = await task(ada.org.id, "dropped", "cancelled");
+    const dropped = await task(ada.org.id, 4, "cancelled");
 
     await act(ada.cookie, cards({ slug: ada.org.slug, ids: [dropped] }));
 
@@ -123,7 +124,7 @@ describe("a sweep over several orgs", () => {
   it("archives nothing the person could not see", async () => {
     const ada = await member("ada@example.test", "Ada");
     const bob = await member("bob@example.test", "Bob");
-    const hers = await task(bob.org.id, "hers");
+    const hers = await task(bob.org.id, 3);
 
     const answer = await caught(act(ada.cookie, cards({ slug: bob.org.slug, ids: [hers] })));
 
@@ -134,8 +135,8 @@ describe("a sweep over several orgs", () => {
   it("writes no org at all when one slug is out of reach", async () => {
     const ada = await member("ada@example.test", "Ada");
     const bob = await member("bob@example.test", "Bob");
-    const mine = await task(ada.org.id, "mine");
-    const hers = await task(bob.org.id, "hers");
+    const mine = await task(ada.org.id, 1);
+    const hers = await task(bob.org.id, 3);
 
     await caught(
       act(ada.cookie, cards({ slug: ada.org.slug, ids: [mine] }, { slug: bob.org.slug, ids: [hers] })),
@@ -146,9 +147,9 @@ describe("a sweep over several orgs", () => {
 
   it("refuses a form that names a card without an org", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const mine = await task(ada.org.id, "mine");
+    const mine = await task(ada.org.id, 1);
 
-    const answer = await caught(act(ada.cookie, { intent: "archive", id: [mine] }));
+    const answer = await caught(act(ada.cookie, { intent: "archive", id: [String(mine)] }));
 
     expect(answer.status).toBe(400);
     expect(await flagOf(mine)).toBe(0);
@@ -158,12 +159,12 @@ describe("a sweep over several orgs", () => {
 describe("the one undo for the batch", () => {
   it("answers with what it put back, so a half undo is not silent", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const mine = await task(ada.org.id, "mine");
+    const mine = await task(ada.org.id, 1);
     await act(ada.cookie, cards({ slug: ada.org.slug, ids: [mine] }));
 
     const undone = (await act(ada.cookie, {
       intent: "restore",
-      id: [mine],
+      id: [String(mine)],
       slug: [ada.org.slug],
     })) as { changed: Swept[]; partial: boolean };
 
@@ -176,7 +177,7 @@ describe("the one undo for the batch", () => {
       { id: "org-two", slug: "two", name: "Two", members: 1 },
     ];
     const db = {
-      prepare: () => ({ bind: (_id: string, orgId: string) => ({ orgId }) }),
+      prepare: () => ({ bind: (_id: TaskId, orgId: string) => ({ orgId }) }),
       batch: async (statements: { orgId: string }[]) => {
         if (statements.some((one) => one.orgId === "org-two")) throw new Error("no answer");
         return statements.map(() => ({ meta: { changes: 1 } }));
@@ -184,18 +185,18 @@ describe("the one undo for the batch", () => {
     } as unknown as D1Database;
 
     const undone = await restoreAcross(db, { personId: "ada", orgs } as OrgSet, [
-      { id: "a", slug: "one" },
-      { id: "b", slug: "two" },
+      { id: 1, slug: "one" },
+      { id: 2, slug: "two" },
     ]);
 
-    expect(undone).toEqual({ changed: [{ id: "a", slug: "one" }], partial: true });
+    expect(undone).toEqual({ changed: [{ id: 1, slug: "one" }], partial: true });
   });
 
   it("puts the whole batch back, org by org", async () => {
     const ada = await member("ada@example.test", "Ada");
     const acme = await team(ada.person.id, "acme");
-    const mine = await task(ada.org.id, "mine");
-    const ours = await task(acme.id, "ours");
+    const mine = await task(ada.org.id, 1);
+    const ours = await task(acme.id, 2);
     const swept = (await act(
       ada.cookie,
       cards({ slug: ada.org.slug, ids: [mine] }, { slug: "acme", ids: [ours] }),
@@ -203,7 +204,7 @@ describe("the one undo for the batch", () => {
 
     await act(ada.cookie, {
       intent: "restore",
-      id: swept.changed.map((card) => card.id),
+      id: swept.changed.map((card) => String(card.id)),
       slug: swept.changed.map((card) => card.slug),
     });
 
@@ -213,8 +214,8 @@ describe("the one undo for the batch", () => {
 
   it("names the cards the sweep changed, and not the cards it was given", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const early = await task(ada.org.id, "early");
-    const late = await task(ada.org.id, "late");
+    const early = await task(ada.org.id, 5);
+    const late = await task(ada.org.id, 6);
     await act(ada.cookie, cards({ slug: ada.org.slug, ids: [early] }));
 
     // The form names both, as a stale screen would. The sweep changed one.
@@ -224,7 +225,7 @@ describe("the one undo for the batch", () => {
     )) as { changed: Swept[] };
     await act(ada.cookie, {
       intent: "restore",
-      id: swept.changed.map((card) => card.id),
+      id: swept.changed.map((card) => String(card.id)),
       slug: swept.changed.map((card) => card.slug),
     });
 
@@ -247,7 +248,7 @@ describe("a sweep that half succeeds", () => {
   /** A database that answers for one org and fails for the other. */
   function flaky(failing: string): D1Database {
     return {
-      prepare: () => ({ bind: (_id: string, orgId: string) => ({ orgId }) }),
+      prepare: () => ({ bind: (_id: TaskId, orgId: string) => ({ orgId }) }),
       batch: async (statements: { orgId: string }[]) => {
         if (statements.some((one) => one.orgId === failing)) throw new Error("no answer");
         return statements.map(() => ({ meta: { changes: 1 } }));
@@ -257,18 +258,18 @@ describe("a sweep that half succeeds", () => {
 
   it("reports exactly the ids it changed, and says it stopped", async () => {
     const swept = await sweepAcross(flaky("org-two"), set, [
-      { id: "a", slug: "one" },
-      { id: "b", slug: "two" },
+      { id: 1, slug: "one" },
+      { id: 2, slug: "two" },
     ]);
 
-    expect(swept).toEqual({ changed: [{ id: "a", slug: "one" }], partial: true });
+    expect(swept).toEqual({ changed: [{ id: 1, slug: "one" }], partial: true });
   });
 
   it("does not roll back the org that succeeded", async () => {
-    const written: string[] = [];
+    const written: TaskId[] = [];
     const db = {
-      prepare: () => ({ bind: (id: string, orgId: string) => ({ id, orgId }) }),
-      batch: async (statements: { id: string; orgId: string }[]) => {
+      prepare: () => ({ bind: (id: TaskId, orgId: string) => ({ id, orgId }) }),
+      batch: async (statements: { id: TaskId; orgId: string }[]) => {
         if (statements.some((one) => one.orgId === "org-two")) throw new Error("no answer");
         written.push(...statements.map((one) => one.id));
         return statements.map(() => ({ meta: { changes: 1 } }));
@@ -276,17 +277,17 @@ describe("a sweep that half succeeds", () => {
     } as unknown as D1Database;
 
     await sweepAcross(db, set, [
-      { id: "a", slug: "one" },
-      { id: "b", slug: "two" },
+      { id: 1, slug: "one" },
+      { id: 2, slug: "two" },
     ]);
 
-    expect(written).toEqual(["a"]);
+    expect(written).toEqual([1]);
   });
 
   it("writes the orgs in the order the column named them", async () => {
     const orgs: string[] = [];
     const db = {
-      prepare: () => ({ bind: (_id: string, orgId: string) => ({ orgId }) }),
+      prepare: () => ({ bind: (_id: TaskId, orgId: string) => ({ orgId }) }),
       batch: async (statements: { orgId: string }[]) => {
         orgs.push(statements[0].orgId);
         return statements.map(() => ({ meta: { changes: 1 } }));
@@ -294,9 +295,9 @@ describe("a sweep that half succeeds", () => {
     } as unknown as D1Database;
 
     await sweepAcross(db, set, [
-      { id: "a", slug: "two" },
-      { id: "b", slug: "one" },
-      { id: "c", slug: "two" },
+      { id: 1, slug: "two" },
+      { id: 2, slug: "one" },
+      { id: 3, slug: "two" },
     ]);
 
     expect(orgs).toEqual(["org-two", "org-one"]);

@@ -5,16 +5,17 @@ import { describe, expect, it } from "vitest";
 import type { Status } from "../app/board";
 import { FocusList, TakeMore } from "../app/focus-list";
 import { KEY_MAP, type ActionName } from "../app/key-map";
+import type { TaskId } from "../app/task-number";
 import type { LiveTask } from "../app/unified";
 import { ALL_ACTS, READ_ACTS, pressed, type Press } from "../app/unified-keys";
 import { UnifiedRow } from "../app/unified-row";
 
 /** One task, as the cross-org pages draw one. */
-function live(id: string, some: { status?: Status; finished?: boolean } = {}): LiveTask {
+function live(id: number, some: { status?: Status; finished?: boolean } = {}): LiveTask {
   return {
     id,
     org: { slug: "acme", name: "Acme", color: "blue" },
-    title: id,
+    title: `Task ${id}`,
     status: some.status ?? "todo",
     due_date: null,
     percentile: 0.5,
@@ -25,11 +26,11 @@ function live(id: string, some: { status?: Status; finished?: boolean } = {}): L
   };
 }
 
-const ROWS = [live("a"), live("b")];
+const ROWS = [live(1), live(2)];
 
 /** What one press does on the second of two rows, with the first planned. */
-function press(key: string, planned: string[] = []): Press | null {
-  return pressed(key, ROWS, new Set(planned), ALL_ACTS, "b");
+function press(key: string, planned: TaskId[] = []): Press | null {
+  return pressed(key, ROWS, new Set(planned), ALL_ACTS, 2);
 }
 
 describe("the key each act binds", () => {
@@ -38,50 +39,50 @@ describe("the key each act binds", () => {
   // here fails the last test of this block, so the map cannot grow a key
   // nothing fires.
   const fires: Record<ActionName, { key: string; press: () => void }> = {
-    next: { key: "j", press: () => expect(press("j")).toEqual({ kind: "cursor", id: "b" }) },
-    prev: { key: "k", press: () => expect(press("k")).toEqual({ kind: "cursor", id: "a" }) },
+    next: { key: "j", press: () => expect(press("j")).toEqual({ kind: "cursor", id: 2 }) },
+    prev: { key: "k", press: () => expect(press("k")).toEqual({ kind: "cursor", id: 1 }) },
     open: { key: "Enter", press: () => expect(press("Enter")).toEqual({ kind: "open", task: ROWS[1] }) },
     plan: {
       key: "p",
       press: () =>
         expect(press("p")).toEqual({
           kind: "act",
-          fields: { intent: "plan", id: "b", slug: "acme" },
+          fields: { intent: "plan", id: "2", slug: "acme" },
         }),
     },
     unplan: {
       key: "p",
       press: () =>
-        expect(press("p", ["b"])).toEqual({
+        expect(press("p", [2])).toEqual({
           kind: "act",
-          fields: { intent: "unplan", id: "b", slug: "acme" },
+          fields: { intent: "unplan", id: "2", slug: "acme" },
         }),
     },
     up: {
       key: "K",
-      press: () => expect(press("K", ["b"])).toEqual({ kind: "act", fields: { intent: "up", id: "b" } }),
+      press: () => expect(press("K", [2])).toEqual({ kind: "act", fields: { intent: "up", id: "2" } }),
     },
     down: {
       key: "J",
       press: () =>
-        expect(press("J", ["b"])).toEqual({ kind: "act", fields: { intent: "down", id: "b" } }),
+        expect(press("J", [2])).toEqual({ kind: "act", fields: { intent: "down", id: "2" } }),
     },
     top: {
       key: "T",
       press: () =>
-        expect(press("T", ["b"])).toEqual({ kind: "act", fields: { intent: "top", id: "b" } }),
+        expect(press("T", [2])).toEqual({ kind: "act", fields: { intent: "top", id: "2" } }),
     },
     bottom: {
       key: "B",
       press: () =>
-        expect(press("B", ["b"])).toEqual({ kind: "act", fields: { intent: "bottom", id: "b" } }),
+        expect(press("B", [2])).toEqual({ kind: "act", fields: { intent: "bottom", id: "2" } }),
     },
     forward: {
       key: ">",
       press: () =>
         expect(press(">")).toEqual({
           kind: "act",
-          fields: { intent: "move", id: "b", slug: "acme", status: "in_progress" },
+          fields: { intent: "move", id: "2", slug: "acme", status: "in_progress" },
         }),
     },
     back: {
@@ -89,7 +90,7 @@ describe("the key each act binds", () => {
       press: () =>
         expect(press("<")).toEqual({
           kind: "act",
-          fields: { intent: "move", id: "b", slug: "acme", status: "backlog" },
+          fields: { intent: "move", id: "2", slug: "acme", status: "backlog" },
         }),
     },
     finish: {
@@ -97,7 +98,7 @@ describe("the key each act binds", () => {
       press: () =>
         expect(press("x")).toEqual({
           kind: "act",
-          fields: { intent: "finish", id: "b", slug: "acme" },
+          fields: { intent: "finish", id: "2", slug: "acme" },
         }),
     },
     // `n` is the offer that ends a batch, so the list ignores it. The offer
@@ -134,8 +135,8 @@ describe("the empty cursor", () => {
   }
 
   it("comes back from outside the list, in the way of the key", () => {
-    expect(empty(KEY_MAP.next.key)).toEqual({ kind: "cursor", id: "a" });
-    expect(empty(KEY_MAP.prev.key)).toEqual({ kind: "cursor", id: "b" });
+    expect(empty(KEY_MAP.next.key)).toEqual({ kind: "cursor", id: 1 });
+    expect(empty(KEY_MAP.prev.key)).toEqual({ kind: "cursor", id: 2 });
   });
 
   it("leaves every key that needs a card alone", () => {
@@ -171,19 +172,19 @@ describe("the rows an order ranks", () => {
   // this week, so it answers none of the four keys. See ADR-0021 and ADR-0026.
   it("answers no move on a row the order leaves out", () => {
     for (const key of [KEY_MAP.up.key, KEY_MAP.down.key, KEY_MAP.top.key, KEY_MAP.bottom.key])
-      expect(pressed(key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["a"]))).toBe(null);
+      expect(pressed(key, ROWS, new Set([1, 2]), ALL_ACTS, 2, new Set([1]))).toBe(null);
   });
 
   it("answers a move on a row it ranks", () => {
-    expect(pressed(KEY_MAP.top.key, ROWS, new Set(["a", "b"]), ALL_ACTS, "b", new Set(["b"])))
-      .toEqual({ kind: "act", fields: { intent: "top", id: "b" } });
+    expect(pressed(KEY_MAP.top.key, ROWS, new Set([1, 2]), ALL_ACTS, 2, new Set([2])))
+      .toEqual({ kind: "act", fields: { intent: "top", id: "2" } });
   });
 
   // Every other page ranks whatever it picked, so the picked set is the answer.
   it("falls back to the picked set, which is every other page", () => {
-    expect(pressed(KEY_MAP.up.key, ROWS, new Set(["b"]), ALL_ACTS, "b")).toEqual({
+    expect(pressed(KEY_MAP.up.key, ROWS, new Set([2]), ALL_ACTS, 2)).toEqual({
       kind: "act",
-      fields: { intent: "up", id: "b" },
+      fields: { intent: "up", id: "2" },
     });
   });
 });
@@ -192,17 +193,17 @@ describe("the acts a page withholds", () => {
   const none = { plan: false, step: false, move: false };
 
   it("leaves the cursor, the open and the finish to every list", () => {
-    expect(pressed(KEY_MAP.next.key, ROWS, new Set(), none, "a")).toEqual({
+    expect(pressed(KEY_MAP.next.key, ROWS, new Set(), none, 1)).toEqual({
       kind: "cursor",
-      id: "b",
+      id: 2,
     });
-    expect(pressed(KEY_MAP.open.key, ROWS, new Set(), none, "b")).toEqual({
+    expect(pressed(KEY_MAP.open.key, ROWS, new Set(), none, 2)).toEqual({
       kind: "open",
       task: ROWS[1],
     });
-    expect(pressed(KEY_MAP.finish.key, ROWS, new Set(), none, "b")).toEqual({
+    expect(pressed(KEY_MAP.finish.key, ROWS, new Set(), none, 2)).toEqual({
       kind: "act",
-      fields: { intent: "finish", id: "b", slug: "acme" },
+      fields: { intent: "finish", id: "2", slug: "acme" },
     });
   });
 
@@ -215,7 +216,7 @@ describe("the acts a page withholds", () => {
       KEY_MAP.bottom.key,
       KEY_MAP.forward.key,
     ])
-      expect(pressed(key, ROWS, new Set(["b"]), none, "b")).toBe(null);
+      expect(pressed(key, ROWS, new Set([2]), none, 2)).toBe(null);
   });
 
   // A day past its own reads back. The plan is not rewritten there, and the
@@ -228,9 +229,9 @@ describe("the acts a page withholds", () => {
       KEY_MAP.top.key,
       KEY_MAP.bottom.key,
     ])
-      expect(pressed(key, ROWS, new Set(["b"]), READ_ACTS, "b")).toBe(null);
+      expect(pressed(key, ROWS, new Set([2]), READ_ACTS, 2)).toBe(null);
 
-    expect(pressed(KEY_MAP.forward.key, ROWS, new Set(["b"]), READ_ACTS, "b")).not.toBe(null);
+    expect(pressed(KEY_MAP.forward.key, ROWS, new Set([2]), READ_ACTS, 2)).not.toBe(null);
   });
 });
 

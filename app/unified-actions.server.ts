@@ -15,6 +15,7 @@ import type { Picks } from "./picks";
 import { scopeForSlug, type OrgSet, type Scope } from "./scope.server";
 import { createTasks, deleteTasks, newTasksFrom, readTask, type Task } from "./tasks.server";
 import type { Added } from "./unified";
+import { readTaskId, taskIdsIn } from "./task-number";
 
 /**
  * The task a form names, read back through the one-org scope, and the scope
@@ -30,7 +31,8 @@ export async function taskFrom(
   form: FormData,
 ): Promise<{ scope: Scope; task: Task }> {
   const scope = scopeForSlug(set, String(form.get("slug") ?? ""));
-  const task = scope ? await readTask(env.DB, scope, String(form.get("id") ?? "")) : null;
+  const id = readTaskId(form.get("id"));
+  const task = scope && id !== null ? await readTask(env.DB, scope, id) : null;
   if (!scope || !task) throw new Response("Not found", { status: 404 });
   return { scope, task };
 }
@@ -106,7 +108,7 @@ async function addTasks(
  */
 async function undoAdd(env: Env, set: OrgSet, picks: Picks, form: FormData): Promise<Acted> {
   const scope = scopeFrom(set, form);
-  const ids = form.getAll("id").map(String).filter((id) => id !== "");
+  const ids = taskIdsIn(form.getAll("id"));
   if (ids.length === 0) throw new Response("Not found", { status: 404 });
 
   for (const id of ids) {
@@ -179,7 +181,7 @@ export async function actOnTask(
   // Moving is the board's act, so a marked task raises the prompt here as it
   // does there.
   if (intent === "move") {
-    const before = String(form.get("before") ?? "") || null;
+    const before = readTaskId(form.get("before"));
     const moved = await moveAndAsk(env.DB, scope, request, taskId, readStatus(form), before);
     if (!moved.moved) throw new Response("Not found", { status: 404 });
     return moved.prompt ?? { ok: true };

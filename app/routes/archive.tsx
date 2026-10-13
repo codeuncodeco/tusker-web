@@ -30,6 +30,7 @@ import { readPlan } from "../plans.server";
 import { refLabels } from "../refs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/archive";
+import type { TaskId } from "../task-number";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `Archive — ${loaderData.org.name}` }];
@@ -37,7 +38,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 /** One line of the list: what a card shows, and when it was archived. */
 type Line = {
-  id: string;
+  id: TaskId;
   title: string;
   status: string;
   archivedAt: string | null;
@@ -55,7 +56,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const colors = await listColors(env.DB, scope);
   const assignees = drawsAssignees(scope.org)
     ? await assigneesByTask(env.DB, scope)
-    : new Map<string, Assignee[]>();
+    : new Map<TaskId, Assignee[]>();
 
   // The same chip the board carries, narrowing to the tasks today's plan
   // holds. A day with no plan offers nothing to narrow to. A plan keeps the
@@ -104,7 +105,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 /** The button that puts one task back on the board, in the status it holds. */
-function Restore({ id, title }: { id: string; title: string }) {
+function Restore({ id, title }: { id: TaskId; title: string }) {
   const post = useFetcher();
 
   return (
@@ -152,7 +153,7 @@ export default function Archive({ loaderData }: Route.ComponentProps) {
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border border-border p-3"
             >
               <Link
-                to={taskPath(org.slug, line.id, origin)}
+                to={taskPath(line.id, origin)}
                 className="flex-1 underline-offset-2 hover:underline"
               >
                 {line.title}

@@ -2,8 +2,9 @@ import { createContext, redirect, type RouterContextProvider } from "react-route
 
 import { bearerKey } from "./org-keys";
 import { orgForKey } from "./org-keys.server";
-import { listOrgsForPerson, orgForMember, type Org } from "./orgs.server";
+import { listOrgsForPerson, orgForMember, orgOfTask, type Org } from "./orgs.server";
 import { requirePerson } from "./session.server";
+import { readTaskId, type TaskId } from "./task-number";
 
 /**
  * Proof that the signed-in person is a member of one org.
@@ -59,6 +60,41 @@ export async function requireScope(
   const org = await orgForMember(env.DB, slug, person.id);
   if (!org) throw new Response("Not found", { status: 404 });
   return { org, personId: person.id };
+}
+
+/** One task, and the scope of the org that holds it. */
+export type TaskScope = { scope: Scope; taskId: TaskId };
+
+/**
+ * The scope the task layout made for this request, for the task page under
+ * it. It is the same hand-down `orgScope` makes for the org pages.
+ */
+export const taskScope = createContext<TaskScope | null>(null);
+
+/**
+ * The task a request under `/t/:n` names, and the scope of the org that holds
+ * it, or a throw that ends the request: a redirect to sign-in for a signed-out
+ * person, and a 404 for everybody else.
+ *
+ * The path names no org, so the org is read from the task. A task in an org
+ * the person is not in, a deleted task, a number never handed out and a path
+ * that is no number at all read the same 404, because a number is guessable
+ * and the page must say nothing about which numbers are taken. See ADR-0030.
+ */
+export async function requireTaskScope(
+  request: Request,
+  env: Env,
+  n: string,
+  context?: Readonly<RouterContextProvider>,
+): Promise<TaskScope> {
+  const taskId = readTaskId(n);
+  const held = context?.get(taskScope);
+  if (held && held.taskId === taskId) return held;
+
+  const person = await requirePerson(request, env);
+  const org = taskId === null ? null : await orgOfTask(env.DB, taskId, person.id);
+  if (taskId === null || !org) throw new Response("Not found", { status: 404 });
+  return { scope: { org, personId: person.id }, taskId };
 }
 
 /**

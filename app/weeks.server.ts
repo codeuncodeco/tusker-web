@@ -12,6 +12,7 @@
 import { placesAbove, placesBelow } from "./order";
 import type { Step } from "./plan";
 import { movedInSet, type Member } from "./week-order";
+import type { TaskId } from "./task-number";
 
 /**
  * Where a block lands in a week set.
@@ -39,7 +40,7 @@ export async function readWeekSet(
   db: D1Database,
   personId: string,
   week: string,
-): Promise<string[] | null> {
+): Promise<TaskId[] | null> {
   const started = await db
     .prepare("SELECT week FROM week_plans WHERE user_id = ? AND week = ?")
     .bind(personId, week)
@@ -52,7 +53,7 @@ export async function readWeekSet(
        WHERE user_id = ? AND week = ? ORDER BY position, task_id`,
     )
     .bind(personId, week)
-    .all<{ task_id: string }>();
+    .all<{ task_id: TaskId }>();
   return results.map((row) => row.task_id);
 }
 
@@ -74,7 +75,7 @@ export async function addToWeek(
   db: D1Database,
   personId: string,
   week: string,
-  taskIds: string[],
+  taskIds: TaskId[],
   at: Landing,
 ): Promise<void> {
   if (taskIds.length === 0) return;
@@ -120,7 +121,7 @@ export async function removeFromWeek(
   db: D1Database,
   personId: string,
   week: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   if (taskIds.length === 0) return;
 
@@ -147,7 +148,7 @@ export async function moveInWeek(
   db: D1Database,
   personId: string,
   week: string,
-  taskId: string,
+  taskId: TaskId,
   step: Step,
 ): Promise<void> {
   const moved = movedInSet(await placesInSet(db, personId, week), taskId, step);
@@ -184,7 +185,7 @@ async function placesInSet(db: D1Database, personId: string, week: string): Prom
        ORDER BY week_plan_tasks.position, week_plan_tasks.task_id`,
     )
     .bind(personId, week)
-    .all<{ task_id: string; position: number; done: number }>();
+    .all<{ task_id: TaskId; position: number; done: number }>();
 
   return results.map((row) => ({
     taskId: row.task_id,
@@ -221,7 +222,7 @@ export async function lastWeekSetBefore(
   db: D1Database,
   personId: string,
   week: string,
-): Promise<{ from: string; taskIds: string[] } | null> {
+): Promise<{ from: string; taskIds: TaskId[] } | null> {
   const row = await db
     .prepare("SELECT week FROM week_plans WHERE user_id = ? AND week < ? ORDER BY week DESC LIMIT 1")
     .bind(personId, week)
@@ -249,7 +250,7 @@ export async function startWeek(
   db: D1Database,
   personId: string,
   week: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   const started = await db
     .prepare(

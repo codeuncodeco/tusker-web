@@ -17,6 +17,7 @@ import { PendingAdds } from "./pending-adds";
 import type { Group, GroupKey, LiveTask } from "./unified";
 import { ALL_ACTS, NO_STEP_ACTS, READ_ACTS, useTaskKeys } from "./unified-keys";
 import { PLAN_VERBS, UnifiedRow, type Verbs } from "./unified-row";
+import type { TaskId } from "./task-number";
 
 export function UnifiedList({
   groups,
@@ -34,7 +35,7 @@ export function UnifiedList({
 }: {
   groups: Group[];
   /** The task ids the page's list holds, which turn the pick verb over. */
-  planned: Set<string>;
+  planned: Set<TaskId>;
   day: string;
   /** True for a day the path named, which the browser must not talk out of. */
   namedDay?: boolean;
@@ -66,7 +67,7 @@ export function UnifiedList({
 }) {
   // A post per press, so every press of a burst is drawn.
   const post = usePost();
-  const [on, setOn] = useState<string | null>(null);
+  const [on, setOn] = useState<TaskId | null>(null);
   const list = useRef<HTMLDivElement>(null);
 
   // One flat order, so `j` and `k` walk the page the way a person reads it.
@@ -107,7 +108,7 @@ export function UnifiedList({
   /** A drop names the row it lands above, or none for the foot. */
   function onDrop({ id, order }: Drop) {
     setOn(id);
-    post({ intent: "place", id, before: landing(order, id) ?? "" });
+    post({ intent: "place", id: String(id), before: String(landing(order, id) ?? "") });
   }
 
   return (

@@ -1,3 +1,5 @@
+import type { TaskId } from "./task-number";
+
 /**
  * A plan is the tasks one person chose for one day, in the order they mean to
  * work them. This module holds the rules that order needs: a task moves one
@@ -36,7 +38,7 @@ export function isStep(intent: string): intent is Step {
  * and writes no row. A person who presses the key once more than the list
  * allows means nothing by it.
  */
-export function moveInPlan(order: string[], taskId: string, step: Step): string[] {
+export function moveInPlan(order: TaskId[], taskId: TaskId, step: Step): TaskId[] {
   const at = order.indexOf(taskId);
   if (at === -1) return order;
 
@@ -70,7 +72,11 @@ export function moveInPlan(order: string[], taskId: string, step: Step): string[
  * drop is made on a list one load old. A drop that leaves the task where it
  * was answers with the order that came in, the same array, as a step does.
  */
-export function placeInPlan(order: string[], taskId: string, before: string | null): string[] {
+export function placeInPlan(
+  order: TaskId[],
+  taskId: TaskId,
+  before: TaskId | null,
+): TaskId[] {
   const at = order.indexOf(taskId);
   if (at === -1 || before === taskId) return order;
 

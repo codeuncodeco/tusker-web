@@ -16,11 +16,11 @@ import type { Group, LiveTask } from "../app/unified";
 import { UnifiedCard } from "../app/unified-card";
 import { UnifiedList } from "../app/unified-list";
 
-function live(id: string, more: Partial<LiveTask> = {}): LiveTask {
+function live(id: number, more: Partial<LiveTask> = {}): LiveTask {
   return {
     id,
     org: { slug: "acme", name: "Acme", color: "blue" },
-    title: id,
+    title: `Task ${id}`,
     status: "todo",
     due_date: null,
     percentile: 0.5,
@@ -39,13 +39,13 @@ function markup(element: React.ReactNode): string {
 
 /** The org board, with one card in To do and one in Done. */
 function orgBoard(): string {
-  const card = (id: string) => ({ id, title: id, fields: [], assignees: [] });
+  const card = (id: number, title: string) => ({ id, title, fields: [], assignees: [] });
   const loaderData = {
     org: { slug: "acme", name: "Acme" },
     columns: [
-      { status: "todo", label: "To do", tasks: [card("open")] },
+      { status: "todo", label: "To do", tasks: [card(1, "open")] },
       { status: "in_progress", label: "In progress", tasks: [] },
-      { status: "done", label: "Done", tasks: [card("shipped")] },
+      { status: "done", label: "Done", tasks: [card(2, "shipped")] },
     ],
     members: [],
     ask: null,
@@ -76,15 +76,15 @@ describe("the grip", () => {
   });
 
   it("is drawn on a unified board card", () => {
-    const html = markup(<UnifiedCard task={live("a")} selected={false} domId="c1" place={() => {}} showsOrg />);
+    const html = markup(<UnifiedCard task={live(1)} selected={false} domId="c1" place={() => {}} showsOrg />);
 
     expect(grips(html)).toBe(1);
   });
 
   it("is drawn on a row of the plan, and on no row that does not drag", () => {
-    const plan: Group[] = [{ key: "today", label: "Plan", tasks: [live("a"), live("b")], sinks: false }];
-    const week: Group[] = [{ key: "week", label: "This week", tasks: [live("a")], sinks: true }];
-    const planned = new Set(["a", "b"]);
+    const plan: Group[] = [{ key: "today", label: "Plan", tasks: [live(1), live(2)], sinks: false }];
+    const week: Group[] = [{ key: "week", label: "This week", tasks: [live(1)], sinks: true }];
+    const planned = new Set([1, 2]);
 
     const dragging = markup(<UnifiedList groups={plan} planned={planned} day="2026-10-09" showsOrg ordered="today" drags />);
     const still = markup(<UnifiedList groups={week} planned={planned} day="2026-10-09" showsOrg ordered="week" />);
@@ -127,7 +127,7 @@ describe("a board card", () => {
   });
 
   it("shows no rank on the unified board, so the grip leads straight into the title", () => {
-    const html = markup(<UnifiedCard task={live("a")} selected={false} domId="c1" place={() => {}} showsOrg />);
+    const html = markup(<UnifiedCard task={live(1)} selected={false} domId="c1" place={() => {}} showsOrg />);
 
     expect(html.match(GRIP_THEN_TITLE)?.length).toBe(1);
   });
@@ -161,9 +161,9 @@ describe("the unified card's lines", () => {
   }
 
   it("are the title line and the org chip's line when the task has no fields and no due date", () => {
-    const [title, content, ...more] = lines(card(live("a")));
+    const [title, content, ...more] = lines(card(live(1)));
 
-    expect(title).toContain(">a<");
+    expect(title).toContain(">Task 1<");
     expect(content).toContain("Acme");
     expect(more).toEqual([]);
   });
@@ -171,7 +171,7 @@ describe("the unified card's lines", () => {
   it("put the org chip, the fields and the due date on one line under the title", () => {
     const [, content, ...more] = lines(
       card(
-        live("a", {
+        live(1, {
           due_date: "2026-10-12",
           fields: [{ key: "size", label: "Size", value: "Large", color: "red" }],
         }),

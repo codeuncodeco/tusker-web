@@ -5,10 +5,12 @@ import { fieldKeyOf } from "./field-filter";
 import { listFields } from "./fields.server";
 import { between, placesAbove } from "./order";
 import type { ReadScope, Scope } from "./scope.server";
+import type { TaskId } from "./task-number";
 import { MAX_TITLES, titlesIn } from "./titles";
 
 export type Task = {
-  id: string;
+  /** The task number, which the database counts out. See ADR-0030. */
+  id: TaskId;
   org_id: string;
   title: string;
   status: Status;
@@ -64,7 +66,7 @@ const finishedAtSql = (status: Status) =>
   isFinished(status) ? `COALESCE(finished_at, ${NOW})` : "NULL";
 
 /** A card in a column, cut down to what the order maths reads. */
-type Positioned = { id: string; position: number };
+type Positioned = { id: TaskId; position: number };
 
 /** The character the search clause names as its escape. */
 const LIKE_ESCAPE = "\\";
@@ -136,7 +138,7 @@ export async function countByStatus(db: D1Database, scope: Scope): Promise<Recor
 }
 
 /** One task of the org, or null when the org holds no such row. */
-export async function readTask(db: D1Database, scope: Scope, taskId: string): Promise<Task | null> {
+export async function readTask(db: D1Database, scope: Scope, taskId: TaskId): Promise<Task | null> {
   const row = await db
     .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ? AND org_id = ?`)
     .bind(taskId, scope.org.id)
@@ -159,7 +161,7 @@ export async function readTask(db: D1Database, scope: Scope, taskId: string): Pr
 export async function saveTask(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
   save: {
     title: string;
     data: Record<string, string>;
@@ -214,7 +216,7 @@ export type TaskEdit =
 export async function editTask(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
   edit: TaskEdit,
 ): Promise<boolean> {
   const [set, value] =
@@ -255,7 +257,7 @@ export async function editTask(
 export async function saveDescription(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
   description: string,
 ): Promise<boolean> {
   const done = await db
@@ -287,7 +289,7 @@ export async function saveDescription(
 export async function tickDescriptionBox(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
   box: number,
 ): Promise<boolean> {
   if (!Number.isInteger(box) || box < 0) return false;
@@ -369,10 +371,13 @@ export function newTasksFrom(
  * The custom field values go on every task of the block too, as the members
  * do. The caller read them against the org's declarations.
  *
+ * The database counts out each task's number as the row goes in, so no number
+ * is read first and written after. Each task's assignees go in straight after
+ * it and point at the highest number in the table: the batch is one
+ * transaction, so that is the task just written and no other. See ADR-0030.
+ *
  * The scope carries the org id, so the membership check is already done:
- * `org_id` is the only fence. The rows are not read back, because a hundred
- * ids in one `IN` clause is more bound values than D1 takes, and the caller
- * wants the ids it just made.
+ * `org_id` is the only fence.
  */
 export async function createTasks(
   db: D1Database,
@@ -385,16 +390,10 @@ export async function createTasks(
     /** The custom field values every task of the block holds. */
     data?: Record<string, string>;
   },
-): Promise<string[]> {
+): Promise<TaskId[]> {
   const orgId = scope.org.id;
   const column = await columnPlaces(db, orgId, tasks.status);
   const positions = placesAbove(column[0]?.position ?? null, tasks.titles.length);
-
-  const rows = tasks.titles.map((title, at) => ({
-    id: crypto.randomUUID(),
-    title,
-    position: positions[at],
-  }));
 
   // A task typed straight into Done or Cancelled is finished the moment it is
   // made, so it carries the finish time from the start: no later move writes
@@ -402,25 +401,30 @@ export async function createTasks(
   const finished = isFinished(tasks.status) ? NOW : "NULL";
   const data = JSON.stringify(tasks.data ?? {});
 
-  await db.batch([
-    ...rows.map((row) =>
+  const statements = tasks.titles.flatMap((title, at) => [
+    db
+      .prepare(
+        `INSERT INTO tasks (org_id, title, status, position, data, finished_at)
+         VALUES (?, ?, ?, ?, ?, ${finished})
+         RETURNING id`,
+      )
+      .bind(orgId, title, tasks.status, positions[at], data),
+    ...tasks.assignees.map((userId) =>
       db
         .prepare(
-          `INSERT INTO tasks (id, org_id, title, status, position, data, finished_at)
-           VALUES (?, ?, ?, ?, ?, ?, ${finished})`,
+          `INSERT INTO task_assignees (task_id, org_id, user_id)
+           VALUES ((SELECT MAX(id) FROM tasks), ?, ?)`,
         )
-        .bind(row.id, orgId, row.title, tasks.status, row.position, data),
-    ),
-    ...rows.flatMap((row) =>
-      tasks.assignees.map((userId) =>
-        db
-          .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
-          .bind(row.id, orgId, userId),
-      ),
+        .bind(orgId, userId),
     ),
   ]);
 
-  return rows.map((row) => row.id);
+  const results = await db.batch<{ id: TaskId }>(statements);
+  // Every task insert is followed by one insert per assignee.
+  const stride = 1 + tasks.assignees.length;
+  return results
+    .filter((_, at) => at % stride === 0)
+    .map((result) => result.results[0].id);
 }
 
 /**
@@ -438,7 +442,7 @@ export async function createTasks(
 export async function deleteTask(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
 ): Promise<boolean> {
   const done = await db
     .prepare("DELETE FROM tasks WHERE id = ? AND org_id = ?")
@@ -457,7 +461,7 @@ export async function deleteTask(
 export async function deleteTasks(
   db: D1Database,
   scope: Scope,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   if (taskIds.length === 0) return;
   await db.batch(
@@ -495,7 +499,7 @@ export type Moved = {
 export async function moveTask(
   db: D1Database,
   scope: Scope,
-  move: { taskId: string; status: Status; before?: string | null },
+  move: { taskId: TaskId; status: Status; before?: TaskId | null },
 ): Promise<Moved> {
   const orgId = scope.org.id;
   const was = await db
@@ -540,7 +544,7 @@ export async function moveTask(
 export async function stepTask(
   db: D1Database,
   scope: Scope,
-  step: { taskId: string; way: 1 | -1 },
+  step: { taskId: TaskId; way: 1 | -1 },
 ): Promise<Moved> {
   const orgId = scope.org.id;
   const was = await db
@@ -580,7 +584,7 @@ async function placeAbove(
   orgId: string,
   status: Status,
   column: Positioned[],
-  beforeId: string | null,
+  beforeId: TaskId | null,
 ): Promise<number> {
   const found = beforeId === null ? -1 : column.findIndex((one) => one.id === beforeId);
   // A card the column no longer holds names the bottom, as no neighbour does.

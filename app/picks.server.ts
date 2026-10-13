@@ -19,6 +19,7 @@ import type { Picks } from "./picks";
 import { appendToPlan, startPlan, unplanAcross, unplanTasks } from "./plans.server";
 import { weekBounds, weekOf } from "./week";
 import { addToWeek, removeFromWeek } from "./weeks.server";
+import type { TaskId } from "./task-number";
 
 /** The picks of one day: what plan mode's acts, and a board's, write. */
 export function planPicks(db: D1Database, personId: string, day: string, onAdd: boolean): Picks {
@@ -53,7 +54,7 @@ export async function startDay(
   db: D1Database,
   personId: string,
   day: string,
-  taskIds: string[],
+  taskIds: TaskId[],
 ): Promise<void> {
   if (!(await startPlan(db, personId, day, taskIds))) return;
   await addToWeek(db, personId, weekOf(day), taskIds, "bottom");

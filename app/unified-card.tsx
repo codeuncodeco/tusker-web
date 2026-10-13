@@ -59,7 +59,7 @@ export function UnifiedCard({
       <span className="flex items-baseline gap-2">
         <Grip grip={drag.grip} />
         <Link
-          to={taskPath(task.org.slug, task.id, origin)}
+          to={taskPath(task.id, origin)}
           className={`flex-1 underline-offset-2 hover:underline ${
             task.finished ? "text-muted line-through" : ""
           }`}

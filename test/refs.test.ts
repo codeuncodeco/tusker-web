@@ -8,6 +8,7 @@ import * as fieldsRoute from "../app/routes/fields";
 import * as newOrgRoute from "../app/routes/orgs.new";
 import * as settingsRoute from "../app/routes/settings";
 import * as taskRoute from "../app/routes/task";
+import type { TaskId } from "../app/task-number";
 import { member } from "./accounts";
 import { get, post, routeArgs, wipe } from "./routes";
 
@@ -117,7 +118,7 @@ function fieldsOf(cookie: string) {
 }
 
 /** Adds a task to To do and answers its id. */
-async function addTask(cookie: string, title: string): Promise<string> {
+async function addTask(cookie: string, title: string): Promise<TaskId> {
   await send(
     boardRoute,
     "/o/codeuncode/board",
@@ -125,23 +126,18 @@ async function addTask(cookie: string, title: string): Promise<string> {
     { intent: "create", status: "todo", title },
     { slug: "codeuncode" },
   );
-  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: string }>();
+  const row = await db.prepare("SELECT id FROM tasks WHERE title = ?").bind(title).first<{ id: TaskId }>();
   return row!.id;
 }
 
 /** The task editor for one task. */
-function editor(cookie: string, taskId: string) {
-  return taskRoute.loader(
-    routeArgs(get(`/o/codeuncode/t/${taskId}`, cookie), { slug: "codeuncode", taskId }),
-  );
+function editor(cookie: string, taskId: TaskId) {
+  return taskRoute.loader(routeArgs(get(`/t/${taskId}`, cookie), { n: String(taskId) }));
 }
 
 /** A save from the task editor. */
-function save(cookie: string, taskId: string, fields: Record<string, string>) {
-  return send(taskRoute, `/o/codeuncode/t/${taskId}`, cookie, fields, {
-    slug: "codeuncode",
-    taskId,
-  });
+function save(cookie: string, taskId: TaskId, fields: Record<string, string>) {
+  return send(taskRoute, `/t/${taskId}`, cookie, fields, { n: String(taskId) });
 }
 
 const KUMARA = [{ id: "t1", label: "Kumara Parvatha" }];

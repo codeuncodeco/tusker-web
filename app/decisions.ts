@@ -1,3 +1,5 @@
+import type { TaskId } from "./task-number";
+
 /**
  * Where the decision prompt lives while it is raised: the query string.
  *
@@ -26,10 +28,10 @@ export function pageOf(pathname: string): string {
 export function withPrompt(
   pathname: string,
   search: string,
-  task: { id: string; slug: string },
+  task: { id: TaskId; slug: string },
 ): string {
   const params = new URLSearchParams(search);
-  params.set(ASK, task.id);
+  params.set(ASK, String(task.id));
   params.set(ORG, task.slug);
   return `${pathname}?${params.toString()}`;
 }

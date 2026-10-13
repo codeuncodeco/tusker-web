@@ -8,12 +8,21 @@
  * pointer. See ADR-0025.
  */
 
+import type { TaskId } from "./task-number";
+
 /** Ids in the order the page draws them, keyed by the list they are in. */
-export type Lists = Record<string, string[]>;
+export type Lists = Record<string, TaskId[]>;
+
+/**
+ * What a dragged card is over: a list, named by its key, or a card, named by
+ * its task number. The two never meet, because a key is text and a number is
+ * not.
+ */
+export type Over = string | TaskId;
 
 /** The list an id names, or the list that holds the card it names. */
-export function listOf(lists: Lists, id: string): string | null {
-  if (id in lists) return id;
+export function listOf(lists: Lists, id: Over): string | null {
+  if (typeof id === "string") return id in lists ? id : null;
   return Object.keys(lists).find((key) => lists[key].includes(id)) ?? null;
 }
 
@@ -25,13 +34,13 @@ export function listOf(lists: Lists, id: string): string | null {
  * column, it lands at the foot. Inside its own list nothing moves here: the
  * cards there make room by themselves, and `settle` reads where it was let go.
  */
-export function crossOver(lists: Lists, active: string, over: string, below: boolean): Lists {
+export function crossOver(lists: Lists, active: TaskId, over: Over, below: boolean): Lists {
   const from = listOf(lists, active);
   const to = listOf(lists, over);
   if (from === null || to === null || from === to) return lists;
 
   const target = lists[to];
-  const at = over === to ? target.length : target.indexOf(over) + (below ? 1 : 0);
+  const at = typeof over === "string" ? target.length : target.indexOf(over) + (below ? 1 : 0);
   return {
     ...lists,
     [from]: lists[from].filter((one) => one !== active),
@@ -44,9 +53,11 @@ export function crossOver(lists: Lists, active: string, over: string, below: boo
  * inside its own list. The cards between shift a place, which is what they
  * drew while they made room.
  */
-export function settle(lists: Lists, active: string, over: string): Lists {
+export function settle(lists: Lists, active: TaskId, over: Over): Lists {
   const key = listOf(lists, active);
-  if (key === null || over === active || listOf(lists, over) !== key || over === key) return lists;
+  if (key === null || over === active || typeof over === "string" || listOf(lists, over) !== key) {
+    return lists;
+  }
 
   const list = lists[key];
   const to = list.indexOf(over);
@@ -56,7 +67,7 @@ export function settle(lists: Lists, active: string, over: string): Lists {
 }
 
 /** The card a drop lands above: the one just below it, or none at the foot. */
-export function landing(order: string[], id: string): string | null {
+export function landing(order: TaskId[], id: TaskId): TaskId | null {
   return order[order.indexOf(id) + 1] ?? null;
 }
 
@@ -68,10 +79,10 @@ export function landing(order: string[], id: string): string | null {
  * place the card can take. See ADR-0025.
  */
 export function landingInOrg(
-  order: string[],
-  id: string,
-  orgOf: (id: string) => string | undefined,
-): string | null {
+  order: TaskId[],
+  id: TaskId,
+  orgOf: (id: TaskId) => string | undefined,
+): TaskId | null {
   const org = orgOf(id);
   return order.slice(order.indexOf(id) + 1).find((one) => orgOf(one) === org) ?? null;
 }

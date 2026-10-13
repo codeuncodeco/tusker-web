@@ -35,7 +35,7 @@ there is no page and no limit.
   "org": { "slug": "blrhikes", "name": "blrhikes" },
   "tasks": [
     {
-      "id": "0f3c…",
+      "id": 1234,
       "title": "Book the bus",
       "description": "",
       "status": "todo",
@@ -48,6 +48,11 @@ there is no page and no limit.
   ]
 }
 ```
+
+`id` is the task number, a whole number that names one task on this Tusker
+for good. A person writes it `#1234`, and the task's page is `/t/1234`. It was
+a UUID string before ADR-0030, so an org app that stored an old id must read it
+again. See [ADR-0030](./adr/0030-a-task-number-names-one-task-across-orgs.md).
 
 `data` holds the custom field values, keyed by the key the org declared. A
 reference field holds the external id the org app minted, not Tusker's cached

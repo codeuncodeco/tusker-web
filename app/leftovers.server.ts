@@ -10,6 +10,7 @@ import { unfinishedOf, type Leftovers } from "./leftovers";
 import type { OrgSet } from "./scope.server";
 import { listUnified } from "./unified.server";
 import { lastWeekSetBefore, readWeekSet } from "./weeks.server";
+import type { TaskId } from "./task-number";
 
 /**
  * The unfinished members of the last set before a week, or null when there is
@@ -37,7 +38,7 @@ export async function leftoversFor(
  * the answer is a leftover by the same rule the carry uses. A week the person
  * never started leaves nothing.
  */
-export async function unfinishedIn(db: D1Database, set: OrgSet, week: string): Promise<string[]> {
+export async function unfinishedIn(db: D1Database, set: OrgSet, week: string): Promise<TaskId[]> {
   const members = (await readWeekSet(db, set.personId, week)) ?? [];
   return unfinishedOf(members, await listUnified(db, set, members));
 }

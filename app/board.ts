@@ -1,3 +1,5 @@
+import type { TaskId } from "./task-number";
+
 /** The five statuses a task can hold. The board draws one column per status. */
 export const STATUSES = ["backlog", "todo", "in_progress", "done", "cancelled"] as const;
 
@@ -56,10 +58,10 @@ export function stepped(from: Status, way: 1 | -1): Status | null {
  * one board whose order is stored. See ADR-0006 and ADR-0016.
  */
 export function stepInColumn(
-  ids: string[],
+  ids: TaskId[],
   at: number,
   way: 1 | -1,
-): { before: string | null } | null {
+): { before: TaskId | null } | null {
   if (at === -1) return null;
   if (way === -1) return at === 0 ? null : { before: ids[at - 1] };
   return at === ids.length - 1 ? null : { before: ids[at + 2] ?? null };
@@ -162,9 +164,9 @@ export function readNarrowing(params: URLSearchParams): Narrowing | null {
  */
 export function narrowingFor(
   params: URLSearchParams,
-  plan: Set<string>,
-  week: Set<string>,
-): { today: boolean; week: boolean; ids: Set<string> | null } {
+  plan: Set<TaskId>,
+  week: Set<TaskId>,
+): { today: boolean; week: boolean; ids: Set<TaskId> | null } {
   const which = readNarrowing(params);
   const today = which === "today" && plan.size > 0;
   const byWeek = which === "week" && week.size > 0;

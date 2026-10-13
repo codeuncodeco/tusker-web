@@ -14,13 +14,14 @@
  */
 
 import type { LiveTask } from "./unified";
+import type { TaskId } from "./task-number";
 
 /** What one earlier week offers this one, as the prompt reads it. */
 export type Leftovers = {
   /** The week the tasks come from, which is not always the week before. */
   from: string;
   /** The unfinished members of that set. */
-  taskIds: string[];
+  taskIds: TaskId[];
 };
 
 /**
@@ -30,7 +31,7 @@ export type Leftovers = {
  * archived or deleted, or that sits in an org the person left, is not in
  * `live` at all, so it is not carried either.
  */
-export function unfinishedOf(members: string[], live: LiveTask[]): string[] {
+export function unfinishedOf(members: TaskId[], live: LiveTask[]): TaskId[] {
   const open = new Set(live.filter((one) => !one.finished).map((one) => one.id));
   return members.filter((id) => open.has(id));
 }

@@ -286,8 +286,9 @@ function OrgSelect({
 export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
   const { pathname } = useLocation();
   // A task belongs to one org and never to two, so a task page stands in that
-  // org like every other org page.
-  const inOrg = pathname.startsWith("/o/");
+  // org like every other org page, though its path names no org. See ADR-0030.
+  const onTask = pathname.startsWith("/t/");
+  const inOrg = pathname.startsWith("/o/") || onTask;
   // One Board, whose scope the select sets.
   const board = boardOf(org?.slug ?? null);
   const onBoard = pathname === "/me" || (org !== null && pathname === boardOf(org.slug));
@@ -299,7 +300,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     ? "Board"
     : (PERSON.find((one) => pathname.startsWith(one.to))?.label ??
       ORG.find((one) => hereOrg(one.to))?.label ??
-      (inOrg && pathname.includes("/t/") ? "Task" : undefined));
+      (onTask ? "Task" : undefined));
 
   const name = org ? (
     <span className="flex items-center gap-1.5 text-lg font-medium">

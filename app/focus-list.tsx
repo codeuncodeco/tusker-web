@@ -17,6 +17,7 @@ import { isPagePress } from "./keys";
 import type { LiveTask } from "./unified";
 import { type ListActs, useTaskKeys } from "./unified-keys";
 import { UnifiedRow } from "./unified-row";
+import type { TaskId } from "./task-number";
 
 /**
  * Focus mode edits no plan. It opens a task and finishes it, and that is the
@@ -25,7 +26,7 @@ import { UnifiedRow } from "./unified-row";
 const FOCUS_ACTS: ListActs = { plan: false, step: false, move: false };
 
 /** The plan set a focus row reads. Focus plans nothing, so it holds nothing. */
-const NO_PLAN: Set<string> = new Set();
+const NO_PLAN: Set<TaskId> = new Set();
 
 export function FocusList({
   tasks,
@@ -36,7 +37,7 @@ export function FocusList({
   showsOrg: boolean;
 }) {
   const post = useFetcher();
-  const [on, setOn] = useState<string | null>(null);
+  const [on, setOn] = useState<TaskId | null>(null);
 
   // The cursor names a task, and starts empty, as it does on every other
   // keyed list. `j` reaches the first of the batch. See ADR-0015.

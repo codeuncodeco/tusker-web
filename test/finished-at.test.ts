@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import * as boardRoute from "../app/routes/board";
 import * as taskRoute from "../app/routes/task";
+import type { TaskId } from "../app/task-number";
 import { member } from "./accounts";
 import { post, routeArgs, wipe } from "./routes";
 
@@ -16,25 +17,30 @@ const db = env.DB;
 
 beforeEach(wipe);
 
+/** Fields as a form posts them: text, so a task number goes out as its digits. */
+function posted(fields: Record<string, string | number>) {
+  return Object.fromEntries(Object.entries(fields).map(([name, value]) => [name, String(value)]));
+}
+
 /** A post to the board action, signed by the cookie. */
-function board(slug: string, cookie: string, fields: Record<string, string>) {
-  const request = post(`/o/${slug}/board`, fields);
+function board(slug: string, cookie: string, fields: Record<string, string | number>) {
+  const request = post(`/o/${slug}/board`, posted(fields));
   request.headers.set("cookie", cookie);
   return boardRoute.action(routeArgs(request, { slug }));
 }
 
 /** A post to the task page, signed by the cookie. */
-function task(slug: string, cookie: string, taskId: string, fields: Record<string, string>) {
-  const request = post(`/o/${slug}/t/${taskId}`, fields);
+function task(cookie: string, id: TaskId, fields: Record<string, string>) {
+  const request = post(`/t/${id}`, fields);
   request.headers.set("cookie", cookie);
-  return taskRoute.action(routeArgs(request, { slug, taskId }));
+  return taskRoute.action(routeArgs(request, { n: String(id) }));
 }
 
 /** The one task the org holds, as the row carries it. */
-async function only(): Promise<{ id: string; status: string; finished_at: string | null }> {
+async function only(): Promise<{ id: TaskId; status: string; finished_at: string | null }> {
   const row = await db
     .prepare("SELECT id, status, finished_at FROM tasks")
-    .first<{ id: string; status: string; finished_at: string | null }>();
+    .first<{ id: TaskId; status: string; finished_at: string | null }>();
   return row!;
 }
 
@@ -119,7 +125,7 @@ describe("a finished task on its page", () => {
     await db.prepare("UPDATE tasks SET description = '- [ ] tidy up' WHERE id = ?").bind(id).run();
     const stamped = (await only()).finished_at;
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "tick", box: "0" });
+    await task(ada.cookie, id, { intent: "tick", box: "0" });
 
     const row = await db
       .prepare("SELECT description, finished_at FROM tasks WHERE id = ?")
@@ -132,7 +138,7 @@ describe("a finished task on its page", () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "done");
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "reopen" });
+    await task(ada.cookie, id, { intent: "reopen" });
 
     expect(await only()).toMatchObject({ status: "todo", finished_at: null });
   });

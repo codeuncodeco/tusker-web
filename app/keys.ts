@@ -1,3 +1,5 @@
+import type { TaskId } from "./task-number";
+
 /**
  * What every keyed list agrees on: which key presses are the page's, and which
  * belong to the person typing.
@@ -46,7 +48,7 @@ export function isPagePress(event: KeyboardEvent): boolean {
  * and down are the two ends a board has. So an empty cursor answers nothing
  * here: `j`, `k` and their arrows are the way back in. See ADR-0022.
  */
-export function across(key: string, columns: string[][], on: string | null): string | null {
+export function across(key: string, columns: TaskId[][], on: TaskId | null): TaskId | null {
   const way = key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : 0;
   if (!way || on === null) return null;
 

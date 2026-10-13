@@ -10,13 +10,14 @@
 import type { Assignee } from "./assignees";
 import { ALWAYS_SHOWN, STATUS_LABEL, type Status, type Toggles } from "./board";
 import type { Shown } from "./fields";
+import type { TaskId } from "./task-number";
 
 /** The org a card names. It carries no id, because a screen reads this. */
 export type CardOrg = { slug: string; name: string; color: string | null };
 
 /** One task of any org, as the cross-org pages sort and draw them. */
 export type LiveTask = {
-  id: string;
+  id: TaskId;
   org: CardOrg;
   title: string;
   status: Status;
@@ -87,7 +88,7 @@ export function inOrder(a: LiveTask, b: LiveTask): number {
     a.percentile - b.percentile ||
     byDueDate(a.due_date, b.due_date) ||
     compare(a.created_at, b.created_at) ||
-    compare(a.id, b.id)
+    a.id - b.id
   );
 }
 
@@ -101,7 +102,7 @@ export function inOrder(a: LiveTask, b: LiveTask): number {
  * Both head groups keep the order they were given, because that order is the
  * whole value of a plan and, since ADR-0021, of a week set as well.
  */
-export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "today"): Group[] {
+export function groupsFor(tasks: LiveTask[], picked: TaskId[], head: Head = "today"): Group[] {
   return drawn(tasks, [{ key: head, ids: picked, sinks: head === "week" }]);
 }
 
@@ -125,7 +126,7 @@ export function groupsFor(tasks: LiveTask[], picked: string[], head: Head = "tod
  * Plan mode reads that order and never writes it: the one order it owns is the
  * plan's. See ADR-0021.
  */
-export function planGroups(tasks: LiveTask[], plan: string[], members: string[]): Group[] {
+export function planGroups(tasks: LiveTask[], plan: TaskId[], members: TaskId[]): Group[] {
   const planned = new Set(plan);
   return drawn(tasks, [
     { key: "today", ids: plan },
@@ -144,7 +145,7 @@ export function planGroups(tasks: LiveTask[], plan: string[], members: string[])
  * A week set sinks its finished members here as it does anywhere: reading a
  * week back is what the sink is for.
  */
-export function pickedOnly(tasks: LiveTask[], picked: string[], key: Head = "today"): Group[] {
+export function pickedOnly(tasks: LiveTask[], picked: TaskId[], key: Head = "today"): Group[] {
   const byId = new Map(tasks.map((one) => [one.id, one]));
   return [head(byId, { key, ids: picked, sinks: key === "week" })];
 }
@@ -153,7 +154,7 @@ export function pickedOnly(tasks: LiveTask[], picked: string[], key: Head = "tod
 type HeadGroup = {
   key: GroupKey;
   /** The ids the page picked, in the order it means them to be read. */
-  ids: string[];
+  ids: TaskId[];
   /** True where a finished member sinks under the live ones as the group draws. */
   sinks?: boolean;
 };
@@ -193,7 +194,7 @@ function drawn(tasks: LiveTask[], heads: HeadGroup[]): Group[] {
  * page draws and unfinishing a task gives it its place back. A plan does not
  * sink: a task finished today stays where the day put it. See ADR-0021.
  */
-function head(byId: Map<string, LiveTask>, { key, ids, sinks = false }: HeadGroup): Group {
+function head(byId: Map<TaskId, LiveTask>, { key, ids, sinks = false }: HeadGroup): Group {
   const rows = ids.map((id) => byId.get(id)).filter((one) => one !== undefined);
   const tasks = sinks
     ? [...rows.filter((one) => !one.finished), ...rows.filter((one) => one.finished)]
@@ -221,7 +222,7 @@ function compare(a: string, b: string): number {
  * carries every id it wrote, and the text as the person typed it, line breaks
  * and all.
  */
-export type Added = { ids: string[]; slug: string; text: string };
+export type Added = { ids: TaskId[]; slug: string; text: string };
 
 /**
  * True for a task a plan can hold. Picking a task for today is the act of

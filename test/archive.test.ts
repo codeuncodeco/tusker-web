@@ -13,6 +13,7 @@ import * as meRoute from "../app/routes/me";
 import * as planRoute from "../app/routes/me.plan";
 import * as taskRoute from "../app/routes/task";
 import type { Swept } from "../app/sweep";
+import type { TaskId } from "../app/task-number";
 import { aside, member } from "./accounts";
 import { get, post, routeArgs, wipe } from "./routes";
 
@@ -27,22 +28,33 @@ function signed(request: Request, cookie: string) {
 }
 
 /** A post to the board action, signed by the cookie. */
-function board(slug: string, cookie: string, fields: Record<string, string | string[]>) {
-  return boardRoute.action(routeArgs(signed(post(`/o/${slug}/board`, fields), cookie), { slug }));
+function board(
+  slug: string,
+  cookie: string,
+  fields: Record<string, string | TaskId | (string | TaskId)[]>,
+) {
+  // A form carries every value as text, so the task numbers go as strings.
+  const posted = Object.fromEntries(
+    Object.entries(fields).map(([key, value]) => [
+      key,
+      Array.isArray(value) ? value.map(String) : String(value),
+    ]),
+  );
+  return boardRoute.action(routeArgs(signed(post(`/o/${slug}/board`, posted), cookie), { slug }));
 }
 
 /** A read of the board, signed by the cookie. */
 function readBoard(slug: string, cookie: string, query = "") {
   return boardRoute.loader(
     routeArgs(signed(get(`/o/${slug}/board${query}`), cookie), { slug }),
-  ) as Promise<{ columns: { status: string; tasks: { id: string }[] }[] }>;
+  ) as Promise<{ columns: { status: string; tasks: { id: TaskId }[] }[] }>;
 }
 
 /** A read of the archive screen, signed by the cookie. */
 function readArchive(slug: string, cookie: string, query = "") {
   return archiveRoute.loader(
     routeArgs(signed(get(`/o/${slug}/archive${query}`), cookie), { slug }),
-  ) as Promise<{ lines: { id: string; title: string; status: string }[] }>;
+  ) as Promise<{ lines: { id: TaskId; title: string; status: string }[] }>;
 }
 
 /**
@@ -52,16 +64,16 @@ function readArchive(slug: string, cookie: string, query = "") {
 async function planned(slug: string, cookie: string, title: string) {
   const id = await made(slug, cookie, "todo", title);
   await planRoute.action(
-    routeArgs(signed(post("/me/plan", { intent: "plan", id, slug }), cookie), {}),
+    routeArgs(signed(post("/me/plan", { intent: "plan", id: String(id), slug }), cookie), {}),
   );
   await board(slug, cookie, { intent: "move", id, status: "done" });
   return id;
 }
 
 /** A post to the task page, signed by the cookie. */
-function task(slug: string, cookie: string, taskId: string, fields: Record<string, string>) {
+function task(cookie: string, taskId: TaskId, fields: Record<string, string>) {
   return taskRoute.action(
-    routeArgs(signed(post(`/o/${slug}/t/${taskId}`, fields), cookie), { slug, taskId }),
+    routeArgs(signed(post(`/t/${taskId}`, fields), cookie), { n: String(taskId) }),
   );
 }
 
@@ -71,12 +83,12 @@ async function made(slug: string, cookie: string, status: string, title: string)
   const row = await db
     .prepare("SELECT id FROM tasks WHERE title = ?")
     .bind(title)
-    .first<{ id: string }>();
+    .first<{ id: TaskId }>();
   return row!.id;
 }
 
 /** The archive flag and stamp of one row. */
-async function flagOf(id: string) {
+async function flagOf(id: TaskId) {
   const row = await db
     .prepare("SELECT archived, archived_at, status FROM tasks WHERE id = ?")
     .bind(id)
@@ -95,7 +107,7 @@ describe("archiving one task", () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "done", "Ship it");
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    await task(ada.cookie, id, { intent: "archive" });
 
     expect(await flagOf(id)).toMatchObject({ archived: 1, status: "done" });
     expect(await column(ada.org.slug, ada.cookie, "done")).toEqual([]);
@@ -105,7 +117,7 @@ describe("archiving one task", () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "done", "Ship it");
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    await task(ada.cookie, id, { intent: "archive" });
 
     expect((await flagOf(id)).archived_at).toMatch(/^\d{4}-\d\d-\d\dT/);
   });
@@ -113,9 +125,9 @@ describe("archiving one task", () => {
   it("restores it to the column it held, and clears the stamp", async () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "cancelled", "Drop it");
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    await task(ada.cookie, id, { intent: "archive" });
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "restore" });
+    await task(ada.cookie, id, { intent: "restore" });
 
     expect(await flagOf(id)).toMatchObject({ archived: 0, archived_at: null, status: "cancelled" });
     expect(await column(ada.org.slug, ada.cookie, "cancelled", "?cancelled=1")).toEqual([id]);
@@ -125,7 +137,7 @@ describe("archiving one task", () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "todo", "Still going");
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    await task(ada.cookie, id, { intent: "archive" });
 
     expect(await flagOf(id)).toMatchObject({ archived: 0, archived_at: null });
   });
@@ -137,9 +149,8 @@ describe("archiving one task", () => {
 
     await taskRoute
       .action(
-        routeArgs(signed(post(`/o/${bob.org.slug}/t/${id}`, { intent: "archive" }), bob.cookie), {
-          slug: bob.org.slug,
-          taskId: id,
+        routeArgs(signed(post(`/t/${id}`, { intent: "archive" }), bob.cookie), {
+          n: String(id),
         }),
       )
       .catch(() => null);
@@ -224,7 +235,7 @@ describe("the one undo for the batch", () => {
     const ada = await member("ada@example.test", "Ada");
     const early = await made(ada.org.slug, ada.cookie, "done", "Archived earlier");
     const late = await made(ada.org.slug, ada.cookie, "done", "Swept");
-    await task(ada.org.slug, ada.cookie, early, { intent: "archive" });
+    await task(ada.cookie, early, { intent: "archive" });
 
     // The form names both, as a stale screen would. The sweep changed one.
     const swept = (await board(ada.org.slug, ada.cookie, {
@@ -247,13 +258,13 @@ describe("the archive screen", () => {
     const ada = await member("ada@example.test", "Ada");
     const first = await made(ada.org.slug, ada.cookie, "done", "Archived first");
     const second = await made(ada.org.slug, ada.cookie, "done", "Archived second");
-    await task(ada.org.slug, ada.cookie, first, { intent: "archive" });
+    await task(ada.cookie, first, { intent: "archive" });
     // The stamp is to the millisecond, so the second archive is pushed past it.
     await db
       .prepare("UPDATE tasks SET archived_at = '2020-01-01T00:00:00.000Z' WHERE id = ?")
       .bind(first)
       .run();
-    await task(ada.org.slug, ada.cookie, second, { intent: "archive" });
+    await task(ada.cookie, second, { intent: "archive" });
 
     const { lines } = await readArchive(ada.org.slug, ada.cookie);
 
@@ -263,7 +274,7 @@ describe("the archive screen", () => {
   it("holds Cancelled whatever the board's toggle says", async () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "cancelled", "Dropped");
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    await task(ada.cookie, id, { intent: "archive" });
 
     const { lines } = await readArchive(ada.org.slug, ada.cookie);
 
@@ -285,7 +296,7 @@ describe("the archive screen", () => {
     const ada = await member("ada@example.test", "Ada");
     const bob = await member("bob@example.test", "Bob");
     const hers = await made(bob.org.slug, bob.cookie, "done", "Bob's work");
-    await task(bob.org.slug, bob.cookie, hers, { intent: "archive" });
+    await task(bob.cookie, hers, { intent: "archive" });
 
     const { lines } = await readArchive(ada.org.slug, ada.cookie);
 
@@ -295,11 +306,11 @@ describe("the archive screen", () => {
   it("puts a task back on the board", async () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await made(ada.org.slug, ada.cookie, "done", "Ship it");
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    await task(ada.cookie, id, { intent: "archive" });
 
     await archiveRoute.action(
       routeArgs(
-        signed(post(`/o/${ada.org.slug}/archive`, { intent: "restore", id }), ada.cookie),
+        signed(post(`/o/${ada.org.slug}/archive`, { intent: "restore", id: String(id) }), ada.cookie),
         { slug: ada.org.slug },
       ),
     );
@@ -316,11 +327,11 @@ describe("an archived task", () => {
 
     const before = (await meRoute.loader(
       routeArgs(signed(get("/me"), ada.cookie), {}),
-    )) as { columns: { status: string; tasks: { id: string }[] }[] };
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    )) as { columns: { status: string; tasks: { id: TaskId }[] }[] };
+    await task(ada.cookie, id, { intent: "archive" });
     const after = (await meRoute.loader(
       routeArgs(signed(get("/me"), ada.cookie), {}),
-    )) as { columns: { status: string; tasks: { id: string }[] }[] };
+    )) as { columns: { status: string; tasks: { id: TaskId }[] }[] };
 
     const done = (board: typeof before) =>
       board.columns.find((one) => one.status === "done")?.tasks.map((card) => card.id) ?? [];
@@ -332,10 +343,10 @@ describe("an archived task", () => {
     const ada = await member("ada@example.test", "Ada");
     const id = await planned(ada.org.slug, ada.cookie, "Ship it");
 
-    await task(ada.org.slug, ada.cookie, id, { intent: "archive" });
+    await task(ada.cookie, id, { intent: "archive" });
     const plan = (await planRoute.loader(
       routeArgs(signed(get("/me/plan"), ada.cookie), {}),
-    )) as { planned: string[] };
+    )) as { planned: TaskId[] };
 
     expect(plan.planned).toEqual([]);
   });

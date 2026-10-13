@@ -12,11 +12,11 @@ import Board from "../app/routes/board";
 import type { Group, LiveTask } from "../app/unified";
 import { UnifiedList } from "../app/unified-list";
 
-function live(id: string): LiveTask {
+function live(id: number): LiveTask {
   return {
     id,
     org: { slug: "acme", name: "Acme", color: "blue" },
-    title: id,
+    title: `Task ${id}`,
     status: "todo",
     due_date: null,
     percentile: 0.5,
@@ -37,10 +37,10 @@ const REORDERS = /value="(up|down|top|bottom)"/;
 describe("the reorder buttons", () => {
   it("are gone from a plan that drags", () => {
     const groups: Group[] = [
-      { key: "today", label: "Plan", tasks: [live("a"), live("b")], sinks: false },
+      { key: "today", label: "Plan", tasks: [live(1), live(2)], sinks: false },
     ];
     const html = markup(
-      <UnifiedList groups={groups} planned={new Set(["a", "b"])} day="2026-10-09" showsOrg ordered="today" drags />,
+      <UnifiedList groups={groups} planned={new Set([1, 2])} day="2026-10-09" showsOrg ordered="today" drags />,
     );
 
     expect(html).not.toMatch(REORDERS);
@@ -48,10 +48,10 @@ describe("the reorder buttons", () => {
 
   it("stay on a ranked list that does not drag, which is the week set", () => {
     const groups: Group[] = [
-      { key: "week", label: "This week", tasks: [live("a"), live("b")], sinks: true },
+      { key: "week", label: "This week", tasks: [live(1), live(2)], sinks: true },
     ];
     const html = markup(
-      <UnifiedList groups={groups} planned={new Set(["a", "b"])} day="2026-10-09" showsOrg ordered="week" />,
+      <UnifiedList groups={groups} planned={new Set([1, 2])} day="2026-10-09" showsOrg ordered="week" />,
     );
 
     expect(html).toMatch(REORDERS);
@@ -60,11 +60,11 @@ describe("the reorder buttons", () => {
 
 /** The org board, with two cards in To do, drawn from a loader's data. */
 function orgBoard(): string {
-  const card = (id: string) => ({ id, title: id, fields: [], assignees: [] });
+  const card = (id: number) => ({ id, title: `Task ${id}`, fields: [], assignees: [] });
   const loaderData = {
     org: { slug: "acme", name: "Acme" },
     columns: [
-      { status: "todo", label: "To do", tasks: [card("a"), card("b")] },
+      { status: "todo", label: "To do", tasks: [card(1), card(2)] },
       { status: "in_progress", label: "In progress", tasks: [] },
       { status: "done", label: "Done", tasks: [] },
     ],

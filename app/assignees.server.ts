@@ -13,12 +13,13 @@
 
 import { assigneeOf, inNameOrder, type Assignee } from "./assignees";
 import type { ReadScope, Scope } from "./scope.server";
+import type { TaskId } from "./task-number";
 
 /** The account columns an assignee is drawn from. */
 type MemberRow = { id: string; name: string; email: string };
 
 /** The same, with the task the row hangs on, for a whole board in one read. */
-type HeldRow = MemberRow & { task_id: string };
+type HeldRow = MemberRow & { task_id: TaskId };
 
 /** The same, with the org the membership names, for several orgs in one read. */
 type OrgMemberRow = MemberRow & { org_id: string };
@@ -36,7 +37,7 @@ const ACCOUNT_COLUMNS = "u.id, u.name, u.email";
 export async function assigneesOf(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
 ): Promise<Assignee[]> {
   const { results } = await db
     .prepare(
@@ -59,7 +60,7 @@ export async function assigneesOf(
 export async function assigneesByTask(
   db: D1Database,
   scope: Scope,
-): Promise<Map<string, Assignee[]>> {
+): Promise<Map<TaskId, Assignee[]>> {
   const { results } = await db
     .prepare(
       `SELECT a.task_id, ${ACCOUNT_COLUMNS}
@@ -70,7 +71,7 @@ export async function assigneesByTask(
     .bind(scope.org.id)
     .all<HeldRow>();
 
-  const held = new Map<string, Assignee[]>();
+  const held = new Map<TaskId, Assignee[]>();
   for (const row of results) {
     const assignees = held.get(row.task_id) ?? [];
     assignees.push(assigneeOf(row));
@@ -124,7 +125,7 @@ export async function readAssignees(
 export async function setAssignees(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
   ids: string[],
 ): Promise<void> {
   const orgId = scope.org.id;
@@ -152,7 +153,7 @@ export async function setAssignees(
 export async function assignOne(
   db: D1Database,
   scope: Scope,
-  taskId: string,
+  taskId: TaskId,
   userId: string,
   held: boolean,
 ): Promise<void> {

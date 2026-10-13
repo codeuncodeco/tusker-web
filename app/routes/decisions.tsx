@@ -85,7 +85,7 @@ export default function Decisions({ loaderData, actionData }: Route.ComponentPro
                   <>
                     {" · "}
                     <Link
-                      to={taskPath(org.slug, decision.task.id, origin)}
+                      to={taskPath(decision.task.id, origin)}
                       className="underline underline-offset-2"
                     >
                       {decision.task.title}

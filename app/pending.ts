@@ -25,6 +25,7 @@ import { isStep, moveInPlan, placeInPlan } from "./plan";
 import { titlesIn } from "./titles";
 import { raiseOutside } from "./toast";
 import type { LiveTask } from "./unified";
+import { readTaskId, taskIdsIn, type TaskId } from "./task-number";
 
 /**
  * The fields of every post this page has in flight, oldest first.
@@ -81,16 +82,16 @@ type BoardColumn<C> = { status: Status; tasks: C[] };
  * not draw takes the card off the board. A step that would leave the column
  * stays where it is, as the server's does.
  */
-export function boardSent<C extends { id: string }, K extends BoardColumn<C>>(
+export function boardSent<C extends { id: TaskId }, K extends BoardColumn<C>>(
   columns: K[],
   sent: FormData[],
 ): K[] {
   return sent.reduce((drawn, form) => {
     const intent = String(form.get("intent") ?? "");
-    const id = String(form.get("id") ?? "");
+    const id = readTaskId(form.get("id"));
 
     if (intent === "archive") {
-      const gone = new Set(form.getAll("id").map(String));
+      const gone = new Set(taskIdsIn(form.getAll("id")));
       return drawn.map((column) => ({
         ...column,
         tasks: column.tasks.filter((card) => !gone.has(card.id)),
@@ -101,7 +102,7 @@ export function boardSent<C extends { id: string }, K extends BoardColumn<C>>(
       const card = drawn.flatMap((column) => column.tasks).find((one) => one.id === id);
       if (!card) return drawn;
       const status = String(form.get("status") ?? "");
-      const before = String(form.get("before") ?? "");
+      const before = readTaskId(form.get("before"));
       return drawn.map((column) => {
         const rest = column.tasks.filter((one) => one.id !== id);
         if (column.status !== status) return { ...column, tasks: rest };
@@ -116,7 +117,7 @@ export function boardSent<C extends { id: string }, K extends BoardColumn<C>>(
     if (intent === "up" || intent === "down") {
       return drawn.map((column) => {
         const order = column.tasks.map((card) => card.id);
-        if (!order.includes(id)) return column;
+        if (id === null || !order.includes(id)) return column;
         const moved = moveInPlan(order, id, intent);
         return { ...column, tasks: moved.map((one) => column.tasks.find((card) => card.id === one)!) };
       });
@@ -138,20 +139,23 @@ export function boardSent<C extends { id: string }, K extends BoardColumn<C>>(
  */
 export function tasksSent(
   tasks: LiveTask[],
-  picked: string[],
+  picked: TaskId[],
   sent: FormData[],
   pickAt: "top" | "bottom" = "bottom",
-): { tasks: LiveTask[]; picked: string[] } {
+): { tasks: LiveTask[]; picked: TaskId[] } {
   return sent.reduce(
     (drawn, form) => {
       const intent = String(form.get("intent") ?? "");
-      const id = String(form.get("id") ?? "");
+      const id = readTaskId(form.get("id"));
+      // Every post below names one task, or a list of them. A post that names
+      // none draws nothing.
+      if (id === null) return drawn;
 
       if (intent === "move" || intent === "finish") {
         const status = (intent === "finish" ? "done" : String(form.get("status") ?? "")) as Status;
         // A drag names the card of the same org it lands above, and the server
         // places it there, so it draws just above that card. See ADR-0025.
-        const below = drawn.tasks.find((one) => one.id === String(form.get("before") ?? ""));
+        const below = drawn.tasks.find((one) => one.id === readTaskId(form.get("before")));
         const percentile = below ? below.percentile - 1e-9 : 1;
         return {
           ...drawn,
@@ -162,7 +166,7 @@ export function tasksSent(
       }
 
       if (intent === "archive") {
-        const gone = new Set(form.getAll("id").map(String));
+        const gone = new Set(taskIdsIn(form.getAll("id")));
         return { ...drawn, tasks: drawn.tasks.filter((one) => !gone.has(one.id)) };
       }
 
@@ -180,7 +184,7 @@ export function tasksSent(
       if (isStep(intent)) return { ...drawn, picked: moveInPlan(drawn.picked, id, intent) };
 
       if (intent === "place") {
-        const before = String(form.get("before") ?? "") || null;
+        const before = readTaskId(form.get("before"));
         return { ...drawn, picked: placeInPlan(drawn.picked, id, before) };
       }
 

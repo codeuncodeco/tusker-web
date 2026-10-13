@@ -16,17 +16,18 @@
 
 import { placesAbove, placesBelow } from "./order";
 import type { Step } from "./plan";
+import type { TaskId } from "./task-number";
 
 /** One membership as the order reads it, in stored order. */
 export type Member = {
-  taskId: string;
+  taskId: TaskId;
   position: number;
   /** True where the set still holds the task but the list no longer ranks it. */
   finished: boolean;
 };
 
 /** One position to write. */
-export type Placed = { taskId: string; position: number };
+export type Placed = { taskId: TaskId; position: number };
 
 /**
  * The rows one step writes, which is none where nothing moves.
@@ -36,7 +37,7 @@ export type Placed = { taskId: string; position: number };
  * finished member all answer with no rows. A caller reads that as "nothing moved" and
  * writes nothing.
  */
-export function movedInSet(set: Member[], taskId: string, step: Step): Placed[] {
+export function movedInSet(set: Member[], taskId: TaskId, step: Step): Placed[] {
   const at = set.findIndex((one) => one.taskId === taskId);
   if (at === -1 || set[at].finished) return [];
 

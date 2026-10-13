@@ -16,6 +16,7 @@ import { listFields } from "./fields.server";
 import { refLabels } from "./refs.server";
 import { scopeIn, type OrgSet } from "./scope.server";
 import type { LiveTask } from "./unified";
+import type { TaskId } from "./task-number";
 
 /**
  * Which rows a page wants of the org set.
@@ -38,7 +39,7 @@ const LIVE: Wanted = { statuses: ["todo", "in_progress"] };
 
 /** The row the query answers with, before a card's fields are read. */
 type Row = {
-  id: string;
+  id: TaskId;
   org_id: string;
   title: string;
   status: Status;
@@ -59,7 +60,7 @@ type Row = {
 export async function listUnified(
   db: D1Database,
   set: OrgSet,
-  plan: string[],
+  plan: TaskId[],
   want: Wanted = LIVE,
 ): Promise<LiveTask[]> {
   if (set.orgs.length === 0) return [];
@@ -98,7 +99,7 @@ export async function listUnified(
 async function placedRows(
   db: D1Database,
   set: OrgSet,
-  plan: string[],
+  plan: TaskId[],
   want: Wanted,
 ): Promise<Row[]> {
   const wants = (finished: boolean) =>
@@ -185,9 +186,10 @@ async function cardsByOrg(db: D1Database, set: OrgSet): Promise<Map<string, Show
  * none per card, as the org board does it.
  *
  * An org of one member draws no assignee, so it is not read at all. A task id
- * is a UUID, so one map covers every org. See ADR-0013.
+ * is a number counted across the instance, so one map covers every org. See
+ * ADR-0013 and ADR-0030.
  */
-async function heldByTask(db: D1Database, set: OrgSet): Promise<Map<string, Assignee[]>> {
+async function heldByTask(db: D1Database, set: OrgSet): Promise<Map<TaskId, Assignee[]>> {
   const read = await Promise.all(
     set.orgs
       .filter(drawsAssignees)

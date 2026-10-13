@@ -1,6 +1,6 @@
 /**
- * The org axis: the board, the decision log, one task, and the three admin
- * pages of one org.
+ * The org axis: the board, the decision log, and the three admin pages of one
+ * org.
  *
  * The layout proves the org once, in middleware, and every page under it reads
  * that scope rather than proving it again. The address names the org, so the
