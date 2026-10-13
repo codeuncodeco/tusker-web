@@ -164,11 +164,13 @@ describe("an open task", () => {
     expect(html).not.toContain("/o/acme/fields");
   });
 
-  it("draws the phone bar with the status, Finish and Details", () => {
+  it("draws the phone bar with the status, Mark done and Details", () => {
     const bar = page().match(/<div class="fixed inset-x-0 bottom-0[\s\S]*?<\/details><\/div>/)?.[0] ?? "";
 
     expect(bar).toContain("To do");
     expect(bar).toContain('value="finish"');
+    expect(bar).toContain(">Mark done<");
+    expect(bar).not.toContain(">Finish<");
     expect(bar).toMatch(/<details data-task-drawer=""><summary[^>]*>Details<\/summary><\/details>/);
   });
 });
