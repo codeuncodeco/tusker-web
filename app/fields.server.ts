@@ -1,3 +1,4 @@
+import { notDeleted } from "./deleted.server";
 import type { FieldType, OrgField } from "./fields";
 import type { ReadScope, Scope } from "./scope.server";
 
@@ -174,7 +175,7 @@ export async function heldValues(
       const { results } = await db
         .prepare(
           `SELECT DISTINCT json_extract(data, '$.' || ?) AS value FROM tasks
-           WHERE org_id = ? AND json_extract(data, '$.' || ?) IS NOT NULL`,
+           WHERE org_id = ? AND ${notDeleted()} AND json_extract(data, '$.' || ?) IS NOT NULL`,
         )
         .bind(key, scope.org.id, key)
         .all<{ value: string }>();

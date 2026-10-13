@@ -1,5 +1,6 @@
 import { isFinished, isStatus, stepInColumn, STATUSES, type Status } from "./board";
 import { isDay } from "./day";
+import { notDeleted } from "./deleted.server";
 import { tickBox } from "./description";
 import { fieldKeyOf } from "./field-filter";
 import { listFields } from "./fields.server";
@@ -100,7 +101,7 @@ export function holdsText(text: string): { sql: string; values: string[] } {
  * ICU.
  */
 export async function listTasks(db: D1Database, scope: Scope, search = ""): Promise<Task[]> {
-  const where = ["org_id = ?", "archived = 0"];
+  const where = ["org_id = ?", "archived = 0", notDeleted()];
   const values: unknown[] = [scope.org.id];
 
   const text = search.trim();
@@ -127,7 +128,9 @@ export async function listTasks(db: D1Database, scope: Scope, search = ""): Prom
 export async function countByStatus(db: D1Database, scope: Scope): Promise<Record<Status, number>> {
   const { results } = await db
     .prepare(
-      "SELECT status, COUNT(*) AS held FROM tasks WHERE org_id = ? AND archived = 0 GROUP BY status",
+      `SELECT status, COUNT(*) AS held FROM tasks
+       WHERE org_id = ? AND archived = 0 AND ${notDeleted()}
+       GROUP BY status`,
     )
     .bind(scope.org.id)
     .all<{ status: Status; held: number }>();
@@ -140,7 +143,7 @@ export async function countByStatus(db: D1Database, scope: Scope): Promise<Recor
 /** One task of the org, or null when the org holds no such row. */
 export async function readTask(db: D1Database, scope: Scope, taskId: TaskId): Promise<Task | null> {
   const row = await db
-    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ? AND org_id = ?`)
+    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ? AND org_id = ? AND ${notDeleted()}`)
     .bind(taskId, scope.org.id)
     .first<Row>();
   return row ? asTask(row) : null;
@@ -175,7 +178,7 @@ export async function saveTask(
       `UPDATE tasks
        SET title = ?, data = ?, decides = ?, due_date = ?,
            updated_at = ${NOW}
-       WHERE id = ? AND org_id = ?`,
+       WHERE id = ? AND org_id = ? AND ${notDeleted()}`,
     )
     .bind(
       save.title,
@@ -235,7 +238,7 @@ export async function editTask(
   const done = await db
     .prepare(
       `UPDATE tasks SET ${set}, updated_at = ${NOW}
-       WHERE id = ? AND org_id = ?`,
+       WHERE id = ? AND org_id = ? AND ${notDeleted()}`,
     )
     .bind(...values, taskId, scope.org.id)
     .run();
@@ -264,7 +267,7 @@ export async function saveDescription(
     .prepare(
       `UPDATE tasks
        SET description = ?, updated_at = ${NOW}
-       WHERE id = ? AND org_id = ?`,
+       WHERE id = ? AND org_id = ? AND ${notDeleted()}`,
     )
     .bind(description.replace(/\r\n?/g, "\n"), taskId, scope.org.id)
     .run();
@@ -304,7 +307,7 @@ export async function tickDescriptionBox(
     .prepare(
       `UPDATE tasks
        SET description = ?, updated_at = ${NOW}
-       WHERE id = ? AND org_id = ?`,
+       WHERE id = ? AND org_id = ? AND ${notDeleted()}`,
     )
     .bind(ticked, taskId, scope.org.id)
     .run();
@@ -428,11 +431,12 @@ export async function createTasks(
 }
 
 /**
- * Deletes one task of the org, row and all.
+ * Removes one task of the org for good, row and all.
  *
- * It is the only delete Tusker has: the undo of a quick add, on a row made
- * seconds ago. Archiving instead would leave a real row in an org that
- * never wanted it, which is the failure ADR-0012 sets out to prevent.
+ * It is the undo of a quick add, on a row made seconds ago, and not the
+ * **Delete** of the task page, which keeps the row: see `markDeleted`.
+ * Archiving instead would leave a real row in an org that never wanted it,
+ * which is the failure ADR-0012 sets out to prevent.
  *
  * A decision the task produced stays, with its link cleared, because a
  * decision outlives the task.
@@ -452,7 +456,7 @@ export async function deleteTask(
 }
 
 /**
- * Deletes every task of the org the list names, in one write.
+ * Removes every task of the org the list names for good, in one write.
  *
  * The undo of one add is one act, so a paste of ten rows leaves ten rows or
  * none: a delete that stopped halfway would leave a person guessing which rows
@@ -469,6 +473,57 @@ export async function deleteTasks(
       db.prepare("DELETE FROM tasks WHERE id = ? AND org_id = ?").bind(taskId, scope.org.id),
     ),
   );
+}
+
+/**
+ * Deletes one task of the org: the **Delete** of the task aside. See ADR-0031.
+ *
+ * The row stays, with the time of the delete as its mark, and every read of
+ * `tasks` leaves a marked row out. The assignees, the field values and a
+ * decision's link to the task stay with it. Tusker clears the mark nowhere.
+ *
+ * The task leaves every plan and every week set in the same write, past ones
+ * included, so no read of a plan or a set has to know about deleted tasks. A
+ * plan keeps the order of the rest. A task of another org, or one deleted
+ * before, takes nothing out.
+ *
+ * Returns false when no row matched, so the route can answer 404.
+ */
+export async function markDeleted(
+  db: D1Database,
+  scope: Scope,
+  taskId: TaskId,
+): Promise<boolean> {
+  // The plans and the sets go first, while the task is still live: a batch is
+  // one transaction, so the mark after them lands with them or not at all.
+  const live = `EXISTS (
+    SELECT 1 FROM tasks WHERE id = ?1 AND org_id = ?2 AND ${notDeleted()}
+  )`;
+
+  const [, , marked] = await db.batch([
+    db
+      .prepare(
+        `UPDATE plans SET task_ids = (
+           SELECT json_group_array(value) FROM (
+             SELECT value FROM json_each(plans.task_ids) WHERE value != ?1 ORDER BY key
+           )
+         )
+         WHERE EXISTS (SELECT 1 FROM json_each(plans.task_ids) WHERE value = ?1)
+           AND ${live}`,
+      )
+      .bind(taskId, scope.org.id),
+    db
+      .prepare(`DELETE FROM week_plan_tasks WHERE task_id = ?1 AND ${live}`)
+      .bind(taskId, scope.org.id),
+    db
+      .prepare(
+        `UPDATE tasks SET deleted_at = ${NOW}, updated_at = ${NOW}
+         WHERE id = ?1 AND org_id = ?2 AND ${notDeleted()}`,
+      )
+      .bind(taskId, scope.org.id),
+  ]);
+
+  return marked.meta.changes > 0;
 }
 
 /** What a move did: whether a row moved, and whether the move finished it. */
@@ -503,7 +558,7 @@ export async function moveTask(
 ): Promise<Moved> {
   const orgId = scope.org.id;
   const was = await db
-    .prepare("SELECT status FROM tasks WHERE id = ? AND org_id = ?")
+    .prepare(`SELECT status FROM tasks WHERE id = ? AND org_id = ? AND ${notDeleted()}`)
     .bind(move.taskId, orgId)
     .first<{ status: Status }>();
   if (!was) return { moved: false, finished: false };
@@ -520,7 +575,7 @@ export async function moveTask(
        SET status = ?, position = ?,
            finished_at = ${finishedAtSql(move.status)},
            updated_at = ${NOW}
-       WHERE id = ? AND org_id = ?`,
+       WHERE id = ? AND org_id = ? AND ${notDeleted()}`,
     )
     .bind(move.status, position, move.taskId, orgId)
     .run();
@@ -548,7 +603,9 @@ export async function stepTask(
 ): Promise<Moved> {
   const orgId = scope.org.id;
   const was = await db
-    .prepare("SELECT status FROM tasks WHERE id = ? AND org_id = ? AND archived = 0")
+    .prepare(
+      `SELECT status FROM tasks WHERE id = ? AND org_id = ? AND archived = 0 AND ${notDeleted()}`,
+    )
     .bind(step.taskId, orgId)
     .first<{ status: Status }>();
   if (!was) return { moved: false, finished: false };
@@ -565,7 +622,10 @@ export async function stepTask(
 /** The live cards of one column, in the order the board draws them. */
 async function columnPlaces(db: D1Database, orgId: string, status: Status): Promise<Positioned[]> {
   const { results } = await db
-    .prepare(`SELECT id, position FROM tasks WHERE org_id = ? AND status = ? AND archived = 0 ${IN_ORDER}`)
+    .prepare(
+      `SELECT id, position FROM tasks
+       WHERE org_id = ? AND status = ? AND archived = 0 AND ${notDeleted()} ${IN_ORDER}`,
+    )
     .bind(orgId, status)
     .all<Positioned>();
   return results;
@@ -708,7 +768,7 @@ export async function filterTasks(
   scope: ReadScope,
   filter: TaskFilter,
 ): Promise<ApiTask[]> {
-  const where = ["org_id = ?", "archived = 0"];
+  const where = ["org_id = ?", "archived = 0", notDeleted()];
   const values: unknown[] = [scope.org.id];
 
   if (filter.statuses.length > 0) {
