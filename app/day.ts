@@ -71,8 +71,8 @@ export function dayShort(day: string, year: boolean): string {
 
 /**
  * The date a record was kept on: "13 Oct 2026". It has no weekday and always
- * has the year, because a log line is read back long after, and the year is
- * the part a reader cannot guess.
+ * has the year, because a decision or an archived task is read back long
+ * after, and the year is the part a reader cannot guess.
  */
 export function dayDate(day: string): string {
   return written(day, { day: "numeric", month: "short", year: "numeric" });

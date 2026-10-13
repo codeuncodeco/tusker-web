@@ -117,7 +117,7 @@ describe("the date a record was kept on", () => {
     expect(dayDate("2026-09-03")).toBe("3 Sept 2026");
   });
 
-  it("writes each end of a year end as its own year", () => {
+  it("writes the year on each side of a year end", () => {
     expect(dayDate("2025-12-31")).toBe("31 Dec 2025");
     expect(dayDate("2026-01-01")).toBe("1 Jan 2026");
   });
