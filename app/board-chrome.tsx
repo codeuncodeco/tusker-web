@@ -4,16 +4,17 @@
  *
  * The org board and the unified board draw the same five columns, so they draw
  * the same switches over them. Which columns each offers is the board's own
- * business, and so is which controls it draws: the search box, the assignee
- * filter and the field filters are the org board's alone, because a search is
- * one org's rows, a member select across every org would name strangers, and
- * each org declares its own fields. See ADR-0017 and ADR-0029.
+ * business, and so is which controls it draws: the search box and the field
+ * filters are the org board's alone, because a search is one org's rows and
+ * each org declares its own fields. Both boards draw an assignee filter, but
+ * the unified board's names no member, because a member select across every
+ * org would name strangers. See ADR-0017, ADR-0029 and ADR-0033.
  */
 
 import { useEffect, useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 
-import { ANYONE, ASSIGNEE_NAME, UNASSIGNED } from "./assignee-filter";
+import { ANYONE, ASSIGNEE_NAME, MINE, UNASSIGNED } from "./assignee-filter";
 import type { Assignee } from "./assignees";
 import {
   flipped,
@@ -84,17 +85,50 @@ export function SearchBox({ search }: { search: string }) {
  * The select that narrows the board to the tasks one member holds, or to the
  * tasks nobody holds.
  *
- * It is a GET form, as the search box is, so a narrowed board is a place: the
- * address carries it, Back works and the link is shareable. The rest of the
- * query rides along as hidden fields, so picking a member keeps the search,
- * the chip and the columns a person turned on.
- *
  * A board that draws no assignee draws no select, and says so by handing back
  * no members.
  */
 export function AssigneeFilter({ assignee, members }: { assignee: string; members: Assignee[] }) {
   if (members.length === 0) return null;
 
+  return (
+    <AssigneeSelect assignee={assignee}>
+      <option value={ANYONE}>Anyone</option>
+      <option value={UNASSIGNED}>Unassigned</option>
+      {members.map((one) => (
+        <option key={one.id} value={one.id}>
+          {one.name}
+        </option>
+      ))}
+    </AssigneeSelect>
+  );
+}
+
+/**
+ * The unified board's select: `Anyone`, `Mine` and `Unassigned`. It names no
+ * member, because the board spans orgs and a member list across them names
+ * strangers. `Mine` is a word in the address, so a shared link shows whoever
+ * opens it their own work. See ADR-0033.
+ */
+export function UnifiedAssigneeFilter({ assignee }: { assignee: string }) {
+  return (
+    <AssigneeSelect assignee={assignee}>
+      <option value={ANYONE}>Anyone</option>
+      <option value={MINE}>Mine</option>
+      <option value={UNASSIGNED}>Unassigned</option>
+    </AssigneeSelect>
+  );
+}
+
+/**
+ * The form both assignee selects draw.
+ *
+ * It is a GET form, as the search box is, so a narrowed board is a place: the
+ * address carries it, Back works and the link is shareable. The rest of the
+ * query rides along as hidden fields, so a pick keeps the search, the chip and
+ * the columns a person turned on.
+ */
+function AssigneeSelect({ assignee, children }: { assignee: string; children: React.ReactNode }) {
   return (
     <Form method="get" className="flex items-baseline">
       <RestOfQuery except={ASSIGNEE_NAME} />
@@ -108,13 +142,7 @@ export function AssigneeFilter({ assignee, members }: { assignee: string; member
         onChange={(event) => event.currentTarget.form?.requestSubmit()}
         className={smallFieldClass}
       >
-        <option value={ANYONE}>Anyone</option>
-        <option value={UNASSIGNED}>Unassigned</option>
-        {members.map((one) => (
-          <option key={one.id} value={one.id}>
-            {one.name}
-          </option>
-        ))}
+        {children}
       </select>
       {/* The submit the select needs when no script runs. */}
       <button className="sr-only">Filter</button>

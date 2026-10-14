@@ -33,5 +33,10 @@ export function onlyOrg<T>(orgs: T[]): T | null {
  * proves membership, so a slug the person does not hold is that layout's 404.
  */
 export function pickedBoard(to: string | null): string {
-  return boardOf(to && /^[a-z0-9-]+$/.test(to) ? to : null);
+  return boardOf(pickedSlug(to));
+}
+
+/** The slug a pick names, or null for All and for anything that is not a slug. */
+export function pickedSlug(to: string | null): string | null {
+  return to && /^[a-z0-9-]+$/.test(to) ? to : null;
 }

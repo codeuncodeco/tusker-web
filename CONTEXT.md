@@ -451,8 +451,8 @@ the **Org select** sets its scope: All, or one org. Scoped to All it is the
 **Unified board**, and scoped to one org it is the **Org board**. Both are the
 same five columns, the same cards, and the same keys except the two that step a
 stored order. One org's order is stored, so the powers of one org come with that
-scope: its order and `J` and `K`, the assignee filter, the field filters and the
-search. The board never draws two orgs out of several: a scope is All or one.
+scope: its order and `J` and `K`, the member list of the assignee filter, the
+field filters and the search. The board never draws two orgs out of several: a scope is All or one.
 The bare word is right where one scope is in view, or where the rule holds for
 both. Where the two stand together, name them.
 _Avoid_: Kanban, board view, org filter
@@ -463,7 +463,10 @@ person belongs to. A pick goes to that scope's board at once. It reads the
 address, so it names the org of the org page a person stands on, and All on
 every person page. A person in one org has nothing to pick, so it is not drawn:
 that person always stands in their one org, their board is that org's board,
-and the header's menu always holds its pages.
+and the header's menu always holds its pages. A pick carries the
+**Assignee filter**: `Mine` on All is the person's own name in an org, and back
+again, `Unassigned` stays, and another member becomes `Anyone`. An org of one
+draws no filter, so the value is dropped on the way there.
 _Avoid_: Org switcher, org dropdown, org filter
 
 **Org board**:
@@ -695,15 +698,20 @@ it scrolls away with the page.
 _Avoid_: Top bar, toolbar, board controls
 
 **Assignee filter**:
-The select on the org board that narrows it to the tasks one member holds:
-`Anyone`, `Unassigned`, then each member in name order. `Anyone` is the start
+The select on a board that narrows it by who holds a task. On the org board it
+is `Anyone`, `Unassigned`, then each member in name order. `Anyone` is the start
 and narrows nothing. A member answers for a task they hold among others, and
 `Unassigned` answers for a task nobody holds. It lives in the address, it joins
 the remembered narrowing, and it narrows what the Today chip and the search
 already left. An org that holds one member carries no filter, because it draws
 no assignee.
-The unified board carries none either: a member select there would name
-strangers. See ADR-0013 and ADR-0017.
+On the unified board it is `Anyone`, `Mine` and `Unassigned`, and names no
+member: a member select there would name strangers. `Mine` is the reader, and
+rides the address as `assignee=me`, so a shared link shows whoever opens it
+their own work. It finds the tasks of each org of one the reader works in,
+because an org of one stores its member as the holder. On `Mine`, the
+quick-add box starts with the reader picked. See ADR-0013, ADR-0017 and
+ADR-0033.
 _Avoid_: My tasks toggle, owner filter
 
 **Field filter**:
@@ -731,9 +739,10 @@ character to find, not a wildcard. Nothing is ranked: the column order stands.
 _Avoid_: Full-text search, query, find
 
 **Remembered narrowing**:
-The search, the assignee filter and the field filters an org board was left
+The search, the assignee filter and the field filters a board was left
 with. It belongs to
-the person, so the browser holds it, one entry per org. A board opened with no
+the person, so the browser holds it, one entry per org, and one for the unified
+board that no org's entry can share. A board opened with no
 query at all gets it back in the address. A board opened with a query keeps
 that query as it stands, so a search cleared by hand stays cleared.
 _Avoid_: Saved filter, sticky filter, last view
@@ -742,8 +751,8 @@ _Avoid_: Saved filter, sticky filter, last view
 To do and In progress, across every org one person belongs to, in percentile
 order. The unified board draws it as two of its five columns, and plan mode and
 focus draw it as a list. It is not narrowed to the tasks the person holds: the
-plan is where a person's own list lives, and the assignee filter narrows the org
-board.
+plan is where a person's own list lives, and the assignee filter's `Mine`
+narrows a board.
 _Avoid_: My tasks, unified view
 
 **Card keys**:

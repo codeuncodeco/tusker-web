@@ -17,8 +17,9 @@
  */
 
 import { useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
+import { ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
 import {
   COLOUR_SCHEME_ACTION,
   COLOUR_SCHEMES,
@@ -241,6 +242,17 @@ function OrgSelect({
   heading: boolean;
 }) {
   const navigate = useNavigate();
+  // The assignee filter the board holds goes with the pick, so the next board
+  // asks the same question in its own words. Only `/go` knows those words, so a
+  // pick that carries one goes through it. See ADR-0033.
+  const [params] = useSearchParams();
+  const assignee = readAssignee(params);
+
+  /** Where a pick lands: the board itself, or `/go` with the filter to carry. */
+  function picked(slug: string): string {
+    if (!assignee) return boardOf(slug || null);
+    return `/go?${new URLSearchParams({ to: slug, [ASSIGNEE_NAME]: assignee })}`;
+  }
 
   // The border is the label's, so it rings the dot and the select as one
   // control. The select draws no border of its own, and an option cannot draw
@@ -260,7 +272,7 @@ function OrgSelect({
         name="to"
         aria-label="Board"
         defaultValue={org?.slug ?? ""}
-        onChange={(event) => navigate(boardOf(event.target.value || null))}
+        onChange={(event) => navigate(picked(event.target.value))}
         className="h-9 rounded bg-transparent px-1.5 text-base font-medium sm:px-2 sm:text-lg focus:outline-none"
       >
         <option value="">All</option>
@@ -276,6 +288,7 @@ function OrgSelect({
   return (
     <form method="get" action="/go" className="flex items-center gap-2">
       {heading ? <h1 className="font-normal">{control}</h1> : control}
+      {assignee ? <input type="hidden" name={ASSIGNEE_NAME} value={assignee} /> : null}
       <noscript>
         <button className={buttonClass(false)}>Go</button>
       </noscript>

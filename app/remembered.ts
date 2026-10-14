@@ -3,8 +3,9 @@
  * filters a board was left with.
  *
  * It belongs to the person and not to the org, so the browser holds it, one
- * entry per org. The address is the truth, and this only fills it in when a
- * board is opened with none.
+ * entry per org, and one for the unified board, which remembers its assignee
+ * filter. See ADR-0033. The address is the truth, and this only fills it in
+ * when a board is opened with none.
  */
 
 import { useEffect } from "react";
@@ -14,9 +15,13 @@ import { ANYONE, ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
 import { fieldKeyOf } from "./field-filter";
 import { readSearch, SEARCH_NAME } from "./search";
 
-/** Where one board keeps the narrowing it was left with. */
-export function memoryKey(slug: string): string {
-  return `tusker:board:${slug}`;
+/**
+ * Where one board keeps the narrowing it was left with: the board of one org,
+ * or the unified board for null. An org key always ends in a slug after the
+ * colon, and a slug is never empty, so the unified key is one no org can name.
+ */
+export function memoryKey(slug: string | null): string {
+  return slug === null ? "tusker:board" : `tusker:board:${slug}`;
 }
 
 /**
@@ -44,7 +49,7 @@ export function narrowingOf(params: URLSearchParams): string {
 }
 
 /** Reads one board's remembered narrowing. A browser that refuses holds none. */
-function recall(slug: string): string | null {
+function recall(slug: string | null): string | null {
   try {
     return localStorage.getItem(memoryKey(slug));
   } catch {
@@ -53,7 +58,7 @@ function recall(slug: string): string | null {
 }
 
 /** Keeps one board's narrowing, or gives up quietly when the browser refuses. */
-function keep(slug: string, narrowing: string) {
+function keep(slug: string | null, narrowing: string) {
   try {
     localStorage.setItem(memoryKey(slug), narrowing);
   } catch {
@@ -71,7 +76,7 @@ function keep(slug: string, narrowing: string) {
  * address is rewritten in place, so Back leaves the board rather than
  * bouncing.
  */
-export function useRemembered(slug: string) {
+export function useRemembered(slug: string | null) {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const query = params.toString();

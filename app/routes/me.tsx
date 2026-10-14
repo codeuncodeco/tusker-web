@@ -15,8 +15,9 @@
 
 import { redirect } from "react-router";
 
+import { heldBy, MINE, readUnifiedAssignee } from "../assignee-filter";
 import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
-import { ColumnSwitch, TodayChip, WeekChip } from "../board-chrome";
+import { ColumnSwitch, TodayChip, UnifiedAssigneeFilter, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { postAndReport } from "../pending";
@@ -26,6 +27,7 @@ import { askedAcross } from "../decisions.server";
 import { boardOf, onlyOrg } from "../org-select";
 import { planPicks } from "../picks.server";
 import { readPlan } from "../plans.server";
+import { useRemembered } from "../remembered";
 import { requireOrgSet } from "../scope.server";
 import { readSwept } from "../sweep";
 import { restoreAcross, sweepAcross } from "../sweep.server";
@@ -57,12 +59,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const query = new URL(request.url).searchParams;
   const toggles = readToggles(query, BOARD_TOGGLES);
   const shown = unifiedColumns(toggles);
+  // `Anyone`, `Mine` or `Unassigned`, and no member: a member list across orgs
+  // names strangers. See ADR-0033.
+  const assignee = readUnifiedAssignee(query);
 
   // Done and Cancelled cap to the last seven days. Across every org they would
   // otherwise be every task the person ever finished.
   const tasks = await listUnified(env.DB, set, [], {
     statuses: shown,
     since: finishedSince(day),
+    assignee: heldBy(assignee, set.personId),
   });
 
   // The two chips narrow the board to the tasks today's plan holds, or to the
@@ -85,6 +91,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     /** The members of every org of two or more, for the picker on the box. */
     members: await membersBySlug(env.DB, set),
     day,
+    /** The reader, whom `Mine` names, so the box can start with them picked. */
+    personId: set.personId,
+    assignee,
     columns: columnsFor(drawn, shown),
     planned,
     toggles,
@@ -126,7 +135,11 @@ export async function action({ request, context }: Route.ActionArgs) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Me({ loaderData }: Route.ComponentProps) {
-  const { orgs, members, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } = loaderData;
+  const { orgs, members, personId, assignee, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } =
+    loaderData;
+  // The board opened bare comes back with the filter it was left with. Its key
+  // is one no org's board can name.
+  useRemembered(null);
 
   return (
     <main className="flex flex-1 flex-col p-8">
@@ -135,7 +148,14 @@ export default function Me({ loaderData }: Route.ComponentProps) {
             typed word is ever the page's. The picker starts with no org every
             time. See ADR-0012 and ADR-0027. */}
         <TopRowBox>
-          <UnifiedAdd orgs={orgs} members={members} label="Add to To do" bare />
+          <UnifiedAdd
+            orgs={orgs}
+            members={members}
+            label="Add to To do"
+            bare
+            // On a board narrowed to Mine, a task added here is the reader's.
+            seed={assignee === MINE ? personId : null}
+          />
         </TopRowBox>
         {/* No search box here to stand as tall as the title, so the switches
             drop to the title's text line. They take the rest of the row, and
@@ -146,6 +166,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
               week set reads the same way, and ⋯ holds Week. */}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
           {hasSet ? <WeekChip week={week} hasSet /> : null}
+          <UnifiedAssigneeFilter assignee={assignee} />
           {BOARD_TOGGLES.map((which) => (
             <ColumnSwitch key={which} which={which} toggles={toggles} />
           ))}

@@ -3,13 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   ANYONE,
   ASSIGNEE_NAME,
+  MINE,
   UNASSIGNED,
+  carried,
+  heldBy,
   keeps,
   readAssignee,
+  readUnifiedAssignee,
   seededBy,
   withoutAssignee,
 } from "../app/assignee-filter";
-import { narrowingOf } from "../app/remembered";
+import { memoryKey, narrowingOf } from "../app/remembered";
 
 /** The address a board carries, as the filter helpers read it. */
 function query(text: string) {
@@ -106,5 +110,81 @@ describe("the assignees the quick-add box starts with", () => {
 
   it("is nobody for a name no member answers to", () => {
     expect(seededBy("u-gone", members)).toEqual([]);
+  });
+});
+
+describe("the value the unified board reads", () => {
+  it("reads Mine and Unassigned", () => {
+    expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=${MINE}`))).toBe(MINE);
+    expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=${UNASSIGNED}`))).toBe(UNASSIGNED);
+  });
+
+  it("is Anyone on an address that carries no filter, or an empty one", () => {
+    expect(readUnifiedAssignee(query("backlog=1"))).toBe(ANYONE);
+    expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=`))).toBe(ANYONE);
+  });
+
+  it("reads a member id as Anyone, because the board names no member", () => {
+    expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=u-ada`))).toBe(ANYONE);
+  });
+});
+
+describe("the holder Mine names", () => {
+  it("is whoever reads the board, so a shared link shows the reader's own work", () => {
+    const held = [member("u-ada")];
+    expect(keeps(heldBy(MINE, "u-ada"), held)).toBe(true);
+    expect(keeps(heldBy(MINE, "u-bo"), held)).toBe(false);
+  });
+
+  it("leaves Anyone and Unassigned as they are", () => {
+    expect(heldBy(ANYONE, "u-ada")).toBe(ANYONE);
+    expect(heldBy(UNASSIGNED, "u-ada")).toBe(UNASSIGNED);
+  });
+});
+
+describe("the value the org select carries to another board", () => {
+  const team = { members: 3 };
+  const solo = { members: 1 };
+
+  it("turns Mine into the person on an org board, and keeps Unassigned", () => {
+    expect(carried(MINE, "u-ada", team)).toBe("u-ada");
+    expect(carried(UNASSIGNED, "u-ada", team)).toBe(UNASSIGNED);
+  });
+
+  it("drops the value on the way to an org of one, which draws no filter", () => {
+    expect(carried(MINE, "u-ada", solo)).toBe(null);
+    expect(carried(UNASSIGNED, "u-ada", solo)).toBe(null);
+  });
+
+  it("turns the person into Mine on the way to All, and keeps Unassigned", () => {
+    expect(carried("u-ada", "u-ada", null)).toBe(MINE);
+    expect(carried(UNASSIGNED, "u-ada", null)).toBe(UNASSIGNED);
+  });
+
+  it("turns another member into Anyone, said out loud so no memory stands in", () => {
+    expect(carried("u-bo", "u-ada", null)).toBe(ANYONE);
+    expect(carried("u-bo", "u-ada", team)).toBe(ANYONE);
+  });
+
+  it("carries the person from one org board to another", () => {
+    expect(carried("u-ada", "u-ada", team)).toBe("u-ada");
+  });
+
+  it("carries nothing from a board under Anyone, so the next board's memory holds", () => {
+    expect(carried(ANYONE, "u-ada", null)).toBe(null);
+    expect(carried(ANYONE, "u-ada", team)).toBe(null);
+  });
+});
+
+describe("where the unified board remembers its filter", () => {
+  it("is a place no org's slug can name", () => {
+    for (const slug of ["all", "me", "board", "unified", "a-b-1"]) {
+      expect(memoryKey(null)).not.toBe(memoryKey(slug));
+    }
+    expect(memoryKey(null)).not.toMatch(/^tusker:board:[a-z0-9-]+$/);
+  });
+
+  it("keeps Mine", () => {
+    expect(narrowingOf(query(`${ASSIGNEE_NAME}=${MINE}&today=1`))).toBe(`${ASSIGNEE_NAME}=${MINE}`);
   });
 });
