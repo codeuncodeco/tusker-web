@@ -22,7 +22,7 @@ import { AssigneePicker } from "./assignee-picker";
 import type { Assignee } from "./assignees";
 import type { OrgHeld } from "./current-org";
 import { smallFieldClass } from "./forms";
-import { OrgChip, tellsOrgsApart } from "./org-chip";
+import { OrgNameChip, tellsOrgsApart } from "./org-chip";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -164,7 +164,7 @@ export function UnifiedAdd({
              wrong one is on another org's board. One org needs no name. */
           several && filing ? (
             <p className="flex items-center gap-1.5 text-xs text-muted">
-              Adding to <OrgChip org={filing} />
+              Adding to <OrgNameChip org={filing} />
             </p>
           ) : null
         }

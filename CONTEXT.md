@@ -40,12 +40,22 @@ _Avoid_: Access request, application
 
 **Org colour**:
 The colour one org carries, drawn wherever a page names that org beside
-another: the unified board, plan mode and the week page. It is a palette name
-or an exact colour, as an option colour is. A new org takes the first palette
-name no org of its maker holds, and any member changes it on the org's settings
-page. An org with no colour draws grey. A person in one org sees no org chip,
+another: the unified board, the cross-org list, plan mode, the week page and
+focus mode. It is a palette name or an exact colour, as an option colour is. A
+new org takes the first palette name no org of its maker holds, and any member
+changes it on the org's settings page. An org with no colour draws grey. A person in one org sees no org chip,
 because there is no other org to tell it from. See ADR-0020.
 _Avoid_: Org theme, org tag, workspace colour
+
+**Org chip**:
+The small pill that names a task's org on a page that mixes orgs: the unified
+board, the cross-org list, plan mode, the week page and focus mode. It holds
+the org colour and the org's initials, two letters, so it is short and every
+chip is one width. The full name stays with a reader and on hover. The
+quick-add box is the exception: it names the org in full, because that is where
+a person checks which org a new task goes to. An org page draws no chip, and
+nor does a cross-org page for a person in one org.
+_Avoid_: Org badge, org tag, org pill
 
 **Member**:
 A person with access to an org. Membership is the only permission check, so a
