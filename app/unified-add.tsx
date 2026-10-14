@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { useAddingTo } from "./adding";
+import { seededBy } from "./assignee-filter";
 import { AssigneePicker } from "./assignee-picker";
 import type { Assignee } from "./assignees";
 import type { OrgHeld } from "./current-org";
@@ -40,6 +41,7 @@ export function UnifiedAdd({
   members,
   label = "Add a task",
   bare = false,
+  seed = null,
 }: {
   orgs: OrgHeld[];
   /**
@@ -53,13 +55,29 @@ export function UnifiedAdd({
   label?: string;
   /** True on a board, where the box reads as a field and not as a card. */
   bare?: boolean;
+  /**
+   * The member the box starts with picked, in whatever org it files into that
+   * draws a picker: the reader, on a board narrowed to Mine. Null starts with
+   * nobody.
+   */
+  seed?: string | null;
 }) {
   const add = useFetcher<Answer>();
   const undo = useFetcher();
   const [picked, pick] = useAddingTo();
 
+  // A person in one org files there and picks nothing. A person in several
+  // files nowhere until they pick, because no org is safe to guess: an org of
+  // one today is not private tomorrow. See ADR-0027.
+  const several = orgs.length > 1;
+  const filing = several ? (orgs.find((org) => org.slug === picked) ?? null) : (orgs[0] ?? null);
+  const filingSlug = filing?.slug ?? null;
+  // The seed, where the org the box files into holds it. An org of one draws
+  // no picker, and stores its member as the holder anyway. See ADR-0032.
+  const seeded = seededBy(seed ?? "", filingSlug ? (members[filingSlug] ?? []) : []);
+
   // The box keeps the words, so an undo can give them back.
-  const draft = useQuickAddDraft();
+  const draft = useQuickAddDraft(seeded);
   // The last add, until the next one, the dismiss or the end of the page.
   const [last, setLast] = useState<Added | null>(null);
   // Counts the undos, so each one puts the person back on the picker.
@@ -68,11 +86,6 @@ export function UnifiedAdd({
   const box = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLSelectElement>(null);
 
-  // A person in one org files there and picks nothing. A person in several
-  // files nowhere until they pick, because no org is safe to guess: an org of
-  // one today is not private tomorrow. See ADR-0027.
-  const several = orgs.length > 1;
-  const filing = several ? (orgs.find((org) => org.slug === picked) ?? null) : (orgs[0] ?? null);
   const answer = add.data;
   const error = answer && "error" in answer ? answer.error : null;
 
@@ -88,17 +101,17 @@ export function UnifiedAdd({
   useAddKey(box);
 
   // An assignee id belongs to one org's membership, so a set carried across a
-  // pick would name people the new org does not hold. The undo resets the pick
-  // to no org, and the set goes with it by this same rule.
+  // pick would name people the new org does not hold. The set starts over at
+  // the seed. The undo resets the pick to no org, and the set goes with it by
+  // this same rule.
   //
-  // The set is emptied while the render that changed the org is still running,
+  // The set is reset while the render that changed the org is still running,
   // not in an effect after it, so no frame ever draws one org's picker holding
   // another org's ids.
-  const filingSlug = filing?.slug ?? null;
   const [pickedFor, setPickedFor] = useState(filingSlug);
   if (pickedFor !== filingSlug) {
     setPickedFor(filingSlug);
-    draft.setAssignees([]);
+    draft.setAssignees(seeded);
   }
 
   // The picker takes the focus a re-file needs, and the title where a person

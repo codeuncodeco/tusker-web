@@ -28,10 +28,11 @@ export function onlyOrg<T>(orgs: T[]): T | null {
 }
 
 /**
- * Where a pick sent with no script lands. Anything that is not a slug reads as
- * All, so the reply can only name a page of this site. The org layout still
- * proves membership, so a slug the person does not hold is that layout's 404.
+ * The slug a pick sent through `/go` names, or null for All. Anything that is
+ * not a slug reads as All, so the reply can only name a page of this site. The
+ * org layout still proves membership, so a slug the person does not hold is
+ * that layout's 404.
  */
-export function pickedBoard(to: string | null): string {
-  return boardOf(to && /^[a-z0-9-]+$/.test(to) ? to : null);
+export function pickedSlug(to: string | null): string | null {
+  return to && /^[a-z0-9-]+$/.test(to) ? to : null;
 }

@@ -7,6 +7,7 @@
  * there. No cap and no pagination: one person's tasks are hundreds of rows.
  */
 
+import { keeps } from "./assignee-filter";
 import { drawsAssignees, type Assignee } from "./assignees";
 import { assigneesByTask, membersInOrgs } from "./assignees.server";
 import { FINISHED_STATUSES, type Status } from "./board";
@@ -33,6 +34,12 @@ export type Wanted = {
    * no cap. It reaches no other status: a live task is drawn however old it is.
    */
   since?: string | null;
+  /**
+   * The assignee value to keep, as `keeps` reads it, with `Mine` already the
+   * person's id. Absent keeps every task. It reads the stored rows, so a task
+   * an org of one holds answers for its member, though no card draws it.
+   */
+  assignee?: string;
 };
 
 /** The live set: To do and In progress, the work a person still holds. */
@@ -75,7 +82,13 @@ export async function listUnified(
     set.orgs.map((org) => [org.id, { slug: org.slug, name: org.name, color: org.color }]),
   );
 
-  return rows.map((row) => ({
+  // An org of one stores its holder but draws none. See ADR-0032.
+  const draws = new Set(set.orgs.filter(drawsAssignees).map((org) => org.id));
+  const { assignee } = want;
+  const kept =
+    assignee === undefined ? rows : rows.filter((row) => keeps(assignee, held.get(row.id) ?? []));
+
+  return kept.map((row) => ({
     id: row.id,
     org: named.get(row.org_id)!,
     title: row.title,
@@ -84,7 +97,7 @@ export async function listUnified(
     percentile: row.percentile,
     created_at: row.created_at,
     fields: shown.get(row.org_id)!(JSON.parse(row.data) as Record<string, string>),
-    assignees: held.get(row.id) ?? [],
+    assignees: draws.has(row.org_id) ? (held.get(row.id) ?? []) : [],
     finished: row.status === "done" || row.status === "cancelled",
   }));
 }
@@ -183,18 +196,17 @@ async function cardsByOrg(db: D1Database, set: OrgSet): Promise<Map<string, Show
 }
 
 /**
- * Who holds each task, across the set. One read per org of two or more and
- * none per card, as the org board does it.
+ * Who holds each task, across the set. One read per org and none per card, as
+ * the org board does it.
  *
- * An org of one member draws no assignee, so it is not read at all. A task id
- * is a number counted across the instance, so one map covers every org. See
- * ADR-0013 and ADR-0030.
+ * An org of one is read as well: it draws no assignee, but it stores its
+ * member as the holder of every task, and `Mine` must find those. A task id is
+ * a number counted across the instance, so one map covers every org. See
+ * ADR-0030 and ADR-0032.
  */
 async function heldByTask(db: D1Database, set: OrgSet): Promise<Map<TaskId, Assignee[]>> {
   const read = await Promise.all(
-    set.orgs
-      .filter(drawsAssignees)
-      .map((org) => assigneesByTask(db, scopeIn(set, org.id)!)),
+    set.orgs.map((org) => assigneesByTask(db, scopeIn(set, org.id)!)),
   );
   return new Map(read.flatMap((held) => [...held]));
 }

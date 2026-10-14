@@ -6,6 +6,10 @@ Amended by [ADR-0032](./0032-an-org-of-one-stores-its-assignee.md). The silence
 is keyed to the member count, not to the kind, and an org of one stores its
 assignee without showing it.
 
+Amended by [ADR-0033](./0033-the-unified-board-filters-by-mine.md). The unified
+board now draws `Anyone`, `Mine` and `Unassigned`, the shape "Why the org board
+alone" left for later.
+
 The org board's assignee filter is a select of the org's members: `Anyone`,
 `Unassigned`, then each member in name order. It narrows the org board and
 nothing else.
