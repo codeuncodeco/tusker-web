@@ -4,16 +4,17 @@
 
 import { describe, expect, it } from "vitest";
 
-import { taskTimes } from "../app/task-times";
+import { taskTimes, type StoredTimes } from "../app/task-times";
 
 const MADE = "2026-10-01T09:00:00.000Z";
-const EDITED = "2026-10-02T09:00:00.000Z";
+const WRITTEN = "2026-10-02T09:00:00.000Z";
 const DONE = "2026-10-03T09:00:00.000Z";
 const TICKED = "2026-10-04T09:00:00.000Z";
-const SHELVED = "2026-10-05T09:00:00.000Z";
+const ARCHIVED = "2026-10-05T09:00:00.000Z";
+const LATER = "2026-10-06T09:00:00.000Z";
 
 /** A task's stored times, open and never written since it was made. */
-function stored(some: Partial<Parameters<typeof taskTimes>[0]> = {}) {
+function stored(some: Partial<StoredTimes> = {}): StoredTimes {
   return {
     created_at: MADE,
     updated_at: MADE,
@@ -29,9 +30,9 @@ describe("the times a task lists", () => {
   });
 
   it("lists Updated after Created once the task was written", () => {
-    expect(taskTimes(stored({ updated_at: EDITED }))).toEqual([
+    expect(taskTimes(stored({ updated_at: WRITTEN }))).toEqual([
       { label: "Created", at: MADE },
-      { label: "Updated", at: EDITED },
+      { label: "Updated", at: WRITTEN },
     ]);
   });
 
@@ -51,20 +52,18 @@ describe("the times a task lists", () => {
   });
 
   it("lists Archived and never Updated on an archived task", () => {
-    expect(
-      taskTimes(stored({ finished_at: DONE, archived_at: SHELVED, updated_at: "2026-10-06T09:00:00.000Z" })),
-    ).toEqual([
+    expect(taskTimes(stored({ finished_at: DONE, archived_at: ARCHIVED, updated_at: LATER }))).toEqual([
       { label: "Created", at: MADE },
       { label: "Finished", at: DONE },
-      { label: "Archived", at: SHELVED },
+      { label: "Archived", at: ARCHIVED },
     ]);
   });
 
   it("lists Updated again on a restored task, which holds no archive time", () => {
-    expect(taskTimes(stored({ finished_at: DONE, updated_at: SHELVED }))).toEqual([
+    expect(taskTimes(stored({ finished_at: DONE, updated_at: LATER }))).toEqual([
       { label: "Created", at: MADE },
       { label: "Finished", at: DONE },
-      { label: "Updated", at: SHELVED },
+      { label: "Updated", at: LATER },
     ]);
   });
 });

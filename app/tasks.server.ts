@@ -153,7 +153,7 @@ export async function readTask(db: D1Database, scope: Scope, taskId: TaskId): Pr
       `SELECT ${CARD_FIELDS}, updated_at FROM tasks WHERE id = ? AND org_id = ? AND ${notDeleted()}`,
     )
     .bind(taskId, scope.org.id)
-    .first<Row & { updated_at: string }>();
+    .first<Omit<ReadTask, "data"> & { data: string }>();
   return row ? asTask(row) : null;
 }
 

@@ -6,18 +6,13 @@
  * history. The Update time comes last, because it is the newest.
  */
 
+import type { ReadTask } from "./tasks.server";
+
 /** The stored times a task holds, as the table writes them. */
-export type StoredTimes = {
-  created_at: string;
-  updated_at: string;
-  /** The Finish time, or null while the task is not finished. */
-  finished_at: string | null;
-  /** When the task was archived, or null while it is on the board. */
-  archived_at: string | null;
-};
+export type StoredTimes = Pick<ReadTask, "created_at" | "updated_at" | "finished_at" | "archived_at">;
 
 /** One line of the list: what the time is, and the stored time itself. */
-export type TaskTime = { label: string; at: string };
+export type TaskTime = { label: "Created" | "Finished" | "Archived" | "Updated"; at: string };
 
 /**
  * The lines a task lists. Created is always there, and Finished and Archived
@@ -31,7 +26,10 @@ export type TaskTime = { label: string; at: string };
 export function taskTimes(times: StoredTimes): TaskTime[] {
   const lines: TaskTime[] = [{ label: "Created", at: times.created_at }];
   if (times.finished_at) lines.push({ label: "Finished", at: times.finished_at });
-  if (times.archived_at) return [...lines, { label: "Archived", at: times.archived_at }];
+  if (times.archived_at) {
+    lines.push({ label: "Archived", at: times.archived_at });
+    return lines;
+  }
 
   const updated = Date.parse(times.updated_at);
   if (lines.every((line) => Date.parse(line.at) < updated)) {
