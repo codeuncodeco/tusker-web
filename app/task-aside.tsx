@@ -21,6 +21,7 @@ import { Form } from "react-router";
 
 import type { Assignee } from "./assignees";
 import { STATUSES, STATUS_LABEL, type Status } from "./board";
+import { stampDate, stampTime } from "./day";
 import { Dot } from "./dot";
 import type { OrgField } from "./fields";
 import { fieldClass } from "./forms";
@@ -29,6 +30,7 @@ import { PostButton } from "./posting";
 import type { RefPicker } from "./refs.server";
 import { SavedInput } from "./saved-input";
 import { taskLabel, type TaskId } from "./task-number";
+import type { TaskTime } from "./task-times";
 
 /** The id of the page's one form. Every control of the page names it. */
 export const TASK_FORM = "task-form";
@@ -38,6 +40,8 @@ export type AsideTask = Omit<TaskHeld, "assignees"> & {
   id: TaskId;
   archived: boolean;
   finished: boolean;
+  /** The times the aside lists at its foot. See `taskTimes`. */
+  times: TaskTime[];
 };
 
 /** What the aside draws for one task. */
@@ -86,6 +90,7 @@ export function TaskAside(props: AsideProps) {
     <aside className={asideClass} {...{ [ASIDE_MARK]: "" }}>
       <ActsRow task={props.task} />
       {props.task.finished ? <ReadAside {...props} /> : <LiveAside {...props} />}
+      <TimesList times={props.task.times} />
     </aside>
   );
 }
@@ -434,6 +439,32 @@ function ReadLine({ label, children }: { label: string; children: React.ReactNod
       <dt className="text-muted">{label}</dt>
       <dd className="flex items-center gap-2">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * The times at the foot of the aside, open or finished, as quiet lines of
+ * text. Each is a date, and the whole time with its zone on hover. See #218.
+ *
+ * The server does not know the reader's zone, so the page it draws writes
+ * UTC, and so does the browser's first draw, which must match it. Once the
+ * page is up the browser writes them again in its own zone. With no script
+ * they stay in UTC, which is still true.
+ */
+function TimesList({ times }: { times: TaskTime[] }) {
+  const [zone, setZone] = useState("UTC");
+  useEffect(() => setZone(Intl.DateTimeFormat().resolvedOptions().timeZone), []);
+
+  return (
+    <dl className="flex flex-col gap-3">
+      {times.map((time) => (
+        <ReadLine key={time.label} label={time.label}>
+          <time dateTime={time.at} title={stampTime(time.at, zone)}>
+            {stampDate(time.at, zone)}
+          </time>
+        </ReadLine>
+      ))}
+    </dl>
   );
 }
 

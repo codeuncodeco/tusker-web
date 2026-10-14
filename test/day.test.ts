@@ -10,6 +10,8 @@ import {
   dayShort,
   isDay,
   localDay,
+  stampDate,
+  stampTime,
 } from "../app/day";
 import { get } from "./routes";
 
@@ -120,5 +122,31 @@ describe("the date a record was kept on", () => {
   it("writes the year on each side of a year end", () => {
     expect(dayDate("2025-12-31")).toBe("31 Dec 2025");
     expect(dayDate("2026-01-01")).toBe("1 Jan 2026");
+  });
+});
+
+describe("the date a stored time falls on", () => {
+  it("writes the date in UTC when it is asked for UTC", () => {
+    expect(stampDate("2026-10-13T23:32:00.000Z", "UTC")).toBe("13 Oct 2026");
+  });
+
+  it("writes the date the reader's zone falls on, a day on from UTC east of it", () => {
+    expect(stampDate("2026-10-13T23:32:00.000Z", "Asia/Kolkata")).toBe("14 Oct 2026");
+  });
+
+  it("writes the date a day back from UTC west of it", () => {
+    expect(stampDate("2026-01-01T02:00:00.000Z", "America/New_York")).toBe("31 Dec 2025");
+  });
+});
+
+describe("the time a stored time names, as a hover reads it", () => {
+  it("writes the date, the time and the zone", () => {
+    expect(stampTime("2026-10-13T23:32:00.000Z", "UTC")).toBe("13 Oct 2026, 23:32 UTC");
+  });
+
+  it("writes the clock and the date of the reader's zone", () => {
+    expect(stampTime("2026-10-13T23:32:00.000Z", "Asia/Kolkata")).toBe(
+      "14 Oct 2026, 05:02 GMT+5:30",
+    );
   });
 });
