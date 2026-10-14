@@ -84,10 +84,9 @@ export async function listUnified(
 
   // An org of one stores its holder but draws none. See ADR-0032.
   const draws = new Set(set.orgs.filter(drawsAssignees).map((org) => org.id));
+  const { assignee } = want;
   const kept =
-    want.assignee === undefined
-      ? rows
-      : rows.filter((row) => keeps(want.assignee!, held.get(row.id) ?? []));
+    assignee === undefined ? rows : rows.filter((row) => keeps(assignee, held.get(row.id) ?? []));
 
   return kept.map((row) => ({
     id: row.id,

@@ -26,7 +26,7 @@ export const ANYONE = "";
 export const UNASSIGNED = "unassigned";
 
 /**
- * The tasks the reader holds, on the unified board alone. It is a word and not
+ * The tasks the person reading holds, on the unified board alone. It is a word and not
  * an id, so a shared link shows whoever opens it their own work. No member id
  * can collide: a member id is never this word. The org board does not read it.
  */
@@ -53,10 +53,10 @@ export function readUnifiedAssignee(params: URLSearchParams): string {
 }
 
 /**
- * The value `keeps` answers for, on the board the person reads: `Mine` is the
- * person, and every other value stands for itself.
+ * The value `keeps` answers for, as one person reads the board: `Mine` becomes
+ * the person's id, and every other value stands for itself.
  */
-export function heldBy(assignee: string, personId: string): string {
+export function resolvedFor(assignee: string, personId: string): string {
   return assignee === MINE ? personId : assignee;
 }
 
@@ -64,22 +64,27 @@ export function heldBy(assignee: string, personId: string): string {
  * The value the org select carries to the board it opens: the board of one
  * org, or All for null.
  *
+ * `assignee` is the value the address held, or null for an address with no
+ * filter in it at all.
+ *
  * The person is the one member both boards can name: `Mine` on All, and their
  * own name in an org. `Unassigned` means the same on both. Another member is
- * nobody on All, and may be nobody in another org, so it becomes `Anyone`, said
- * out loud, so the next board's memory does not stand in for it. An org of one
- * draws no filter, so the value is dropped.
+ * nobody on All, and may be nobody in another org, so it becomes `Anyone`.
+ * `Anyone` stays `Anyone`. Each is said out loud, so the next board's memory
+ * does not stand in for a filter the person set. An org of one draws no
+ * filter, so the value is dropped.
  *
- * Null carries nothing: the board was under `Anyone`, or the next one draws no
- * filter, and the board opens bare, with its memory.
+ * Null carries nothing: the address held no filter, or the next board draws
+ * none, and the board opens bare, with its memory.
  */
 export function carried(
-  assignee: string,
+  assignee: string | null,
   personId: string,
   to: { members: number } | null,
 ): string | null {
-  if (assignee === ANYONE) return null;
+  if (assignee === null) return null;
   if (to !== null && !drawsAssignees(to)) return null;
+  if (assignee === ANYONE) return ANYONE;
   if (assignee === UNASSIGNED) return UNASSIGNED;
   if (assignee === MINE || assignee === personId) return to === null ? MINE : personId;
   return ANYONE;

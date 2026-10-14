@@ -6,10 +6,10 @@ import {
   MINE,
   UNASSIGNED,
   carried,
-  heldBy,
   keeps,
   readAssignee,
   readUnifiedAssignee,
+  resolvedFor,
   seededBy,
   withoutAssignee,
 } from "../app/assignee-filter";
@@ -132,13 +132,13 @@ describe("the value the unified board reads", () => {
 describe("the holder Mine names", () => {
   it("is whoever reads the board, so a shared link shows the reader's own work", () => {
     const held = [member("u-ada")];
-    expect(keeps(heldBy(MINE, "u-ada"), held)).toBe(true);
-    expect(keeps(heldBy(MINE, "u-bo"), held)).toBe(false);
+    expect(keeps(resolvedFor(MINE, "u-ada"), held)).toBe(true);
+    expect(keeps(resolvedFor(MINE, "u-bo"), held)).toBe(false);
   });
 
   it("leaves Anyone and Unassigned as they are", () => {
-    expect(heldBy(ANYONE, "u-ada")).toBe(ANYONE);
-    expect(heldBy(UNASSIGNED, "u-ada")).toBe(UNASSIGNED);
+    expect(resolvedFor(ANYONE, "u-ada")).toBe(ANYONE);
+    expect(resolvedFor(UNASSIGNED, "u-ada")).toBe(UNASSIGNED);
   });
 });
 
@@ -170,9 +170,14 @@ describe("the value the org select carries to another board", () => {
     expect(carried("u-ada", "u-ada", team)).toBe("u-ada");
   });
 
-  it("carries nothing from a board under Anyone, so the next board's memory holds", () => {
-    expect(carried(ANYONE, "u-ada", null)).toBe(null);
-    expect(carried(ANYONE, "u-ada", team)).toBe(null);
+  it("carries Anyone set by hand, so the next board's memory does not stand in", () => {
+    expect(carried(ANYONE, "u-ada", null)).toBe(ANYONE);
+    expect(carried(ANYONE, "u-ada", team)).toBe(ANYONE);
+  });
+
+  it("carries nothing from an address with no filter, so the next board's memory holds", () => {
+    expect(carried(null, "u-ada", null)).toBe(null);
+    expect(carried(null, "u-ada", team)).toBe(null);
   });
 });
 

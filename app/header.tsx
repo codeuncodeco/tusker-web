@@ -242,15 +242,17 @@ function OrgSelect({
   heading: boolean;
 }) {
   const navigate = useNavigate();
-  // The assignee filter the board holds goes with the pick, so the next board
-  // asks the same question in its own words. Only `/go` knows those words, so a
-  // pick that carries one goes through it. See ADR-0033.
+  // The assignee filter the board holds goes with the pick. Only `/go` knows
+  // the next board's words for it, so a pick that carries one goes through
+  // it. See `carried` and ADR-0033.
+  // A filter set to Anyone by hand is carried too, so the next board's memory
+  // does not stand in for it.
   const [params] = useSearchParams();
-  const assignee = readAssignee(params);
+  const assignee = params.has(ASSIGNEE_NAME) ? readAssignee(params) : null;
 
   /** Where a pick lands: the board itself, or `/go` with the filter to carry. */
   function picked(slug: string): string {
-    if (!assignee) return boardOf(slug || null);
+    if (assignee === null) return boardOf(slug || null);
     return `/go?${new URLSearchParams({ to: slug, [ASSIGNEE_NAME]: assignee })}`;
   }
 
@@ -288,7 +290,7 @@ function OrgSelect({
   return (
     <form method="get" action="/go" className="flex items-center gap-2">
       {heading ? <h1 className="font-normal">{control}</h1> : control}
-      {assignee ? <input type="hidden" name={ASSIGNEE_NAME} value={assignee} /> : null}
+      {assignee === null ? null : <input type="hidden" name={ASSIGNEE_NAME} value={assignee} />}
       <noscript>
         <button className={buttonClass(false)}>Go</button>
       </noscript>

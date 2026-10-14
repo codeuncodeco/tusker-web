@@ -15,7 +15,7 @@
 
 import { redirect } from "react-router";
 
-import { heldBy, MINE, readUnifiedAssignee } from "../assignee-filter";
+import { resolvedFor, MINE, readUnifiedAssignee } from "../assignee-filter";
 import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
 import { ColumnSwitch, TodayChip, UnifiedAssigneeFilter, WeekChip } from "../board-chrome";
 import { cloudflareEnv } from "../context.server";
@@ -68,7 +68,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const tasks = await listUnified(env.DB, set, [], {
     statuses: shown,
     since: finishedSince(day),
-    assignee: heldBy(assignee, set.personId),
+    assignee: resolvedFor(assignee, set.personId),
   });
 
   // The two chips narrow the board to the tasks today's plan holds, or to the
@@ -91,7 +91,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     /** The members of every org of two or more, for the picker on the box. */
     members: await membersBySlug(env.DB, set),
     day,
-    /** The reader, whom `Mine` names, so the box can start with them picked. */
+    /** The person `Mine` names, so the box can start with them picked. */
     personId: set.personId,
     assignee,
     columns: columnsFor(drawn, shown),
@@ -153,7 +153,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
             members={members}
             label="Add to To do"
             bare
-            // On a board narrowed to Mine, a task added here is the reader's.
+            // On a board narrowed to Mine, a task added here is the person's.
             seed={assignee === MINE ? personId : null}
           />
         </TopRowBox>

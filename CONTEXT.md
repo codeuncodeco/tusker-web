@@ -452,7 +452,8 @@ the **Org select** sets its scope: All, or one org. Scoped to All it is the
 same five columns, the same cards, and the same keys except the two that step a
 stored order. One org's order is stored, so the powers of one org come with that
 scope: its order and `J` and `K`, the member list of the assignee filter, the
-field filters and the search. The board never draws two orgs out of several: a scope is All or one.
+field filters and the search. The board never draws two orgs out of several: a
+scope is All or one.
 The bare word is right where one scope is in view, or where the rule holds for
 both. Where the two stand together, name them.
 _Avoid_: Kanban, board view, org filter
@@ -706,11 +707,11 @@ the remembered narrowing, and it narrows what the Today chip and the search
 already left. An org that holds one member carries no filter, because it draws
 no assignee.
 On the unified board it is `Anyone`, `Mine` and `Unassigned`, and names no
-member: a member select there would name strangers. `Mine` is the reader, and
-rides the address as `assignee=me`, so a shared link shows whoever opens it
-their own work. It finds the tasks of each org of one the reader works in,
-because an org of one stores its member as the holder. On `Mine`, the
-quick-add box starts with the reader picked. See ADR-0013, ADR-0017 and
+member: a member select there would name strangers. `Mine` is the person
+reading, and rides the address as `assignee=me`, so a shared link shows
+whoever opens it their own work. It finds the tasks of each org of one the
+person works in, because an org of one stores its member as the holder. On
+`Mine`, the quick-add box starts with the person picked. See ADR-0013, ADR-0017 and
 ADR-0033.
 _Avoid_: My tasks toggle, owner filter
 

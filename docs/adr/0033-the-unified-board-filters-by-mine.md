@@ -44,11 +44,12 @@ words:
 
 - All to one org: `Mine` becomes the reader's own id, and `Unassigned` stays.
 - One org to All: the reader's own id becomes `Mine`, and `Unassigned` stays.
-- Another member's id becomes `Anyone`, said in the address as an empty value,
-  so the next board's memory does not stand in for a filter the person had on.
+- Another member's id becomes `Anyone`, and `Anyone` stays `Anyone`. Both are
+  said in the address as an empty value, so the next board's memory does not
+  stand in for a filter the person set.
 - An org of one draws no filter, so the value is dropped.
-- A board under `Anyone` carries nothing, and the next board opens bare, with
-  its memory, as it did before.
+- An address with no filter in it carries nothing, and the next board opens
+  bare, with its memory, as it did before.
 
 The rule needs the reader and the org's member count, which the header does
 not hold, so a pick that carries a filter goes through `/go`, the route a pick

@@ -98,7 +98,13 @@ describe("the org select", () => {
     expect(html).toContain(`<input type="hidden" name="assignee" value="${MINE}"/>`);
   });
 
-  it("carries nothing from a board under Anyone", () => {
+  it("carries Anyone set by hand", () => {
+    const html = headerAt("/o/acme/board?assignee=", [ADA, ACME], ACME);
+
+    expect(html).toContain('<input type="hidden" name="assignee" value=""/>');
+  });
+
+  it("carries nothing from an address with no filter", () => {
     expect(headerAt("/me", [ADA, ACME], null)).not.toContain('name="assignee"');
   });
 });

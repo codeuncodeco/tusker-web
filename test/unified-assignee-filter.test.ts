@@ -162,9 +162,9 @@ describe("what the page hands the box and the select", () => {
 });
 
 describe("the org select carries the filter", () => {
-  /** Where `/go` sends the person, for a pick and the value the board held. */
-  async function went(cookie: string, to: string, assignee: string) {
-    const query = new URLSearchParams({ to, assignee });
+  /** Where `/go` sends the person, for a pick and the value the board held, if any. */
+  async function went(cookie: string, to: string, assignee: string | null) {
+    const query = new URLSearchParams(assignee === null ? { to } : { to, assignee });
     const response = await caught(goRoute.loader(routeArgs(get(`/go?${query}`, cookie))));
     return response.headers.get("location");
   }
@@ -194,9 +194,15 @@ describe("the org select carries the filter", () => {
     expect(await went(ada.cookie, "", bo.person.id)).toBe("/me?assignee=");
   });
 
-  it("opens a board bare under Anyone, so its memory holds", async () => {
+  it("carries Anyone set by hand, so the next board's memory does not stand in", async () => {
+    const { ada } = await board();
+
+    expect(await went(ada.cookie, "", "")).toBe("/me?assignee=");
+  });
+
+  it("opens a board bare when the address held no filter, so its memory holds", async () => {
     const { ada, both } = await board();
 
-    expect(await went(ada.cookie, both.slug, "")).toBe(`/o/${both.slug}/board`);
+    expect(await went(ada.cookie, both.slug, null)).toBe(`/o/${both.slug}/board`);
   });
 });
