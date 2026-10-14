@@ -73,4 +73,4 @@ more draws both. This section first said the silence was keyed to the org's
 kind, personal or team. ADR-0027 removed the kinds, and the code tests the
 member count. A control that appears the day a second member joins is a control
 drawn by rule. An org of one still stores its member as the holder of every
-live task: see ADR-0032.
+unarchived task: see ADR-0032.

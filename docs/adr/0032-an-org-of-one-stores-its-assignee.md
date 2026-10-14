@@ -3,19 +3,21 @@
 Ticket #238. Amends [ADR-0013](./0013-the-assignee-is-visibility-not-permission.md)
 and [ADR-0017](./0017-the-assignee-filter-names-a-member.md).
 
-An org of one has no unassigned live task. Its one member holds every task that
-is not archived and not deleted, and a row in `task_assignees` says so. No
-screen shows it: an org of one still draws no picker, no initials and no
-filter. "Live" means not archived and not deleted.
+An org of one has no unassigned, unarchived task. Its one member holds every
+task that is not archived, finished tasks included, and a row in
+`task_assignees` says so. A deleted task is out of reach (ADR-0031), so it is
+left as it is, as an archived one is. No screen shows the row: an org of one
+still draws no picker, no initials and no filter.
 
 Three writes keep the rule true:
 
 - `createTasks` writes the one member as the holder of every task it makes, so
   every way to make a task gets the rule with no extra work.
-- `removeMember` hands every live task with no holder to the member who stays,
-  when a removal leaves an org of one. The write is in the same batch as the
-  delete, and it reads the count in the statement, so the rule is never false
-  between two statements. A refused removal hands nothing on.
+- `removeMember` hands every unarchived task with no holder to the member who
+  stays, when a removal leaves an org of one. The write is in the same batch as
+  the delete, and it reads the count in the statement, so the rule is never
+  false between two statements. It runs only when the delete took a row, so a
+  refused removal hands nothing on.
 - Migration `0021_solo_assignees.sql` gives the tasks made before this their
   row.
 
@@ -37,9 +39,9 @@ the rule stops, and the tasks read as unassigned.
 
 ## The silence is keyed to the count
 
-ADR-0013 ("Two silences") and ADR-0017 ("The silence stays keyed to the kind")
-say the silence depends on the org's kind. ADR-0027 removed the kinds, and
-`drawsAssignees` tests the member count. An org of one draws no assignee, and
+ADR-0013 and ADR-0017 said the silence depended on the org's kind. ADR-0027
+removed the kinds, and `drawsAssignees` tests the member count, so both ADRs
+now say the count. An org of one draws no assignee, and
 an org of two or more draws one. That stays as it is. This ADR changes what is
 stored, not what is shown.
 
@@ -48,7 +50,7 @@ stored, not what is shown.
 `createTasks` takes an empty assignee list to mean unassigned, except in an org
 of one, where it means held by the one member.
 
-The members page still counts the live tasks a removed person holds as tasks
+The members page still counts the open tasks a removed person holds as tasks
 that lose a holder. When the org drops to one, those tasks go to the member who
 stays instead. The count is not wrong, because the removed person no longer
 holds them, but it does not say where they go.

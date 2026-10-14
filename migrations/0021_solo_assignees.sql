@@ -1,4 +1,5 @@
--- An org of one has no unassigned live task: its one member holds every one.
+-- An org of one has no unassigned, unarchived task: its one member holds every
+-- one.
 -- `createTasks` writes the row for each new task, and `removeMember` writes it
 -- when an org drops to one. This gives the tasks made before that their row.
 -- Archived and deleted tasks stay as they are, and a task that has a holder

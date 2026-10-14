@@ -128,7 +128,7 @@ describe("removing a member", () => {
     const task = await db.prepare("SELECT title FROM tasks WHERE title = 'Held'").first<{ title: string }>();
     expect(task?.title).toBe("Held");
     // Bo's row goes with the membership, and an org of one holds no
-    // unassigned live task, so Ada holds it now. See ADR-0032.
+    // unassigned, unarchived task, so Ada holds it now. See ADR-0032.
     const { results } = await db.prepare("SELECT user_id FROM task_assignees").all();
     expect(results).toEqual([{ user_id: ada.person.id }]);
   });

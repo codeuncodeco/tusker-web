@@ -366,14 +366,14 @@ export function newTasksFrom(
 }
 
 /**
- * The members who hold a new task. An org of one has no unassigned live task:
- * its one member holds every one, and no screen shows it. The member is the
+ * The members who hold a new task. An org of one has no unassigned, unarchived
+ * task: its one member holds every one, and no screen shows it. The member is the
  * person the scope proves, and is written once even when the add named them.
  * The ones the add named stay too: the count is read with the scope, and a
  * member who joined since must not lose a task the box gave them. See ADR-0032.
  */
-function holdersOf(scope: Scope, asked: string[]): string[] {
-  return scope.org.members === 1 ? [...new Set([scope.personId, ...asked])] : asked;
+function holdersOf(scope: Scope, named: string[]): string[] {
+  return scope.org.members === 1 ? [...new Set([scope.personId, ...named])] : named;
 }
 
 /**

@@ -288,10 +288,11 @@ export type MemberChange = "changed" | "last-owner" | "no-member";
  * Their tasks stay and their assignments go: `task_assignees` names the
  * membership, so the database drops the rows. See ADR-0013.
  *
- * An org that drops to one member hands that member every live task with no
- * holder, in the same batch, so an org of one never holds an unassigned live
- * task. The count is read in the statement, and the removed person must be
- * gone, so a refused removal hands nothing on. See ADR-0032.
+ * An org that drops to one member hands that member every unarchived task with
+ * no holder, in the same batch, so an org of one never holds an unassigned,
+ * unarchived task. The count is read in the statement, and `changes()` reads
+ * whether the delete took a row, so a refused removal hands nothing on.
+ * See ADR-0032.
  *
  * The last owner of an org cannot be taken out, and the guard is in the
  * statement rather than in a read before it, so two removals at once cannot
@@ -318,11 +319,11 @@ export async function removeMember(
            FROM tasks t
            JOIN memberships m ON m.org_id = t.org_id
           WHERE t.org_id = ? AND t.archived = 0 AND ${notDeleted("t")}
-            AND NOT EXISTS (SELECT 1 FROM memberships WHERE org_id = ? AND user_id = ?)
+            AND changes() > 0
             AND (SELECT COUNT(*) FROM memberships WHERE org_id = ?) = 1
             AND NOT EXISTS (SELECT 1 FROM task_assignees a WHERE a.task_id = t.id)`,
       )
-      .bind(orgId, orgId, personId, orgId),
+      .bind(orgId, orgId),
   ]);
 
   return done.meta.changes > 0 ? "changed" : refusal(db, scope, personId);

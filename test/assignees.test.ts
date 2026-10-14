@@ -261,7 +261,8 @@ describe("the metadata aside", () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const id = await task(ada.org.id, 1);
 
-    // The org stores its one member as the holder, and shows nothing. See ADR-0032.
+    // The org stores its one member as the holder, and shows nothing.
+    // See ADR-0032.
     await db
       .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
       .bind(id, ada.org.id, ada.person.id)
@@ -301,7 +302,8 @@ describe("a card", () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const id = await task(ada.org.id, 1);
 
-    // The org stores its one member as the holder, and shows nothing. See ADR-0032.
+    // The org stores its one member as the holder, and shows nothing.
+    // See ADR-0032.
     await db
       .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
       .bind(id, ada.org.id, ada.person.id)
