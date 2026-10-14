@@ -1,5 +1,9 @@
 # tusker-web
 
+> **This is the `ui-sandbox` branch.** Tusker runs entirely in the browser,
+> over sample data in `localStorage`, with no server and no login. It never
+> merges into `main`. Read [docs/sandbox.md](./docs/sandbox.md) first.
+
 Tusker is a keyboard-first task board for several orgs at once.
 [CONTEXT.md](./CONTEXT.md) holds the language, [docs/plan.md](./docs/plan.md)
 holds the phases, and [docs/adr/](./docs/adr/) holds the decisions.
