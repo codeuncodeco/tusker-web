@@ -115,7 +115,9 @@ describe("an add that names assignees", () => {
 
   it("leaves the task unassigned when the box names nobody", async () => {
     const ada = await member("ada@example.test", "Ada");
-    const blr = await team("blrhikes", [ada.person]);
+    const bo = await member("bo@example.test", "Bo Kim");
+    // Two members, because an org of one holds every task with its member.
+    const blr = await team("blrhikes", [ada.person, bo.person]);
 
     await onMe(ada.cookie, { intent: "create", slug: blr.slug, title: "nobody holds this" });
 

@@ -195,7 +195,9 @@ _Avoid_: Shortcuts, markdown toolbar, rich text
 A member who holds a task. A task can have several, and a task with none is
 unassigned. An assignee says who does the work and nothing about who may read
 it: membership is still the only permission check. Removing a member from an org
-takes their assignments with them. See ADR-0013.
+takes their assignments with them. An org of one has no unassigned live task:
+its one member holds every one, and no screen shows it. See ADR-0013 and
+ADR-0032.
 _Avoid_: Owner, task owner, responsible
 
 **Unassigned**:

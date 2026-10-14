@@ -288,6 +288,11 @@ export type MemberChange = "changed" | "last-owner" | "no-member";
  * Their tasks stay and their assignments go: `task_assignees` names the
  * membership, so the database drops the rows. See ADR-0013.
  *
+ * An org that drops to one member hands that member every live task with no
+ * holder, in the same batch, so an org of one never holds an unassigned live
+ * task. The count is read in the statement, and the removed person must be
+ * gone, so a refused removal hands nothing on. See ADR-0032.
+ *
  * The last owner of an org cannot be taken out, and the guard is in the
  * statement rather than in a read before it, so two removals at once cannot
  * leave an org with none.
@@ -297,14 +302,28 @@ export async function removeMember(
   scope: Scope,
   personId: string,
 ): Promise<MemberChange> {
-  const done = await db
-    .prepare(
-      `DELETE FROM memberships
-       WHERE org_id = ? AND user_id = ?
-         AND (role <> 'owner' OR ${KEEPS_AN_OWNER})`,
-    )
-    .bind(scope.org.id, personId, scope.org.id)
-    .run();
+  const orgId = scope.org.id;
+  const [done] = await db.batch([
+    db
+      .prepare(
+        `DELETE FROM memberships
+         WHERE org_id = ? AND user_id = ?
+           AND (role <> 'owner' OR ${KEEPS_AN_OWNER})`,
+      )
+      .bind(orgId, personId, orgId),
+    db
+      .prepare(
+        `INSERT INTO task_assignees (task_id, org_id, user_id)
+         SELECT t.id, t.org_id, m.user_id
+           FROM tasks t
+           JOIN memberships m ON m.org_id = t.org_id
+          WHERE t.org_id = ? AND t.archived = 0 AND ${notDeleted("t")}
+            AND NOT EXISTS (SELECT 1 FROM memberships WHERE org_id = ? AND user_id = ?)
+            AND (SELECT COUNT(*) FROM memberships WHERE org_id = ?) = 1
+            AND NOT EXISTS (SELECT 1 FROM task_assignees a WHERE a.task_id = t.id)`,
+      )
+      .bind(orgId, orgId, personId, orgId),
+  ]);
 
   return done.meta.changes > 0 ? "changed" : refusal(db, scope, personId);
 }

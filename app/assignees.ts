@@ -58,6 +58,10 @@ function compare(a: string, b: string): number {
  * name, so a picker whose only value is "me" is noise on every card. The count
  * decides and not who made the org: an org of one draws a picker the day a
  * second member joins. See ADR-0013 and ADR-0027.
+ *
+ * An org of one still stores its member as the holder of every live task. It
+ * draws nothing, and the old tasks show who held them once the picker comes.
+ * See ADR-0032.
  */
 export function drawsAssignees(org: { members: number }): boolean {
   return org.members > 1;

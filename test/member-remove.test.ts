@@ -115,7 +115,7 @@ describe("removing a member", () => {
     expect((await caught(membersPage("codeuncode", bo.cookie))).status).toBe(404);
   });
 
-  it("keeps the tasks the removed person held, and drops the assignments", async () => {
+  it("keeps the tasks the removed person held, and hands them to the one who stays", async () => {
     const { ada, bo } = await team();
     await taskFor(ada.cookie, "Held", [bo.person.id]);
 
@@ -127,8 +127,10 @@ describe("removing a member", () => {
 
     const task = await db.prepare("SELECT title FROM tasks WHERE title = 'Held'").first<{ title: string }>();
     expect(task?.title).toBe("Held");
+    // Bo's row goes with the membership, and an org of one holds no
+    // unassigned live task, so Ada holds it now. See ADR-0032.
     const { results } = await db.prepare("SELECT user_id FROM task_assignees").all();
-    expect(results).toEqual([]);
+    expect(results).toEqual([{ user_id: ada.person.id }]);
   });
 
   it("refuses to remove the last owner, and says why", async () => {
