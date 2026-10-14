@@ -5,6 +5,7 @@
     "app/**/*",
     "workers/**/*",
     "test/**/*",
+    "sandbox/**/*",
     "worker-configuration.d.ts"
   ],
   "compilerOptions": {
