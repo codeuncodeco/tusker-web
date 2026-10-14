@@ -75,7 +75,7 @@ export function dayShort(day: string, year: boolean): string {
  * after, and the year is the part a reader cannot guess.
  */
 export function dayDate(day: string): string {
-  return written(day, { day: "numeric", month: "short", year: "numeric" });
+  return written(day, DATE_PARTS);
 }
 
 /**
@@ -99,8 +99,37 @@ function nearWord(day: string, today: string): string | null {
 
 /** One day written the way this app writes days: British, and read in UTC. */
 function written(day: string, parts: Intl.DateTimeFormatOptions): string {
-  const format = new Intl.DateTimeFormat("en-GB", { ...parts, timeZone: "UTC" });
-  return format.format(new Date(`${day}T00:00:00Z`));
+  return writtenIn(new Date(`${day}T00:00:00Z`), parts, "UTC");
+}
+
+/**
+ * The date a stored time falls on in one zone: "13 Oct 2026", as `dayDate`
+ * writes a day. The same time can fall on two dates, so the caller names the
+ * zone: UTC where the reader's zone is not known, and the reader's own where
+ * it is.
+ */
+export function stampDate(stamp: string, zone: string): string {
+  return writtenIn(new Date(stamp), DATE_PARTS, zone);
+}
+
+/**
+ * The whole of a stored time in one zone: "13 Oct 2026, 14:32 BST". The zone
+ * is written, because a clock that does not say where it runs is read wrong.
+ */
+export function stampTime(stamp: string, zone: string): string {
+  return writtenIn(
+    new Date(stamp),
+    { ...DATE_PARTS, hour: "2-digit", minute: "2-digit", timeZoneName: "short" },
+    zone,
+  );
+}
+
+/** The parts of a date a record is read back by: no weekday, and the year. */
+const DATE_PARTS: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
+
+/** One moment written the way this app writes dates, British, in one zone. */
+function writtenIn(at: Date, parts: Intl.DateTimeFormatOptions, zone: string): string {
+  return new Intl.DateTimeFormat("en-GB", { ...parts, timeZone: zone }).format(at);
 }
 
 /**

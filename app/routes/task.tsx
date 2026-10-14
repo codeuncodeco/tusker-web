@@ -26,6 +26,7 @@ import { refPickers } from "../refs.server";
 import { requireTaskScope, type Scope } from "../scope.server";
 import { TASK_FORM, TaskAside, TaskBar, useDrawnTask } from "../task-aside";
 import { taskLabel, type TaskId } from "../task-number";
+import { taskTimes } from "../task-times";
 import { TaskTitle } from "../task-title";
 import {
   editTask,
@@ -82,6 +83,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       // Archive keeps finished work, so only finished work is offered it.
       // The board says the same: the sweep sits on Done and Cancelled.
       finished: isFinished(task.status),
+      // The times the aside lists at its foot, already cut to the lines it
+      // shows. See `taskTimes`.
+      times: taskTimes(task),
     },
     fields,
     /**
