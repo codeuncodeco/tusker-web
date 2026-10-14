@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { OrgHeld } from "../app/current-org";
 import { FocusList } from "../app/focus-list";
-import { OrgChip, tellsOrgsApart } from "../app/org-chip";
+import { OrgChip, OrgNameChip, orgInitialsOf, tellsOrgsApart } from "../app/org-chip";
 import type { Group, LiveTask } from "../app/unified";
 import { UnifiedCard } from "../app/unified-card";
 import { UnifiedList } from "../app/unified-list";
@@ -62,14 +62,70 @@ describe("the chip that names an org", () => {
   });
 });
 
+describe("the initials an org chip draws", () => {
+  it("takes the first letter of the first two words", () => {
+    expect(orgInitialsOf("Code Uncode")).toBe("CU");
+    expect(orgInitialsOf("code uncode labs")).toBe("CU");
+  });
+
+  it("splits words on a hyphen, an underscore and a dot as well as a space", () => {
+    expect(orgInitialsOf("acme-corp")).toBe("AC");
+    expect(orgInitialsOf("acme_corp")).toBe("AC");
+    expect(orgInitialsOf("acme.corp")).toBe("AC");
+  });
+
+  it("counts a digit as a letter", () => {
+    expect(orgInitialsOf("Team 7")).toBe("T7");
+    expect(orgInitialsOf("42")).toBe("42");
+  });
+
+  it("takes the first two letters of a one-word name", () => {
+    expect(orgInitialsOf("Acme")).toBe("AC");
+    expect(orgInitialsOf("codeuncode")).toBe("CO");
+  });
+
+  it("draws one letter for a name that holds one", () => {
+    expect(orgInitialsOf("X")).toBe("X");
+    expect(orgInitialsOf("  x  ")).toBe("X");
+  });
+
+  it("skips a word with no letter or digit, such as an emoji", () => {
+    expect(orgInitialsOf("🚀 Launch Pad")).toBe("LP");
+  });
+
+  it("draws the first character of a name with no letter or digit, so the chip is never empty", () => {
+    expect(orgInitialsOf("🚀")).toBe("🚀");
+    expect(orgInitialsOf("  -- ")).toBe("-");
+  });
+});
+
+describe("the initials chip", () => {
+  it("draws the initials, and gives a reader and a hover the full name", () => {
+    const markup = renderToStaticMarkup(<OrgChip org={{ name: "Code Uncode", color: "teal" }} />);
+
+    expect(markup).toContain('title="Code Uncode"');
+    expect(markup).toMatch(/<span class="sr-only">Code Uncode<\/span>/);
+    expect(markup).toMatch(/<span aria-hidden="true">CU<\/span>/);
+  });
+
+  it("is the full-name chip on the quick-add line", () => {
+    const markup = renderToStaticMarkup(<OrgNameChip org={{ name: "Code Uncode", color: "teal" }} />);
+
+    expect(markup).toContain("var(--color-opt-teal)");
+    expect(markup).toContain("Code Uncode");
+    expect(markup).not.toContain("CU");
+  });
+});
+
 describe("a card of the unified board", () => {
-  it("names its org with the chip, colour and all", () => {
+  it("names its org with the initials chip, colour and all", () => {
     const markup = draw(() => (
       <UnifiedCard task={live("purple")} selected={false} domId="c1" place={() => {}} showsOrg />
     ));
 
     expect(markup).toContain("var(--color-opt-purple)");
-    expect(markup).toContain("Acme");
+    expect(markup).toContain('title="Acme"');
+    expect(markup).toMatch(/<span aria-hidden="true">AC<\/span>/);
   });
 
   it("names no org for a person in one, because there is no other to tell it from", () => {

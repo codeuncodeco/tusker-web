@@ -10,11 +10,15 @@ export function OrgDot({ color }: { color: string | null }) {
 }
 
 /**
- * The mark that names one org where a page mixes several: a dot and the org
- * name, on the unified board, plan mode and the week page.
+ * The mark that names one org where a page mixes several: a small pill holding
+ * the dot and the org's initials, in the line under a task's title on the
+ * unified board, the cross-org list, plan mode, the week page and focus mode.
+ * Two letters keep every chip short and one width, so a long org name cannot
+ * push the org's fields off the line. See #240.
  *
- * The dot is decoration. It is `aria-hidden`, so a reader reads the name
- * alone, and nothing sorts, groups or filters by the colour.
+ * The dot and the initials are decoration. Both are `aria-hidden`, and the
+ * full name is the chip's text for a reader and its `title` on hover. Nothing
+ * sorts, groups or filters by the colour.
  *
  * An org page draws no chip. There is one org there and nothing to tell apart.
  * Nor does a cross-org page for a person in one org, for the same reason: see
@@ -22,11 +26,50 @@ export function OrgDot({ color }: { color: string | null }) {
  */
 export function OrgChip({ org }: { org: { name: string; color: string | null } }) {
   return (
+    <span
+      title={org.name}
+      className="flex shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-[0.625rem] leading-none font-medium tracking-wide text-muted"
+    >
+      <OrgDot color={org.color} />
+      <span className="sr-only">{org.name}</span>
+      <span aria-hidden="true">{orgInitialsOf(org.name)}</span>
+    </span>
+  );
+}
+
+/**
+ * The org chip with the full name: the dot and the org name. The quick-add box
+ * draws it, because that is where a person checks which org a new task goes
+ * to, and two letters are not enough to check.
+ */
+export function OrgNameChip({ org }: { org: { name: string; color: string | null } }) {
+  return (
     <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs text-muted">
       <OrgDot color={org.color} />
       {org.name}
     </span>
   );
+}
+
+/**
+ * The letters an org chip draws: the first letter or digit of the first two
+ * words, uppercased. Words split on whitespace, `-`, `_` and `.`, and a word
+ * with no letter or digit, such as an emoji, is skipped. A one-word name draws
+ * its first two letters or digits, so "Acme" draws `AC`.
+ *
+ * A name with no letter or digit draws its first character, so the chip is
+ * never empty. Two orgs with the same initials keep them: the colour and the
+ * hover name tell them apart.
+ */
+export function orgInitialsOf(name: string): string {
+  const words = name
+    .split(/[\s\-_.]+/)
+    .map((word) => word.match(/[\p{L}\p{N}]/gu) ?? [])
+    .filter((chars) => chars.length > 0);
+
+  if (words.length > 1) return words.slice(0, 2).map((chars) => chars[0]!).join("").toUpperCase();
+  if (words.length === 1) return words[0]!.slice(0, 2).join("").toUpperCase();
+  return Array.from(name.trim())[0] ?? "";
 }
 
 /**
