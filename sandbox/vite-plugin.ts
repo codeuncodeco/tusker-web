@@ -69,6 +69,9 @@ function isRouteModule(file: string): boolean {
 /**
  * The exports the transform moves, declared as the route files on `main`
  * declare them: `export async function loader` or `export const middleware`.
+ *
+ * `headers` is moved and then dropped: it sets the headers of a server's
+ * document response, and a static page has none.
  */
 const MOVED =
   /^export (?:async )?(?:function|const) (loader|action|headers|middleware|clientLoader|clientAction|clientMiddleware)\b/gm;
@@ -83,31 +86,31 @@ const MOVED =
  * way fails the SPA build loudly, with React Router's own message.
  */
 export function toClientExports(code: string, isRoot: boolean): string {
-  const has = new Set<string>();
+  const exported = new Set<string>();
   const out = code.replace(MOVED, (match, name: string) => {
-    has.add(name);
+    exported.add(name);
     return match.replace(/^export /, "");
   });
 
-  if (has.size === 0 && !isRoot) return code;
+  if (exported.size === 0 && !isRoot) return code;
 
   const tail = ['import * as __sandbox from "/sandbox/route.ts";'];
-  if (has.has("loader")) {
+  if (exported.has("loader")) {
     tail.push(`const __clientLoader = __sandbox.clientLoader(loader);`, `export { __clientLoader as clientLoader };`);
   }
-  if (has.has("action")) {
-    const own = has.has("clientAction") ? ", clientAction" : "";
+  if (exported.has("action")) {
+    const own = exported.has("clientAction") ? ", clientAction" : "";
     tail.push(`const __clientAction = __sandbox.clientAction(action${own});`, `export { __clientAction as clientAction };`);
-  } else if (has.has("clientAction")) {
+  } else if (exported.has("clientAction")) {
     tail.push(`export { clientAction };`);
   }
-  if (has.has("middleware")) {
-    const own = has.has("clientMiddleware") ? ", clientMiddleware" : "";
+  if (exported.has("middleware")) {
+    const own = exported.has("clientMiddleware") ? ", clientMiddleware" : "";
     tail.push(`const __clientMiddleware = __sandbox.clientMiddleware(middleware${own});`, `export { __clientMiddleware as clientMiddleware };`);
-  } else if (has.has("clientMiddleware")) {
+  } else if (exported.has("clientMiddleware")) {
     tail.push(`export { clientMiddleware };`);
   }
-  if (has.has("clientLoader") && !has.has("loader")) tail.push(`export { clientLoader };`);
+  if (exported.has("clientLoader") && !exported.has("loader")) tail.push(`export { clientLoader };`);
   if (isRoot && !/export function HydrateFallback\b/.test(code)) {
     tail.push(`export { HydrateFallback } from "/sandbox/route.ts";`);
   }

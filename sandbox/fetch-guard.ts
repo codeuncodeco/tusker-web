@@ -6,7 +6,7 @@
  * org app that does not answer is.
  */
 
-import { refsUrl } from "../app/refs";
+import { refsUrl, type RefOption } from "../app/refs";
 
 type Source = { org_id: string; key: string; refs_path: string; refs_base_url: string };
 
@@ -24,7 +24,7 @@ export function guardFetch(db: D1Database, origin: string, real: typeof fetch = 
 }
 
 /** The cached options of the reference field that reads this URL, or null. */
-async function cachedOptions(db: D1Database, url: string): Promise<{ id: string; label: string }[] | null> {
+async function cachedOptions(db: D1Database, url: string): Promise<RefOption[] | null> {
   const { results } = await db
     .prepare(
       `SELECT f.org_id, f.key, f.refs_path, o.refs_base_url
@@ -43,6 +43,6 @@ async function cachedOptions(db: D1Database, url: string): Promise<{ id: string;
        ORDER BY label, ext_id`,
     )
     .bind(field.org_id, field.key)
-    .all<{ id: string; label: string }>();
+    .all<RefOption>();
   return options;
 }

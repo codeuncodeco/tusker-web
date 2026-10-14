@@ -27,7 +27,7 @@ import type { Status } from "../app/board";
 export const PERSON = { id: "sandbox-person", name: "Sam Sandbox", email: "sam@sandbox.test" };
 
 /** The other members, so assignee chips and filters have more than one face. */
-const CREW = [
+const OTHER_MEMBERS = [
   { id: "sandbox-ana", name: "Ana Ortiz", email: "ana@sandbox.test" },
   { id: "sandbox-bo", name: "", email: "bo.lee@sandbox.test" },
 ];
@@ -36,10 +36,10 @@ const CREW = [
 export const ORG_APP_URL = "https://org-app.sandbox.invalid/api";
 
 /** A request for the functions that take one. The sandbox has no real address. */
-const HERE = "https://sandbox.invalid";
+const ORIGIN = "https://sandbox.invalid";
 
 export async function seed(db: D1Database): Promise<void> {
-  for (const person of [PERSON, ...CREW]) {
+  for (const person of [PERSON, ...OTHER_MEMBERS]) {
     await db
       .prepare(
         `INSERT INTO "user" (id, name, email, emailVerified, createdAt, updatedAt)
@@ -52,7 +52,7 @@ export async function seed(db: D1Database): Promise<void> {
   const studio = await org(db, "Studio", "studio");
   const garden = await org(db, "Garden Club", "garden");
   for (const scope of [studio, garden]) {
-    for (const person of CREW) await addMemberById(db, scope.org.id, person.id);
+    for (const person of OTHER_MEMBERS) await addMemberById(db, scope.org.id, person.id);
   }
 
   await studioFields(db, studio);
@@ -107,17 +107,17 @@ export async function seed(db: D1Database): Promise<void> {
   });
 
   await setAssignees(db, studio, s.in_progress[0], [PERSON.id]);
-  await setAssignees(db, studio, s.in_progress[1], [PERSON.id, CREW[0]!.id]);
-  await setAssignees(db, studio, s.todo[2], [CREW[1]!.id]);
-  await setAssignees(db, garden, g.in_progress[0], [PERSON.id, CREW[1]!.id]);
-  await setAssignees(db, garden, g.todo[1], [CREW[0]!.id]);
+  await setAssignees(db, studio, s.in_progress[1], [PERSON.id, OTHER_MEMBERS[0]!.id]);
+  await setAssignees(db, studio, s.todo[2], [OTHER_MEMBERS[1]!.id]);
+  await setAssignees(db, garden, g.in_progress[0], [PERSON.id, OTHER_MEMBERS[1]!.id]);
+  await setAssignees(db, garden, g.todo[1], [OTHER_MEMBERS[0]!.id]);
 
   // A decision a finished task asked for, and one written with no task.
   const decided = (await createTasks(db, studio, { titles: ["Choose the zine paper"], status: "in_progress", assignees: [] }))[0]!;
   await saveTask(db, studio, decided, { title: "Choose the zine paper", data: {}, decides: true, dueDate: null });
   await moveTask(db, studio, { taskId: decided, status: "done" });
-  await decide(db, studio, new Request(`${HERE}/o/studio/board`), form({ id: String(decided), title: "Use 100gsm recycled stock", rationale: "Cheaper, and the ink sits well on it." }));
-  await recordDecision(db, garden, new Request(`${HERE}/o/garden/decisions`), form({ title: "No pesticides on the shared beds", rationale: "Agreed at the June meeting." }));
+  await decide(db, studio, new Request(`${ORIGIN}/o/studio/board`), form({ id: String(decided), title: "Use 100gsm recycled stock", rationale: "Cheaper, and the ink sits well on it." }));
+  await recordDecision(db, garden, new Request(`${ORIGIN}/o/garden/decisions`), form({ title: "No pesticides on the shared beds", rationale: "Agreed at the June meeting." }));
 
   // One archived task in each org, for the archive page.
   await archiveTasks(db, studio, [s.done[1]!]);
