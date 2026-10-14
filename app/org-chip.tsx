@@ -57,6 +57,10 @@ export function OrgNameChip({ org }: { org: { name: string; color: string | null
  * with no letter or digit, such as an emoji, is skipped. A one-word name draws
  * its first two letters or digits, so "Acme" draws `AC`.
  *
+ * It differs from a member's `initialsOf` on purpose: an org name is often a
+ * slug such as "acme-corp" or holds a number such as "Team 7", and two letters
+ * keep every org chip one width.
+ *
  * A name with no letter or digit draws its first character, so the chip is
  * never empty. Two orgs with the same initials keep them: the colour and the
  * hover name tell them apart.
@@ -67,9 +71,16 @@ export function orgInitialsOf(name: string): string {
     .map((word) => word.match(/[\p{L}\p{N}]/gu) ?? [])
     .filter((chars) => chars.length > 0);
 
-  if (words.length > 1) return words.slice(0, 2).map((chars) => chars[0]!).join("").toUpperCase();
-  if (words.length === 1) return words[0]!.slice(0, 2).join("").toUpperCase();
-  return Array.from(name.trim())[0] ?? "";
+  const picked = words.length > 1 ? words.slice(0, 2).map((chars) => chars[0]!) : (words[0] ?? []).slice(0, 2);
+  if (picked.length > 0) return picked.map(upper).join("");
+
+  const first = new Intl.Segmenter().segment(name.trim())[Symbol.iterator]().next();
+  return first.done ? "" : first.value.segment;
+}
+
+/** One character uppercased, kept to one: "ß" uppercases to "SS". */
+function upper(char: string): string {
+  return Array.from(char.toUpperCase())[0]!;
 }
 
 /**

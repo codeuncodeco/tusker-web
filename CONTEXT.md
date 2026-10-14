@@ -40,10 +40,10 @@ _Avoid_: Access request, application
 
 **Org colour**:
 The colour one org carries, drawn wherever a page names that org beside
-another: the unified board, plan mode and the week page. It is a palette name
-or an exact colour, as an option colour is. A new org takes the first palette
-name no org of its maker holds, and any member changes it on the org's settings
-page. An org with no colour draws grey. A person in one org sees no org chip,
+another: the unified board, the cross-org list, plan mode, the week page and
+focus mode. It is a palette name or an exact colour, as an option colour is. A
+new org takes the first palette name no org of its maker holds, and any member
+changes it on the org's settings page. An org with no colour draws grey. A person in one org sees no org chip,
 because there is no other org to tell it from. See ADR-0020.
 _Avoid_: Org theme, org tag, workspace colour
 

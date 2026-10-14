@@ -97,6 +97,14 @@ describe("the initials an org chip draws", () => {
     expect(orgInitialsOf("🚀")).toBe("🚀");
     expect(orgInitialsOf("  -- ")).toBe("-");
   });
+
+  it("keeps a letter that uppercases to two as one, so the chip stays two wide", () => {
+    expect(orgInitialsOf("ßeta")).toBe("SE");
+  });
+
+  it("keeps a whole emoji as the first character, not half of one", () => {
+    expect(orgInitialsOf("👍🏽")).toBe("👍🏽");
+  });
 });
 
 describe("the initials chip", () => {
@@ -108,12 +116,12 @@ describe("the initials chip", () => {
     expect(markup).toMatch(/<span aria-hidden="true">CU<\/span>/);
   });
 
-  it("is the full-name chip on the quick-add line", () => {
+  it("draws the dot and the full name in the form the quick-add line takes", () => {
     const markup = renderToStaticMarkup(<OrgNameChip org={{ name: "Code Uncode", color: "teal" }} />);
 
     expect(markup).toContain("var(--color-opt-teal)");
     expect(markup).toContain("Code Uncode");
-    expect(markup).not.toContain("CU");
+    expect(markup).not.toContain('aria-hidden="true">CU<');
   });
 });
 
@@ -163,7 +171,8 @@ describe("a row of plan mode, the week page and focus mode", () => {
       </ul>
     ));
 
-    expect(row).toContain("Acme");
+    expect(row).toContain('title="Acme"');
+    expect(row).toMatch(/<span aria-hidden="true">AC<\/span>/);
   });
 
   it("names no org on a row, a list or a batch for a person in one", () => {
@@ -187,8 +196,10 @@ describe("a row of plan mode, the week page and focus mode", () => {
     const list = draw(() => <UnifiedList groups={groups} planned={new Set()} day="2026-10-09" showsOrg />);
     const batch = draw(() => <FocusList tasks={[live("purple")]} showsOrg />);
 
-    expect(list).toContain("Acme");
-    expect(batch).toContain("Acme");
+    for (const html of [list, batch]) {
+      expect(html).toContain('title="Acme"');
+      expect(html).toMatch(/<span aria-hidden="true">AC<\/span>/);
+    }
   });
 });
 
