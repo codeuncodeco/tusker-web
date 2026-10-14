@@ -174,10 +174,10 @@ export function DeleteAsk({ taskId, onKeep }: { taskId: TaskId; onKeep: () => vo
 }
 
 /**
- * The one act a task is offered first: Finish an open task, Reopen a finished
- * one, Restore an archived one. An archived task is restored before it is
- * reopened. Each is its own form, because finishing is one act and saving is
- * another.
+ * The one act a task is offered first: Finish an open task (the button reads
+ * Mark done), Reopen a finished one, Restore an archived one. An archived task
+ * is restored before it is reopened. Each is its own form, because finishing
+ * is one act and saving is another.
  */
 function PrimaryAct({ task }: { task: AsideTask }) {
   return (
@@ -187,7 +187,7 @@ function PrimaryAct({ task }: { task: AsideTask }) {
       ) : task.finished ? (
         <PostButton intent="reopen" label="Reopen" busyLabel="Reopening…" />
       ) : (
-        <PostButton intent="finish" label="Finish" busyLabel="Finishing…" />
+        <PostButton intent="finish" label="Mark done" busyLabel="Marking done…" />
       )}
     </Form>
   );

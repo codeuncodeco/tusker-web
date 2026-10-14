@@ -437,9 +437,10 @@ _Avoid_: Referrer, back stack, return URL, here
 
 **Task aside**:
 The pane beside a task that holds its properties and its acts — the status, the
-due date, the assignees, the org's fields, the decision mark, and Finish,
-Reopen, Archive, Restore and Delete, with the task's times at its foot; on a phone it is a drawer opened from a bar
-at the foot of the page; the task page and the task popup draw the same aside.
+due date, the assignees, the org's fields, the decision mark, and Finish (its
+button reads Mark done), Reopen, Archive, Restore and Delete, with the task's
+times at its foot; on a phone it is a drawer opened from a bar at the foot of
+the page; the task page and the task popup draw the same aside.
 _Avoid_: Sidebar, metadata panel
 
 **Board**:
