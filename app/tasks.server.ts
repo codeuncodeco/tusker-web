@@ -31,6 +31,12 @@ export type Task = {
   archived_at: string | null;
 };
 
+/**
+ * One task as its page reads it: a card's columns and the Update time. A card
+ * draws no Update time, so the board and the archive do not read it.
+ */
+export type ReadTask = Task & { updated_at: string };
+
 /** The row as the table holds it: `data` as the JSON text of the column. */
 type Row = Omit<Task, "data"> & { data: string };
 
@@ -141,11 +147,13 @@ export async function countByStatus(db: D1Database, scope: Scope): Promise<Recor
 }
 
 /** One task of the org, or null when the org holds no such row. */
-export async function readTask(db: D1Database, scope: Scope, taskId: TaskId): Promise<Task | null> {
+export async function readTask(db: D1Database, scope: Scope, taskId: TaskId): Promise<ReadTask | null> {
   const row = await db
-    .prepare(`SELECT ${CARD_FIELDS} FROM tasks WHERE id = ? AND org_id = ? AND ${notDeleted()}`)
+    .prepare(
+      `SELECT ${CARD_FIELDS}, updated_at FROM tasks WHERE id = ? AND org_id = ? AND ${notDeleted()}`,
+    )
     .bind(taskId, scope.org.id)
-    .first<Row>();
+    .first<Row & { updated_at: string }>();
   return row ? asTask(row) : null;
 }
 

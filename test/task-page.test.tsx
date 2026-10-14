@@ -52,6 +52,7 @@ function page(
       description: some.description ?? "",
       archived: some.archived ?? false,
       finished: status === "done" || status === "cancelled",
+      times: [{ label: "Created", at: "2026-10-01T09:00:00.000Z" }],
     },
     fields: some.fields ?? [],
     members: some.members ?? [],

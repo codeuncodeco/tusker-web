@@ -316,6 +316,14 @@ unified board's seven-day cap reads it, because `updated_at` moves on every
 edit and a typo fix would otherwise read as a finish.
 _Avoid_: Completed at, closed date
 
+**Update time**:
+When the task row was last written: `tasks.updated_at`. Every write of the
+task moves it: an edit, a tick, a move, a reorder inside a column, an archive
+and a restore. A change of assignees does not, because the assignees hold a
+table of their own. It says that something changed, not what or why, so it is
+never read as a finish time.
+_Avoid_: Last modified, edited at
+
 **Reopen**:
 Moving a finished task back to To do. A Done or Cancelled task is read on its
 page, not edited: the page draws no form, and the server refuses a save or a
