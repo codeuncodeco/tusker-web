@@ -27,11 +27,13 @@ import {
   type Status,
   type Toggles,
 } from "./board";
+import { CLIENT_NAME, clientValue, sameClient, type ClientChoice, type ClientPick } from "./client-filter";
 import { Dot } from "./dot";
 import { fieldName, type FieldFilter } from "./field-filter";
 import { fieldClass, smallFieldClass } from "./forms";
 import { Square, SquareCheck } from "./icons";
 import { Avatar } from "./initials";
+import { OrgDot } from "./org-chip";
 import { without } from "./query";
 import { SEARCH_NAME } from "./search";
 
@@ -225,6 +227,49 @@ export function UnifiedAssigneeFilter({ assignee }: { assignee: string }) {
       <FilterChip to={to(UNASSIGNED)} on={assignee === UNASSIGNED}>
         Unassigned
       </FilterChip>
+    </ChipGroup>
+  );
+}
+
+/**
+ * The unified board's client chips: `Every client`, then each client of each
+ * org that names a client field, with its option colour and its org's dot
+ * where the person holds more than one such org. One click narrows the board
+ * to that client's tasks; a click on the chip held gives the board back. An
+ * org set with no client field draws nothing. See ADR-0036.
+ */
+export function UnifiedClientFilter({
+  clients,
+  client,
+}: {
+  clients: ClientChoice[];
+  client: ClientPick | null;
+}) {
+  const [params] = useSearchParams();
+  if (clients.length === 0) return null;
+  const every = `?${new URLSearchParams(without(params, CLIENT_NAME))}`;
+  const orgs = new Set(clients.map((one) => one.slug));
+
+  return (
+    <ChipGroup label="Filter by client">
+      <FilterChip to={every} on={client === null}>
+        Every client
+      </FilterChip>
+      {clients.map((one) => {
+        const on = sameClient(client, one);
+        return (
+          <FilterChip
+            key={`${one.slug}:${one.value}`}
+            to={on ? every : withValue(params, CLIENT_NAME, clientValue(one))}
+            on={on}
+            label={orgs.size > 1 ? `${one.label}, ${one.org.name}` : undefined}
+          >
+            <Dot color={one.color} />
+            {one.label}
+            {orgs.size > 1 ? <OrgDot color={one.org.color} /> : null}
+          </FilterChip>
+        );
+      })}
     </ChipGroup>
   );
 }

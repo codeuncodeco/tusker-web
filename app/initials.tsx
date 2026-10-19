@@ -3,7 +3,7 @@ import { colorCss } from "./colors";
 
 /** The sizes an avatar draws at: a card's, a picker's, and the account page's. */
 const SIZES = {
-  sm: "size-5 text-[0.5625rem]",
+  sm: "size-6 text-[0.625rem]",
   md: "size-7 text-[0.6875rem]",
   lg: "size-20 text-2xl",
 } as const;

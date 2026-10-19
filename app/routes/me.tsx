@@ -17,7 +17,9 @@ import { redirect } from "react-router";
 
 import { resolvedFor, MINE, readUnifiedAssignee } from "../assignee-filter";
 import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
-import { ColumnSwitch, TodayChip, UnifiedAssigneeFilter, WeekChip } from "../board-chrome";
+import { ColumnSwitch, TodayChip, UnifiedAssigneeFilter, UnifiedClientFilter, WeekChip } from "../board-chrome";
+import { readClient } from "../client-filter";
+import { clientsAcross } from "../clients.server";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { postAndReport } from "../pending";
@@ -62,6 +64,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // `Anyone`, `Mine` or `Unassigned`, and no member: a member list across orgs
   // names strangers. See ADR-0033.
   const assignee = readUnifiedAssignee(query);
+  // One client of one org, or none. Only a client some org offers narrows:
+  // an old link to a client that went opens the board whole. See ADR-0036.
+  const clients = await clientsAcross(env.DB, set);
+  const asked = readClient(query);
+  const client = asked && clients.some((one) => one.slug === asked.slug && one.value === asked.value) ? asked : null;
 
   // Done and Cancelled cap to the last seven days. Across every org they would
   // otherwise be every task the person ever finished.
@@ -69,6 +76,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     statuses: shown,
     since: finishedSince(day),
     assignee: resolvedFor(assignee, set.personId),
+    client,
   });
 
   // The two chips narrow the board to the tasks today's plan holds, or to the
@@ -94,6 +102,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     /** The person `Mine` names, so the box can start with them picked. */
     personId: set.personId,
     assignee,
+    /** Every client of every org that names a client field, for the chips. */
+    clients,
+    client,
     columns: columnsFor(drawn, shown),
     planned,
     toggles,
@@ -167,6 +178,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
           {hasSet ? <WeekChip week={week} hasSet /> : null}
           <UnifiedAssigneeFilter assignee={assignee} />
+          <UnifiedClientFilter clients={loaderData.clients} client={loaderData.client} />
           {BOARD_TOGGLES.map((which) => (
             <ColumnSwitch key={which} which={which} toggles={toggles} />
           ))}

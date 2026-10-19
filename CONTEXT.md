@@ -130,7 +130,10 @@ _Avoid_: Linked client, remote app, integration
 
 **Client**:
 A customer of an org. This is a custom field an org declares, not a core table
-and not a synonym for an org.
+and not a synonym for an org. An org marks one select or reference field as
+its **client field**. That field's values are its clients. Each client gets a
+tag on every card, a filter chip on every board, and a client page. See
+ADR-0036.
 _Avoid_: Customer, account
 
 ### Work

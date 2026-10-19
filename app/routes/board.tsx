@@ -51,6 +51,7 @@ import {
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
+import { ClientTag, clientPath } from "../client-tag";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels, refOptionsOfOrg } from "../refs.server";
 import { useLocalDay } from "../local-day";
@@ -352,10 +353,13 @@ function CardItem({
   selected,
   domId,
   place,
+  slug,
 }: {
   card: Card;
   selected: boolean;
   domId: string;
+  /** The org's slug, which the client tag's page sits under. */
+  slug: string;
   /**
    * Puts the keyboard cursor on this card. The keys act on the cursor, and `j`
    * was the only way to move it: on a long column that put them near the top
@@ -390,15 +394,23 @@ function CardItem({
       {/* One line: a pill that does not fit is cut off, and never wraps. */}
       {card.fields.length > 0 ? (
         <ul className="flex gap-2 overflow-hidden text-xs text-muted">
-          {card.fields.map((field) => (
-            <li
-              key={field.key}
-              className="flex items-center gap-1 whitespace-nowrap rounded bg-surface-2 px-1.5 py-0.5"
-            >
-              <Dot color={field.color} />
-              <span className="text-dim">{field.label}</span> {field.value}
-            </li>
-          ))}
+          {card.fields.map((field) =>
+            // The client is a tag of its own, first, and opens the client's
+            // page. See ADR-0036.
+            field.client ? (
+              <li key={field.key} className="flex">
+                <ClientTag label={field.value} color={field.color} to={clientPath(slug, field.client.stored)} />
+              </li>
+            ) : (
+              <li
+                key={field.key}
+                className="flex items-center gap-1 whitespace-nowrap rounded bg-surface-2 px-1.5 py-0.5"
+              >
+                <Dot color={field.color} />
+                <span className="text-dim">{field.label}</span> {field.value}
+              </li>
+            ),
+          )}
         </ul>
       ) : null}
     </li>
@@ -565,6 +577,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                         selected={cursor === card.id}
                         domId={`card-${card.id}`}
                         place={() => setOn(card.id)}
+                        slug={org.slug}
                       />
                     ))}
                   </DropList>

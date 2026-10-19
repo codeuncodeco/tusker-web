@@ -34,10 +34,13 @@ export function fieldKeyOf(name: string): string | null {
   return name.startsWith(FIELD_PREFIX) ? name.slice(FIELD_PREFIX.length) : null;
 }
 
-/** The fields the board draws a filter for, in the order the org declared them. */
+/**
+ * The fields the board draws a filter for, in the order the org declared them.
+ * The client field always draws one, marked or not. See ADR-0036.
+ */
 export function filterableFields(fields: OrgField[]): OrgField[] {
   return fields.filter(
-    (field) => field.filterable && (field.type === "select" || field.type === "reference"),
+    (field) => (field.filterable || field.client) && (field.type === "select" || field.type === "reference"),
   );
 }
 

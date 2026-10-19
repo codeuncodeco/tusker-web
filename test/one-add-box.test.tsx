@@ -51,6 +51,8 @@ function unifiedBoard(): string {
       { slug: "acme", name: "Acme", color: "blue" },
     ],
     members: {},
+    clients: [],
+    client: null,
     columns: COLUMNS.map((one) => ({ ...one, tasks: [] })),
     planned: [],
     toggles: { backlog: true, cancelled: true },

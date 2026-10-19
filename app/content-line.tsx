@@ -1,3 +1,4 @@
+import { ClientTag } from "./client-tag";
 import { Dot } from "./dot";
 import { OrgChip } from "./org-chip";
 import type { LiveTask } from "./unified";
@@ -19,13 +20,18 @@ export function ContentLine({ task, showsOrg }: { task: LiveTask; showsOrg: bool
       {showsOrg ? <OrgChip org={task.org} /> : null}
       {task.fields.length > 0 ? (
         <span className="flex min-w-0 flex-1 gap-1 truncate">
-          {task.fields.map((field, at) => (
-            <span key={field.key} className="flex items-center gap-1 truncate">
-              {at > 0 ? <span aria-hidden="true">·</span> : null}
-              <Dot color={field.color} />
-              {field.value}
-            </span>
-          ))}
+          {task.fields.map((field, at) =>
+            // The client is a tag of its own, first. See ADR-0036.
+            field.client ? (
+              <ClientTag key={field.key} label={field.value} color={field.color} />
+            ) : (
+              <span key={field.key} className="flex items-center gap-1 truncate">
+                {at > 0 && !task.fields[at - 1]!.client ? <span aria-hidden="true">·</span> : null}
+                <Dot color={field.color} />
+                {field.value}
+              </span>
+            ),
+          )}
         </span>
       ) : null}
       {task.due_date ? <span className="ml-auto shrink-0 tabular-nums">{task.due_date}</span> : null}

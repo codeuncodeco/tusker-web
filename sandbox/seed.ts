@@ -11,7 +11,7 @@
 import { setColors } from "../app/colors.server";
 import { decide, recordDecision } from "../app/decisions.server";
 import { localDay } from "../app/day";
-import { declareField } from "../app/fields.server";
+import { declareField, markClientField } from "../app/fields.server";
 import { addMemberById, createOrg, setOrgApp } from "../app/orgs.server";
 import { setPersonImage } from "../app/people.server";
 import { startPlan } from "../app/plans.server";
@@ -49,6 +49,9 @@ const ANA_PICTURE = `data:image/svg+xml;base64,${btoa(
     `<path d="M41 48q7 6 14 0" stroke="#3b1d33" stroke-width="2.4" fill="none" stroke-linecap="round"/>` +
     `</svg>`,
 )}`;
+
+/** Studio's clients, the options of its client field. */
+const CLIENTS = ["Northside Gallery", "In-house", "Mira Press"] as const;
 
 /** Where the reference field "reads". The fetch guard answers it from the cache. */
 export const ORG_APP_URL = "https://org-app.sandbox.invalid/api";
@@ -109,7 +112,7 @@ export async function seed(db: D1Database): Promise<void> {
   });
   await saveTask(db, studio, s.todo[1], {
     title: "Order more risograph ink",
-    data: { priority: "Low" },
+    data: { priority: "Low", client: "In-house" },
     decides: false,
     dueDate: null,
   });
@@ -119,6 +122,24 @@ export async function seed(db: D1Database): Promise<void> {
     s.in_progress[0],
     "Sixteen pages, two colours.\n\n- [x] Flat plan\n- [ ] Cover\n- [ ] Centre spread\n\nSee **the brief** for sizes.",
   );
+  await saveTask(db, studio, s.in_progress[1], {
+    title: "Edit the interview with Mira",
+    data: { client: "Mira Press", priority: "High" },
+    decides: false,
+    dueDate: localDay(new Date(Date.now() + 2 * 86_400_000)),
+  });
+  await saveTask(db, studio, s.todo[2], {
+    title: "Book the photo shoot",
+    data: { client: "Northside Gallery" },
+    decides: false,
+    dueDate: null,
+  });
+  await saveTask(db, studio, s.backlog[0], {
+    title: "Sketch the spring poster",
+    data: { client: "Northside Gallery", priority: "Medium" },
+    decides: false,
+    dueDate: null,
+  });
   await saveTask(db, garden, g.todo[0], {
     title: "Fix the shed door",
     data: { plot: "North" },
@@ -167,7 +188,12 @@ async function tasks(
 }
 
 async function studioFields(db: D1Database, scope: Scope) {
-  await declareField(db, scope, { key: "client", label: "Client", type: "text", options: [], refs_path: "", show_on_card: true, filterable: false });
+  // The client field: a select with a colour per client, marked as the field
+  // that names the client, so cards carry a tag, every board filters by it
+  // and each client has a page of notes and links. See ADR-0036.
+  await declareField(db, scope, { key: "client", label: "Client", type: "select", options: [...CLIENTS], refs_path: "", show_on_card: true, filterable: false });
+  await setColors(db, scope, "client", { "Northside Gallery": "purple", "In-house": "teal", "Mira Press": "orange" });
+  await markClientField(db, scope, "client");
   await declareField(db, scope, { key: "priority", label: "Priority", type: "select", options: ["High", "Medium", "Low"], refs_path: "", show_on_card: true, filterable: true });
   await setColors(db, scope, "priority", { High: "red", Medium: "amber", Low: "teal" });
 

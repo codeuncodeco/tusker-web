@@ -42,7 +42,24 @@ export type OrgField = {
   show_on_card: boolean;
   filterable: boolean;
   position: number;
+  /**
+   * True for the one field that names the org's client. It always filters and
+   * always draws on a card, as a coloured tag first. Only a select or a
+   * reference field can hold it, because a client is one of a closed list.
+   * Absent reads as false. See ADR-0036.
+   */
+  client?: boolean;
 };
+
+/** True for a type that can name the client: one with a closed list of values. */
+export function canNameClient(type: FieldType): boolean {
+  return type === "select" || type === "reference";
+}
+
+/** The field that names the org's client, or null for an org that tracks none. */
+export function clientField(fields: OrgField[]): OrgField | null {
+  return fields.find((field) => field.client && canNameClient(field.type)) ?? null;
+}
 
 /** True when the value names a type Tusker renders. */
 export function isFieldType(value: unknown): value is FieldType {
@@ -114,13 +131,29 @@ export function readData(
   return { data };
 }
 
-/** The fields a card shows, in the order the org declared them. */
+/**
+ * The fields a card shows: the client field first, whatever its mark, then
+ * the rest the org marks, in the order the org declared them.
+ */
 export function cardFields(fields: OrgField[]): OrgField[] {
-  return fields.filter((field) => field.show_on_card);
+  const client = clientField(fields);
+  return [
+    ...(client ? [client] : []),
+    ...fields.filter((field) => field.show_on_card && field !== client),
+  ];
 }
 
-/** One custom field value, as a card shows it. */
-export type Shown = { key: string; label: string; value: string; color: string | null };
+/**
+ * One custom field value, as a card shows it. The client's value says so, and
+ * carries the value the task stores, which names the client's page.
+ */
+export type Shown = {
+  key: string;
+  label: string;
+  value: string;
+  color: string | null;
+  client?: { stored: string };
+};
 
 /** The cached labels of the reference fields, as `field key → id → label`. */
 export type RefLabels = Record<string, Record<string, string>>;
@@ -156,6 +189,7 @@ export function shownOnCard(
       // The colour hangs off the value the task holds, not off the field, so
       // one client reads apart from another. See ADR-0006.
       color: colorOf(colors, field.key, data[field.key]),
+      ...(field.client ? { client: { stored: data[field.key] } } : {}),
     }));
 }
 
