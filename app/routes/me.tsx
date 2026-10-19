@@ -73,12 +73,15 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   // Done and Cancelled cap to the last seven days. Across every org they would
   // otherwise be every task the person ever finished.
-  const tasks = await listUnified(env.DB, set, [], {
-    statuses: shown,
+  // Backlog is read whether or not it is open, so its folded bar can count
+  // what waits there under the same narrowing.
+  const read = await listUnified(env.DB, set, [], {
+    statuses: shown.includes("backlog") ? shown : ["backlog", ...shown],
     since: finishedSince(day),
     assignee: resolvedFor(assignee, set.personId),
     client,
   });
+  const tasks = shown.includes("backlog") ? read : read.filter((task) => task.status !== "backlog");
 
   // The two chips narrow the board to the tasks today's plan holds, or to the
   // tasks this week's set holds. A null plan is a day the person has not
@@ -94,6 +97,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
   const { today, week, ids } = narrowingFor(query, inPlan, inWeek);
   const drawn = ids ? tasks.filter((task) => ids.has(task.id)) : tasks;
+  const waiting = ids ? read.filter((task) => ids.has(task.id)) : read;
 
   return {
     orgs: set.orgs.map(held),
@@ -107,6 +111,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     clients,
     client,
     columns: columnsFor(drawn, shown),
+    /** How many tasks wait in Backlog under this narrowing, for its folded bar. */
+    backlogCount: waiting.filter((task) => task.status === "backlog").length,
     planned,
     toggles,
     today,
@@ -183,13 +189,13 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           {hasSet ? <WeekChip week={week} hasSet /> : null}
           <UnifiedAssigneeFilter assignee={assignee} />
           <UnifiedClientFilter clients={loaderData.clients} client={loaderData.client} />
-          {BOARD_TOGGLES.map((which) => (
-            <ColumnSwitch key={which} which={which} toggles={toggles} />
-          ))}
+          {/* Backlog folds into a bar at the board's left edge; only
+              Cancelled is a switch. */}
+          <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>
       </TopRow>
 
-      <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />
+      <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} backlogCount={loaderData.backlogCount} />
 
       <DecisionPrompt ask={ask} />
     </main>

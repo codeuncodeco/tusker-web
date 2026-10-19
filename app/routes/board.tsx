@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Link, useFetcher } from "react-router";
+import { Link, useFetcher, useSearchParams } from "react-router";
 
 import {
   BOARD_TOGGLES,
@@ -18,6 +18,7 @@ import {
   STATUS_LABEL,
   backlogByRule,
   EMPTY_LINE,
+  flipped,
   columnsToShow,
   isFinished,
   readStatus,
@@ -26,7 +27,7 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { AssigneeFilter, ColumnSwitch, FieldFilterSelect, SearchBox, TodayChip, WeekChip } from "../board-chrome";
+import { AssigneeFilter, BacklogBar, ColumnHead, ColumnSwitch, FieldFilterSelect, SearchBox, TodayChip, WeekChip } from "../board-chrome";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
 import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
@@ -189,6 +190,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
+    /** How many tasks wait in Backlog, for the bar it folds into. */
+    backlogCount: counts.backlog,
   };
 }
 
@@ -439,6 +442,7 @@ function CardItem({
 export default function Board({ loaderData }: Route.ComponentProps) {
   const { org, members, toggles, today, hasPlan, week, hasSet, day, ask, search } = loaderData;
   const { assignee, filters } = loaderData;
+  const [params] = useSearchParams();
   // The board as the server holds it, with every post still in flight laid
   // over it, so a move or a step shows before the server answers. See #168.
   const sent = useSent();
@@ -532,7 +536,6 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           ))}
           <TodayChip today={today} hasPlan={hasPlan} />
           <WeekChip week={week} hasSet={hasSet} />
-          {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
           <ColumnSwitch which="cancelled" toggles={toggles} />
         </nav>
       </TopRow>
@@ -547,23 +550,32 @@ export default function Board({ loaderData }: Route.ComponentProps) {
           // columns are panes: a divider splits them, and a card is the one
           // thing on the board with an edge. See #184 and #191.
           <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
-            {columns.map((column) => {
+            {/* Backlog, folded into a bar at the left edge, until it is opened. */}
+            {columns.some((column) => column.status === "backlog") ? null : (
+              <BacklogBar count={loaderData.backlogCount} />
+            )}
+            {columns.map((column, at) => {
               const drawn = shown[column.status].flatMap((id) => cards.get(id) ?? []);
               return (
                 <section
                   key={column.status}
                   // Every column takes an equal share of the width, down to the
                   // width it always had. Past that the row scrolls sideways.
-                  className="flex min-w-72 pt-6 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
+                  // Each rises in, one after another, and Backlog unrolls.
+                  style={{ animationDelay: column.status === "backlog" ? undefined : `${at * 50}ms` }}
+                  className={`flex min-w-72 pt-6 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0 ${
+                    column.status === "backlog" ? "motion-safe:animate-unfold" : "motion-safe:animate-rise-in"
+                  }`}
                 >
                   <div className="flex items-baseline gap-3">
-                    <h2 className="font-mono uppercase tracking-wide text-muted">
-                      {column.label}{" "}
-                      {/* The key draws the count again when it changes, so it ticks. */}
-                      <span key={column.tasks.length} className="inline-block text-dim tabular-nums motion-safe:animate-tick">
-                        {column.tasks.length}
-                      </span>
-                    </h2>
+                    <ColumnHead
+                      status={column.status}
+                      label={column.label}
+                      count={column.tasks.length}
+                      // Backlog opened by hand folds back into its bar. Opened
+                      // by the rule, it stays: the board has nothing else.
+                      fold={column.status === "backlog" && !loaderData.backlogByRule ? flipped(params, "backlog", true) : null}
+                    />
                     {/* The sweep acts on the whole column, so it is column chrome.
                         It sits with the name and the count, the way the extension
                         drew it, so the act on the column is where the column says

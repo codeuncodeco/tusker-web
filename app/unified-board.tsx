@@ -18,8 +18,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 
-import { EMPTY_LINE, isFinished, type Status } from "./board";
+import { EMPTY_LINE, flipped, isFinished, type Status } from "./board";
+import { BacklogBar, ColumnHead } from "./board-chrome";
 import { ColumnSweep } from "./column-sweep";
 import { landingInOrg } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
@@ -40,7 +42,10 @@ export function UnifiedBoard({
   orgs,
   planned: picked,
   day,
+  backlogCount = 0,
 }: {
+  /** How many tasks wait in Backlog, for the bar it folds into. */
+  backlogCount?: number;
   columns: Column[];
   /** Every org the person belongs to, for the org on a card and the swept toast's links. */
   orgs: OrgHeld[];
@@ -64,6 +69,7 @@ export function UnifiedBoard({
   const planned = new Set(drawn.picked);
   // A post per press, so every press of a burst is drawn.
   const post = usePost();
+  const [params] = useSearchParams();
   const [on, setOn] = useState<TaskId | null>(null);
   // The name of every org, for the archive links the swept toast carries. It
   // is made once, because the sweep re-binds its effect on a new object.
@@ -134,23 +140,28 @@ export function UnifiedBoard({
           // columns are panes: a divider splits them, and a card is the one
           // thing on the board with an edge. See #184 and #191.
           <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
-            {columns.map((column) => {
+            {/* Backlog, folded into a bar at the left edge, until it is opened. */}
+            {columns.some((column) => column.status === "backlog") ? null : <BacklogBar count={backlogCount} />}
+            {columns.map((column, at) => {
               const cards = shown[column.status].flatMap((id) => tasks.get(id) ?? []);
               return (
                 <section
                   key={column.status}
                   // Every column takes an equal share of the width, down to the
                   // width it always had. Past that the row scrolls sideways.
-                  className="flex pt-6 min-w-72 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
+                  // Each rises in, one after another, and Backlog unrolls.
+                  style={{ animationDelay: column.status === "backlog" ? undefined : `${at * 50}ms` }}
+                  className={`flex pt-6 min-w-72 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0 ${
+                    column.status === "backlog" ? "motion-safe:animate-unfold" : "motion-safe:animate-rise-in"
+                  }`}
                 >
                   <div className="flex items-baseline gap-3">
-                    <h2 className="font-mono uppercase tracking-wide text-muted">
-                      {column.label}{" "}
-                      {/* The key draws the count again when it changes, so it ticks. */}
-                      <span key={column.tasks.length} className="inline-block text-dim tabular-nums motion-safe:animate-tick">
-                        {column.tasks.length}
-                      </span>
-                    </h2>
+                    <ColumnHead
+                      status={column.status}
+                      label={column.label}
+                      count={column.tasks.length}
+                      fold={column.status === "backlog" ? flipped(params, "backlog", true) : null}
+                    />
                     {/* The sweep acts on the whole column, so it is column chrome,
                         and it sits with the name and the count as it does on the
                         org board. A column of this board holds cards of several

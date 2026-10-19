@@ -31,7 +31,7 @@ import { CLIENT_NAME, clientValue, sameClient, type ClientChoice, type ClientPic
 import { Dot } from "./dot";
 import { fieldName, type FieldFilter } from "./field-filter";
 import { fieldClass, smallFieldClass } from "./forms";
-import { Square, SquareCheck } from "./icons";
+import { AnglesLeft, Circle, CircleCheck, CircleHalf, CircleXMark, Inbox, Square, SquareCheck } from "./icons";
 import { Avatar } from "./initials";
 import { OrgDot } from "./org-chip";
 import { without } from "./query";
@@ -420,6 +420,96 @@ export function ColumnSwitch({ which, toggles }: { which: Status; toggles: Toggl
         {on ? <SquareCheck /> : <Square />}
       </span>
       {label}
+    </Link>
+  );
+}
+
+/**
+ * The glyph, colour and motion each column's head draws, so a column reads at
+ * a glance before its name is read. The motion is slight and runs forever
+ * only where it says something: work in progress turns, work to do waits.
+ * Every motion stops for a person who asked for less.
+ */
+const COLUMN_LOOK: Record<Status, { icon: React.ReactNode; tone: string; motion: string }> = {
+  backlog: { icon: <Inbox className="size-3.5" />, tone: "text-dim", motion: "" },
+  todo: { icon: <Circle className="size-3.5" />, tone: "text-muted", motion: "motion-safe:animate-breathe" },
+  in_progress: { icon: <CircleHalf className="size-3.5" />, tone: "text-[var(--color-opt-blue)]", motion: "motion-safe:animate-drift" },
+  done: { icon: <CircleCheck className="size-3.5" />, tone: "text-win", motion: "" },
+  cancelled: { icon: <CircleXMark className="size-3.5" />, tone: "text-danger", motion: "" },
+};
+
+/**
+ * The head of one column: its glyph, its name and its count. When the count
+ * changes the count ticks and the glyph pops, so a card that lands is seen to
+ * land. Backlog, when it is open by choice, carries the fold that closes it
+ * back into its bar.
+ */
+export function ColumnHead({
+  status,
+  label,
+  count,
+  fold,
+}: {
+  status: Status;
+  label: string;
+  count: number;
+  /** The address that folds the column away, or null where it cannot be folded. */
+  fold?: string | null;
+}) {
+  const look = COLUMN_LOOK[status];
+
+  return (
+    <h2 className="flex items-center gap-2 font-mono uppercase tracking-wide text-muted">
+      <span key={count} aria-hidden="true" className={`flex ${look.tone} motion-safe:animate-pop`}>
+        <span className={`flex ${look.motion}`}>{look.icon}</span>
+      </span>
+      {label}
+      {/* The key draws the count again when it changes, so it ticks. */}
+      <span key={`n${count}`} className="inline-block text-dim tabular-nums motion-safe:animate-tick">
+        {count}
+      </span>
+      {fold ? (
+        <Link
+          to={fold}
+          preventScrollReset
+          aria-label={`Fold ${label} away`}
+          title={`Fold ${label} away`}
+          className="press -my-1 ml-1 flex size-6 items-center justify-center rounded text-dim hover:bg-surface-2 hover:text-fg"
+        >
+          <AnglesLeft className="size-3" />
+        </Link>
+      ) : null}
+    </h2>
+  );
+}
+
+/**
+ * Backlog, folded: one slim bar at the left edge of the board, its count and
+ * its name set on end. A click opens the column out of it; the fold in the
+ * column's head puts it back. It replaces the Backlog checkbox: a column a
+ * person opens from where it lives, not from a switch across the page.
+ *
+ * It is a link that flips `backlog=1`, as the switch was, so the board stays
+ * an address and works with no script.
+ */
+export function BacklogBar({ count }: { count: number }) {
+  const [params] = useSearchParams();
+
+  return (
+    <Link
+      to={flipped(params, "backlog", false)}
+      preventScrollReset
+      aria-label={`Open Backlog, ${count} ${count === 1 ? "task" : "tasks"}`}
+      title="Open Backlog"
+      className="press group mt-6 mr-4 flex w-11 shrink-0 flex-col items-center gap-3 self-start rounded-lg border border-dashed border-border bg-surface py-4 text-muted hover:w-12 hover:border-solid hover:border-dim hover:bg-surface-2 hover:text-fg"
+    >
+      <Inbox className="size-4 transition-transform group-hover:-translate-y-0.5" />
+      <span key={count} className="font-mono text-xs tabular-nums text-fg motion-safe:animate-tick">
+        {count}
+      </span>
+      <span className="font-mono text-xs uppercase tracking-[0.2em] [writing-mode:vertical-rl] rotate-180">
+        Backlog
+      </span>
     </Link>
   );
 }

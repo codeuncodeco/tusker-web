@@ -52,3 +52,23 @@ it("draws a hold button that posts nothing by itself", () => {
   expect(html).toContain("Hold to delete, or click twice");
   expect(html).not.toContain("<form");
 });
+
+describe("Backlog, folded into a bar", () => {
+  it("opens the column with one click, keeping the rest of the address, and counts what waits", async () => {
+    const { BacklogBar } = await import("../app/board-chrome");
+    const Stub = createRoutesStub([{ path: "/me", Component: () => <BacklogBar count={4} /> }]);
+    const html = renderToStaticMarkup(<Stub initialEntries={["/me?assignee=anyone"]} />);
+
+    expect(html).toContain('href="/me?assignee=anyone&amp;backlog=1"');
+    expect(html).toContain('aria-label="Open Backlog, 4 tasks"');
+    expect(html).not.toContain('type="checkbox"');
+  });
+
+  it("folds back from the column's head", async () => {
+    const { ColumnHead } = await import("../app/board-chrome");
+    const html = drawn(<ColumnHead status="backlog" label="Backlog" count={2} fold="?" />);
+
+    expect(html).toContain('aria-label="Fold Backlog away"');
+    expect(drawn(<ColumnHead status="todo" label="To do" count={2} />)).not.toContain("Fold");
+  });
+});
