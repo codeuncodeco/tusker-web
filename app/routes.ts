@@ -33,6 +33,9 @@ export default [
     route("board", "routes/board.tsx"),
     route("fields", "routes/fields.tsx"),
     route("decisions", "routes/decisions.tsx"),
+    // The org's clients, and one client's notes and links. See ADR-0036.
+    route("clients", "routes/clients.tsx"),
+    route("clients/:client", "routes/client.tsx"),
     route("archive", "routes/archive.tsx"),
     route("members", "routes/members.tsx"),
     route("settings", "routes/settings.tsx"),

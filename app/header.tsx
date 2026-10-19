@@ -50,6 +50,7 @@ const PERSON = [
 
 /** The pages of one org after its board, in the order ⋯ lists them. */
 const ORG = [
+  { to: "clients", label: "Clients" },
   { to: "decisions", label: "Decisions" },
   { to: "archive", label: "Archive" },
   { to: "fields", label: "Fields" },

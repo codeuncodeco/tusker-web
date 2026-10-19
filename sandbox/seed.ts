@@ -16,6 +16,7 @@ import { addMemberById, createOrg, setOrgApp } from "../app/orgs.server";
 import { setPersonImage } from "../app/people.server";
 import { startPlan } from "../app/plans.server";
 import { archiveTasks } from "../app/archive.server";
+import { addLink, addNote, editResource } from "../app/client-resources.server";
 import { setAssignees } from "../app/assignees.server";
 import type { Scope } from "../app/scope.server";
 import { createTasks, moveTask, saveDescription, saveTask } from "../app/tasks.server";
@@ -159,6 +160,17 @@ export async function seed(db: D1Database): Promise<void> {
   await moveTask(db, studio, { taskId: decided, status: "done" });
   await decide(db, studio, new Request(`${ORIGIN}/o/studio/board`), form({ id: String(decided), title: "Use 100gsm recycled stock", rationale: "Cheaper, and the ink sits well on it." }));
   await recordDecision(db, garden, new Request(`${ORIGIN}/o/garden/decisions`), form({ title: "No pesticides on the shared beds", rationale: "Agreed at the June meeting." }));
+
+  // A client page with something on it: two links and a meeting note with
+  // action items. See ADR-0036.
+  await addLink(db, studio, "Northside Gallery", { url: "https://www.figma.com/design/aBcDeFgHiJkL/Spring-Show-Posters?node-id=0-1" });
+  await addLink(db, studio, "Northside Gallery", { url: "https://docs.google.com/document/d/1sAnDbOx/edit", title: "Show brief" });
+  await addLink(db, studio, "Mira Press", { url: "https://www.notion.so/mirapress/Interview-plan-0123456789abcdef0123456789abcdef" });
+  const kickoff = await addNote(db, studio, "Northside Gallery", localDay(new Date(Date.now() - 6 * 86_400_000)));
+  await editResource(db, studio, kickoff.id, {
+    title: "Kick-off with the gallery",
+    body: "Sam, Ana and Lena from Northside.\n\nThe show opens in spring. They want posters in two sizes and a zine to sell at the door.\n\n- [x] Send the brief back with questions\n- [ ] Book the photo shoot\n- [ ] Draft three poster directions\n\nNext call in two weeks.",
+  });
 
   // One archived task in each org, for the archive page.
   await archiveTasks(db, studio, [s.done[1]!]);

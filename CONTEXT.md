@@ -122,6 +122,26 @@ is the other, and it names an org and no person. Every read an org key can
 reach takes a read scope, and every write still takes a scope.
 _Avoid_: Anonymous scope, key context
 
+**Client page**:
+The page of one client of one org, at `/o/<slug>/clients/<value>`. It holds the
+client's links, its meeting notes and its open tasks, under a wash of the
+client's colour. The org's **Clients** page lists every client with what is
+open for it. See ADR-0036.
+_Avoid_: Client repository, client folder, client profile
+
+**Client link**:
+One address an org keeps on a client page: a Figma file, a brief, a shared
+folder, a recording. A paste adds it at once. Its first title is read from the
+address alone, because Tusker fetches nothing to name a link, and one click
+renames it.
+_Avoid_: Bookmark, resource, attachment
+
+**Meeting note**:
+One meeting, written down on a client page: the day it was held, a title, and
+raw markdown as a description holds, checkbox lines included. "New note"
+starts one dated today.
+_Avoid_: Minutes, client note, doc
+
 **Org app**:
 A separate application that an org runs, such as blrhikes-app. An org app reads
 tasks from the Tusker API and supplies the option lists for reference fields. It
