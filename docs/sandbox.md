@@ -20,6 +20,15 @@ mode.
   no name), a plan for today, a week set and two decisions.
 - The data lives only in that browser, in `localStorage`. Each visitor has
   their own copy. Two browsers never share data.
+- Studio names a client field with three clients, so cards carry client tags,
+  both boards filter by client, and Northside Gallery's client page holds
+  links and a meeting note. See ADR-0036.
+- Every person carries a colour, and Ana carries a picture. See ADR-0034.
+- Both boards open on Mine. See ADR-0035.
+
+A browser that saved its database before a new migration runs the migration
+on its next load, but it only gets new sample data after **Reset sample
+data**.
 
 ## Reset the data
 
