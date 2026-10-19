@@ -185,6 +185,8 @@ export function UnifiedBoard({
                         domId={`card-${task.id}`}
                         place={() => setOn(task.id)}
                         showsOrg={showsOrg}
+                        planned={planned.has(task.id)}
+                        act={post}
                       />
                     ))}
                   </DropList>

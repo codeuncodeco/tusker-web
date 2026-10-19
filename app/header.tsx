@@ -28,7 +28,7 @@ import {
   useColourSchemeFetcher,
 } from "./colour-scheme";
 import type { OrgHeld } from "./current-org";
-import { Desktop, Ellipsis, Moon, Sun, User } from "./icons";
+import { Desktop, Ellipsis, Keyboard, Moon, Sun, User } from "./icons";
 import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
 import { useKeyGuide } from "./keyed-list";
@@ -81,10 +81,21 @@ function buttonClass(here: boolean): string {
  * One row of a menu: a link, or the plain word where the person stands. The
  * whole row is the target, not only its words.
  */
-function Item({ to, here, children }: { to: string; here: boolean; children: React.ReactNode }) {
+function Item({
+  to,
+  here,
+  narrow = false,
+  children,
+}: {
+  to: string;
+  here: boolean;
+  /** True for a page the tabs hold from `md` up, so ⋯ holds it only below. */
+  narrow?: boolean;
+  children: React.ReactNode;
+}) {
   const row = "flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5";
   return (
-    <li>
+    <li className={narrow ? "md:hidden" : undefined}>
       {here ? (
         <span aria-current="page" className={`${row} bg-surface-2 font-medium`}>
           {children}
@@ -154,6 +165,7 @@ function Menu({
   name,
   here = false,
   align,
+  tabs = false,
   children,
 }: {
   /** Words drawn before the glyph: ⋯ names the page you stand on here. */
@@ -166,6 +178,8 @@ function Menu({
   here?: boolean;
   /** The edge of the summary the panel lines up with. */
   align: "left" | "right";
+  /** True for ⋯ beside the tabs: from `md` up the tabs name the page, so ⋯ names none. */
+  tabs?: boolean;
   children: React.ReactNode;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
@@ -204,7 +218,7 @@ function Menu({
       <summary
         className={`cursor-pointer list-none gap-1 whitespace-nowrap sm:gap-2 marker:content-none ${buttonClass(here)}`}
       >
-        {label ? <span className="max-w-48 truncate font-medium">{label}</span> : null}
+        {label ? <span className={`max-w-48 truncate font-medium ${tabs ? "md:hidden" : ""}`}>{label}</span> : null}
         {icon}
         <span className="sr-only">{name}</span>
       </summary>
@@ -231,6 +245,111 @@ function Menu({
  * On the board the select is the page's heading. A heading holds no form, so
  * the `h1` sits inside the form and around the control.
  */
+/**
+ * Where a pick of the org select lands: the board itself, or `/go` with the
+ * filter to carry. The assignee filter the board holds goes with the pick.
+ * Only `/go` knows the next board's words for it, so a pick that carries one
+ * goes through it. See `carried` and ADR-0033. A filter set to Anyone by hand
+ * is carried too, so the next board's memory does not stand in for it.
+ */
+function usePicked(): { assignee: string | null; picked: (slug: string) => string } {
+  const [params] = useSearchParams();
+  const assignee = params.has(ASSIGNEE_NAME) ? readAssignee(params) : null;
+  return {
+    assignee,
+    picked: (slug) =>
+      assignee === null ? boardOf(slug || null) : `/go?${new URLSearchParams({ to: slug, [ASSIGNEE_NAME]: assignee })}`,
+  };
+}
+
+/** The most orgs the header draws as chips. More than that is a select. */
+const ORG_CHIP_LIMIT = 5;
+
+/**
+ * The org chips: All, then every org with its dot, each one click to its
+ * board. They stand in for the select where there is room and few enough
+ * orgs; below `lg`, and past `ORG_CHIP_LIMIT` orgs, the select draws instead.
+ * On a board they are its heading, as the select is.
+ */
+function OrgChips({ orgs, org, heading }: { orgs: OrgHeld[]; org: OrgHeld | null; heading: boolean }) {
+  const { picked } = usePicked();
+  const chips = (
+    <nav aria-label="Board" className="flex items-center gap-0.5 rounded-full border border-border bg-surface p-0.5 font-sans">
+      {[{ slug: "", name: "All", color: null as string | null }, ...orgs].map((one) => {
+        const here = (org?.slug ?? "") === one.slug;
+        return (
+          <Link
+            key={one.slug || "all"}
+            to={picked(one.slug)}
+            aria-current={here ? "page" : undefined}
+            className={`press flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 ${
+              here ? "bg-fg font-medium text-bg motion-safe:animate-pop" : "text-muted hover:bg-surface-2 hover:text-fg"
+            }`}
+          >
+            {one.slug ? <OrgDot color={one.color} /> : null}
+            <span className="max-w-32 truncate">{one.name}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+  return heading ? <h1 className="font-normal">{chips}</h1> : chips;
+}
+
+/**
+ * The page tabs: Board, Week, Plan and Focus, and Clients in an org. One click
+ * each, where ⋯ took two. From `md` up they stand beside the select, and ⋯
+ * keeps the rest; below it ⋯ holds every page, as before.
+ */
+function PageTabs({ board, onBoard, org }: { board: string; onBoard: boolean; org: OrgHeld | null }) {
+  const { pathname } = useLocation();
+  const tabs = [
+    { to: board, label: "Board", here: onBoard },
+    ...PERSON.map((one) => ({ to: one.to, label: one.label, here: pathname.startsWith(one.to) })),
+    ...(org ? [{ to: pageOf(org.slug, "clients"), label: "Clients", here: pathname.startsWith(pageOf(org.slug, "clients")) }] : []),
+  ];
+
+  return (
+    <nav aria-label="Pages" className="hidden items-center gap-0.5 rounded-full border border-border bg-surface p-0.5 md:flex">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.label}
+          to={tab.to}
+          aria-current={tab.here ? "page" : undefined}
+          className={`press flex h-8 items-center rounded-full px-3 ${
+            tab.here ? "bg-fg font-medium text-bg motion-safe:animate-pop" : "text-muted hover:bg-surface-2 hover:text-fg"
+          }`}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * The Key guide, one click away beside the colour scheme, on a page that gives
+ * list keys and where the pointer is fine. The person menu still holds it.
+ */
+function KeysButton() {
+  const guide = useKeyGuide();
+  if (!guide.given) return null;
+  const mark = keyHint("guide");
+
+  return (
+    <button
+      type="button"
+      {...mark.keys}
+      onClick={() => guide.open(null)}
+      aria-label="Keys"
+      title="Keys ?"
+      className="press hidden size-[38px] items-center justify-center rounded border border-border bg-bg hover:border-dim hover:bg-surface-2 sm:pointer-fine:flex"
+    >
+      <Keyboard className="size-4" />
+    </button>
+  );
+}
+
 function OrgSelect({
   orgs,
   org,
@@ -242,19 +361,7 @@ function OrgSelect({
   heading: boolean;
 }) {
   const navigate = useNavigate();
-  // The assignee filter the board holds goes with the pick. Only `/go` knows
-  // the next board's words for it, so a pick that carries one goes through
-  // it. See `carried` and ADR-0033.
-  // A filter set to Anyone by hand is carried too, so the next board's memory
-  // does not stand in for it.
-  const [params] = useSearchParams();
-  const assignee = params.has(ASSIGNEE_NAME) ? readAssignee(params) : null;
-
-  /** Where a pick lands: the board itself, or `/go` with the filter to carry. */
-  function picked(slug: string): string {
-    if (assignee === null) return boardOf(slug || null);
-    return `/go?${new URLSearchParams({ to: slug, [ASSIGNEE_NAME]: assignee })}`;
-  }
+  const { assignee, picked } = usePicked();
 
   // The border is the label's, so it rings the dot and the select as one
   // control. The select draws no border of its own, and an option cannot draw
@@ -434,7 +541,16 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     >
       <span aria-hidden="true" className="hidden sm:block" />
       <div className="flex items-center gap-1 sm:gap-2">
-        {orgs.length > 1 ? (
+        {orgs.length > 1 && orgs.length <= ORG_CHIP_LIMIT ? (
+          <>
+            <span className="hidden lg:block">
+              <OrgChips orgs={orgs} org={org} heading={onBoard} />
+            </span>
+            <span className="lg:hidden">
+              <OrgSelect orgs={orgs} org={org} heading={onBoard} />
+            </span>
+          </>
+        ) : orgs.length > 1 ? (
           <OrgSelect orgs={orgs} org={org} heading={onBoard} />
         ) : onBoard && name ? (
           <h1 className="font-normal">{name}</h1>
@@ -442,18 +558,24 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           name
         )}
 
-        <Menu label={page} icon={<Ellipsis />} name="Pages" align="left">
-          <Item to={board} here={onBoard}>
+        <PageTabs board={board} onBoard={onBoard} org={org} />
+
+        {/* Below `md` ⋯ holds every page and names the one you stand on.
+            From `md` up the tabs hold the person's pages, and ⋯ the org's. */}
+        <Menu label={page} icon={<Ellipsis />} name="Pages" align="left" tabs>
+          <Item to={board} here={onBoard} narrow>
             Board
           </Item>
           {PERSON.map((one) => (
-            <Item key={one.to} to={one.to} here={pathname.startsWith(one.to)}>
+            <Item key={one.to} to={one.to} here={pathname.startsWith(one.to)} narrow>
               {one.label}
             </Item>
           ))}
           {org ? (
             <>
-              <Rule />
+              <span className="contents md:hidden">
+                <Rule />
+              </span>
               <Section org={org} />
               {ORG.map((one) => (
                 <Item key={one.to} to={pageOf(org.slug, one.to)} here={hereOrg(one.to)}>
@@ -468,6 +590,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
       {/* What is yours and no org's, at the far right, and the colour scheme
           beside it. */}
       <div className="flex items-center gap-1 justify-self-end sm:gap-2">
+        <KeysButton />
         <ColourSchemeButton />
         <Menu
           icon={<User />}

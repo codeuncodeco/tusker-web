@@ -117,7 +117,11 @@ describe("the org board card", () => {
  * A grip with the title link straight after it. The grip leads the title line,
  * and nothing sits between them: a card shows no rank. See #192.
  */
-const GRIP_THEN_TITLE = new RegExp(`${GRIP.source}<a `, "g");
+// The finish ring may sit between them: it finishes, and it ranks nothing.
+const GRIP_THEN_TITLE = new RegExp(
+  `${GRIP.source}(?:<button[^>]*aria-label="(?:Finish|Open)[^"]*"[^>]*>.*?</button>)?<a `,
+  "g",
+);
 
 describe("a board card", () => {
   it("shows no rank on the org board, so the grip leads straight into the title", () => {

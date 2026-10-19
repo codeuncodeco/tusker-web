@@ -52,6 +52,8 @@ import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
 import { ClientTag, clientPath } from "../client-tag";
+import { colorCss } from "../colors";
+import { FinishCircle } from "../finish-circle";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels, refOptionsOfOrg } from "../refs.server";
 import { useLocalDay } from "../local-day";
@@ -158,7 +160,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   }));
 
   return {
-    org: { slug: scope.org.slug, name: scope.org.name },
+    org: { slug: scope.org.slug, name: scope.org.name, color: scope.org.color },
     columns,
     /**
      * The org's members, in name order: the picker on the box offers them,
@@ -354,12 +356,21 @@ function CardItem({
   domId,
   place,
   slug,
+  finished,
+  move,
+  color,
 }: {
   card: Card;
   selected: boolean;
   domId: string;
   /** The org's slug, which the client tag's page sits under. */
   slug: string;
+  /** True for a card in Done or Cancelled: its ring is ticked. */
+  finished: boolean;
+  /** The board's move, which the ring posts as `x` does. */
+  move: Move;
+  /** The org's colour, which the burst of a finish takes. */
+  color: string | null;
   /**
    * Puts the keyboard cursor on this card. The keys act on the cursor, and `j`
    * was the only way to move it: on a long column that put them near the top
@@ -379,12 +390,19 @@ function CardItem({
       style={drag.style}
       // The card being dragged stays faded where it will land, and the copy
       // under the pointer is the one that moves.
-      className={`flex flex-col gap-2 rounded border p-3 shadow-sm ${
+      className={`press-soft flex flex-col gap-2 rounded border p-3 shadow-sm hover:shadow-md ${
         selected ? "border-fg bg-surface-2" : "border-border bg-surface"
       } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
         <Grip grip={drag.grip} />
+        <FinishCircle
+          finished={finished}
+          title={card.title}
+          color={color ? colorCss(color) : undefined}
+          onFinish={() => move(card.id, "done")}
+          onReopen={() => move(card.id, "todo")}
+        />
         <Link to={taskPath(card.id, origin)} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
@@ -578,6 +596,9 @@ export default function Board({ loaderData }: Route.ComponentProps) {
                         domId={`card-${card.id}`}
                         place={() => setOn(card.id)}
                         slug={org.slug}
+                        finished={column.status === "done" || column.status === "cancelled"}
+                        move={move}
+                        color={org.color}
                       />
                     ))}
                   </DropList>

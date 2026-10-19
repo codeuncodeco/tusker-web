@@ -209,7 +209,7 @@ function Hero({
         {org.name}
       </span>
       <h1 className="font-serif text-4xl tracking-tight">{client.label}</h1>
-      <span className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="flex flex-wrap items-center gap-2">
         <Stat value={counts.open} word="open" />
         <Stat value={counts.links} word={counts.links === 1 ? "link" : "links"} />
         <Stat value={counts.notes} word={counts.notes === 1 ? "note" : "notes"} />

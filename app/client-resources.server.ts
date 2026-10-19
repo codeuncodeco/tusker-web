@@ -47,7 +47,7 @@ export async function listResources(
     .prepare(
       `SELECT id, kind, title, url, body, day, updated_at FROM client_resources
        WHERE org_id = ? AND client = ?
-       ORDER BY day DESC, created_at DESC`,
+       ORDER BY created_at, rowid`,
     )
     .bind(scope.org.id, client)
     .all<{ id: string; kind: "link" | "note"; title: string; url: string | null; body: string; day: string | null; updated_at: string }>();
@@ -63,8 +63,10 @@ export async function listResources(
     if (url) links.push({ id: row.id, title: row.title, url: url.href, host: hostOf(url), kind: linkKind(url) });
   }
   // Links read in the order they were added, oldest first: a list a person
-  // builds up reads top to bottom.
-  links.reverse();
+  // builds up reads top to bottom. Notes read newest meeting first, and of
+  // two on one day, the one written later first.
+  notes.reverse();
+  notes.sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
   return { links, notes };
 }
 

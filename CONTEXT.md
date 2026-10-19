@@ -633,7 +633,8 @@ operating system. System is what a browser holds until a person picks. The
 pick belongs to the browser and not to the person, so a laptop and a phone can
 differ, and it outlives a sign-out. Every page honours it, the signed-out ones
 too, but only a signed-in page draws the control that changes it, beside the
-person menu.
+person menu. The control is one button: each click steps Light, Dark, System
+and round again, and the new scheme grows out of the button.
 _Avoid_: Theme, appearance, dark mode
 
 **Ground**:

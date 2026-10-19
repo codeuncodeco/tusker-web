@@ -274,6 +274,15 @@ describe("the header", () => {
     expect(markup.indexOf('aria-label="Colour scheme')).toBeLessThan(markup.indexOf(">You<"));
   });
 
+  it("draws the pages as tabs, one click each, with Clients in an org", () => {
+    const markup = headerAt("/o/acme/clients", [ada, acme], acme);
+    const tabs = markup.slice(markup.indexOf('<nav aria-label="Pages"'), markup.indexOf("</nav>", markup.indexOf('<nav aria-label="Pages"')));
+
+    expect([...tabs.matchAll(/>([A-Z][a-z]+)<\/a>/g)].map((one) => one[1])).toEqual(["Board", "Week", "Plan", "Focus", "Clients"]);
+    expect(tabs).toMatch(/aria-current="page"[^>]*>Clients</);
+    expect(headerAt("/me", [ada, acme], null)).not.toMatch(/<nav aria-label="Pages"[\s\S]*?Clients[\s\S]*?<\/nav>/);
+  });
+
   it("calls a task page Task, though its path names no org", () => {
     const markup = headerAt("/t/12", [ada, acme], acme);
 
@@ -295,7 +304,8 @@ describe("the header", () => {
 
     expect(markup).toMatch(/<a[^>]*href="\/me"[^>]*>Board</);
     expect(markup).toMatch(/<a[^>]*href="\/me\/plan"/);
-    expect(markup).not.toContain("/o/");
+    // The org chips lead to each org's board, and to no other org page.
+    expect(markup).not.toMatch(/href="\/o\/[^"]*\/(clients|decisions|archive|fields|members|settings)"/);
   });
 
   it("holds the pages of the org the select names, and scopes Board to it", () => {
@@ -307,7 +317,8 @@ describe("the header", () => {
       expect(inOrg).toMatch(new RegExp(`<a[^>]*href="/o/acme/${page}"`));
     }
     expect(inOrg).toMatch(/<a[^>]*href="\/o\/acme\/board"[^>]*>Board</);
-    expect(inOrg).not.toMatch(/href="\/me"/);
+    // All is a chip, and leads to /me; the Board page itself is the org's.
+    expect(inOrg).not.toMatch(/<a[^>]*href="\/me"[^>]*>Board</);
   });
 
   it("names the page a person stands on, and offers it no link", () => {

@@ -213,9 +213,14 @@ describe("the header", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
     const markup = headerAt("/o/acme/board", orgs, orgs[0]!);
 
-    // An option cannot draw a dot, so the header draws the named org's alone.
-    expect(markup).toMatch(/<label[^>]*>[\s\S]*--color-opt-teal[\s\S]*<select/);
-    expect(markup).not.toContain("var(--color-opt-pink)");
+    // An option cannot draw a dot, so the select draws the named org's alone.
+    // The org chips beside it, drawn where there is room, carry every org's.
+    const select = markup.slice(markup.indexOf("<label"), markup.indexOf("</select>"));
+    expect(select).toMatch(/--color-opt-teal[\s\S]*<select/);
+    expect(select).not.toContain("var(--color-opt-pink)");
+    const chips = markup.slice(markup.indexOf('<nav aria-label="Board"'), markup.indexOf("</nav>"));
+    expect(chips).toContain("var(--color-opt-teal)");
+    expect(chips).toContain("var(--color-opt-pink)");
   });
 
   it("gives a colourless org a grey dot, so the header keeps one shape", () => {

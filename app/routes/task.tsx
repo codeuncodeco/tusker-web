@@ -105,6 +105,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // dropdown list stays plain: a browser will not style an option, so the
     // dot draws beside the box. See ADR-0006.
     colors: await heldColors(env.DB, scope, fields, task.data),
+    // Every value's colour, for the chips a short select draws. See ADR-0036.
+    optionColors: await listColors(env.DB, scope),
     // The prompt the Finish button raised, if the query string still holds it.
     ask: await askedOn(env.DB, scope, request),
   };
@@ -350,7 +352,7 @@ function refuseFinished(status: Status) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { task, back, fields, refs, colors, members, assignees, ask } = loaderData;
+  const { task, back, fields, refs, colors, optionColors, members, assignees, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
   const drawn = useDrawnTask(task, assignees);
 
@@ -412,6 +414,7 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
           fields={fields}
           refs={refs}
           colors={colors}
+          optionColors={optionColors}
           members={members}
           assignees={assignees}
         />
