@@ -261,6 +261,13 @@ describe("the metadata aside", () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const id = await task(ada.org.id, 1);
 
+    // The org stores its one member as the holder, and shows nothing.
+    // See ADR-0032.
+    await db
+      .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
+      .bind(id, ada.org.id, ada.person.id)
+      .run();
+
     const page = await taskPage(ada.cookie, id);
     expect(page.members).toEqual([]);
     expect(page.assignees).toEqual([]);
@@ -294,6 +301,13 @@ describe("a card", () => {
   it("draws none in an org of one member", async () => {
     const ada = await member("ada@tusker.test", "Ada Lovelace");
     const id = await task(ada.org.id, 1);
+
+    // The org stores its one member as the holder, and shows nothing.
+    // See ADR-0032.
+    await db
+      .prepare("INSERT INTO task_assignees (task_id, org_id, user_id) VALUES (?, ?, ?)")
+      .bind(id, ada.org.id, ada.person.id)
+      .run();
 
     const page = await board(ada.cookie, ada.org.slug);
     const todo = page.columns.find((column) => column.status === "todo")!;

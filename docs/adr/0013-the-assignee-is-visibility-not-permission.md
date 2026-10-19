@@ -5,6 +5,9 @@ argument below stands; two parts of the answer changed. The filter is a select
 of the org's members, not the three fixed choices this ADR draws, and it lands
 on the org board alone.
 
+Amended by [ADR-0032](./0032-an-org-of-one-stores-its-assignee.md). An org of
+one stores its member as the holder of every unarchived task, and shows nothing.
+
 A task can name the members who hold it. The name is the **assignee**, a task
 can carry several, and the whole feature is a label plus a filter. It changes
 nothing about who may read a row.
@@ -69,8 +72,10 @@ missed.
 
 ## Two silences
 
-A personal org has one member, so it draws no assignee and no filter. A field
-whose only value is "me" is noise on every card of the org a person reads most. The rule reads the kind of the org, not its member count: see ADR-0017.
+An org of one member draws no assignee and no filter. A field whose only value
+is "me" is noise on every card of the org a person reads most. The rule reads
+the member count: ADR-0027 removed the kinds of org. The org still stores its
+member as the holder of every unarchived task, and shows nothing: see ADR-0032.
 
 `/api/tasks` does not answer with assignees. ADR-0005 gives the org key an org
 and no person; answering it with the members of that org turns a task-read key

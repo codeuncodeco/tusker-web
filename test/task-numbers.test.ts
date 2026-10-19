@@ -49,7 +49,9 @@ describe("migration 0019", () => {
          ('d2', 'o1', NULL, 'Orphan')`,
     );
 
-    await applyD1Migrations(db, migrations);
+    // Up to this migration and no further, so a later backfill does not add
+    // rows this test does not expect.
+    await applyD1Migrations(db, migrations.slice(0, at + 1));
 
     const tasks = await db
       .prepare("SELECT id, title FROM tasks ORDER BY id")

@@ -366,6 +366,17 @@ export function newTasksFrom(
 }
 
 /**
+ * The members who hold a new task. An org of one has no unassigned, unarchived
+ * task: its one member holds every one, and no screen shows it. The member is the
+ * person the scope proves, and is written once even when the add named them.
+ * The ones the add named stay too: the count is read with the scope, and a
+ * member who joined since must not lose a task the box gave them. See ADR-0032.
+ */
+function holdersOf(scope: Scope, named: string[]): string[] {
+  return scope.org.members === 1 ? [...new Set([scope.personId, ...named])] : named;
+}
+
+/**
  * Adds a block of tasks at the top of its column, where a person looks for the
  * ones they just typed, and gives back the ids it wrote, in list order.
  *
@@ -396,7 +407,10 @@ export async function createTasks(
   tasks: {
     titles: string[];
     status: Status;
-    /** The members who hold every task of the block. Empty is unassigned. */
+    /**
+     * The members who hold every task of the block. Empty is unassigned,
+     * except in an org of one, where the one member holds every task anyway.
+     */
     assignees: string[];
     /** The custom field values every task of the block holds. */
     data?: Record<string, string>;
@@ -411,6 +425,7 @@ export async function createTasks(
   // one for it.
   const finished = isFinished(tasks.status) ? NOW : "NULL";
   const data = JSON.stringify(tasks.data ?? {});
+  const assignees = holdersOf(scope, tasks.assignees);
 
   const statements = tasks.titles.flatMap((title, at) => [
     db
@@ -420,7 +435,7 @@ export async function createTasks(
          RETURNING id`,
       )
       .bind(orgId, title, tasks.status, positions[at], data),
-    ...tasks.assignees.map((userId) =>
+    ...assignees.map((userId) =>
       db
         .prepare(
           `INSERT INTO task_assignees (task_id, org_id, user_id)
@@ -432,7 +447,7 @@ export async function createTasks(
 
   const results = await db.batch<{ id: TaskId }>(statements);
   // Every task insert is followed by one insert per assignee.
-  const stride = 1 + tasks.assignees.length;
+  const stride = 1 + assignees.length;
   return results
     .filter((_, at) => at % stride === 0)
     .map((result) => result.results[0].id);

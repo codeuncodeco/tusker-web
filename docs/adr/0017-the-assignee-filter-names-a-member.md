@@ -2,6 +2,14 @@
 
 Amends [ADR-0013](./0013-the-assignee-is-visibility-not-permission.md).
 
+Amended by [ADR-0032](./0032-an-org-of-one-stores-its-assignee.md). The silence
+is keyed to the member count, not to the kind, and an org of one stores its
+assignee without showing it.
+
+Amended by [ADR-0033](./0033-the-unified-board-filters-by-mine.md). The unified
+board now draws `Anyone`, `Mine` and `Unassigned`, the shape "Why the org board
+alone" left for later.
+
 The org board's assignee filter is a select of the org's members: `Anyone`,
 `Unassigned`, then each member in name order. It narrows the org board and
 nothing else.
@@ -62,10 +70,11 @@ change — sweeping one member's finished work is a real act — because the swe
 archives what is on screen, and asks no question about which control put it
 there.
 
-## The silence stays keyed to the kind
+## The silence is keyed to the count
 
-A personal org draws no assignee, so it draws no filter. A team org draws both,
-even while it holds one member. ADR-0013 said "an org of one member", which
-reads as a count; the code has always tested the kind, and the kind is right. A
-control that appears the day a second member joins is a control drawn by rule,
-and the header's rule is that nothing is.
+An org of one member draws no assignee, so it draws no filter. An org of two or
+more draws both. This section first said the silence was keyed to the org's
+kind, personal or team. ADR-0027 removed the kinds, and the code tests the
+member count. A control that appears the day a second member joins is a control
+drawn by rule. An org of one still stores its member as the holder of every
+unarchived task: see ADR-0032.

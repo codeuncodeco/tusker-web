@@ -56,9 +56,16 @@ it.
 
 ## Consequences
 
-`OrgChip` is one component: a pill holding a `Dot` and the org name. The dot is
-`aria-hidden`, so a reader still reads the name alone. The unified card, the
-plan and week rows, and the quick-add box draw it.
+`OrgChip` is a small pill holding a `Dot` and the org's initials, two letters.
+The line under a task's title draws it: the unified card, the cross-org list,
+the plan and week rows, and focus mode. A full name took most of that line and
+cut off the org's fields, so the chip holds initials and every chip is one
+width. The dot and the initials are `aria-hidden`; the full name is the chip's
+text for a reader and its `title` on hover. Two orgs with the same initials
+keep them, and the colour and the hover name tell them apart. See #240.
+
+The quick-add box draws `OrgNameChip`, the dot and the full name, because that
+is where a person checks which org a new task goes to.
 
 The header takes the dot alone, because a menu row is not a chip: one before
 every org in the switcher, and one before the current org's name in row 1.
