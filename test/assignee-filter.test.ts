@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   ANYONE,
+  ANYONE_WORD,
   ASSIGNEE_NAME,
   MINE,
   UNASSIGNED,
   carried,
   keeps,
   readAssignee,
+  readBoardAssignee,
   readUnifiedAssignee,
   resolvedFor,
   seededBy,
@@ -92,7 +94,12 @@ describe("what a board remembers", () => {
   });
 
   it("is empty for a board a person cleared by hand", () => {
-    expect(narrowingOf(query(`q=&${ASSIGNEE_NAME}=&today=1`))).toBe("");
+    expect(narrowingOf(query("q=&today=1"))).toBe("");
+  });
+
+  it("keeps Anyone, said out loud, because a bare address is the reader's own work", () => {
+    expect(narrowingOf(query(`q=&${ASSIGNEE_NAME}=&today=1`))).toBe(`${ASSIGNEE_NAME}=${ANYONE_WORD}`);
+    expect(narrowingOf(query(`${ASSIGNEE_NAME}=${ANYONE_WORD}`))).toBe(`${ASSIGNEE_NAME}=${ANYONE_WORD}`);
   });
 });
 
@@ -119,13 +126,35 @@ describe("the value the unified board reads", () => {
     expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=${UNASSIGNED}`))).toBe(UNASSIGNED);
   });
 
-  it("is Anyone on an address that carries no filter, or an empty one", () => {
-    expect(readUnifiedAssignee(query("backlog=1"))).toBe(ANYONE);
+  it("is Mine on an address that carries no filter, so the board opens on the reader's work", () => {
+    expect(readUnifiedAssignee(query(""))).toBe(MINE);
+    expect(readUnifiedAssignee(query("backlog=1"))).toBe(MINE);
+  });
+
+  it("is Anyone on an address that says so, as the word or as an empty value", () => {
+    expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=${ANYONE_WORD}`))).toBe(ANYONE);
     expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=`))).toBe(ANYONE);
   });
 
   it("reads a member id as Anyone, because the board names no member", () => {
     expect(readUnifiedAssignee(query(`${ASSIGNEE_NAME}=u-ada`))).toBe(ANYONE);
+  });
+});
+
+describe("the value an org board reads", () => {
+  it("is the reader on an address that carries no filter", () => {
+    expect(readBoardAssignee(query(""), "u-ada")).toBe("u-ada");
+    expect(readBoardAssignee(query("q=walk"), "u-ada")).toBe("u-ada");
+  });
+
+  it("is Anyone on an address that says so, as the word or as an empty value", () => {
+    expect(readBoardAssignee(query(`${ASSIGNEE_NAME}=${ANYONE_WORD}`), "u-ada")).toBe(ANYONE);
+    expect(readBoardAssignee(query(`${ASSIGNEE_NAME}=`), "u-ada")).toBe(ANYONE);
+  });
+
+  it("reads Unassigned and a member as themselves", () => {
+    expect(readBoardAssignee(query(`${ASSIGNEE_NAME}=${UNASSIGNED}`), "u-ada")).toBe(UNASSIGNED);
+    expect(readBoardAssignee(query(`${ASSIGNEE_NAME}=u-bo`), "u-ada")).toBe("u-bo");
   });
 });
 
@@ -162,17 +191,17 @@ describe("the value the org select carries to another board", () => {
   });
 
   it("turns another member into Anyone, said out loud so no memory stands in", () => {
-    expect(carried("u-bo", "u-ada", null)).toBe(ANYONE);
-    expect(carried("u-bo", "u-ada", team)).toBe(ANYONE);
+    expect(carried("u-bo", "u-ada", null)).toBe(ANYONE_WORD);
+    expect(carried("u-bo", "u-ada", team)).toBe(ANYONE_WORD);
   });
 
   it("carries the person from one org board to another", () => {
     expect(carried("u-ada", "u-ada", team)).toBe("u-ada");
   });
 
-  it("carries Anyone set by hand, so the next board's memory does not stand in", () => {
-    expect(carried(ANYONE, "u-ada", null)).toBe(ANYONE);
-    expect(carried(ANYONE, "u-ada", team)).toBe(ANYONE);
+  it("carries Anyone set by hand, as its word, so the next board's memory and default do not stand in", () => {
+    expect(carried(ANYONE, "u-ada", null)).toBe(ANYONE_WORD);
+    expect(carried(ANYONE_WORD, "u-ada", team)).toBe(ANYONE_WORD);
   });
 
   it("carries nothing from an address with no filter, so the next board's memory holds", () => {

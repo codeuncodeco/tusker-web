@@ -30,7 +30,7 @@ import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
 import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
 import { useBoardKeys } from "../board-keys";
-import { ANYONE, keeps, readAssignee, seededBy } from "../assignee-filter";
+import { ANYONE, keeps, readBoardAssignee, seededBy } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask, membersOf, readAssignees } from "../assignees.server";
 import { AssigneePicker } from "../assignee-picker";
@@ -103,7 +103,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const [assignees, members] = draws
     ? await Promise.all([assigneesByTask(env.DB, scope), membersOf(env.DB, scope)])
     : [new Map<TaskId, Assignee[]>(), [] as Assignee[]];
-  const assignee = draws ? readAssignee(query) : ANYONE;
+  // A bare address is the reader's own work. See ADR-0035.
+  const assignee = draws ? readBoardAssignee(query, scope.personId) : ANYONE;
   // One select per field the org marks filterable, and the values the address
   // narrows by. A value for a field that draws no select is ignored, so an old
   // link still opens. A reference offers its cached refs, read for the whole
@@ -172,8 +173,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     search,
     /** The value the select holds, so a reload draws the filter it ran. */
     assignee,
+    /** The reader, whom the filter names first and a bare address narrows to. */
+    personId: scope.personId,
     /** One select per filterable field, each holding the value it narrows by. */
-    filters: filterSelects(declared, fieldValues, refs),
+    filters: filterSelects(declared, fieldValues, refs, colors),
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan: held.size > 0,
@@ -492,7 +495,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             they do not fit beside it. */}
         <nav className="flex flex-1 flex-wrap items-baseline justify-end gap-4">
           <SearchBox search={search} />
-          <AssigneeFilter assignee={assignee} members={members} />
+          <AssigneeFilter assignee={assignee} members={members} personId={loaderData.personId} />
           {filters.map((filter) => (
             <FieldFilterSelect key={filter.key} filter={filter} />
           ))}

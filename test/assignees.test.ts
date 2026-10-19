@@ -323,7 +323,7 @@ describe("a due date set on the task page", () => {
 
     await save(ada.cookie, id, { due_date: "2026-09-20" });
 
-    const request = get("/me");
+    const request = get("/me?assignee=anyone");
     request.headers.set("cookie", `${ada.cookie}; day=${DAY}`);
     const page = await meRoute.loader(routeArgs(request));
     const cards = page.columns.flatMap((column) => column.tasks);

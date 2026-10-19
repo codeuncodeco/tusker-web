@@ -306,7 +306,7 @@ describe("a deleted task, on every page", () => {
 
   it("is gone from the unified board", async () => {
     const ada = await deleted();
-    const data = await meRoute.loader(routeArgs(signed("/me", ada.cookie)));
+    const data = await meRoute.loader(routeArgs(signed("/me?assignee=anyone", ada.cookie)));
     expect(idsIn(data)).toContain(4);
     expect(idsIn(data)).not.toContain(5);
   });

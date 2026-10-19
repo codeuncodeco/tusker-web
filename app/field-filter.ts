@@ -72,8 +72,11 @@ export function keepsFields(
   return Object.entries(filters).every(([key, value]) => data[key] === value);
 }
 
-/** One value a filter offers: what the address carries, and what a person reads. */
-type Choice = { value: string; label: string };
+/**
+ * One value a filter offers: what the address carries, what a person reads,
+ * and the option colour its chip draws, where the value carries one.
+ */
+type Choice = { value: string; label: string; color?: string | null };
 
 /** What the top row draws one field's select with. */
 export type FieldFilter = {
@@ -97,14 +100,16 @@ export function filterSelects(
   fields: OrgField[],
   filters: Record<string, string>,
   refs: Record<string, RefOption[]>,
+  colors: Record<string, Record<string, string>> = {},
 ): FieldFilter[] {
   return filterableFields(fields).map((field) => {
-    const options =
+    const tint = colors[field.key] ?? {};
+    const options: Choice[] =
       field.type === "select"
-        ? field.options.map((one) => ({ value: one, label: one }))
-        : (refs[field.key] ?? []).map((one) => ({ value: one.id, label: one.label }));
+        ? field.options.map((one) => ({ value: one, label: one, color: tint[one] ?? null }))
+        : (refs[field.key] ?? []).map((one) => ({ value: one.id, label: one.label, color: tint[one.id] ?? null }));
     const value = filters[field.key] ?? "";
-    if (value && !options.some((one) => one.value === value)) options.push({ value, label: value });
+    if (value && !options.some((one) => one.value === value)) options.push({ value, label: value, color: null });
     return { key: field.key, label: field.label, value, options };
   });
 }

@@ -110,7 +110,20 @@ describe("narrowing the board to one member", () => {
     ]);
   });
 
-  it("gives the whole board back under Anyone", async () => {
+  it("opens on the reader's own work when the address names no filter", async () => {
+    const ada = await member("ada@example.test", "Ada");
+    // A second member, because an org of one draws no filter.
+    const bo = await member("bo@example.test", "Bo");
+    const org = await team("blrhikes", [ada, bo]);
+    await task(org.id, "Ada's", [ada]);
+    await task(org.id, "Bo's", [bo]);
+    await task(org.id, "Nobody's");
+
+    expect(titles(await board(org.slug, ada.cookie))).toEqual(["Ada's"]);
+    expect(titles(await board(org.slug, bo.cookie))).toEqual(["Bo's"]);
+  });
+
+  it("gives the whole board back under Anyone, said as its word or as an empty value", async () => {
     const ada = await member("ada@example.test", "Ada");
     // A second member, because an org of one draws no filter.
     const bo = await member("bo@example.test", "Bo");
@@ -118,7 +131,7 @@ describe("narrowing the board to one member", () => {
     await task(org.id, "Ada's", [ada]);
     await task(org.id, "Nobody's");
 
-    expect(titles(await board(org.slug, ada.cookie))).toEqual(["Ada's", "Nobody's"]);
+    expect(titles(await board(org.slug, ada.cookie, "?assignee=anyone"))).toEqual(["Ada's", "Nobody's"]);
     expect(titles(await board(org.slug, ada.cookie, "?assignee="))).toEqual(["Ada's", "Nobody's"]);
   });
 
@@ -141,7 +154,9 @@ describe("what the header needs to draw the select", () => {
     const org = await team("blrhikes", [ada, bo]);
 
     expect((await board(org.slug, ada.cookie, `?assignee=${ada.id}`)).assignee).toBe(ada.id);
-    expect((await board(org.slug, ada.cookie)).assignee).toBe("");
+    expect((await board(org.slug, ada.cookie, "?assignee=anyone")).assignee).toBe("");
+    // A bare address is the reader's own work. See ADR-0035.
+    expect((await board(org.slug, ada.cookie)).assignee).toBe(ada.id);
   });
 
   it("hands back the org's members in name order", async () => {
@@ -249,6 +264,6 @@ describe("the sweep under the filter", () => {
     request.headers.set("cookie", ada.cookie);
     await boardRoute.action(routeArgs(request, { slug: org.slug }));
 
-    expect(titles(await board(org.slug, ada.cookie))).toEqual(["Bo's, done"]);
+    expect(titles(await board(org.slug, ada.cookie, "?assignee=anyone"))).toEqual(["Bo's, done"]);
   });
 });

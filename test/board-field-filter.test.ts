@@ -128,8 +128,8 @@ describe("what the top row needs to draw the selects", () => {
         label: "client",
         value: "",
         options: [
-          { value: "Globex", label: "Globex" },
-          { value: "Acme", label: "Acme" },
+          { value: "Globex", label: "Globex", color: null },
+          { value: "Acme", label: "Acme", color: null },
         ],
       },
       {
@@ -137,8 +137,8 @@ describe("what the top row needs to draw the selects", () => {
         label: "trail",
         value: "nandi",
         options: [
-          { value: "nandi", label: "Nandi Hills" },
-          { value: "skandagiri", label: "Skandagiri" },
+          { value: "nandi", label: "Nandi Hills", color: null },
+          { value: "skandagiri", label: "Skandagiri", color: null },
         ],
       },
     ]);
@@ -149,7 +149,7 @@ describe("what the top row needs to draw the selects", () => {
     await declare(ada.org.id, "trail", "reference");
 
     const { filters } = await board(ada.org.slug, ada.cookie, "?field.trail=t-new");
-    expect(filters[0].options).toEqual([{ value: "t-new", label: "t-new" }]);
+    expect(filters[0].options).toEqual([{ value: "t-new", label: "t-new", color: null }]);
   });
 });
 
@@ -187,7 +187,7 @@ describe("the board scoped to All", () => {
     await task(ada.org.id, "For Globex", { client: "Globex" });
 
     const data = await meRoute.loader(
-      routeArgs(get("/me?field.client=Acme", `${ada.cookie}; day=${DAY}`)),
+      routeArgs(get("/me?field.client=Acme&assignee=anyone", `${ada.cookie}; day=${DAY}`)),
     );
     expect(JSON.stringify(data)).toContain("For Globex");
     expect(data).not.toHaveProperty("filters");

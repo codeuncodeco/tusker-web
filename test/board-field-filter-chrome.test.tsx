@@ -67,16 +67,25 @@ function filterGroup(html: string): string {
 }
 
 describe("the field filters in the top row", () => {
-  it("draws one select per filterable field, with Any first", () => {
+  it("draws one row of chips per filterable field, with Any first, each one click away", () => {
     const group = filterGroup(orgBoard({ filters: [CLIENT] }));
-    expect(group).toContain('name="field.client"');
     expect(group).toContain('aria-label="Filter by Client"');
+    expect(group).toContain('href="/o/acme/board?field.client=Acme"');
     expect(group.indexOf(">Any client<")).toBeLessThan(group.indexOf(">Acme<"));
   });
 
-  it("holds the value the board narrows by", () => {
+  it("presses the value the board narrows by, and a click on it gives Any back", () => {
     const group = filterGroup(orgBoard({ filters: [{ ...CLIENT, value: "Globex" }] }));
-    expect(group).toMatch(/<option value="Globex" selected="">/);
+    const globex = group.match(/<a [^>]*>(?:<span[^>]*><\/span>)?Globex</)?.[0] ?? "";
+    expect(globex).toContain('aria-pressed="true"');
+    expect(globex).toContain('href="/o/acme/board"');
+  });
+
+  it("draws a select for a field with too many values for a row of chips", () => {
+    const many = { ...CLIENT, options: Array.from({ length: 12 }, (_, at) => ({ value: `C${at}`, label: `C${at}` })) };
+    const group = filterGroup(orgBoard({ filters: [many] }));
+    expect(group).toContain('name="field.client"');
+    expect(group).toContain("<select");
   });
 
   it("draws no field select for an org with no filterable field", () => {
