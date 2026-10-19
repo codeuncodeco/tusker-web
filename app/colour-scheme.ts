@@ -13,10 +13,18 @@ import { useFetcher, useRouteLoaderData } from "react-router";
 import { readCookie } from "./cookies";
 import type { loader } from "./root";
 
-/** The three picks, in the order the control lists them. */
+/**
+ * The three picks, in the order the button steps through them. The last one
+ * steps back to the first, so three clicks come home.
+ */
 export const COLOUR_SCHEMES = ["light", "dark", "system"] as const;
 
 export type ColourScheme = (typeof COLOUR_SCHEMES)[number];
+
+/** The pick one click on the button moves to: the next in the ring. */
+export function nextScheme(scheme: ColourScheme): ColourScheme {
+  return COLOUR_SCHEMES[(COLOUR_SCHEMES.indexOf(scheme) + 1) % COLOUR_SCHEMES.length]!;
+}
 
 /** The cookie that holds a pick. No cookie means System. */
 const COLOUR_SCHEME_COOKIE = "colour-scheme";

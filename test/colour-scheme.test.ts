@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { colourSchemeOf } from "../app/colour-scheme";
+import { colourSchemeOf, nextScheme } from "../app/colour-scheme";
 import * as colourSchemeRoute from "../app/routes/colour-scheme";
 import { caught, cookieFrom, get, post, routeArgs } from "./routes";
 
@@ -22,6 +22,14 @@ describe("the colour scheme a request reads", () => {
   it("is System for any value other than light or dark", () => {
     expect(colourSchemeOf(get("/me", "colour-scheme=purple"))).toBe("system");
     expect(colourSchemeOf(get("/me", "colour-scheme="))).toBe("system");
+  });
+});
+
+describe("the next colour scheme", () => {
+  it("steps Light to Dark to System, and back to Light", () => {
+    expect(nextScheme("light")).toBe("dark");
+    expect(nextScheme("dark")).toBe("system");
+    expect(nextScheme("system")).toBe("light");
   });
 });
 

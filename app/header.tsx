@@ -6,8 +6,8 @@
  * page: one Board, whose scope the select sets, then Week, Plan and Focus, then
  * the pages of the org the select names. While the select reads All, no org is
  * named, so ⋯ holds no org page. At the far right, a person menu holds what is
- * no org's, and "Keys ?" on a page that gives list keys. Beside it, a select
- * sets the colour scheme. See ADR-0029 and #223.
+ * no org's, and "Keys ?" on a page that gives list keys. Beside it, one
+ * button steps through the colour schemes. See ADR-0029 and #223.
  *
  * The address is the only current org. The select reads it, and a pick goes to
  * the board of that scope at once.
@@ -22,9 +22,8 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
 import {
   COLOUR_SCHEME_ACTION,
-  COLOUR_SCHEMES,
   type ColourScheme,
-  isColourScheme,
+  nextScheme,
   useColourScheme,
   useColourSchemeFetcher,
 } from "./colour-scheme";
@@ -298,58 +297,86 @@ function OrgSelect({
   );
 }
 
-/** The name and the glyph of each colour scheme, as the select draws them. */
-const SCHEME_LOOKS: Record<ColourScheme, { label: string; icon: React.ReactNode }> = {
-  light: { label: "Light", icon: <Sun /> },
-  dark: { label: "Dark", icon: <Moon /> },
-  system: { label: "System", icon: <Desktop /> },
+/** The name and the glyph of each colour scheme, as the button draws them. */
+const SCHEME_LOOKS: Record<ColourScheme, { label: string; icon: (className: string) => React.ReactNode }> = {
+  light: { label: "Light", icon: (className) => <Sun className={className} /> },
+  dark: { label: "Dark", icon: (className) => <Moon className={className} /> },
+  system: { label: "System", icon: (className) => <Desktop className={className} /> },
 };
 
+/** The radius the reveal grows to: far enough to cover the farthest corner. */
+function revealRadius(x: number, y: number): number {
+  return Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+}
+
 /**
- * The colour scheme select: Light, Dark or System. A pick posts through a
- * fetcher, and the page draws it while the post is in flight, so it changes at
- * once. The post reloads no page's data: only the root reads the cookie.
+ * The colour scheme button: one glyph, and one click steps to the next scheme,
+ * Light to Dark to System and round again. See `nextScheme`.
  *
- * With no script it is a plain POST form, and the button inside `<noscript>`
- * sends it. The form names the page the person stands on, and the reply
+ * With script, the pick posts through a fetcher, and the page draws it while
+ * the post is in flight, so it changes at once. Where the browser can, the new
+ * scheme grows out of the button as a circle over the old one, and the glyph
+ * spins in. A person who asked for less motion gets the change at once.
+ *
+ * With no script it is a plain POST form, and the button itself sends the next
+ * scheme. The form names the page the person stands on, and the reply
  * redirects back there.
  */
-function ColourSchemeSelect() {
+function ColourSchemeButton() {
   const scheme = useColourScheme();
   const fetcher = useColourSchemeFetcher();
   const { pathname, search } = useLocation();
+  const next = nextScheme(scheme);
+  const name = `Colour scheme: ${SCHEME_LOOKS[scheme].label}. Switch to ${SCHEME_LOOKS[next].label}.`;
+
+  function pick(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const send = () =>
+      fetcher.submit(
+        { scheme: next },
+        { method: "post", action: COLOUR_SCHEME_ACTION, defaultShouldRevalidate: false, flushSync: true },
+      );
+
+    const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (calm || typeof document.startViewTransition !== "function") {
+      void send();
+      return;
+    }
+
+    // The circle grows from the button's centre.
+    const box = event.currentTarget.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const root = document.documentElement;
+    root.classList.add("scheme-reveal");
+    const transition = document.startViewTransition(() => {
+      void send();
+    });
+    void transition.ready.then(() => {
+      root.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${revealRadius(x, y)}px at ${x}px ${y}px)`] },
+        { duration: 520, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)", pseudoElement: "::view-transition-new(root)" },
+      );
+    });
+    void transition.finished.finally(() => root.classList.remove("scheme-reveal"));
+  }
 
   return (
-    <form method="post" action={COLOUR_SCHEME_ACTION} className="flex items-center gap-2">
+    <form method="post" action={COLOUR_SCHEME_ACTION}>
       <input type="hidden" name="next" value={`${pathname}${search}`} />
-      {/* The border is the label's, so it rings the glyph and the select as
-          one control, the way the org select rings its dot. */}
-      <label className="flex items-center rounded border border-border bg-bg pl-1.5 focus-within:border-fg sm:pl-2">
-        {SCHEME_LOOKS[scheme].icon}
-        <select
-          name="scheme"
-          aria-label="Colour scheme"
-          value={scheme}
-          onChange={(event) => {
-            const picked = event.target.value;
-            if (!isColourScheme(picked)) return;
-            void fetcher.submit(
-              { scheme: picked },
-              { method: "post", action: COLOUR_SCHEME_ACTION, defaultShouldRevalidate: false },
-            );
-          }}
-          className="h-9 rounded bg-transparent pl-1 pr-0.5 focus:outline-none sm:pl-1.5 sm:pr-1"
-        >
-          {COLOUR_SCHEMES.map((one) => (
-            <option key={one} value={one}>
-              {SCHEME_LOOKS[one].label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <noscript>
-        <button className={buttonClass(false)}>Set</button>
-      </noscript>
+      <button
+        name="scheme"
+        value={next}
+        onClick={pick}
+        aria-label={name}
+        title={name}
+        className="press flex size-[38px] items-center justify-center overflow-hidden rounded border border-border bg-bg hover:border-dim hover:bg-surface-2"
+      >
+        {/* The key draws the glyph again on every pick, so it spins in. */}
+        <span key={scheme} className="flex motion-safe:animate-spin-in">
+          {SCHEME_LOOKS[scheme].icon("size-4")}
+        </span>
+      </button>
     </form>
   );
 }
@@ -396,7 +423,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     //
     // Below `sm` the empty left column goes and the gaps, padding and the
     // select's text shrink, so the header still fits one row at 360px with
-    // the colour scheme select in it. See #223.
+    // the colour scheme button in it. See #223.
     //
     // On a board, from `sm` up, the header sticks, and the board's Top row
     // sticks under it at `top-16`, so the height is fixed and not its
@@ -440,7 +467,7 @@ export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
       {/* What is yours and no org's, at the far right, and the colour scheme
           beside it. */}
       <div className="flex items-center gap-1 justify-self-end sm:gap-2">
-        <ColourSchemeSelect />
+        <ColourSchemeButton />
         <Menu
           icon={<User />}
           name="You"

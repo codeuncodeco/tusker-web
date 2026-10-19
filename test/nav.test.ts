@@ -254,20 +254,24 @@ describe("the header", () => {
     }
   });
 
-  it("sets the colour scheme beside the person menu, in a form that works with no script", () => {
+  it("steps the colour scheme with one button beside the person menu, in a form that works with no script", () => {
     const markup = headerAt("/me/week?day=2026-10-13", [ada, acme], null);
 
     const form = markup.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
     expect(form).toContain('method="post"');
     expect(form).toContain('<input type="hidden" name="next" value="/me/week?day=2026-10-13"/>');
-    expect(form).toMatch(/<select name="scheme" aria-label="Colour scheme"/);
-    expect(form.replace(/ selected=""/g, "")).toMatch(/<option value="light">Light<\/option><option value="dark">Dark<\/option><option value="system">System<\/option>/);
-    // With no loader data and nothing in flight, the pick reads System.
-    expect(form).toContain('<option value="system" selected="">System</option>');
+    // With no loader data and nothing in flight, the pick reads System, and
+    // one click sends Light: the button is the form's own submit, so no
+    // script is needed, and no select or Set button is drawn.
+    const button = form.match(/<button[^>]*>/)?.[0] ?? "";
+    expect(button).toContain('name="scheme"');
+    expect(button).toContain('value="light"');
+    expect(button).toContain('aria-label="Colour scheme: System. Switch to Light."');
+    expect(form).not.toContain("<select");
+    expect(form).not.toContain("<noscript>");
     expect(form).toMatch(/<svg[^>]*aria-hidden="true"/);
-    expect(form).toMatch(/<noscript>[\s\S]*Set[\s\S]*<\/noscript>/);
     // The person menu stays at the far right edge.
-    expect(markup.indexOf('aria-label="Colour scheme"')).toBeLessThan(markup.indexOf(">You<"));
+    expect(markup.indexOf('aria-label="Colour scheme')).toBeLessThan(markup.indexOf(">You<"));
   });
 
   it("calls a task page Task, though its path names no org", () => {
