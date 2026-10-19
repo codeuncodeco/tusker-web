@@ -61,6 +61,7 @@
   --animate-burst: burst 620ms var(--ease-snap) forwards;
   --animate-tick: tick 260ms var(--ease-spring) both;
   --animate-glow: glow 1.6s ease-in-out infinite;
+  --animate-drain: drain linear forwards;
 
   @keyframes pop {
     0% {
@@ -131,6 +132,14 @@
     from {
       opacity: 0;
       transform: translateY(-60%);
+    }
+  }
+
+  /* A toast's clock: a bar that empties over the toast's life. The duration
+     is the toast's, set where it is drawn. */
+  @keyframes drain {
+    to {
+      transform: scaleX(0);
     }
   }
 

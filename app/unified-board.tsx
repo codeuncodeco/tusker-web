@@ -19,7 +19,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { isFinished, type Status } from "./board";
+import { EMPTY_LINE, isFinished, type Status } from "./board";
 import { ColumnSweep } from "./column-sweep";
 import { landingInOrg } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
@@ -145,7 +145,11 @@ export function UnifiedBoard({
                 >
                   <div className="flex items-baseline gap-3">
                     <h2 className="font-mono uppercase tracking-wide text-muted">
-                      {column.label} <span className="text-dim">{column.tasks.length}</span>
+                      {column.label}{" "}
+                      {/* The key draws the count again when it changes, so it ticks. */}
+                      <span key={column.tasks.length} className="inline-block text-dim tabular-nums motion-safe:animate-tick">
+                        {column.tasks.length}
+                      </span>
                     </h2>
                     {/* The sweep acts on the whole column, so it is column chrome,
                         and it sits with the name and the count as it does on the
@@ -177,6 +181,14 @@ export function UnifiedBoard({
                   >
                     {/* The box files into To do, so an add in flight draws there. */}
                     {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
+                    {cards.length === 0 && !(column.status === "todo" && addsSent(sent).length > 0) ? (
+                      <li
+                        aria-hidden="true"
+                        className="pointer-events-none rounded border border-dashed border-border p-3 text-center text-xs text-dim motion-safe:animate-rise-in"
+                      >
+                        {EMPTY_LINE[column.status]}
+                      </li>
+                    ) : null}
                     {cards.map((task) => (
                       <UnifiedCard
                         key={task.id}

@@ -282,6 +282,10 @@ export function Grip({ grip }: { grip: DragGrip }) {
  */
 export function DragCopy({ title }: { title: string }) {
   return (
-    <div className="cursor-grabbing rounded border border-fg bg-surface p-3 shadow-md">{title}</div>
+    // Lifted off the board: a little larger, a little turned, with a deeper
+    // shadow, as a card picked up in a game. It lands with the drop.
+    <div className="-rotate-1 scale-[1.03] cursor-grabbing rounded border border-fg bg-surface p-3 shadow-xl motion-safe:animate-pop">
+      {title}
+    </div>
   );
 }

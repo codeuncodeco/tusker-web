@@ -36,9 +36,10 @@ import { restoreAcross, sweepAcross } from "../sweep.server";
 import { columnsFor, finishedSince, unifiedColumns } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { UnifiedBoard } from "../unified-board";
+import { TodayMeter } from "../today-meter";
 import { TopRow, TopRowBox } from "../top-row";
 import { actOnTask } from "../unified-actions.server";
-import { listUnified, membersBySlug } from "../unified.server";
+import { doneAmong, listUnified, membersBySlug } from "../unified.server";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
 import type { Route } from "./+types/me";
@@ -112,6 +113,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     week,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan: inPlan.size > 0,
+    /** How many of today's planned tasks are done, for the Today meter. */
+    doneToday: await doneAmong(env.DB, set, planned),
     /** This week's set holds a task, so its chip has something to narrow to. */
     hasSet: inWeek.size > 0,
     // The prompt a finished card raised, if the query string still holds one.
@@ -175,6 +178,7 @@ export default function Me({ loaderData }: Route.ComponentProps) {
           {/* A person with no plan for today gets no chip: there is nothing
               to narrow to, and the header's ⋯ holds Plan on every page. The
               week set reads the same way, and ⋯ holds Week. */}
+          {hasPlan ? <TodayMeter done={loaderData.doneToday} planned={planned.length} /> : null}
           {hasPlan ? <TodayChip today={today} hasPlan /> : null}
           {hasSet ? <WeekChip week={week} hasSet /> : null}
           <UnifiedAssigneeFilter assignee={assignee} />

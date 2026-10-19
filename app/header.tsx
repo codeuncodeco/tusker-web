@@ -74,7 +74,7 @@ function pageOf(slug: string, page: string): string {
  * person menu fills softly while a person stands on one of its pages.
  */
 function buttonClass(here: boolean): string {
-  return `flex h-[38px] items-center rounded border px-1.5 leading-none sm:px-3 ${here ? "border-dim bg-surface-2 font-medium text-fg" : "border-border"}`;
+  return `press flex h-[38px] items-center rounded border px-1.5 leading-none hover:bg-surface-2 sm:px-3 ${here ? "border-dim bg-surface-2 font-medium text-fg" : "border-border"}`;
 }
 
 /**

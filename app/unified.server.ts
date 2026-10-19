@@ -257,3 +257,21 @@ export async function membersBySlug(
   const members = await membersInOrgs(db, teams.map((org) => org.id));
   return Object.fromEntries(teams.map((org) => [org.slug, members.get(org.id) ?? []]));
 }
+
+/**
+ * How many of these tasks are done, among the orgs of the set: the count the
+ * Today meter fills to. A task of an org the person left counts for nothing,
+ * as it reads for nothing. See `TodayMeter`.
+ */
+export async function doneAmong(db: D1Database, set: OrgSet, ids: TaskId[]): Promise<number> {
+  if (ids.length === 0 || set.orgs.length === 0) return 0;
+  const row = await db
+    .prepare(
+      `SELECT count(*) AS n FROM tasks
+       WHERE id IN (${holes(ids.length)}) AND org_id IN (${holes(set.orgs.length)})
+         AND status = 'done' AND ${notDeleted()}`,
+    )
+    .bind(...ids, ...set.orgs.map((org) => org.id))
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}

@@ -10,6 +10,8 @@
 
 import { useNavigation, type Navigation } from "react-router";
 
+import { celebrateAt } from "./celebrate";
+
 /**
  * Whether the navigation is a post of this intent, or of a form with no
  * intent when `intent` is null. The edit form posts no intent, so that is how
@@ -41,7 +43,11 @@ export function PostButton({
     <button
       {...(intent ? { name: "intent", value: intent } : {})}
       disabled={posting}
-      className="self-start rounded border border-border px-3 py-2 disabled:opacity-30"
+      // Finishing is the act a person comes to do, so it earns the burst.
+      onClick={intent === "finish" ? (event) => celebrateAt(event.currentTarget) : undefined}
+      className={`press self-start rounded border px-3 py-2 disabled:opacity-30 ${
+        intent === "finish" ? "border-win font-medium text-win hover:bg-win/10" : "border-border hover:bg-surface-2"
+      }`}
     >
       {posting ? busyLabel : label}
     </button>

@@ -102,7 +102,8 @@ export function ToastRegion({ held, drop }: { held: Held | null; drop: () => voi
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center p-4"
+      // Over the phone task bar, which sits at the foot of the page too.
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center p-4 max-sm:bottom-16"
     >
       {held ? <ToastBar key={held.raised} toast={held.toast} drop={drop} /> : null}
     </div>
@@ -135,7 +136,16 @@ export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
   }, [act.state, act.data, drop]);
 
   return (
-    <div className="pointer-events-auto flex items-baseline gap-3 rounded border border-border bg-surface px-3 py-2 shadow-sm">
+    <div className="pointer-events-auto relative flex items-baseline gap-3 overflow-hidden rounded-lg border border-border bg-surface px-4 py-2.5 shadow-lg motion-safe:animate-rise-in">
+      {/* The clock: a bar that empties as the toast's life runs out, so a
+          person can see how long the Undo stays. A stopped toast has none. */}
+      {stopped ? null : (
+        <span
+          aria-hidden="true"
+          style={{ animationDuration: `${TOAST_LIFE}ms` }}
+          className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-fg/25 motion-safe:animate-drain"
+        />
+      )}
       <span>{stopped ? "One org did not answer. Press Undo again." : toast.text}</span>
 
       {toast.act ? (
@@ -145,7 +155,7 @@ export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
               <input key={`${name}:${one}`} type="hidden" name={name} value={one} />
             )),
           )}
-          <button className="underline underline-offset-2">{toast.act.label}</button>
+          <button className="press font-medium underline underline-offset-2">{toast.act.label}</button>
         </act.Form>
       ) : null}
 
@@ -155,7 +165,7 @@ export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
         </Link>
       ))}
 
-      <button type="button" onClick={drop} aria-label="Dismiss" className="text-muted">
+      <button type="button" onClick={drop} aria-label="Dismiss" className="press text-muted hover:text-fg">
         ×
       </button>
     </div>
