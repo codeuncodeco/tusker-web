@@ -13,7 +13,8 @@ mode.
 ## What a visitor gets
 
 - One person, Sam Sandbox, always signed in. There is no login step. `/` opens
-  the unified board.
+  the board of the first org, Studio. All orgs is in the settings panel. See
+  ADR-0037.
 - Two orgs, Studio and Garden Club, with different org colours. Sam owns both.
 - Tasks in every status, an archived task in each org, custom fields with
   option colours, a reference field with a pulled cache, assignees (one with
