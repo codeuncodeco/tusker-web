@@ -94,17 +94,17 @@ describe("the box on a board narrowed to Mine", () => {
   });
 });
 
-describe("the org select", () => {
-  it("carries the board's filter, so a pick with no script keeps it", () => {
+describe("the org picks in the settings panel", () => {
+  it("carry the board's filter through /go, so the next board reads it in its own words", () => {
     const html = headerAt(`/me?assignee=${MINE}`, [ADA, ACME], null);
 
-    expect(html).toContain(`<input type="hidden" name="assignee" value="${MINE}"/>`);
+    expect(html).toContain(`href="/go?to=acme&amp;assignee=${MINE}"`);
   });
 
-  it("carries Anyone set by hand", () => {
+  it("carry Anyone set by hand", () => {
     const html = headerAt("/o/acme/board?assignee=", [ADA, ACME], ACME);
 
-    expect(html).toContain('<input type="hidden" name="assignee" value=""/>');
+    expect(html).toContain('href="/go?to=ada&amp;assignee="');
   });
 
   it("carries nothing from an address with no filter", () => {

@@ -7,10 +7,11 @@ import type { TaskId } from "./task-number";
  * A path inside the app, so a redirect cannot be pointed at another site.
  * A browser reads `/\` as `//`, so neither starts one.
  *
- * The fallback is the unified board. A person who signed in without asking for
- * a page lands on their work, the same answer `/` gives.
+ * The fallback is `/`, which sends a signed-in person to the board of their
+ * first org. A person who signed in without asking for a page lands on their
+ * work. See ADR-0037.
  */
-export function safeNext(value: unknown, fallback = "/me"): string {
+export function safeNext(value: unknown, fallback = "/"): string {
   const path = typeof value === "string" ? value : "";
   return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\")
     ? path

@@ -80,7 +80,12 @@ export async function caught(work: Promise<unknown>): Promise<Response> {
  * a data router, as the app draws it, because its colour scheme select posts
  * through a fetcher.
  */
-export function headerAt(pathname: string, orgs: OrgHeld[], org: OrgHeld | null): string {
-  const Stub = createRoutesStub([{ path: "*", Component: () => createElement(Header, { orgs, org }) }]);
+export function headerAt(
+  pathname: string,
+  orgs: OrgHeld[],
+  org: OrgHeld | null,
+  me?: { name: string; initials: string; color?: string; image?: string },
+): string {
+  const Stub = createRoutesStub([{ path: "*", Component: () => createElement(Header, { orgs, org, me }) }]);
   return renderToStaticMarkup(createElement(Stub, { initialEntries: [pathname] }));
 }

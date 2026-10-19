@@ -8,6 +8,7 @@
  * keeps for one, as a small data URL the account page makes in the browser.
  */
 
+import { initialsOf, nameOf, type Me } from "./assignees";
 import { readColor } from "./colors";
 
 /** What the account page draws of the person reading it. */
@@ -91,4 +92,27 @@ export async function setPersonName(db: D1Database, personId: string, raw: unkno
     .prepare(`UPDATE "user" SET name = ?, updatedAt = ? WHERE id = ?`)
     .bind(name, new Date().toISOString(), personId)
     .run();
+}
+
+/**
+ * The person reading the page, as the profile button draws them: their name,
+ * their initials, and their look. Every layout reads it, so the button wears
+ * the person's own avatar on every page.
+ */
+export async function meOf(db: D1Database, personId: string): Promise<Me> {
+  const row = await db
+    .prepare(
+      `SELECT u.name, u.email, u.image, pc.color FROM "user" u
+       LEFT JOIN person_colors pc ON pc.user_id = u.id
+       WHERE u.id = ?`,
+    )
+    .bind(personId)
+    .first<{ name: string; email: string; image: string | null; color: string | null }>();
+  if (!row) return { name: "", initials: "?" };
+  return {
+    name: nameOf(row),
+    initials: initialsOf(row),
+    ...(row.color ? { color: row.color } : {}),
+    ...(row.image ? { image: row.image } : {}),
+  };
 }

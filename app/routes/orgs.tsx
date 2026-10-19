@@ -30,7 +30,7 @@ export function meta(_: Route.MetaArgs) {
 /** The signed-in person's id, or a redirect to their board when they belong to an org. */
 async function requireNoOrg(request: Request, env: Env): Promise<string> {
   const set = await readOrgSet(request, env);
-  if (set.orgs.length > 0) throw redirect("/me");
+  if (set.orgs.length > 0) throw redirect("/");
   return set.personId;
 }
 

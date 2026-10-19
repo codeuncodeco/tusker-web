@@ -78,7 +78,7 @@ describe("picking a colour scheme", () => {
       const response = await pick({ scheme: "dark", next });
 
       expect(response.status).toBe(302);
-      expect(response.headers.get("location")).toBe("/me");
+      expect(response.headers.get("location")).toBe("/");
     }
   });
 });

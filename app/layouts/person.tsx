@@ -12,6 +12,7 @@ import { Outlet, redirect } from "react-router";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { Header } from "../header";
+import { meOf } from "../people.server";
 import { namedOrg } from "../org-select";
 import { pageUrl } from "../paths";
 import { DIRECTORY, readOrgSet } from "../scope.server";
@@ -31,14 +32,15 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   if (set.orgs.length === 0 && !OPEN_WITHOUT_ORG.has(pathname)) throw redirect(DIRECTORY);
 
   const orgs = set.orgs.map(held);
-  return { orgs, org: namedOrg(orgs, null) };
+  return { orgs, org: namedOrg(orgs, null), me: await meOf(env.DB, set.personId) };
 }
 
 export default function Person({ loaderData }: Route.ComponentProps) {
   return (
     <div className="flex min-h-full flex-col">
-      <Header orgs={loaderData.orgs} org={loaderData.org} />
-      <div className="flex flex-1 flex-col">
+      <Header orgs={loaderData.orgs} org={loaderData.org} me={loaderData.me} />
+      {/* Room at the foot for the dock, so it never sits over the last line. */}
+      <div className="flex flex-1 flex-col pb-20">
         <Outlet />
       </div>
     </div>

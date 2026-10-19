@@ -222,7 +222,7 @@ _Avoid_: Shortcut badge, keycap, tooltip
 
 **Key guide**:
 The dialog that names every list key the page a person stands on gives. `?`
-opens it from inside a keyed list, and "Keys ?" in the person menu opens it
+opens it from inside a keyed list, and the keys button in the header opens it
 from anywhere on that page. A page that gives no list keys has no key guide,
 and a phone draws none, because it has no keyboard. It is the one place a
 person learns the keys that no control carries a hint for.
@@ -505,13 +505,264 @@ The bare word is right where one scope is in view, or where the rule holds for
 both. Where the two stand together, name them.
 _Avoid_: Kanban, board view, org filter
 
+**Dock**:
+The three round buttons fixed to the bottom right of every signed-in page:
+the **View button**, the **Settings panel** and the profile button, which
+wears the person's avatar and opens the account as a modal over the page.
+Each is a link or a `<details>` underneath, so each still reaches its page
+with no script. See ADR-0037.
+_Avoid_: Toolbar, floating menu, FAB
+
+**View button**:
+The dock's first button. One click steps to the next view: Board, Week, Plan,
+Focus, and round again; Shift-click steps back. Board is the board of the org
+in view, else the board the browser last stood on, else the first org's. It
+works as the colour scheme button does: one glyph, one step a click.
+_Avoid_: View switcher, tabs, page menu
+
+**Settings panel**:
+What the dock's gear opens: the **Org select**, then the pages of the org in
+view, or of the first org on a page that spans them: Clients, Decisions,
+Archive, Fields, Members and the org's own settings, then New org.
+_Avoid_: Admin menu, more menu
+
 **Org select**:
-The control in the header that sets the board's scope: All, then every org the
-person belongs to. A pick goes to that scope's board at once. It reads the
-address, so it names the org of the org page a person stands on, and All on
-every person page. A person in one org has nothing to pick, so it is not drawn:
-that person always stands in their one org, their board is that org's board,
-and the header's menu always holds its pages. A pick carries the
+The part of the settings panel that sets the board's scope: every org the
+person belongs to, first joined first, then All. A pick goes to that scope's
+board at once. Tusker starts on the first org's board, and `/` sends a
+signed-in person there, so All is one pick away rather than the start. A
+person in one org has nothing to pick: they always stand in their one org. A
+pick carries the **Assignee filter**: `Mine` on All is the person's own name in
+an org, and back again, `Unassigned` stays, and another member becomes
+`Anyone`. An org of one draws no filter, so the value is dropped on the way
+there. See ADR-0029 and ADR-0037.
+_Avoid_: Org switcher, org dropdown, org filter
+
+**Org board**:
+The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
+Backlog and Cancelled shown by rule. Backlog folded away is a slim bar at the
+board's left edge, and a click opens the column out of it. The order inside a column is the org's and
+it is stored, so this is the one board that binds `J` and `K`. A drag draws
+where the card will land, and the drop writes that place. A card carries no
+reorder button, and the **Key guide** names `J` and `K`. See ADR-0016, ADR-0025 and ADR-0026.
+_Avoid_: Team board, project board, the org's board
+
+**Unified board**:
+The same five columns across every org one person belongs to, at `/me`. A person
+who learns the org board meets the same page across all of them. Done is drawn
+on every load, empty or not. The board draws work in hand and where it ended,
+and where work ended is never a request. See ADR-0018. Backlog and Cancelled are
+switches here, the same two the org board offers. Backlog takes no rule here,
+because the org board's rule reads "this person holds no live task anywhere" and
+is therefore dead. Done and Cancelled cap to the last seven days of finish time.
+Inside a column the order is percentile order, and it is derived: no card
+steps. A card moves by key, which names a column, or by drag, which draws where
+the card will land and writes a place inside the card's own org: above the
+nearest card of that org below the drop. Percentile order then draws the card,
+which can sit a little away from the drop. See ADR-0015 and ADR-0025.
+_Avoid_: Unified view, my tasks page, global board
+
+**Quick-add box**:
+The box that makes a task from a typed title. A board has one, at the left of
+the **Top row** and outside every column, and what it adds lands in To do. A task meant
+for another column is added and then moved. On the unified board and in plan
+mode it carries an org picker, which starts with no org picked every time a
+person opens Tusker, and the box refuses an add until one is picked. A person
+who belongs to one org has no org picker, and that org is implied. A person who
+belongs to several sees a chip that names the picked org while the box holds
+it, and the line an add leaves names the org. For a person in one org, that
+line says "Added" and names no org. The box sets no decision mark: the task
+page does. The box also names the assignees, out of the
+members of the org it files into: the set starts empty, it stays across an add,
+and a change of org empties it. An org that holds one member has nobody else to
+name, so no box filing there draws the assignee picker. The title is a textarea
+one line high: Enter posts and Shift+Enter makes a line, so a pasted list keeps
+its line breaks. On the org board the box takes the board's narrowing: a task
+added there holds each active **Field filter** value, and an **Assignee
+filter** set to a member starts the picker with that member, who the person
+can still change before Enter. `Anyone` and `Unassigned` start it with nobody.
+A value the task cannot take is skipped, not refused. See ADR-0013 and
+ADR-0027.
+_Avoid_: Composer, capture box, new task form
+
+**Pasted list**:
+Several lines posted from one quick-add box. Each non-empty line, trimmed, is
+one task, in the order the lines appear, and the block lands at the top of the
+column with the first line topmost. The picked members go on all of them or on
+none, because one box holds one set, and so do the field values the board's
+narrowing gives. A list of more
+than 100 lines is refused and writes nothing.
+_Avoid_: Bulk add, batch, import
+
+**Undo an add**:
+The line the quick-add box shows after it makes a task. It counts what the add
+made, removes every row that add wrote for good, drops them all from the day's
+plan, and gives the box back the whole text as it was typed, with the picker
+reset to no org picked and the assignee set emptied with it, so a task typed
+into the wrong org is filed again rather than typed again. One add is one act,
+so its undo is one act. It is not a **Delete**: nothing of the add is kept. See
+ADR-0012 and ADR-0027.
+_Avoid_: Trash, revert
+
+**Week set**:
+The tasks one person means to finish in one named week, in the order they mean
+to take them. It holds no day: the week set says what and how it ranks, and the
+plan says when. A pick lands on top, a task written back from a day lands at the
+foot, and a member finished this week sinks under the live ones and keeps its
+place. It belongs to the person and can hold tasks from several orgs. Membership
+is always per named week, so a task is in the set of week 36 and not "in the
+week set". See ADR-0014 and ADR-0021.
+_Avoid_: Week plan, weekly backlog, commitment
+
+**Week page**:
+The page where a person builds a week set and puts it in order, at `/me/week`,
+and `/me/week/:week` for a named week. It draws the live set as a list, as plan
+mode does, with the quick-add box, and the week it names runs Monday to Friday.
+`J` and `K` step a member, `T` promotes one to the top and `B` sends one to the
+foot, and the set is the one order on the page. Every pick and every step
+writes, as in plan mode. All of that is the week the person is in, and the
+weeks ahead of it: a week that is over is read, not rewritten, so the **week
+walk** to it draws its set alone and offers the **take**. See ADR-0014 and
+ADR-0021.
+_Avoid_: Weekly planner, week board
+
+**Plan**:
+The tasks one person chose for one day, in the order they mean to work them. A
+plan belongs to the person and can hold tasks from several orgs. Every task a
+plan holds is in that week's set: picking a task the set does not hold adds it.
+See ADR-0014.
+
+**Plan mode**:
+The page where a person builds a plan: pick the tasks, order them, keep them.
+It draws the live set as a list, at `/me/plan`, and `/me/plan/:day` for a named
+day. Plan mode, focus and the unified board share the live set and the sort,
+and lay them out differently: a plan drawn from a Done column is nonsense. The
+week set comes first, in week order, and the rest of the live set under a
+heading below it. Plan mode reads that order and never writes it: the one order
+it owns is the plan's. A row of the plan steps by key and drags by pointer, and
+the drag draws where it will land (ADR-0025). It carries no reorder button
+(ADR-0026). Every pick, step and drag writes the plan row, so nothing waits on a tab and there is no Commit button. All of
+that is the day the person is in, and the days ahead of it. Reading a finished day back is not plan mode's act, so a **Day
+walk** to a day behind today draws the plan alone. See ADR-0008 and ADR-0014.
+_Avoid_: Daily planner, plan builder
+
+**Week walk**:
+The controls that carry the week page from one week to the next: the week
+before, the week after, and the way back to this week. The **week span** heads
+the page and links to the week's own address, so the walk and that link
+together are what make `/me/week/:week` reachable. A week that is over is read
+and not rewritten, so it draws no pick, no step and no box, and offers the
+**take** instead. This week and the weeks after it plan as they
+always did, and a week nobody started draws empty and offers what it always
+offers.
+_Avoid_: Week picker, week navigator
+
+**Day walk**:
+The controls that carry plan mode from one day to the next: the day before, the
+day after, and the way back to today. The **day name** heads the page and links
+to the day's own address, so the walk and that link together are what make
+`/me/plan/:day` reachable. Building a plan and reading one back are not the same
+act, so a day before today draws its plan alone: no shelf, no pick, no step, and
+no add. Today and the days after it plan as they always did.
+_Avoid_: Date picker, day navigator
+
+**Day name**:
+The day as a person reads it: "Thursday 3 September". The weekday is the part a
+person counts by, so it comes first, and the year is written only outside the
+year the reader is in. A heading puts "Today", "Yesterday" or "Tomorrow" in
+front of the name where the day is one step from today. The name is read in
+UTC, so it is the day itself and not the reader's evening. The address and the
+stored day keep `YYYY-MM-DD`: only the reading changes.
+_Avoid_: Date string, formatted date
+
+**Week span**:
+The week as a person reads it: "Mon 31 Aug – Fri 4 Sep", the Monday and the
+Friday that bound it. It heads the week page and names its tab, because
+`2026-W36` is an address and not a reading. A heading puts "This week", "Last
+week" or "Next week" in front of the span where the week is one step from this
+one, as **Day name** puts "Today" in front of a date. The days are read in UTC,
+and the year is written only on an end outside the year the reader is in. The
+address and the stored key keep `YYYY-Www`: only the reading changes.
+_Avoid_: Week range, week dates
+
+**Leftovers**:
+The unfinished members of a week that is over. Two doorways reach them, the
+**carry** and the **take**, and both copy the memberships and leave the old ones
+as they were, so a task is in both sets: a week set is never rewritten after its
+week, except by a **Delete**. A day carries nothing: each plan starts empty, and
+the week set is where unfinished work waits. See ADR-0014.
+_Avoid_: Rollover, unfinished carry-over
+
+**Carry**:
+The doorway an unstarted week opens on: take the leftovers of the last week
+that holds a set, or start clean. It is offered once, when the week opens, and
+the week it names is not always the week before. Either answer starts the week,
+so the offer is not made again. See ADR-0014.
+_Avoid_: Rollover prompt
+
+**Take**:
+The doorway a week that is over holds, and the one write it answers: its
+leftovers, fetched into the week the browser is in. A person asks for it, from
+that week's own page, as often as they like, and the button names the week the
+block lands in by its **week span**. The block lands on top of the target set
+and keeps its own order, because it is work a person went and fetched. Taking
+into a week with no set starts that week, as a carry does. See ADR-0014 and ADR-0021.
+_Avoid_: Pull forward, re-carry
+
+**Today chip**:
+The control on a board that narrows it to the tasks today's plan holds. Both
+boards carry one. A person with no plan for today gets no chip on the unified
+board, and the org board's chip then leads to plan mode instead.
+_Avoid_: Today filter, my-day toggle
+
+**Week chip**:
+The control on a board that narrows it to the tasks this week's set holds. It
+sits beside the Today chip and reads the same way: both boards carry one, a
+person with no set for this week gets no chip on the unified board, and the org
+board's chip then leads to the week page. The two narrowings are exclusive, so
+a board is narrowed by one, or by neither.
+_Avoid_: Week filter, this-week toggle
+
+**Column switch**:
+The control on a board that draws a column the board hides by default. It names
+the column and holds no verb: the box says whether the column is drawn. Backlog
+and Cancelled, on both boards. Done takes no switch: the board draws where work
+ended. See ADR-0018.
+_Avoid_: Show link, column filter, toggle
+
+**Focus**:
+A mode that shows one batch of tasks and hides the rest until that batch is
+done, at `/me/focus`. It draws from the plan when a plan exists, from the week
+set when none does, and from the live set when there is no set either.
+See ADR-0009 and ADR-0014.
+_Avoid_: Focus timer, deep work mode
+
+**Batch**:
+The tasks focus mode shows at one time, three at the most. The plan is cut into
+threes from the top, and the batch is the first three that hold an unfinished
+task. No row stores a batch.
+_Avoid_: Chunk, sprint, session
+
+**Header**:
+The one bar every signed-in page draws, in one row. At its left, where the
+person stands: the org in view, or All orgs on a page that spans them, and the
+page, as "Studio / Board". On a board that line is the page's heading, and
+every other page heads itself. At its right, the keys button, where the page
+gives list keys, and the **Colour scheme** button. Everything that moves the
+person elsewhere is in the **Dock**. A label names the destination and never
+what the page holds, so "Week" and "Plan" stand while those pages head with
+the week and the day they draw. The address is the only place the header
+reads an org from. See ADR-0011, ADR-0029 and ADR-0037.
+_Avoid_: Chrome, nav bar, top bar
+
+**Top row**:
+The row of a board under the header: the quick-add box at the left, and the
+search, the filters, the chips and the column switches at the right. A border
+splits it from the columns. On a wide screen it stays in sight with the header
+while the page scrolls, and the columns do not scroll on their own. On a phone
+it scrolls away with the page.
+_Avoid_: Top bar, toolbar, board controls
+
 **Assignee filter**:
 The chips on a board that narrow it to the tasks one person holds. The org board
 draws the reader's own chip, `Anyone`, `Unassigned`, then each other member as
@@ -522,7 +773,11 @@ out loud as `anyone`. A member answers for a task they hold among others, and
 `Unassigned` answers for a task nobody holds. It lives in the address, it joins
 the remembered narrowing, and it narrows what the Today chip and the search
 already left. An org that holds one member carries no filter, because it draws
-no assignee. See ADR-0013, ADR-0017, ADR-0033 and ADR-0035.
+no assignee. `Mine` rides the address as `assignee=me`, so a shared link shows
+whoever opens it their own work, and it finds the tasks of each org of one the
+person works in, because an org of one stores its member as the holder. On
+`Mine`, the quick-add box starts with the person picked. See ADR-0013,
+ADR-0017, ADR-0033 and ADR-0035.
 _Avoid_: My tasks toggle, owner filter
 
 **Field filter**:
@@ -632,8 +887,8 @@ Whether a page draws light or dark: Light, Dark, or System, which follows the
 operating system. System is what a browser holds until a person picks. The
 pick belongs to the browser and not to the person, so a laptop and a phone can
 differ, and it outlives a sign-out. Every page honours it, the signed-out ones
-too, but only a signed-in page draws the control that changes it, beside the
-person menu. The control is one button: each click steps Light, Dark, System
+too, but only a signed-in page draws the control that changes it, at the
+right of the header. The control is one button: each click steps Light, Dark, System
 and round again, and the new scheme grows out of the button.
 _Avoid_: Theme, appearance, dark mode
 

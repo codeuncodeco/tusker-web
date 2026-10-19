@@ -122,7 +122,7 @@ async function remove(env: Env, scope: Scope, form: FormData) {
   }
 
   const done = await removeMember(env.DB, scope, member.id);
-  if (done === "changed" && you) return redirect("/me");
+  if (done === "changed" && you) return redirect("/");
   return answer(done, scope, `${nameOf(member)} is out of ${scope.org.name}.`);
 }
 

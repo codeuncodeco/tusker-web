@@ -158,7 +158,7 @@ describe("removing a member", () => {
     })) as Response;
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/me");
+    expect(response.headers.get("location")).toBe("/");
     expect(await membershipIds()).not.toContain(bo.person.id);
   });
 

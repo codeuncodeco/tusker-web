@@ -137,16 +137,16 @@ describe("every page loads over the browser database", () => {
     });
   }
 
-  it("sends / to the unified board, with no sign-in", async () => {
-    expect(redirectOf((await load("/")).thrown)).toBe("/me");
+  it("sends / to the board of the first org, with no sign-in", async () => {
+    expect(redirectOf((await load("/")).thrown)).toBe("/o/studio/board");
   });
 
   it("sends the sign-in page on, because the person is signed in", async () => {
-    expect(redirectOf((await load("/login")).thrown)).toBe("/me");
+    expect(redirectOf((await load("/login")).thrown)).toBe("/");
   });
 
   it("sends a member from the org directory to their board, as on main", async () => {
-    expect(redirectOf((await load("/orgs")).thrown)).toBe("/me");
+    expect(redirectOf((await load("/orgs")).thrown)).toBe("/");
   });
 
   it("shuts the bootstrap page, because the seed made accounts", async () => {

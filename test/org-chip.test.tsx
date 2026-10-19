@@ -209,18 +209,16 @@ describe("the header", () => {
     return { slug, name: slug, color };
   }
 
-  it("puts the dot of the org the select names inside the select's border", () => {
+  it("puts the dot of the org in view beside its name, and every org's in the settings panel", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
     const markup = headerAt("/o/acme/board", orgs, orgs[0]!);
 
-    // An option cannot draw a dot, so the select draws the named org's alone.
-    // The org chips beside it, drawn where there is room, carry every org's.
-    const select = markup.slice(markup.indexOf("<label"), markup.indexOf("</select>"));
-    expect(select).toMatch(/--color-opt-teal[\s\S]*<select/);
-    expect(select).not.toContain("var(--color-opt-pink)");
-    const chips = markup.slice(markup.indexOf('<nav aria-label="Board"'), markup.indexOf("</nav>"));
-    expect(chips).toContain("var(--color-opt-teal)");
-    expect(chips).toContain("var(--color-opt-pink)");
+    const header = markup.slice(0, markup.indexOf("</header>"));
+    expect(header).toContain("var(--color-opt-teal)");
+    expect(header).not.toContain("var(--color-opt-pink)");
+    const panel = markup.slice(markup.indexOf('aria-label="Settings"'));
+    expect(panel).toContain("var(--color-opt-teal)");
+    expect(panel).toContain("var(--color-opt-pink)");
   });
 
   it("gives a colourless org a grey dot, so the header keeps one shape", () => {

@@ -187,8 +187,10 @@ describe("a person in one org", () => {
     const board = await meRoute.loader(routeArgs(get("/me", ada.cookie)));
     const landing = await caught(homeRoute.loader(routeArgs(get("/", ada.cookie))));
 
+    // The unified board stays, and `/` opens the first org's board. See
+    // ADR-0037.
     expect(board).not.toBeInstanceOf(Response);
-    expect(landing.headers.get("location")).toBe("/me");
+    expect(landing.headers.get("location")).toBe(`/o/${ada.org.slug}/board`);
   });
 });
 
@@ -227,8 +229,15 @@ describe("the scope of a page under the org layout", () => {
 });
 
 /** The option the select reads, out of the header's markup. */
-function picked(markup: string): string | null {
-  return markup.match(/<option value="([^"]*)" selected=""/)?.[1] ?? null;
+/** The dock's settings panel, as markup. */
+function settings(markup: string): string {
+  const at = markup.indexOf('aria-label="Settings"');
+  return markup.slice(at, markup.indexOf("</details>", at));
+}
+
+/** The dock's View button, as its opening tag. */
+function viewButton(markup: string): string {
+  return markup.match(/<a[^>]*aria-label="(?:View|Back to)[^"]*"[^>]*>/)?.[0] ?? "";
 }
 
 describe("the header", () => {
@@ -242,122 +251,99 @@ describe("the header", () => {
     expect(markup).not.toContain(">Tusker<");
   });
 
-  it("reads All on every person page", () => {
-    for (const path of ["/me", "/me/week", "/me/plan/2026-10-09", "/me/focus", "/account"]) {
-      expect(picked(headerAt(path, [ada, acme], null))).toBe("");
+  it("names All orgs on every person page, and the org on every org page", () => {
+    for (const path of ["/me", "/me/week", "/me/plan/2026-10-09", "/me/focus"]) {
+      expect(headerAt(path, [ada, acme], null)).toContain(">All orgs<");
     }
-  });
-
-  it("reads the org of every org page", () => {
     for (const path of ["/o/acme/board", "/o/acme/decisions", "/t/12", "/o/acme/settings"]) {
-      expect(picked(headerAt(path, [ada, acme], acme))).toBe("acme");
+      const markup = headerAt(path, [ada, acme], acme);
+      expect(markup.slice(0, markup.indexOf("</header>"))).toContain(">acme<");
     }
   });
 
-  it("steps the colour scheme with one button beside the person menu, in a form that works with no script", () => {
+  it("names the page beside the org", () => {
+    expect(headerAt("/o/acme/board", [ada, acme], acme)).toMatch(/>acme<[\s\S]*>Board</);
+    expect(headerAt("/o/acme/clients", [ada, acme], acme)).toMatch(/>Clients</);
+    expect(headerAt("/me/plan", [ada, acme], null)).toMatch(/>Plan</);
+    expect(headerAt("/t/12", [ada, acme], acme)).toMatch(/>Task</);
+  });
+
+  it("steps the colour scheme with one button, in a form that works with no script", () => {
     const markup = headerAt("/me/week?day=2026-10-13", [ada, acme], null);
 
     const form = markup.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
     expect(form).toContain('method="post"');
     expect(form).toContain('<input type="hidden" name="next" value="/me/week?day=2026-10-13"/>');
     // With no loader data and nothing in flight, the pick reads System, and
-    // one click sends Light: the button is the form's own submit, so no
-    // script is needed, and no select or Set button is drawn.
+    // one click sends Light: the button is the form's own submit.
     const button = form.match(/<button[^>]*>/)?.[0] ?? "";
     expect(button).toContain('name="scheme"');
     expect(button).toContain('value="light"');
     expect(button).toContain('aria-label="Colour scheme: System. Switch to Light."');
     expect(form).not.toContain("<select");
-    expect(form).not.toContain("<noscript>");
-    expect(form).toMatch(/<svg[^>]*aria-hidden="true"/);
-    // The person menu stays at the far right edge.
-    expect(markup.indexOf('aria-label="Colour scheme')).toBeLessThan(markup.indexOf(">You<"));
+    // It sits in the header, at the right.
+    expect(markup.indexOf('aria-label="Colour scheme')).toBeLessThan(markup.indexOf("</header>"));
   });
 
-  it("draws the pages as tabs, one click each, with Clients in an org", () => {
-    const markup = headerAt("/o/acme/clients", [ada, acme], acme);
-    const tabs = markup.slice(markup.indexOf('<nav aria-label="Pages"'), markup.indexOf("</nav>", markup.indexOf('<nav aria-label="Pages"')));
+  it("makes the org and page the board's heading, and no other page's", () => {
+    expect(headerAt("/o/acme/board", [ada, acme], acme)).toMatch(/<h1[^>]*>[\s\S]*acme[\s\S]*Board[\s\S]*<\/h1>/);
+    expect(headerAt("/me", [ada, acme], null)).toMatch(/<h1[^>]*>[\s\S]*All orgs[\s\S]*<\/h1>/);
+    expect(headerAt("/me/week", [ada, acme], null)).not.toContain("<h1");
+    expect(headerAt("/o/ada/board", [ada], ada)).toMatch(/<h1[^>]*>[\s\S]*ada[\s\S]*<\/h1>/);
+  });
+});
 
-    expect([...tabs.matchAll(/>([A-Z][a-z]+)<\/a>/g)].map((one) => one[1])).toEqual(["Board", "Week", "Plan", "Focus", "Clients"]);
-    expect(tabs).toMatch(/aria-current="page"[^>]*>Clients</);
-    expect(headerAt("/me", [ada, acme], null)).not.toMatch(/<nav aria-label="Pages"[\s\S]*?Clients[\s\S]*?<\/nav>/);
+describe("the dock", () => {
+  const ada = org("ada");
+  const acme = org("acme");
+
+  it("steps the view with one click: Board, Week, Plan, Focus, and round", () => {
+    expect(viewButton(headerAt("/o/acme/board", [ada, acme], acme))).toContain('href="/me/week"');
+    expect(viewButton(headerAt("/me/week", [ada, acme], null))).toContain('href="/me/plan"');
+    expect(viewButton(headerAt("/me/plan", [ada, acme], null))).toContain('href="/me/focus"');
+    // From Focus the board is the first org's, where Tusker starts, until the
+    // browser remembers another.
+    expect(viewButton(headerAt("/me/focus", [ada, acme], null))).toContain('href="/o/ada/board"');
+    expect(viewButton(headerAt("/o/acme/board", [ada, acme], acme))).toContain('aria-label="View: Board. Switch to Week."');
   });
 
-  it("calls a task page Task, though its path names no org", () => {
-    const markup = headerAt("/t/12", [ada, acme], acme);
+  it("goes back to the board from a page that is no view", () => {
+    const button = viewButton(headerAt("/o/acme/decisions", [ada, acme], acme));
 
-    expect(markup).toMatch(/>Task</);
+    expect(button).toContain('href="/o/acme/board"');
+    expect(button).toContain('aria-label="Back to Board"');
   });
 
-  it("lists All, then every org, in a form that works with no script", () => {
-    const markup = headerAt("/me", [ada, acme], null);
+  it("picks the board's org in the settings panel: every org, then All", () => {
+    const panel = settings(headerAt("/o/acme/board", [ada, acme], acme));
 
-    const form = markup.match(/<form[^>]*>/)?.[0] ?? "";
-    expect(form).toContain('method="get"');
-    expect(form).toContain('action="/go"');
-    expect(markup).toMatch(/<select name="to"/);
-    expect(markup.replace(/ selected=""/g, "")).toMatch(/<option value="">All<\/option><option value="ada">ada<\/option><option value="acme">acme<\/option>/);
+    expect([...panel.matchAll(/href="(\/o\/[^/"]+\/board|\/me)"/g)].map((one) => one[1])).toEqual([
+      "/o/ada/board",
+      "/o/acme/board",
+      "/me",
+    ]);
+    expect(panel).toMatch(/aria-current="page"[^>]*href="\/o\/acme\/board"|href="\/o\/acme\/board"[^>]*aria-current="page"/);
   });
 
-  it("holds no org page while the select reads All", () => {
-    const markup = headerAt("/me/week", [ada, acme], null);
+  it("holds the pages of the org in view, or of the first org on a page that spans them", () => {
+    const inOrg = settings(headerAt("/o/acme/decisions", [ada, acme], acme));
+    const onWeek = settings(headerAt("/me/week", [ada, acme], null));
 
-    expect(markup).toMatch(/<a[^>]*href="\/me"[^>]*>Board</);
-    expect(markup).toMatch(/<a[^>]*href="\/me\/plan"/);
-    // The org chips lead to each org's board, and to no other org page.
-    expect(markup).not.toMatch(/href="\/o\/[^"]*\/(clients|decisions|archive|fields|members|settings)"/);
-  });
-
-  it("holds the pages of the org the select names, and scopes Board to it", () => {
-    const markup = headerAt("/me/week", [ada, acme], null);
-    const inOrg = headerAt("/o/acme/decisions", [ada, acme], acme);
-
-    expect(markup).not.toContain("Decisions");
-    for (const page of ["archive", "fields", "members", "settings"]) {
-      expect(inOrg).toMatch(new RegExp(`<a[^>]*href="/o/acme/${page}"`));
+    for (const page of ["clients", "decisions", "archive", "fields", "members", "settings"]) {
+      expect(inOrg).toContain(`href="/o/acme/${page}"`);
+      expect(onWeek).toContain(`href="/o/ada/${page}"`);
     }
-    expect(inOrg).toMatch(/<a[^>]*href="\/o\/acme\/board"[^>]*>Board</);
-    // All is a chip, and leads to /me; the Board page itself is the org's.
-    expect(inOrg).not.toMatch(/<a[^>]*href="\/me"[^>]*>Board</);
+    expect(inOrg).toContain('href="/orgs/new"');
   });
 
-  it("names the page a person stands on, and offers it no link", () => {
-    const markup = headerAt("/o/acme/decisions", [ada, acme], acme);
+  it("opens the account from a profile button that wears the person's avatar", () => {
+    const markup = headerAt("/me", [ada, acme], null, { name: "Ada Byron", initials: "AB", color: "teal" });
+    const profile = markup.match(/<a[^>]*aria-haspopup="dialog"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? "";
 
-    expect(markup).toMatch(/aria-current="page"[^>]*>Decisions</);
-    expect(markup).not.toMatch(/<a[^>]*href="\/o\/acme\/decisions"/);
-    // ⋯ carries the name of the page, so the bar says where you are.
-    expect(markup).toMatch(/<summary[^>]*>[\s\S]*?Decisions[\s\S]*?<\/summary>/);
-  });
-
-  it("puts Account and New org in the person menu", () => {
-    const markup = headerAt("/me", [ada, acme], null);
-
-    expect(markup).toMatch(/<a[^>]*href="\/account"/);
-    expect(markup).toMatch(/<a[^>]*href="\/orgs\/new"/);
-  });
-
-  it("draws no select for a person in one org, and always holds their org's pages", () => {
-    const markup = headerAt("/me/week", [ada], ada);
-
-    expect(markup).not.toContain('aria-label="Board"');
-    expect(markup).toMatch(/<a[^>]*href="\/o\/ada\/decisions"/);
-    expect(markup).toMatch(/<a[^>]*href="\/o\/ada\/board"[^>]*>Board</);
-  });
-
-  it("makes the select the board's heading, and no other page's", () => {
-    const board = headerAt("/o/acme/board", [ada, acme], acme);
-    const unified = headerAt("/me", [ada, acme], null);
-    const week = headerAt("/me/week", [ada, acme], null);
-
-    expect(board).toMatch(/<h1[^>]*>[\s\S]*<select[^>]*aria-label="Board"[\s\S]*<\/h1>/);
-    expect(unified).toMatch(/<h1[^>]*>[\s\S]*<select[\s\S]*<\/h1>/);
-    expect(week).not.toContain("<h1");
-  });
-
-  it("heads the board of a person in one org with the org's name", () => {
-    const markup = headerAt("/o/ada/board", [ada], ada);
-
-    expect(markup).toMatch(/<h1[^>]*>[\s\S]*ada[\s\S]*<\/h1>/);
+    expect(profile).toContain('href="/account"');
+    expect(profile).toContain('aria-label="Account: Ada Byron"');
+    expect(profile).toContain(">AB<");
+    // The modal is drawn only while open: a dialog on the page stops the list keys.
+    expect(markup).not.toContain('role="dialog"');
   });
 });

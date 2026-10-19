@@ -72,3 +72,23 @@ describe("Backlog, folded into a bar", () => {
     expect(drawn(<ColumnHead status="todo" label="To do" count={2} />)).not.toContain("Fold");
   });
 });
+
+describe("the View button's ring", () => {
+  it("steps Board, Week, Plan, Focus and round, and back with Shift", async () => {
+    const { nextView } = await import("../app/dock");
+
+    expect(nextView("board")).toBe("week");
+    expect(nextView("focus")).toBe("board");
+    expect(nextView("board", true)).toBe("focus");
+    expect(nextView(null)).toBe("board");
+  });
+
+  it("reads which view a page is", async () => {
+    const { viewOf } = await import("../app/dock");
+
+    expect(viewOf("/o/acme/board", true)).toBe("board");
+    expect(viewOf("/me/week/2026-W43", false)).toBe("week");
+    expect(viewOf("/me/plan", false)).toBe("plan");
+    expect(viewOf("/o/acme/clients", false)).toBeNull();
+  });
+});

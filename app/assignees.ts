@@ -16,6 +16,9 @@
  */
 export type Assignee = { id: string; name: string; initials: string; color?: string; image?: string };
 
+/** The person reading the page, as the profile button draws them. */
+export type Me = Pick<Assignee, "name" | "initials" | "color" | "image">;
+
 /** The name a picker shows, which is the email when the account has no name. */
 export function nameOf(member: { name: string; email: string }): string {
   return member.name.trim() || member.email;
