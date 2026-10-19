@@ -28,6 +28,7 @@ export async function wipe() {
     env.DB.prepare("DELETE FROM session"),
     env.DB.prepare("DELETE FROM account"),
     env.DB.prepare("DELETE FROM verification"),
+    env.DB.prepare("DELETE FROM person_colors"),
     env.DB.prepare('DELETE FROM "user"'),
   ]);
 }

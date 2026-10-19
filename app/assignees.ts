@@ -7,8 +7,14 @@
  * `assignees.server.ts`.
  */
 
-/** One assignee, as a card and a picker draw them. */
-export type Assignee = { id: string; name: string; initials: string };
+/**
+ * One assignee, as a card and a picker draw them.
+ *
+ * `color` is the person's colour, one across every org, and `image` is their
+ * picture as a data URL. Either is absent for a person who has none, and the
+ * avatar then draws their initials, or a grey ring. See ADR-0036.
+ */
+export type Assignee = { id: string; name: string; initials: string; color?: string; image?: string };
 
 /** The name a picker shows, which is the email when the account has no name. */
 export function nameOf(member: { name: string; email: string }): string {
@@ -37,8 +43,20 @@ export function initialsOf(member: { name: string; email: string }): string {
 }
 
 /** One member, as both a card and a picker read them. */
-export function assigneeOf(member: { id: string; name: string; email: string }): Assignee {
-  return { id: member.id, name: nameOf(member), initials: initialsOf(member) };
+export function assigneeOf(member: {
+  id: string;
+  name: string;
+  email: string;
+  color?: string | null;
+  image?: string | null;
+}): Assignee {
+  return {
+    id: member.id,
+    name: nameOf(member),
+    initials: initialsOf(member),
+    ...(member.color ? { color: member.color } : {}),
+    ...(member.image ? { image: member.image } : {}),
+  };
 }
 
 /**

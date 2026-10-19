@@ -25,6 +25,7 @@ import { stampDate, stampTime } from "./day";
 import { Dot } from "./dot";
 import type { OrgField } from "./fields";
 import { fieldClass } from "./forms";
+import { Avatar } from "./initials";
 import { taskSent, usePost, useSent, type TaskHeld } from "./pending";
 import { PostButton } from "./posting";
 import type { RefPicker } from "./refs.server";
@@ -255,6 +256,7 @@ function LiveAside({ task, fields, refs, colors, members, assignees }: AsideProp
                   })
                 }
               />
+              <Avatar person={member} />
               {member.name}
             </label>
           ))}

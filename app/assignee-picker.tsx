@@ -1,6 +1,7 @@
 /**
- * The assignee picker of the quick-add box: a button that opens a popover of
- * checkboxes, one per member of the org the box files into.
+ * The assignee picker of the quick-add box: one avatar per member of the org
+ * the box files into, each a toggle. One click holds a member, a second lets
+ * them go. Nothing opens and nothing has to be closed.
  *
  * The person who types a task on a team board usually knows who does it, so
  * the box says it while the thought is there rather than sending them to the
@@ -13,37 +14,8 @@
  * nothing at all.
  */
 
-import { useEffect, useRef, useState } from "react";
-
 import type { Assignee } from "./assignees";
-import { smallFieldClass } from "./forms";
-
-/**
- * The popover's width, in px. The side it hangs from is decided before it
- * draws, so the width is a number here and not a class.
- */
-const POPOVER_WIDTH = 224;
-
-/** The gap the popover keeps from the edge of the window, in px. */
-const EDGE_GAP = 8;
-
-/**
- * The edge of the button the popover hangs from.
- *
- * It hangs from the right edge by default, because the button sits at the
- * right of the quick-add row and a popover that grows left stays over the
- * box. In the leftmost column there is no room to the left, so the popover
- * hangs from the left edge instead. Where neither side fits, the right edge
- * wins: one rule, and the wider window is the fix.
- */
-export function popoverSide(
-  button: { left: number; right: number },
-  width: number,
-  viewport: number,
-): "right" | "left" {
-  if (button.right - width >= EDGE_GAP) return "right";
-  return button.left + width <= viewport - EDGE_GAP ? "left" : "right";
-}
+import { Avatar } from "./initials";
 
 export function AssigneePicker({
   members,
@@ -56,118 +28,51 @@ export function AssigneePicker({
   picked: string[];
   onPick: (ids: string[]) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [side, setSide] = useState<"right" | "left">("right");
-  const button = useRef<HTMLButtonElement>(null);
-  const popover = useRef<HTMLDivElement>(null);
-
-  // A pointer anywhere else closes the popover, as it does for a menu. The
-  // button is its own toggle, so a press on it is not this.
-  useEffect(() => {
-    if (!open) return;
-
-    function onPointerDown(event: PointerEvent) {
-      const at = event.target as Node;
-      if (popover.current?.contains(at) || button.current?.contains(at)) return;
-      setOpen(false);
-    }
-
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
-
   if (members.length === 0) return null;
 
   const held = new Set(picked);
   const holders = members.filter((member) => held.has(member.id));
 
-  /** Ticks or unticks one box, keeping the member list's order. */
+  /** Holds or lets go of one member, keeping the member list's order. */
   function toggle(id: string) {
     const next = held.has(id) ? picked.filter((one) => one !== id) : [...picked, id];
     onPick(members.filter((member) => next.includes(member.id)).map((member) => member.id));
   }
 
-  /** Closes the popover and gives the focus back to the button that opened it. */
-  function close() {
-    setOpen(false);
-    button.current?.focus();
-  }
-
   return (
     <div
-      onKeyDown={(event) => {
-        // Escape shuts the popover and gives the focus back to the button. The
-        // box reads Escape as "leave the field", and one press means one thing.
-        if (event.key !== "Escape" || !open) return;
-        event.stopPropagation();
-        close();
-      }}
-      className="relative"
+      role="group"
+      aria-label={
+        holders.length === 0
+          ? "Assign to a member"
+          : `Assigned to ${holders.map((one) => one.name).join(", ")}`
+      }
+      className="flex max-w-56 shrink-0 items-center gap-1 overflow-x-auto py-0.5"
     >
-      {/* The set travels as hidden fields, so it posts whether the popover is
-          open or shut: the checkboxes below are on screen only while it is. */}
+      {/* The set travels as hidden fields, so the toggles post nothing of
+          their own. */}
       {picked.map((id) => (
         <input key={id} type="hidden" name="assignee" value={id} />
       ))}
 
-      <button
-        ref={button}
-        type="button"
-        aria-expanded={open}
-        aria-label={
-          holders.length === 0
-            ? "Assign to a member"
-            : `Assigned to ${holders.map((one) => one.name).join(", ")}`
-        }
-        onClick={() => {
-          // The side is read while the button is on screen and the popover is
-          // not: it draws once, on the side that fits.
-          const at = open ? null : button.current?.getBoundingClientRect();
-          if (at) setSide(popoverSide(at, POPOVER_WIDTH, document.documentElement.clientWidth));
-          setOpen((was) => !was);
-        }}
-        className={`flex items-center gap-1 uppercase tracking-wide ${smallFieldClass}`}
-      >
-        {holders.length === 0 ? (
-          <span className="normal-case tracking-normal text-muted">Assign</span>
-        ) : (
-          holders.map((one) => (
-            <span key={one.id} aria-hidden="true" className="text-muted">
-              {one.initials}
+      {members.map((member) => {
+        const on = held.has(member.id);
+        return (
+          <button
+            key={member.id}
+            type="button"
+            aria-pressed={on}
+            aria-label={member.name}
+            title={on ? `${member.name}: held. Click to let go.` : `Assign to ${member.name}`}
+            onClick={() => toggle(member.id)}
+            className={`press flex shrink-0 rounded-full ${on ? "" : "opacity-40 grayscale hover:opacity-80 hover:grayscale-0"}`}
+          >
+            <span key={on ? "on" : "off"} className={`flex rounded-full ${on ? "motion-safe:animate-pop" : ""}`}>
+              <Avatar person={member} size="md" className={on ? "" : "border-dashed"} />
             </span>
-          ))
-        )}
-      </button>
-
-      {open ? (
-        <div
-          ref={popover}
-          role="group"
-          aria-label="Assignees"
-          onKeyDown={(event) => {
-            // Enter ticks the box it is on and never posts the add. A person
-            // is picking members here, not finishing the task.
-            if (event.key !== "Enter") return;
-            event.preventDefault();
-            const on = event.target as HTMLElement;
-            if (on instanceof HTMLInputElement && on.type === "checkbox") toggle(on.value);
-          }}
-          style={{ width: POPOVER_WIDTH }}
-          className={`absolute ${side === "right" ? "right-0" : "left-0"} z-10 mt-1 flex max-h-56 flex-col gap-1 overflow-y-auto rounded border border-border bg-surface p-2`}
-        >
-          {members.map((member) => (
-            <label key={member.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                value={member.id}
-                checked={held.has(member.id)}
-                onChange={() => toggle(member.id)}
-              />
-              {member.name}
-            </label>
-          ))}
-        </div>
-      ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }

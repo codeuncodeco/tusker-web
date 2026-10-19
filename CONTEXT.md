@@ -57,6 +57,20 @@ a person checks which org a new task goes to. An org page draws no chip, and
 nor does a cross-org page for a person in one org.
 _Avoid_: Org badge, org tag, org pill
 
+**Person colour**:
+The colour one person carries, drawn on their avatar on every card of every
+org. One per person, not per membership, so a person reads the same across
+the unified board. Tusker gives each new account the next palette name, and
+the person changes it on the account page. See ADR-0034.
+_Avoid_: User colour, member colour, avatar colour
+
+**Avatar**:
+The mark that stands for one person on a card, a picker or a filter: their
+picture where they keep one, and their initials on their colour where they do
+not. It is a picture of a name, so the name is always said beside it to a
+screen reader.
+_Avoid_: Profile picture, DP, badge
+
 **Member**:
 A person with access to an org. Membership is the only permission check, so a
 person taken out of an org stops reading its tasks at once. Their tasks stay,

@@ -15,8 +15,8 @@ import { assigneeOf, inNameOrder, type Assignee } from "./assignees";
 import type { ReadScope, Scope } from "./scope.server";
 import type { TaskId } from "./task-number";
 
-/** The account columns an assignee is drawn from. */
-type MemberRow = { id: string; name: string; email: string };
+/** The account columns an assignee is drawn from, with the look the avatar draws. */
+type MemberRow = { id: string; name: string; email: string; color: string | null; image: string | null };
 
 /** The same, with the task the row hangs on, for a whole board in one read. */
 type HeldRow = MemberRow & { task_id: TaskId };
@@ -25,7 +25,10 @@ type HeldRow = MemberRow & { task_id: TaskId };
 type OrgMemberRow = MemberRow & { org_id: string };
 
 /** The account columns every read here answers with. */
-const ACCOUNT_COLUMNS = "u.id, u.name, u.email";
+const ACCOUNT_COLUMNS = "u.id, u.name, u.email, u.image, pc.color";
+
+/** The join that brings a person's colour, which every read here draws. */
+const LOOK_JOIN = "LEFT JOIN person_colors pc ON pc.user_id = u.id";
 
 /**
  * The members who hold one task of the org.
@@ -44,6 +47,7 @@ export async function assigneesOf(
       `SELECT ${ACCOUNT_COLUMNS}
        FROM task_assignees a
        JOIN "user" u ON u.id = a.user_id
+       ${LOOK_JOIN}
        WHERE a.task_id = ? AND a.org_id = ?`,
     )
     .bind(taskId, scope.org.id)
@@ -66,6 +70,7 @@ export async function assigneesByTask(
       `SELECT a.task_id, ${ACCOUNT_COLUMNS}
        FROM task_assignees a
        JOIN "user" u ON u.id = a.user_id
+       ${LOOK_JOIN}
        WHERE a.org_id = ?`,
     )
     .bind(scope.org.id)
@@ -217,6 +222,7 @@ async function memberRows(db: D1Database, orgIds: string[]): Promise<OrgMemberRo
       `SELECT m.org_id, ${ACCOUNT_COLUMNS}
        FROM memberships m
        JOIN "user" u ON u.id = m.user_id
+       ${LOOK_JOIN}
        WHERE m.org_id IN (${orgIds.map(() => "?").join(", ")})`,
     )
     .bind(...orgIds)

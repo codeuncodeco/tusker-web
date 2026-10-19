@@ -168,8 +168,10 @@ describe("the member lists a box draws from", () => {
     );
 
     expect(data.members).toEqual([
-      { id: ada.person.id, name: "Ada", initials: "A" },
-      { id: bo.person.id, name: "Bo Kim", initials: "BK" },
+      // Each carries the colour its account was given, so the picker draws
+      // the person as every card does. See ADR-0034.
+      { id: ada.person.id, name: "Ada", initials: "A", color: expect.any(String) },
+      { id: bo.person.id, name: "Bo Kim", initials: "BK", color: expect.any(String) },
     ]);
   });
 
@@ -194,8 +196,10 @@ describe("the member lists a box draws from", () => {
     // Ada's own org and solo hold one member each, so neither is keyed.
     expect(Object.keys(data.members)).toEqual(["blrhikes"]);
     expect(data.members[blr.slug]).toEqual([
-      { id: ada.person.id, name: "Ada", initials: "A" },
-      { id: bo.person.id, name: "Bo Kim", initials: "BK" },
+      // Each carries the colour its account was given, so the picker draws
+      // the person as every card does. See ADR-0034.
+      { id: ada.person.id, name: "Ada", initials: "A", color: expect.any(String) },
+      { id: bo.person.id, name: "Bo Kim", initials: "BK", color: expect.any(String) },
     ]);
   });
 

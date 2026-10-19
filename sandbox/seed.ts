@@ -13,6 +13,7 @@ import { decide, recordDecision } from "../app/decisions.server";
 import { localDay } from "../app/day";
 import { declareField } from "../app/fields.server";
 import { addMemberById, createOrg, setOrgApp } from "../app/orgs.server";
+import { setPersonImage } from "../app/people.server";
 import { startPlan } from "../app/plans.server";
 import { archiveTasks } from "../app/archive.server";
 import { setAssignees } from "../app/assignees.server";
@@ -32,6 +33,23 @@ const OTHER_MEMBERS = [
   { id: "sandbox-bo", name: "", email: "bo.lee@sandbox.test" },
 ];
 
+/**
+ * A picture for Ana, drawn here so the sandbox loads nothing off-site: a sunny
+ * disc and a smile on her colour. Sam and Bo keep their initials, so a card
+ * shows both looks.
+ */
+const ANA_PICTURE = `data:image/svg+xml;base64,${btoa(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb3c7"/><stop offset="1" stop-color="#cf5f92"/></linearGradient></defs>` +
+    `<rect width="96" height="96" fill="url(#g)"/>` +
+    `<circle cx="48" cy="40" r="18" fill="#ffe1c4"/>` +
+    `<path d="M14 96c4-22 18-32 34-32s30 10 34 32z" fill="#5b2a4a"/>` +
+    `<path d="M30 36c2-14 34-16 36 2c-8-6-26-8-36-2z" fill="#3b1d33"/>` +
+    `<circle cx="41" cy="41" r="2.4" fill="#3b1d33"/><circle cx="55" cy="41" r="2.4" fill="#3b1d33"/>` +
+    `<path d="M41 48q7 6 14 0" stroke="#3b1d33" stroke-width="2.4" fill="none" stroke-linecap="round"/>` +
+    `</svg>`,
+)}`;
+
 /** Where the reference field "reads". The fetch guard answers it from the cache. */
 export const ORG_APP_URL = "https://org-app.sandbox.invalid/api";
 
@@ -48,6 +66,8 @@ export async function seed(db: D1Database): Promise<void> {
       .bind(person.id, person.name, person.email, new Date().toISOString(), new Date().toISOString())
       .run();
   }
+
+  await setPersonImage(db, OTHER_MEMBERS[0]!.id, ANA_PICTURE);
 
   const studio = await org(db, "Studio", "studio");
   const garden = await org(db, "Garden Club", "garden");
