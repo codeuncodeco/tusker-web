@@ -23,6 +23,8 @@ import type { Me } from "./assignees";
 import type { OrgHeld } from "./current-org";
 import {
   ArrowRight,
+  VolumeHigh,
+  VolumeXmark,
   BoxArchive,
   Bullseye,
   CalendarWeek,
@@ -45,6 +47,7 @@ import { Avatar } from "./initials";
 import { OrgDot } from "./org-chip";
 import { KeysButton, SchemeSegments } from "./look-buttons";
 import { boardOf } from "./org-select";
+import { play, setMuted, useSoundOn } from "./sound";
 
 /** The views the View button steps through, in order. */
 export const VIEWS = ["board", "week", "plan", "focus"] as const;
@@ -165,7 +168,7 @@ export function Dock({
 }
 
 /** How far the dial's pills sit from the button's centre, in px. */
-const DIAL_RADIUS = 104;
+const DIAL_RADIUS = 120;
 
 /**
  * Where one pill of the dial sits, from the button's centre: on a quarter arc
@@ -209,6 +212,7 @@ function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean
     : `Back to ${VIEW_LOOK[next].label}`;
 
   function setOpen(value: boolean) {
+    if (value !== fanOut) play(value ? "open" : "close");
     fanOut = value;
     setOpenState(value);
   }
@@ -387,7 +391,7 @@ function YouPanel({ orgs, org, me }: { orgs: OrgHeld[]; org: OrgHeld | null; me?
     `flex size-8 shrink-0 items-center justify-center rounded-lg ${here ? "bg-bg/15" : "bg-surface-2 text-muted"}`;
 
   return (
-    <details ref={panel} className="group/you relative">
+    <details ref={panel} className="group/you relative" onToggle={(event) => play(event.currentTarget.open ? "open" : "close")}>
       <summary
         aria-label={me?.name ? `You: ${me.name}, and settings` : "You and settings"}
         title="You and settings"
@@ -520,7 +524,33 @@ function PanelHead({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The sound switch of the You panel. Filled in with the sound itself. */
+/**
+ * The sound switch of the You panel: on, as the app starts, or muted, which
+ * the browser remembers. See `app/sound.ts`.
+ */
 function SoundRow() {
-  return null;
+  const on = useSoundOn();
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => {
+        setMuted(on);
+        if (!on) window.setTimeout(() => play("pick"), 0);
+      }}
+      className="press flex h-9 items-center gap-3 rounded-lg text-left"
+    >
+      <span className="flex flex-1 items-center gap-2 text-muted">
+        {on ? <VolumeHigh className="size-3.5" /> : <VolumeXmark className="size-3.5" />}
+        Sound
+      </span>
+      <span
+        aria-hidden="true"
+        className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-bg after:shadow-sm after:transition-transform after:duration-200 after:ease-out ${
+          on ? "bg-fg after:translate-x-4" : "bg-border"
+        }`}
+      />
+    </button>
+  );
 }

@@ -230,8 +230,9 @@ describe("the scope of a page under the org layout", () => {
 
 /** The option the select reads, out of the header's markup. */
 /** The dock's settings panel, as markup. */
+/** The dock's You panel, which holds you and your settings, as markup. */
 function settings(markup: string): string {
-  const at = markup.indexOf('aria-label="Settings"');
+  const at = markup.search(/aria-label="You[^"]*"/);
   return markup.slice(at, markup.indexOf("</details>", at));
 }
 
@@ -261,18 +262,17 @@ describe("the header", () => {
     expect(view("/t/12")).toMatch(/^acme \/ Task\./);
   });
 
-  it("steps the colour scheme with one button in the settings panel, in a form that works with no script", () => {
+  it("sets the colour scheme with three segments in the You panel, in a form that works with no script", () => {
     const markup = headerAt("/me/week?day=2026-10-13", [ada, acme], null);
+    const panel = settings(markup);
 
-    const form = markup.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
+    const form = panel.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
     expect(form).toContain('method="post"');
     expect(form).toContain('<input type="hidden" name="next" value="/me/week?day=2026-10-13"/>');
-    const button = form.match(/<button[^>]*>/)?.[0] ?? "";
-    expect(button).toContain('name="scheme"');
-    expect(button).toContain('value="light"');
-    expect(button).toContain('aria-label="Colour scheme: System. Switch to Light."');
-    // It sits in the settings panel, not in a corner of its own.
-    expect(settings(markup)).toContain('aria-label="Colour scheme');
+    const buttons = [...form.matchAll(/<button[^>]*>/g)].map((one) => one[0]);
+    expect(buttons.map((one) => one.match(/value="(\w+)"/)?.[1])).toEqual(["light", "dark", "system"]);
+    // With no loader data and nothing in flight, the pick reads System.
+    expect(buttons.map((one) => one.match(/aria-pressed="(\w+)"/)?.[1])).toEqual(["false", "false", "true"]);
   });
 
   it("heads a board, for a screen reader, with the org and the page, and no other page", () => {
@@ -312,7 +312,7 @@ describe("the dock", () => {
     expect(button).toContain('aria-label="Back to Board"');
   });
 
-  it("picks the board's org in the settings panel: every org, then All", () => {
+  it("picks the board's org in the You panel: every org, then All", () => {
     const panel = settings(headerAt("/o/acme/board", [ada, acme], acme));
 
     expect([...panel.matchAll(/href="(\/o\/[^/"]+\/board|\/me)"/g)].map((one) => one[1])).toEqual([
@@ -335,14 +335,22 @@ describe("the dock", () => {
     expect(inOrg).toContain('href="/orgs/new"');
   });
 
-  it("opens the account from a profile button that wears the person's avatar", () => {
-    const markup = headerAt("/me", [ada, acme], null, { name: "Ada Byron", initials: "AB", color: "teal" });
-    const profile = markup.match(/<a[^>]*aria-haspopup="dialog"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? "";
+  it("merges you and settings into one button that wears your avatar", () => {
+    const markup = headerAt("/me", [ada, acme], null, { name: "Ada Byron", initials: "AB", color: "teal", email: "ada@example.test" });
+    const you = markup.match(/<summary[^>]*aria-label="You[^"]*"[^>]*>[\s\S]*?<\/summary>/)?.[0] ?? "";
+    const panel = settings(markup);
 
-    expect(profile).toContain('href="/account"');
-    expect(profile).toContain('aria-label="Account: Ada Byron"');
-    expect(profile).toContain(">AB<");
-    // The modal is drawn only while open: a dialog on the page stops the list keys.
+    expect(you).toContain('aria-label="You: Ada Byron, and settings"');
+    expect(you).toContain(">AB<");
+    // Who you are heads the panel: your name to edit, your email, your colour.
+    expect(panel).toContain('aria-label="Your name"');
+    expect(panel).toContain("ada@example.test");
+    expect(panel).toContain('aria-label="Your colour"');
+    // And the way to the account page and out.
+    expect(panel).toContain('href="/account"');
+    expect(panel).toContain(">Sign out<");
+    // Two dock buttons, and no account modal on the page.
+    expect(markup.match(/aria-label="Dock"[\s\S]*$/)?.[0]).not.toContain("aria-haspopup");
     expect(markup).not.toContain('role="dialog"');
   });
 });

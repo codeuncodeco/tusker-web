@@ -61,6 +61,7 @@ import { useSent } from "../pending";
 import { SavedInput } from "../saved-input";
 import { requireScope } from "../scope.server";
 import { Swatches } from "../swatches";
+import { Bento } from "../bento";
 import type { Route } from "./+types/client";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -157,17 +158,17 @@ export default function Client({ loaderData }: Route.ComponentProps) {
   const shownNotes = notes.filter((one) => !deleting.has(one.id));
   const board = `/o/${org.slug}/board?${new URLSearchParams({ assignee: "anyone", [fieldName(field.key)]: client.value })}`;
 
+  // A bento: the client across three columns, its open work down the
+  // fourth, its links beneath, and each meeting note a tile of its own. One
+  // surface deep. See ADR-0040.
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 p-8">
-      <Hero org={org} client={client} counts={{ open: open.length, links: shownLinks.length, notes: shownNotes.length }} board={board} />
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex min-w-0 flex-col gap-8">
-          <Links links={shownLinks} />
-          <Notes notes={shownNotes} day={day} />
-        </div>
+    <main className="flex flex-col gap-3">
+      <Bento>
+        <Hero org={org} client={client} counts={{ open: open.length, links: shownLinks.length, notes: shownNotes.length }} board={board} />
         <OpenTasks tasks={open} board={board} label={client.label} />
-      </div>
+        <Links links={shownLinks} />
+        <Notes notes={shownNotes} day={day} />
+      </Bento>
     </main>
   );
 }
@@ -197,7 +198,7 @@ function Hero({
       // A plain ground with the client's colour as one stripe: the page holds
       // few colours. See ADR-0038.
       style={{ borderLeftColor: paint }}
-      className="flex flex-col gap-4 rounded-xl border border-l-[6px] border-border bg-surface p-6 transition-[border-color] duration-500"
+      className="col-span-2 flex flex-col gap-4 rounded-2xl border-l-[6px] bg-surface p-5 transition-[border-color] duration-500 sm:col-span-3"
     >
       <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
         <Link to={orgPagePath(org.slug, "clients")} className="hover:text-fg hover:underline">
@@ -250,7 +251,7 @@ function SectionHead({ title, icon, children }: { title: string; icon: React.Rea
   return (
     <div className="flex items-center gap-2">
       {icon}
-      <h2 className="text-xl">{title}</h2>
+      <h2 className="font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">{title}</h2>
       <span className="ml-auto flex items-center gap-2">{children}</span>
     </div>
   );
@@ -262,15 +263,15 @@ function SectionHead({ title, icon, children }: { title: string; icon: React.Rea
  */
 function Links({ links }: { links: ClientLink[] }) {
   return (
-    <section className="flex flex-col gap-3">
-      <SectionHead title="Links" icon={<LinkIcon className="size-4 text-muted" />} />
+    <section className="col-span-2 flex flex-col gap-3 rounded-2xl bg-surface p-4 sm:col-span-3">
+      <SectionHead title="Links" icon={<LinkIcon className="size-3.5 text-muted" />} />
       <LinkPaste />
       {links.length === 0 ? (
         <p className="text-muted">
           Nothing here yet. Paste the Figma file, the brief, the shared folder: whatever you reach for.
         </p>
       ) : (
-        <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-1 md:grid-cols-2">
           {links.map((link) => (
             <LinkCard key={link.id} link={link} />
           ))}
@@ -364,7 +365,7 @@ function LinkCard({ link }: { link: ClientLink }) {
   }, [copied]);
 
   return (
-    <li className="group flex items-center gap-3 rounded-lg border border-border bg-surface p-2 pr-1 shadow-sm transition-shadow hover:shadow-md motion-safe:animate-rise-in">
+    <li className="group flex items-center gap-3 rounded-xl p-2 pr-1 transition-colors hover:bg-surface-2 motion-safe:animate-rise-in">
       {renaming ? (
         <span className="flex min-w-0 flex-1 items-center gap-3">
           <Tile look={look} />
@@ -449,8 +450,9 @@ function Notes({ notes, day }: { notes: ClientNote[]; day: string }) {
   const fresh = add.data?.note ?? null;
 
   return (
-    <section className="flex flex-col gap-3">
-      <SectionHead title="Meeting notes" icon={<Note className="size-4 text-muted" />}>
+    <>
+      <div className="col-span-2 flex items-center px-1 pt-3 sm:col-span-4">
+      <SectionHead title="Meeting notes" icon={<Note className="size-3.5 text-muted" />}>
         <add.Form method="post">
           <input type="hidden" name="intent" value="note" />
           <button className="press inline-flex items-center gap-1.5 rounded-full border border-fg bg-fg px-3 py-1 text-xs text-bg hover:opacity-90">
@@ -459,16 +461,15 @@ function Notes({ notes, day }: { notes: ClientNote[]; day: string }) {
           </button>
         </add.Form>
       </SectionHead>
+      </div>
       {notes.length === 0 ? (
-        <p className="text-muted">No meetings written down yet. New note starts one dated {day}.</p>
+        <p className="col-span-2 rounded-2xl bg-surface p-4 text-muted sm:col-span-4">
+          No meetings written down yet. New note starts one dated {day}.
+        </p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {notes.map((note) => (
-            <NoteCard key={note.id} note={note} fresh={note.id === fresh} />
-          ))}
-        </ul>
+        notes.map((note) => <NoteCard key={note.id} note={note} fresh={note.id === fresh} />)
       )}
-    </section>
+    </>
   );
 }
 
@@ -482,7 +483,7 @@ function NoteCard({ note, fresh }: { note: ClientNote; fresh: boolean }) {
   const post = (fields: Record<string, string>) => void save.submit({ intent: "edit", id: note.id, ...fields }, { method: "post" });
 
   return (
-    <li className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-sm motion-safe:animate-rise-in">
+    <article className="col-span-2 flex flex-col gap-3 rounded-2xl bg-surface p-4 motion-safe:animate-rise-in">
       <span className="flex flex-wrap items-center gap-2">
         <SavedInput
           type="date"
@@ -506,7 +507,7 @@ function NoteCard({ note, fresh }: { note: ClientNote; fresh: boolean }) {
         />
       </span>
       <NoteBody note={note} fresh={fresh} save={(body) => post({ body })} sent={sent?.has("body") ? String(sent.get("body")) : null} />
-    </li>
+    </article>
   );
 }
 
@@ -601,7 +602,7 @@ const STATUS_DOT: Partial<Record<Status, string>> = {
 function OpenTasks({ tasks, board, label }: { tasks: ClientTask[]; board: string; label: string }) {
   const hrefOf = useTaskHref();
   return (
-    <aside className="flex flex-col gap-3 lg:sticky lg:top-24 lg:self-start">
+    <aside className="col-span-2 flex flex-col gap-3 rounded-2xl bg-surface p-4 sm:col-span-1 sm:row-span-2">
       <SectionHead title="Open tasks" icon={<span className="size-2 rounded-full bg-fg" />}>
         <Link to={board} className="text-xs text-muted underline-offset-2 hover:text-fg hover:underline">
           Board →
@@ -610,10 +611,10 @@ function OpenTasks({ tasks, board, label }: { tasks: ClientTask[]; board: string
       {tasks.length === 0 ? (
         <p className="text-muted">Nothing open for {label}. All clear.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
+        <ul className="flex flex-col divide-y divide-border">
           {tasks.map((task) => (
             <li key={task.id}>
-              <Link to={hrefOf(task.id)} className="press-soft flex items-center gap-2 px-3 py-2 hover:bg-surface-2">
+              <Link to={hrefOf(task.id)} className="press-soft -mx-2 flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-surface-2">
                 <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${STATUS_DOT[task.status] ?? "bg-dim"}`} />
                 <span className="min-w-0 flex-1 truncate">{task.title}</span>
                 <span className="shrink-0 text-xs text-muted">

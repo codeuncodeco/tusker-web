@@ -27,8 +27,9 @@ import { Dot } from "./dot";
 import type { OrgField } from "./fields";
 import { fieldClass } from "./forms";
 import { HoldButton } from "./hold-button";
-import { Trash } from "./icons";
+import { CalendarDay, CircleHalf, Clock, Folder, Scale, Tag, Trash, Users } from "./icons";
 import { Avatar } from "./initials";
+import { Tile } from "./bento";
 import { taskSent, usePost, useSent, type TaskHeld } from "./pending";
 import { PostButton } from "./posting";
 import type { RefPicker } from "./refs.server";
@@ -110,6 +111,25 @@ export function TaskAside(props: AsideProps & { inline?: boolean }) {
       {props.task.finished ? <ReadAside {...props} /> : <LiveAside {...props} />}
       <TimesList times={props.task.times} />
     </aside>
+  );
+}
+
+/**
+ * The task's properties as bento tiles: Status, Due, Assignees, Decision,
+ * one tile per field, and Timeline. Each control is the aside's own, on the
+ * same form, and saves on its own; only the frame differs. A finished task
+ * draws the same tiles as text. See ADR-0040.
+ */
+export function TaskTiles(props: AsideProps) {
+  return (
+    <>
+      {props.task.finished ? <ReadAside {...props} tiled /> : <LiveAside {...props} tiled />}
+      <Tile label="Timeline" icon={<Clock className="size-3" />}>
+        <div className="text-xs [&_dt]:text-dim">
+          <TimesList times={props.task.times} />
+        </div>
+      </Tile>
+    </>
   );
 }
 
@@ -220,10 +240,14 @@ export function nextStatus(status: Status): Status {
 }
 
 /** The controls of an open task. Each one saves on its own. */
-function LiveAside({ task, fields, refs, colors, optionColors, members, assignees }: AsideProps) {
+function LiveAside({ task, fields, refs, colors, optionColors, members, assignees, tiled = false }: AsideProps & { tiled?: boolean }) {
   const post = usePost({ flushSync: true });
   const drawn = useDrawnTask(task, assignees);
   const held = new Set(drawn.assignees);
+  // As tiles, each part is a tile that names it, and the part's own heading
+  // is said to a screen reader only.
+  const Part = tiled ? Tile : Plain;
+  const legend = tiled ? "sr-only" : "mb-1.5";
 
   return (
     <>
@@ -231,8 +255,9 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
           act as Finish, so a marked task raises the same prompt. See
           ADR-0010. Each chip is a radio of the page's one form, so with no
           script Save posts it. */}
+      <Part label="Status" icon={<CircleHalf className="size-3" />}>
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="mb-1.5">Status</legend>
+        <legend className={legend}>Status</legend>
         <span className="flex flex-wrap gap-1">
           {STATUSES.map((one) => (
             <label key={one} className={radioChip(drawn.status === one)}>
@@ -251,10 +276,12 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
           ))}
         </span>
       </fieldset>
+      </Part>
 
+      <Part label="Due" icon={<CalendarDay className="size-3" />}>
       <div className="flex flex-col gap-1.5">
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wide text-muted">Due date</span>
+          <span className={tiled ? "sr-only" : "text-xs uppercase tracking-wide text-muted"}>Due date</span>
           {/* Saved on leaving, so a date half typed is not posted. */}
           <SavedInput
             type="date"
@@ -286,10 +313,12 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
           })}
         </span>
       </div>
+      </Part>
 
       {members.length > 0 ? (
+        <Part label="Assignees" icon={<Users className="size-3" />} span={members.length > 3 ? 2 : 1}>
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1.5">Assignees</legend>
+          <legend className={legend}>Assignees</legend>
           {/* Unticking every box posts no name, so this says the picker was
               on the form and an empty set is a task nobody holds. */}
           <input type="hidden" name="assignees" value="picked" form={TASK_FORM} />
@@ -330,11 +359,13 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
             })}
           </span>
         </fieldset>
+        </Part>
       ) : null}
 
       {/* Off by default, and only a marked task raises the prompt when it is
-          finished. See ADR-0010. */}
-      <label className="flex items-center gap-2">
+          finished. See ADR-0010. As a tile it is a switch. */}
+      <Part label="Decision" icon={<Scale className="size-3" />}>
+      <label className={tiled ? "flex cursor-pointer items-center gap-3" : "flex items-center gap-2"}>
         <input
           type="checkbox"
           name="decides"
@@ -342,11 +373,20 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
           form={TASK_FORM}
           checked={drawn.decides}
           onChange={(event) => post({ intent: "mark", decides: event.target.checked ? "1" : "0" })}
+          className={tiled ? "peer sr-only" : undefined}
         />
-        Holds a decision
+        {tiled ? (
+          <span
+            aria-hidden="true"
+            className="relative h-6 w-10 shrink-0 rounded-full bg-border transition-colors duration-200 after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-bg after:shadow-sm after:transition-transform after:duration-200 after:ease-out peer-checked:bg-fg peer-checked:after:translate-x-4 peer-focus-visible:outline-2 peer-focus-visible:outline-accent"
+          />
+        ) : null}
+        <span>Holds a decision</span>
       </label>
+      </Part>
 
       {fields.map((field) => (
+        <Part key={field.key} label={field.label} icon={field.client ? <Folder className="size-3" /> : <Tag className="size-3" />}>
         <FieldBox
           key={field.key}
           field={field}
@@ -356,10 +396,17 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
           // Only the client's values draw a colour. See ADR-0038.
           tints={field.client ? (optionColors?.[field.key] ?? {}) : {}}
           onSave={(value) => post({ intent: "field", key: field.key, [`field.${field.key}`]: value })}
+          tiled={tiled}
         />
+        </Part>
       ))}
     </>
   );
+}
+
+/** No frame: the aside's own parts, drawn in line. Takes and drops a tile's props. */
+function Plain({ children }: { children?: React.ReactNode; label?: React.ReactNode; icon?: React.ReactNode; span?: 1 | 2 | 3 | 4 }) {
+  return <>{children}</>;
 }
 
 /** What one field box takes from the aside. */
@@ -371,17 +418,19 @@ type FieldBoxProps = {
   /** Each value's colour, for a select drawn as chips. */
   tints?: Record<string, string>;
   onSave: (value: string) => void;
+  /** True inside a tile, which names the field: its own label is said to a screen reader only. */
+  tiled?: boolean;
 };
 
 /**
  * One declared field, drawn by its type. Every type reads one box. A pick
  * saves at once, and a typed value saves when the box is left.
  */
-function FieldBox({ field, value, picker, color, tints = {}, onSave }: FieldBoxProps) {
+function FieldBox({ field, value, picker, color, tints = {}, onSave, tiled = false }: FieldBoxProps) {
   const name = `field.${field.key}`;
 
   if (field.type === "reference") {
-    return <RefBox field={field} value={value} picker={picker} color={color} onSave={onSave} />;
+    return <RefBox field={field} value={value} picker={picker} color={color} onSave={onSave} tiled={tiled} />;
   }
 
   // A short select is a row of chips: one click picks, and a click on the
@@ -390,7 +439,7 @@ function FieldBox({ field, value, picker, color, tints = {}, onSave }: FieldBoxP
   if (field.type === "select" && field.options.length <= CHIP_OPTIONS) {
     return (
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="mb-1.5">{field.label}</legend>
+        <legend className={tiled ? "sr-only" : "mb-1.5"}>{field.label}</legend>
         <span className="flex flex-wrap gap-1">
           {field.options.map((option) => {
             const on = value === option;
@@ -421,7 +470,7 @@ function FieldBox({ field, value, picker, color, tints = {}, onSave }: FieldBoxP
   if (field.type === "select") {
     return (
       <label className="flex flex-col gap-1">
-        {field.label}
+        <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
         <select
           name={name}
           form={TASK_FORM}
@@ -442,7 +491,7 @@ function FieldBox({ field, value, picker, color, tints = {}, onSave }: FieldBoxP
 
   return (
     <label className="flex flex-col gap-1">
-      {field.label}
+      <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
       <SavedInput
         name={name}
         form={TASK_FORM}
@@ -464,7 +513,7 @@ function FieldBox({ field, value, picker, color, tints = {}, onSave }: FieldBoxP
  * An id the options do not name keeps its place in the list, drawn raw, so a
  * save of the rest of the task does not silently drop it.
  */
-function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
+function RefBox({ field, value, picker, color, onSave, tiled = false }: FieldBoxProps) {
   const name = `field.${field.key}`;
   const options = picker?.options ?? [];
   const unnamed = value && !options.some((one) => one.id === value);
@@ -472,7 +521,7 @@ function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
   if (!picker?.pulled) {
     return (
       <label className="flex flex-col gap-1">
-        {field.label}
+        <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
         <span className="text-muted">
           No options pulled yet. Refresh this field on the fields screen, or type the id.
         </span>
@@ -492,7 +541,7 @@ function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
 
   return (
     <label className="flex flex-col gap-1">
-      {field.label}
+      <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
       <span className="flex items-center gap-2">
         <select
           name={name}
@@ -519,7 +568,35 @@ function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
  * A finished task, read: the same aside drawn as text. Nothing here posts, so
  * the one way to change the task is Reopen, in the acts row. See #164.
  */
-function ReadAside({ task, fields, refs, colors, members, assignees }: AsideProps) {
+function ReadAside({ task, fields, refs, colors, members, assignees, tiled = false }: AsideProps & { tiled?: boolean }) {
+  if (tiled) {
+    return (
+      <>
+        <Tile label="Status" icon={<CircleHalf className="size-3" />}>
+          <span>{STATUS_LABEL[task.status]}</span>
+        </Tile>
+        <Tile label="Due" icon={<CalendarDay className="size-3" />}>
+          <span>{task.due_date ?? "—"}</span>
+        </Tile>
+        {members.length > 0 ? (
+          <Tile label="Assignees" icon={<Users className="size-3" />}>
+            <span>{assignees.length > 0 ? assignees.map((one) => one.name).join(", ") : "—"}</span>
+          </Tile>
+        ) : null}
+        <Tile label="Decision" icon={<Scale className="size-3" />}>
+          <span>{task.decides ? "Holds a decision" : "Holds none"}</span>
+        </Tile>
+        {fields.map((field) => (
+          <Tile key={field.key} label={field.label} icon={field.client ? <Folder className="size-3" /> : <Tag className="size-3" />}>
+            <span className="flex items-center gap-2">
+              <Dot color={colors[field.key] ?? null} />
+              {heldText(field, task.data[field.key], refs[field.key])}
+            </span>
+          </Tile>
+        ))}
+      </>
+    );
+  }
   return (
     <dl className="flex flex-col gap-3">
       <ReadLine label="Status">{STATUS_LABEL[task.status]}</ReadLine>

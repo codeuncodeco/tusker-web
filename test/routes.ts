@@ -84,7 +84,7 @@ export function headerAt(
   pathname: string,
   orgs: OrgHeld[],
   org: OrgHeld | null,
-  me?: { name: string; initials: string; color?: string; image?: string },
+  me?: { name: string; initials: string; color?: string; image?: string; email?: string },
 ): string {
   const Stub = createRoutesStub([{ path: "*", Component: () => createElement(Header, { orgs, org, me }) }]);
   return renderToStaticMarkup(createElement(Stub, { initialEntries: [pathname] }));

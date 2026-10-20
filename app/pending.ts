@@ -16,6 +16,7 @@
  * ask what a page draws without a page to draw it on. See #168.
  */
 
+import { play } from "./sound";
 import { useCallback } from "react";
 import { isRouteErrorResponse, useFetchers, useLocation, useSubmit } from "react-router";
 
@@ -293,6 +294,7 @@ export async function postAndReport<T>({
   } catch (error) {
     if (error instanceof Response) throw error;
     const text = failureText(error);
+    play("error");
     raiseOutside({ text });
     return { failed: text };
   }

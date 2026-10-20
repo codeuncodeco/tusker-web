@@ -3,7 +3,8 @@ import { Form, redirect, useFetcher } from "react-router";
 import { colorHex, readColor } from "../colors";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
-import { XMark } from "../icons";
+import { Building, KeyIcon, Plug, XMark } from "../icons";
+import { Bento, Tile } from "../bento";
 import { OrgDot } from "../org-chip";
 import { Swatches } from "../swatches";
 import { createOrgKey, listOrgKeys, revokeOrgKey } from "../org-keys.server";
@@ -96,41 +97,47 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
   const { org, keys, app } = loaderData;
 
+  // A bento: name and address, colour, the org app and its keys, each a
+  // tile. A part's own heading gives way to the tile's. See ADR-0040.
+  const part = "[&>section]:border-0 [&>section]:pt-0 [&>section>h2]:sr-only";
   return (
-    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
-      <h1 className="text-2xl tracking-tight">Settings</h1>
+    <main className="flex flex-col gap-3">
+      <h1 className="sr-only">Settings</h1>
+      <Bento>
+        <Tile span={2} label="Name and address" icon={<Building className="size-3" />}>
+          <Form method="post" className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted">Name</span>
+              <input name="name" required defaultValue={org.name} className={fieldClass} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted">Slug</span>
+              <input name="slug" required defaultValue={org.slug} className={fieldClass} />
+              <span className="text-xs text-dim">
+                Every page of this org lives under /o/{org.slug}. An old link stops working once you change it.
+              </span>
+            </label>
+            {actionData && "error" in actionData && actionData.error ? (
+              <p role="alert" className="text-danger motion-safe:animate-shake">
+                {actionData.error}
+              </p>
+            ) : null}
+            <button className="press self-start rounded-xl bg-fg px-4 py-2 text-bg">Save</button>
+          </Form>
+        </Tile>
 
-      <Form method="post" className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          Name
-          <input name="name" required defaultValue={org.name} className={fieldClass} />
-        </label>
+        <Tile span={2} label="Colour" icon={<OrgDot color={org.color} />} className={part}>
+          <ColorForm org={org} actionData={actionData} />
+        </Tile>
 
-        <label className="flex flex-col gap-1">
-          Slug
-          <span className="text-muted">
-            The URL of every page of this org, as in /o/{org.slug}/board. An old link stops working
-            once you change it.
-          </span>
-          <input name="slug" required defaultValue={org.slug} className={fieldClass} />
-        </label>
+        <Tile span={2} label="Org app" icon={<Plug className="size-3" />} className={part}>
+          <OrgAppForm app={app} actionData={actionData} />
+        </Tile>
 
-        {actionData && "error" in actionData && actionData.error ? (
-          <p role="alert" className="text-danger">
-            {actionData.error}
-          </p>
-        ) : null}
-
-        <button className="self-start rounded border border-border px-3 py-2">
-          Save
-        </button>
-      </Form>
-
-      <ColorForm org={org} actionData={actionData} />
-
-      <OrgAppForm app={app} actionData={actionData} />
-
-      <Keys slug={org.slug} keys={keys} actionData={actionData} />
+        <Tile span={2} label="Keys for org apps" icon={<KeyIcon className="size-3" />} className={part}>
+          <Keys slug={org.slug} keys={keys} actionData={actionData} />
+        </Tile>
+      </Bento>
     </main>
   );
 }

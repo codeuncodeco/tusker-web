@@ -23,7 +23,9 @@ import { modalParentOf, pageAddress, pageUrl, taskBack } from "../paths";
 import { postAndReport } from "../pending";
 import { refPickers } from "../refs.server";
 import { requireTaskScope, type Scope } from "../scope.server";
-import { TASK_FORM, TaskActs, TaskAside, useDrawnTask } from "../task-aside";
+import { TASK_FORM, TaskActs, TaskTiles, useDrawnTask } from "../task-aside";
+import { Bento, Tile } from "../bento";
+import { Note } from "../icons";
 import { OrgDot } from "../org-chip";
 import { taskLabel, type TaskId } from "../task-number";
 import { taskTimes } from "../task-times";
@@ -362,57 +364,68 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
   // property one click away in a card beside the text. Opened over a board or
   // a view, the board's own modal frames it; opened on its own, as a link
   // does, it draws the same frame over the page. See ADR-0039.
+  // The task as a bento: the title and the acts across the top, the
+  // description the largest tile, and every property its own tile round it,
+  // each one click. One surface deep: no card inside a card. See ADR-0040.
   const sheet = (
-      <main className="flex flex-col gap-6">
-        <Form id={TASK_FORM} method="post" onSubmit={(event) => event.preventDefault()} />
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-            <OrgDot color={loaderData.org.color} />
-            {loaderData.org.name}
-          </span>
-          <span className="ml-auto">
+    <main className="flex flex-col gap-3">
+      <Form id={TASK_FORM} method="post" onSubmit={(event) => event.preventDefault()} />
+      <Bento>
+        <Tile
+          span={3}
+          label={
+            <>
+              <OrgDot color={loaderData.org.color} />
+              {loaderData.org.name}
+            </>
+          }
+        >
+          <TaskTitle id={task.id} title={drawn.title} finished={task.finished} large />
+        </Tile>
+        <Tile
+          span={1}
+          label="Acts"
+          // A column of full-width acts beside the title; on a phone, a row
+          // across the sheet.
+          className="max-sm:col-span-2 [&>div>div]:flex-row [&>div>div]:flex-nowrap sm:[&>div>div]:flex-col sm:[&>div>div]:items-stretch [&_button]:w-full [&_button]:justify-center [&_form]:flex-1 sm:[&_form]:w-full"
+        >
+          <div className="flex flex-1 flex-col justify-end">
             <TaskActs task={task} />
-          </span>
-        </div>
-        <TaskTitle id={task.id} title={drawn.title} finished={task.finished} large />
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="flex min-w-0 flex-col gap-3">
-            {task.finished ? (
-              <>
-                <h2>Description</h2>
-                <DescriptionView text={task.description} />
-              </>
-            ) : (
-              <DescriptionBox text={task.description} form={TASK_FORM} />
-            )}
-            {error ? (
-              <p role="alert" className="text-danger motion-safe:animate-shake">
-                {error}
-              </p>
-            ) : null}
-            {/* The whole-task save, for a page with no script. With script
-                every control saves on its own, and the button is never drawn. */}
-            {task.finished ? null : (
-              <noscript>
-                <button form={TASK_FORM} className="self-start rounded border border-border px-3 py-2">
-                  Save
-                </button>
-              </noscript>
-            )}
           </div>
-          <TaskAside
-            inline
-            task={task}
-            fields={fields}
-            refs={refs}
-            colors={colors}
-            optionColors={optionColors}
-            members={members}
-            assignees={assignees}
-          />
-        </div>
-        <DecisionPrompt ask={ask} />
-      </main>
+        </Tile>
+        <Tile span={2} rows={2} label="Description" icon={<Note className="size-3" />} className="min-h-64">
+          {task.finished ? (
+            <DescriptionView text={task.description} />
+          ) : (
+            <DescriptionBox text={task.description} form={TASK_FORM} headless />
+          )}
+          {error ? (
+            <p role="alert" className="text-danger motion-safe:animate-shake">
+              {error}
+            </p>
+          ) : null}
+          {/* The whole-task save, for a page with no script. With script
+              every control saves on its own, and the button is never drawn. */}
+          {task.finished ? null : (
+            <noscript>
+              <button form={TASK_FORM} className="self-start rounded border border-border px-3 py-2">
+                Save
+              </button>
+            </noscript>
+          )}
+        </Tile>
+        <TaskTiles
+          task={task}
+          fields={fields}
+          refs={refs}
+          colors={colors}
+          optionColors={optionColors}
+          members={members}
+          assignees={assignees}
+        />
+      </Bento>
+      <DecisionPrompt ask={ask} />
+    </main>
   );
   return modalParentOf(pathname) ? sheet : <RouteModal closeTo={back}>{sheet}</RouteModal>;
 }

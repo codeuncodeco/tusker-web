@@ -114,3 +114,39 @@ describe("the View button's ring", () => {
     expect(viewOf("/o/acme/clients", false)).toBeNull();
   });
 });
+
+describe("the view dial", () => {
+  it("lays the views on a quarter arc, from the button's left to straight above it", async () => {
+    const { onDial } = await import("../app/dock");
+
+    const first = onDial(0, 4);
+    const last = onDial(3, 4);
+    expect(first.x).toBeLessThan(0);
+    expect(Math.abs(first.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(last.x)).toBeLessThanOrEqual(1);
+    expect(last.y).toBeLessThan(0);
+    // Every pill sits as far from the centre as every other.
+    const reach = (one: { x: number; y: number }) => Math.round(Math.hypot(one.x, one.y));
+    expect(new Set([0, 1, 2, 3].map((at) => reach(onDial(at, 4)))).size).toBe(1);
+  });
+});
+
+describe("a bento tile", () => {
+  it("spans the columns it names, with its label, and draws no box inside itself", async () => {
+    const { Bento, Tile } = await import("../app/bento");
+    const html = renderToStaticMarkup(
+      <Bento>
+        <Tile span={3} label="Title">
+          words
+        </Tile>
+        <Tile span={1} rows={2} label="Acts" />
+      </Bento>,
+    );
+
+    expect(html).toContain("sm:grid-cols-4");
+    expect(html).toMatch(/<section class="[^"]*col-span-2 sm:col-span-3[^"]*"/);
+    expect(html).toMatch(/<section class="[^"]*sm:row-span-2[^"]*"/);
+    expect(html).toContain(">Title<");
+    expect(html).not.toMatch(/<section[^>]*border/);
+  });
+});

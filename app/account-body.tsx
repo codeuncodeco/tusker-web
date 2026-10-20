@@ -10,7 +10,8 @@ import { useRef } from "react";
 import { Form, Link, useFetcher } from "react-router";
 
 import { initialsOf, type Me } from "./assignees";
-import { ImageIcon, XMark } from "./icons";
+import { ArrowRight, Building, ImageIcon, Plus, Users, XMark } from "./icons";
+import { Bento, Tile } from "./bento";
 import { Avatar } from "./initials";
 import { orgPagePath } from "./paths";
 import { OrgDot } from "./org-chip";
@@ -168,7 +169,7 @@ export function Identity({ me }: { me: Me }) {
           title={image ? "Change your picture" : "Add a picture"}
           className="press group relative shrink-0 rounded-full"
         >
-          <Avatar person={shown} size="md" className="size-12 border-2 text-sm" />
+          <Avatar person={shown} size="md" className="size-12 border-2 text-xs" />
           <span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border border-border bg-surface text-muted group-hover:text-fg">
             <ImageIcon className="size-2.5" />
           </span>
@@ -213,56 +214,60 @@ export function Identity({ me }: { me: Me }) {
 export function AccountBody({ person, look, orgs, requests }: AccountData) {
   const withdraw = useFetcher();
 
+  // A bento: who you are across the top, your orgs, the requests waiting,
+  // and the way out. See ADR-0040.
   return (
-    <div className="flex flex-col gap-6">
-      <Look person={person} look={look} />
+    <Bento>
+      <Tile span={4}>
+        <Look person={person} look={look} />
+      </Tile>
 
-      <section className="rounded-lg border border-border p-4">
-        <h2 className="uppercase tracking-wide text-muted">Orgs</h2>
-        <ul className="mt-2 flex flex-col gap-1">
+      <Tile span={2} label="Orgs" icon={<Building className="size-3" />} action={<span className="font-mono text-[0.625rem] tabular-nums text-dim">{orgs.length}</span>}>
+        <ul className="-mx-2 flex flex-col">
           {orgs.map((org) => (
-            <li key={org.id} className="flex items-center gap-2">
+            <li key={org.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-2">
               <OrgDot color={org.color} />
-              <Link to={`/o/${org.slug}/board`} className="underline">
+              <Link to={`/o/${org.slug}/board`} className="min-w-0 flex-1 truncate">
                 {org.name}
               </Link>
-              <span className="text-muted">/{org.slug}</span>
-              <Link to={orgPagePath(org.slug, "members")} className="ml-2 underline">
+              <Link to={orgPagePath(org.slug, "members")} className="text-xs text-muted hover:text-fg">
                 Members
               </Link>
             </li>
           ))}
         </ul>
-        <Link to="/orgs/new" className="mt-3 inline-block underline">
+        <Link to="/orgs/new" className="press mt-auto inline-flex items-center gap-1.5 self-start rounded-full bg-surface-2 px-3 py-1 text-xs text-muted hover:text-fg">
+          <Plus className="size-3" />
           New org
         </Link>
-      </section>
+      </Tile>
 
       {requests.length > 0 ? (
-        <section className="rounded-lg border border-border p-4">
-          <h2 className="uppercase tracking-wide text-muted">Asked to join</h2>
-          <ul className="mt-2 flex flex-col gap-1">
+        <Tile span={2} label="Asked to join" icon={<Users className="size-3" />}>
+          <ul className="flex flex-col gap-1">
             {requests.map((org) => (
               <li key={org.id} className="flex items-center gap-3">
-                <span className="flex min-w-0 items-center gap-1.5">
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
                   <OrgDot color={org.color} />
                   <span className="truncate">{org.name}</span>
                 </span>
                 <withdraw.Form method="post" action={ACCOUNT}>
                   <input type="hidden" name="org" value={org.id} />
-                  <button name="intent" value="withdraw" className="underline">
+                  <button name="intent" value="withdraw" className="press rounded-full px-2.5 py-1 text-xs text-danger hover:bg-danger/10">
                     Withdraw
                   </button>
                 </withdraw.Form>
               </li>
             ))}
           </ul>
-        </section>
+        </Tile>
       ) : null}
 
-      <Form method="post" action={ACCOUNT}>
-        <button className="press rounded border border-border px-3 py-2 hover:bg-surface-2">Sign out</button>
-      </Form>
-    </div>
+      <Tile span={requests.length > 0 ? 4 : 2} label="Session" icon={<ArrowRight className="size-3" />}>
+        <Form method="post" action={ACCOUNT} className="mt-auto">
+          <button className="press rounded-xl border border-border px-4 py-2 text-danger hover:bg-danger/10">Sign out</button>
+        </Form>
+      </Tile>
+    </Bento>
   );
 }

@@ -23,13 +23,14 @@ import {
   readField,
   removeField,
 } from "../fields.server";
-import { Check, XMark } from "../icons";
+import { Check, Plus, XMark } from "../icons";
 import { Swatches } from "../swatches";
 import { fieldClass } from "../forms";
 import { readOrgApp } from "../orgs.server";
 import { isLinked, isRefsPath } from "../refs";
 import { refOptionsOfOrg, refreshField } from "../refs.server";
 import { requireScope } from "../scope.server";
+import { Stat } from "../bento";
 import type { Route } from "./+types/fields";
 import { orgPagePath } from "../paths";
 
@@ -429,7 +430,7 @@ function DeclaredField({
   const edit = useFetcher();
 
   return (
-    <li className="flex flex-col gap-2 rounded border border-border p-3">
+    <li className="flex flex-col gap-3 rounded-2xl bg-surface p-4 motion-safe:animate-rise-in">
       <span className="flex items-center gap-2">
         <code>{field.key}</code>
         <span className="text-muted">{FIELD_TYPE_LABEL[field.type]}</span>
@@ -492,14 +493,16 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
   const pulled = actionData && "pulled" in actionData ? actionData.pulled : null;
 
   return (
-    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
-      <h1 className="text-2xl tracking-tight">Fields</h1>
+    // A bento: a head, one tile per declared field, two abreast, and the
+    // form that declares one more as a tile of its own. See ADR-0040.
+    <main className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-2 px-1">
+        <h1 className="font-serif text-3xl tracking-tight">Fields</h1>
+        <Stat value={fields.length} word={fields.length === 1 ? "field" : "fields"} />
+        <p className="text-xs text-muted">Each shows on every task of this org, and on no task of another one.</p>
+      </div>
 
-      <p className="text-muted">
-        A field this org declares shows on every task of this org, and on no task of another one.
-      </p>
-
-      <ul className="flex flex-col gap-3">
+      <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {fields.map((field) => (
           <DeclaredField
             key={field.key}
@@ -511,8 +514,11 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
         ))}
       </ul>
 
-      <Form method="post" className="group/declare flex flex-col gap-3 border-t border-border pt-6">
-        <h2 className="text-lg">Declare a field</h2>
+      <Form method="post" className="group/declare flex flex-col gap-3 rounded-2xl bg-surface p-4 lg:w-1/2">
+        <h2 className="flex items-center gap-1.5 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
+          <Plus className="size-3" />
+          Declare a field
+        </h2>
         <input type="hidden" name="intent" value="declare" />
 
         <label className="flex flex-col gap-1">

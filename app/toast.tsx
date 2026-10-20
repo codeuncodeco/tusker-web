@@ -16,6 +16,7 @@
  * message when it arrives. See #121.
  */
 
+import { play } from "./sound";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useFetcher, useLocation } from "react-router";
 
@@ -155,7 +156,9 @@ export function ToastBar({ toast, drop }: { toast: Toast; drop: () => void }) {
               <input key={`${name}:${one}`} type="hidden" name={name} value={one} />
             )),
           )}
-          <button className="press font-medium underline underline-offset-2">{toast.act.label}</button>
+          <button onClick={() => play("undo")} className="press font-medium underline underline-offset-2">
+            {toast.act.label}
+          </button>
         </act.Form>
       ) : null}
 

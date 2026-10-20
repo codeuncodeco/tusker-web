@@ -15,6 +15,7 @@ import { colorCss } from "../colors";
 import { cloudflareEnv } from "../context.server";
 import { LinkIcon, Note } from "../icons";
 import { requireScope } from "../scope.server";
+import { Bento, Stat, Tile } from "../bento";
 import type { Route } from "./+types/clients";
 import { orgPagePath } from "../paths";
 
@@ -41,45 +42,66 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 export default function Clients({ loaderData }: Route.ComponentProps) {
   const { org, field, clients } = loaderData;
 
-  return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-8">
-      <h1 className="text-3xl tracking-tight">Clients</h1>
+  const open = clients.reduce((sum, one) => sum + one.counts.open, 0);
+  // The client with the most open work takes a wide tile. See ADR-0040.
+  const busiest = clients.reduce<string | null>(
+    (best, one) => (best === null || one.counts.open > (clients.find((c) => c.value === best)?.counts.open ?? 0) ? one.value : best),
+    null,
+  );
 
-      {field === null ? (
-        <p className="text-muted">
-          {org.name} names no client field yet. On the{" "}
-          <Link to={orgPagePath(org.slug, "fields")} className="underline">
-            fields page
-          </Link>
-          , press <strong className="font-medium text-fg">Make it the client field</strong> on a select or a reference
-          field, and each of its values gets a page here.
-        </p>
-      ) : clients.length === 0 ? (
-        <p className="text-muted">
-          The {field.label} field offers no values yet. Add some on the{" "}
-          <Link to={orgPagePath(org.slug, "fields")} className="underline">
-            fields page
-          </Link>
-          .
-        </p>
-      ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {clients.map((client, at) => (
-            <li
+  return (
+    <main className="flex flex-col gap-3">
+      <Bento>
+        <Tile span={4} tone="plain" className="p-1!">
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+            <h1 className="font-serif text-3xl tracking-tight">Clients</h1>
+            {field ? (
+              <>
+                <Stat value={clients.length} word={clients.length === 1 ? "client" : "clients"} />
+                <Stat value={open} word="open" />
+              </>
+            ) : null}
+          </div>
+        </Tile>
+
+        {field === null ? (
+          <Tile span={4}>
+            <p className="text-muted">
+              {org.name} names no client field yet. On the{" "}
+              <Link to={orgPagePath(org.slug, "fields")} className="underline">
+                fields page
+              </Link>
+              , press <strong className="font-medium text-fg">Make it the client field</strong> on a select or a
+              reference field, and each of its values gets a page here.
+            </p>
+          </Tile>
+        ) : clients.length === 0 ? (
+          <Tile span={4}>
+            <p className="text-muted">
+              The {field.label} field offers no values yet. Add some on the{" "}
+              <Link to={orgPagePath(org.slug, "fields")} className="underline">
+                fields page
+              </Link>
+              .
+            </p>
+          </Tile>
+        ) : (
+          clients.map((client, at) => (
+            <Link
               key={client.value}
-              style={{ animationDelay: `${at * 40}ms` }}
-              className="motion-safe:animate-rise-in"
+              to={clientPath(org.slug, client.value)}
+              style={{
+                animationDelay: `${at * 30}ms`,
+                ...(client.color ? { borderLeftColor: colorCss(client.color) } : {}),
+              }}
+              className={`press-soft group flex min-h-36 flex-col gap-3 rounded-2xl border-l-[6px] border-transparent bg-surface p-4 hover:bg-surface-2 motion-safe:animate-rise-in ${
+                client.value === busiest && clients.length > 2 ? "col-span-2 sm:row-span-2" : "col-span-1"
+              }`}
             >
-              <Link
-                to={clientPath(org.slug, client.value)}
-                style={client.color ? { borderLeftColor: colorCss(client.color) } : undefined}
-                className="press-soft group flex h-full flex-col gap-3 rounded-lg border border-l-[6px] border-border bg-surface p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <span className="font-serif text-xl leading-tight">{client.label}</span>
-                <span className="flex flex-wrap items-center gap-3 text-xs text-muted">
-                  <span className="tabular-nums">
-                    <strong className="font-semibold text-fg">{client.counts.open}</strong> open
-                  </span>
+              <span className="font-serif text-xl leading-tight">{client.label}</span>
+              <span className="mt-auto flex items-end gap-4">
+                <Stat value={client.counts.open} word="open" />
+                <span className="ml-auto flex items-center gap-3 text-xs text-muted">
                   <span className="flex items-center gap-1 tabular-nums">
                     <LinkIcon className="size-3" />
                     {client.counts.links}
@@ -88,15 +110,15 @@ export default function Clients({ loaderData }: Route.ComponentProps) {
                     <Note className="size-3" />
                     {client.counts.notes}
                   </span>
-                  <span aria-hidden="true" className="ml-auto transition-transform group-hover:translate-x-1">
+                  <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">
                     →
                   </span>
                 </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+              </span>
+            </Link>
+          ))
+        )}
+      </Bento>
     </main>
   );
 }

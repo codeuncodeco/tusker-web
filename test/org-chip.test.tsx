@@ -210,11 +210,11 @@ describe("the header", () => {
     return { slug, name: slug, color };
   }
 
-  it("draws every org's dot in the settings panel, where orgs are picked", () => {
+  it("draws every org's dot in the You panel, where orgs are picked", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
     const markup = headerAt("/o/acme/board", orgs, orgs[0]!);
 
-    const panel = markup.slice(markup.indexOf('aria-label="Settings"'));
+    const panel = markup.slice(markup.search(/aria-label="You[^"]*"/));
     expect(panel).toContain("var(--color-opt-teal)");
     expect(panel).toContain("var(--color-opt-pink)");
   });

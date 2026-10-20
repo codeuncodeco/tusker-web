@@ -13,6 +13,7 @@
  * work. Neither names a status.
  */
 
+import { play } from "./sound";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
@@ -125,6 +126,7 @@ export function UnifiedAdd({
 
   /** Takes the add back and gives the box the words again. */
   function refile(one: Added) {
+    play("undo");
     // One add is one act, so the undo names every row it made in one post.
     const form = new FormData();
     form.append("intent", "undo");

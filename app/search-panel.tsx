@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Link, useFetcher, useLocation, useNavigate, useSearchParams } from "react-router";
 
+import { play } from "./sound";
 import { STATUS_LABEL } from "./board";
 import { clientPath } from "./client-tag";
 import { ChevronRight, CircleHalf, Folder, Search, Sliders, XMark } from "./icons";
@@ -179,6 +180,13 @@ export function GlobalSearch() {
 
   useEffect(() => {
     if (open) box.current?.focus();
+  }, [open]);
+
+  // Opening and closing have their sounds. The first draw makes none.
+  const drawn = useRef(false);
+  useEffect(() => {
+    if (drawn.current) play(open ? "open" : "close");
+    drawn.current = true;
   }, [open]);
 
   // The answers follow the words, a beat after the last key.

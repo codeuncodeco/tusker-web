@@ -17,6 +17,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router";
 
+import { play } from "./sound";
 import { ArrowLeft, ArrowRight, XMark } from "./icons";
 import { modalParentOf } from "./paths";
 
@@ -96,6 +97,12 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
   // The page behind owns its own address: a click on the shade, ✕ and Escape
   // land there, and so does the end of a delete.
   const close = () => navigate(closeTo, { preventScrollReset: true });
+
+  // A sheet opening and closing has a sound of its own. See `app/sound.ts`.
+  useEffect(() => {
+    play("open");
+    return () => play("close");
+  }, []);
 
   // The card this sheet grew from gives its name back before the new page is
   // captured. See `markOpening`.

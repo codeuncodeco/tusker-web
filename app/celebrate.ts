@@ -9,6 +9,8 @@
  * A person who asked for less motion gets none of it.
  */
 
+import { play } from "./sound";
+
 /** How many sparks one burst throws. */
 const SPARKS = 12;
 
@@ -17,6 +19,7 @@ const LIFE = 950;
 
 /** Throws one burst, centred on a point of the window, in a colour. */
 export function celebrate(x: number, y: number, _color?: string): void {
+  play("done");
   // Success has one colour on this board. See ADR-0038.
   const color = "var(--color-win)";
   if (typeof window === "undefined") return;

@@ -145,17 +145,20 @@ describe("an open task", () => {
     }
   });
 
-  it("holds the decision mark and the fields in the aside, and the acts at the head", () => {
+  it("draws each property as a tile of its own, and the acts beside the title", () => {
     const html = page({ fields: [field("kind", "select", ["Bug", "Chore"])] });
-    const aside = asideOf(html);
+    const tiles = [...html.matchAll(/<section[^>]*>[\s\S]*?<\/section>/g)].map((one) => one[0]);
+    const tileOf = (name: string) => tiles.find((one) => one.includes(`name="${name}"`)) ?? "";
 
-    expect(aside).toContain('name="status"');
-    expect(aside).toContain('name="due_date"');
-    expect(aside).toContain('name="decides"');
-    expect(aside).toContain('name="field.kind"');
-    // The acts head the sheet, above the title. See ADR-0039.
-    expect(aside).not.toContain('value="finish"');
-    expect(html.indexOf('value="finish"')).toBeLessThan(html.indexOf("<h1"));
+    // One control to a tile: no card holds them all. See ADR-0040.
+    for (const name of ["status", "due_date", "decides", "field.kind"]) {
+      expect([name, tileOf(name) !== ""]).toEqual([name, true]);
+    }
+    expect(tileOf("status")).not.toContain('name="due_date"');
+    expect(html).not.toContain("<aside");
+    // The acts sit in their own tile, after the title's.
+    expect(html.indexOf('value="finish"')).toBeGreaterThan(html.indexOf("<h1"));
+    expect(html).toMatch(/>Acts</);
   });
 
   it("says nothing about fields when the org declares none", () => {
@@ -174,9 +177,9 @@ describe("an open task", () => {
 });
 
 describe("a finished task", () => {
-  it("reads its aside as text, with Reopen and Archive at the head", () => {
+  it("reads its tiles as text, with Reopen and Archive in the acts", () => {
     const html = page({ status: "done", fields: [field("kind", "select", ["Bug"])] });
-    const aside = asideOf(html);
+    const aside = html;
 
     expect(html).toContain('value="reopen"');
     expect(html).toContain('value="archive"');

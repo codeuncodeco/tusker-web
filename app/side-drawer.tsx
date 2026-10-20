@@ -18,6 +18,7 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
+import { play } from "./sound";
 import { flipped, type Status } from "./board";
 import { CircleXMark, Inbox, XMark } from "./icons";
 
@@ -188,6 +189,11 @@ function useEscapeAway(open: SideStatus[], box: React.RefObject<HTMLElement | nu
 export function SideDrawer({ open, children }: { open: SideStatus[]; children: React.ReactNode }) {
   const box = useRef<HTMLElement>(null);
   useEscapeAway(open, box);
+  // The drawer slides out with a sound of its own. See `app/sound.ts`.
+  const out = open.length > 0;
+  useEffect(() => {
+    if (out) play("slide");
+  }, [out]);
   if (open.length === 0) return null;
 
   return (

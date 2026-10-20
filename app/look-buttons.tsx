@@ -4,6 +4,7 @@
  * ADR-0038.
  */
 
+import { play } from "./sound";
 import { useLocation } from "react-router";
 
 import {
@@ -55,6 +56,7 @@ const SCHEME_LOOKS: Record<ColourScheme, { label: string; icon: (className: stri
 export function useSchemePick(): (to: ColourScheme) => void {
   const fetcher = useColourSchemeFetcher();
   return (to) => {
+    play("scheme");
     const send = () =>
       fetcher.submit(
         { scheme: to },
