@@ -15,13 +15,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Link, useFetcher, useLocation, useNavigate, useSearchParams } from "react-router";
+import { Form, Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
-import { ACCOUNT, AccountBody, type AccountData } from "./account-body";
+import { ACCOUNT, Identity } from "./account-body";
 import { ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
 import type { Me } from "./assignees";
 import type { OrgHeld } from "./current-org";
 import {
+  ArrowRight,
   BoxArchive,
   Bullseye,
   CalendarWeek,
@@ -42,7 +43,7 @@ import {
 } from "./icons";
 import { Avatar } from "./initials";
 import { OrgDot } from "./org-chip";
-import { ColourSchemeButton, KeysButton } from "./look-buttons";
+import { KeysButton, SchemeSegments } from "./look-buttons";
 import { boardOf } from "./org-select";
 
 /** The views the View button steps through, in order. */
@@ -158,10 +159,21 @@ export function Dock({
       className={`fixed right-4 z-40 flex items-end gap-2 sm:right-6 ${raised ? "bottom-20 sm:bottom-6" : "bottom-4 sm:bottom-6"} print:hidden`}
     >
       <ViewButton board={board} onBoard={onBoard} where={where} />
-      <SettingsPanel orgs={orgs} org={org} />
-      <Profile me={me} />
+      <YouPanel orgs={orgs} org={org} me={me} />
     </nav>
   );
+}
+
+/** How far the dial's pills sit from the button's centre, in px. */
+const DIAL_RADIUS = 104;
+
+/**
+ * Where one pill of the dial sits, from the button's centre: on a quarter arc
+ * from the button's left (the first view) to straight above it (the last).
+ */
+export function onDial(at: number, of: number): { x: number; y: number } {
+  const turn = Math.PI + (of > 1 ? (at / (of - 1)) * (Math.PI / 2) : 0);
+  return { x: Math.round(Math.cos(turn) * DIAL_RADIUS), y: Math.round(Math.sin(turn) * DIAL_RADIUS) };
 }
 
 /**
@@ -233,16 +245,29 @@ function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean
       }}
     >
       {open ? (
-        <ul aria-label="Views" className="absolute bottom-full right-0 flex flex-col-reverse items-end gap-1.5 pb-3">
+        // The dial: every view on a quarter arc round the button, from its
+        // left to straight above it, each flying out from the centre to its
+        // place. See ADR-0040.
+        <ul aria-label="Views" className="pointer-events-none absolute left-1/2 top-1/2 size-0">
           {VIEWS.map((one, at) => {
             const here = one === view;
+            const { x, y } = onDial(at, VIEWS.length);
+            const place = { "--ox": `${x}px`, "--oy": `${y}px` } as React.CSSProperties;
             return (
-              <li key={one} style={{ animationDelay: `${at * 35}ms` }} className="motion-safe:animate-rise-in">
+              <li
+                key={one}
+                style={{
+                  ...place,
+                  transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                  animationDelay: `${at * 30}ms`,
+                }}
+                className="pointer-events-auto absolute left-0 top-0 motion-safe:animate-orbit-in"
+              >
                 <Link
                   to={to(one)}
                   viewTransition
                   aria-current={here ? "page" : undefined}
-                  // A pick on a phone is the end of it: the fan furls. The
+                  // A pick on a phone is the end of it: the dial furls. The
                   // pointer over it on a wide screen keeps it out.
                   onPointerDown={(event) => {
                     touch.current = event.pointerType !== "mouse";
@@ -250,14 +275,14 @@ function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean
                   onClick={() => {
                     if (touch.current) setOpen(false);
                   }}
-                  className={`press flex h-10 items-center gap-2 rounded-full border px-4 shadow-lg ${
+                  className={`press flex size-14 flex-col items-center justify-center gap-0.5 rounded-full border shadow-lg ${
                     here
-                      ? "border-fg bg-fg font-medium text-bg"
-                      : "border-border bg-surface text-muted hover:-translate-x-0.5 hover:border-dim hover:text-fg"
+                      ? "border-fg bg-fg text-bg ring-2 ring-fg ring-offset-2 ring-offset-bg"
+                      : "border-border bg-surface text-muted hover:scale-105 hover:border-dim hover:text-fg"
                   }`}
                 >
                   {VIEW_LOOK[one].icon("size-4")}
-                  {VIEW_LOOK[one].label}
+                  <span className="font-mono text-[0.5625rem] uppercase tracking-wider">{VIEW_LOOK[one].label}</span>
                 </Link>
               </li>
             );
@@ -286,8 +311,10 @@ function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean
         }}
         className={`${DOCK_BUTTON} ${open ? "border-fg" : ""}`}
       >
-        <span key={shown} className="flex motion-safe:animate-spin-in">
-          {VIEW_LOOK[shown].icon("size-5")}
+        <span className={`flex transition-transform duration-300 ease-out ${open ? "rotate-90" : ""}`}>
+          <span key={shown} className="flex motion-safe:animate-spin-in">
+            {VIEW_LOOK[shown].icon("size-5")}
+          </span>
         </span>
       </Link>
     </div>
@@ -306,12 +333,14 @@ function usePicked(): (slug: string) => string {
 }
 
 /**
- * The settings panel: the gear, and above it every way to another board and
- * every page of the org in view, each a row or a tile with its glyph, and how
- * the page is drawn. A `<details>`, so it opens with no script; script closes
- * it on a pick, a click outside, and Escape. See ADR-0039.
+ * The You panel: the one dock button that is you and your settings, merged.
+ * It wears your avatar, with a small gear at its edge, and opens on who you
+ * are, then every board, the pages of the org in view, how the page is drawn,
+ * and the rest. One surface, rows a thumb can hit, a glyph on every row. A
+ * `<details>`, so it opens with no script; script closes it on a pick, a click
+ * outside, and Escape. See ADR-0040.
  */
-function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
+function YouPanel({ orgs, org, me }: { orgs: OrgHeld[]; org: OrgHeld | null; me?: Me }) {
   const panel = useRef<HTMLDetailsElement>(null);
   const { pathname } = useLocation();
   const picked = usePicked();
@@ -332,6 +361,7 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || !panel.current?.open) return;
+      if ((event.target as HTMLElement | null)?.closest("input, textarea")) return;
       // One press means one thing. See ADR-0022.
       event.stopPropagation();
       close();
@@ -350,26 +380,35 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     if (panel.current) panel.current.open = false;
   }, [pathname]);
 
-  /** One row of the panel: a glyph in a tile, the words, and where it leads. */
+  /** One row: a glyph in a tile, the words, and where it leads. */
   const row = (here: boolean) =>
-    `press flex min-h-11 items-center gap-3 rounded-xl px-2 ${here ? "bg-fg text-bg" : "hover:bg-surface-2"}`;
+    `press flex h-11 items-center gap-3 rounded-xl px-2 ${here ? "bg-fg text-bg" : "hover:bg-surface-2"}`;
   const tile = (here: boolean) =>
     `flex size-8 shrink-0 items-center justify-center rounded-lg ${here ? "bg-bg/15" : "bg-surface-2 text-muted"}`;
 
   return (
-    <details ref={panel} className="group/settings relative">
+    <details ref={panel} className="group/you relative">
       <summary
-        aria-label="Settings"
-        title="Settings"
-        className={`${DOCK_BUTTON} list-none group-open/settings:border-fg group-open/settings:bg-fg group-open/settings:text-bg [&::-webkit-details-marker]:hidden`}
+        aria-label={me?.name ? `You: ${me.name}, and settings` : "You and settings"}
+        title="You and settings"
+        className={`${DOCK_BUTTON} relative list-none p-0 group-open/you:ring-2 group-open/you:ring-fg group-open/you:ring-offset-2 group-open/you:ring-offset-bg [&::-webkit-details-marker]:hidden`}
       >
-        <Gear className="size-5 transition-transform duration-300 ease-spring group-open/settings:rotate-90" />
+        {me ? <Avatar person={me} size="md" className="size-10 border-2 text-xs" /> : <User className="size-5" />}
+        <span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border border-border bg-surface text-muted">
+          <Gear className="size-2.5 transition-transform duration-300 ease-out group-open/you:rotate-90" />
+        </span>
       </summary>
-      {/* Over the gear on a wide screen; on a phone, a sheet across the foot
-          of the screen, over the dock. */}
-      <div className="fixed inset-x-3 bottom-20 flex max-h-[calc(100dvh-7rem)] flex-col sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-3 sm:max-h-[min(36rem,calc(100dvh-7rem))] sm:w-[22rem] gap-1 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface p-2 shadow-2xl motion-safe:animate-rise-in">
+      {/* Over the button on a wide screen, from its corner; on a phone, a
+          sheet across the foot of the screen, over the dock. */}
+      <div className="fixed inset-x-3 bottom-20 flex max-h-[calc(100dvh-7rem)] origin-bottom-right flex-col divide-y divide-border overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface shadow-2xl motion-safe:animate-scale-in sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-3 sm:max-h-[min(40rem,calc(100dvh-7rem))] sm:w-[22rem]">
+        {me ? (
+          <section className="p-3">
+            <Identity me={me} />
+          </section>
+        ) : null}
+
         {orgs.length > 0 ? (
-          <section className="flex flex-col gap-0.5">
+          <section className="flex flex-col gap-0.5 p-2">
             <PanelHead>Board</PanelHead>
             {orgs.map((one) => {
               const here = org?.slug === one.slug && !onAll;
@@ -396,25 +435,27 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
         ) : null}
 
         {pages ? (
-          <section className="flex flex-col gap-1 border-t border-border pt-2">
+          <section className="flex flex-col gap-1 p-2">
             <PanelHead>
               <OrgDot color={pages.color} />
               {pages.name}
             </PanelHead>
-            <div className="grid grid-cols-3 gap-1.5 px-1 pb-1">
+            <div className="grid grid-cols-3 gap-1">
               {ORG_PAGES.map((page) => {
                 const to = orgPagePath(pages.slug, page.to);
-                const here = pathname.startsWith(to) || pathname.startsWith(`/o/${pages.slug}/${page.to}`);
+                const here = pathname.startsWith(to);
                 return (
                   <Link
                     key={page.to}
                     to={to}
                     aria-current={here ? "page" : undefined}
-                    className={`press flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 text-xs ${
-                      here ? "border-fg bg-fg text-bg" : "border-border bg-bg text-muted hover:-translate-y-0.5 hover:border-dim hover:text-fg"
+                    className={`press flex flex-col items-center gap-1.5 rounded-xl py-2.5 text-xs ${
+                      here ? "bg-fg text-bg" : "text-muted hover:bg-surface-2 hover:text-fg"
                     }`}
                   >
-                    {page.icon("size-4")}
+                    <span className={`flex size-8 items-center justify-center rounded-lg ${here ? "bg-bg/15" : "bg-surface-2"}`}>
+                      {page.icon("size-3.5")}
+                    </span>
                     {page.label}
                   </Link>
                 );
@@ -423,19 +464,24 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           </section>
         ) : null}
 
-        <section className="flex flex-col gap-0.5 border-t border-border pt-2">
+        <section className="flex flex-col gap-2 p-3">
           <PanelHead>Look</PanelHead>
-          <div className="flex min-h-11 items-center gap-3 px-2">
-            <span className="flex-1 text-muted">Light, dark or the system’s</span>
-            <ColourSchemeButton />
-          </div>
-          <div className="hidden min-h-11 items-center gap-3 px-2 pointer-fine:flex">
+          <SchemeSegments />
+          <SoundRow />
+          <div className="hidden h-9 items-center gap-3 pointer-fine:flex">
             <span className="flex-1 text-muted">Keys</span>
             <KeysButton />
           </div>
         </section>
 
-        <section className="flex flex-col gap-0.5 border-t border-border pt-2">
+        <section className="flex flex-col gap-0.5 p-2">
+          <Link to="/account" className={row(pathname === "/account")}>
+            <span className={tile(pathname === "/account")}>
+              <User className="size-3.5" />
+            </span>
+            <span className="flex-1">Account</span>
+            <ChevronRight className="size-3 text-dim" />
+          </Link>
           <Link to="/orgs/new" className={row(pathname === "/orgs/new")}>
             <span className={tile(pathname === "/orgs/new")}>
               <Plus className="size-3.5" />
@@ -451,127 +497,30 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
               <span className="flex-1">{extra.label}</span>
             </button>
           ))}
+          <Form method="post" action={ACCOUNT}>
+            <button className={`${row(false)} w-full text-left text-danger`}>
+              <span className={`${tile(false)} text-danger`}>
+                <ArrowRight className="size-3.5" />
+              </span>
+              <span className="flex-1">Sign out</span>
+            </button>
+          </Form>
         </section>
       </div>
     </details>
   );
 }
 
-/** The heading of one part of the settings panel. */
+/** The heading of one part of the You panel. */
 function PanelHead({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="flex items-center gap-1.5 px-2 pb-1 pt-1.5 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
+    <h2 className="flex items-center gap-1.5 px-2 pb-1 pt-0.5 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
       {children}
     </h2>
   );
 }
 
-/**
- * The profile button: the person's avatar. A click opens the account as a
- * modal over the page; a link underneath, so a modified click or no script
- * opens the account page itself.
- */
-function Profile({ me }: { me?: Me }) {
-  const [open, setOpen] = useState(false);
-  const button = useRef<HTMLAnchorElement>(null);
-  const { pathname } = useLocation();
-
-  // A page change, from a link in the modal, closes it.
-  useEffect(() => setOpen(false), [pathname]);
-
-  return (
-    <>
-      <Link
-        ref={button}
-        to={ACCOUNT}
-        aria-haspopup="dialog"
-        aria-label={me?.name ? `Account: ${me.name}` : "Account"}
-        title="Account"
-        onClick={(event) => {
-          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          setOpen(true);
-        }}
-        className={`${DOCK_BUTTON} overflow-hidden p-0`}
-      >
-        {me ? <Avatar person={me} size="md" className="size-10 border-2 text-xs" /> : <User className="size-5" />}
-      </Link>
-      {open ? (
-        <AccountModal
-          onClose={() => {
-            setOpen(false);
-            button.current?.focus();
-          }}
-        />
-      ) : null}
-    </>
-  );
-}
-
-/**
- * The account, as a modal: the same block the account page draws, loaded when
- * the modal opens. Escape, the ✕ and a click on the shade close it. It is drawn
- * only while open, because a dialog on the page stops the list keys. See
- * `isPagePress`.
- */
-function AccountModal({ onClose }: { onClose: () => void }) {
-  const account = useFetcher<AccountData>();
-  const box = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (account.state === "idle" && !account.data) void account.load(ACCOUNT);
-    box.current?.focus();
-    // Once, as the modal opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      // One press means one thing: a box inside the modal reads Escape first.
-      if ((event.target as HTMLElement | null)?.closest("input, textarea")) return;
-      event.stopPropagation();
-      onClose();
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-fg/25 p-4 backdrop-blur-[2px] sm:items-center motion-safe:animate-fade-in"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={box}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Your account"
-        tabIndex={-1}
-        className="relative max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-bg p-6 shadow-2xl focus:outline-none motion-safe:animate-pop"
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="press absolute right-3 top-3 flex size-8 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg"
-        >
-          <XMark className="size-4" />
-        </button>
-        {account.data ? (
-          <AccountBody {...account.data} />
-        ) : (
-          <div className="flex items-center gap-4" aria-busy="true">
-            <span className="size-20 animate-pulse rounded-full bg-surface-2" />
-            <span className="flex flex-1 flex-col gap-2">
-              <span className="h-7 w-48 animate-pulse rounded bg-surface-2" />
-              <span className="h-4 w-32 animate-pulse rounded bg-surface-2" />
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+/** The sound switch of the You panel. Filled in with the sound itself. */
+function SoundRow() {
+  return null;
 }

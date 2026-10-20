@@ -48,29 +48,16 @@ const SCHEME_LOOKS: Record<ColourScheme, { label: string; icon: (className: stri
 };
 
 /**
- * The colour scheme button: one glyph, and one click steps to the next scheme,
- * Light to Dark to System and round again. See `nextScheme`.
- *
- * With script, the pick posts through a fetcher, and the page draws it while
- * the post is in flight, so it changes at once. Where the browser can, the new
- * scheme dissolves in over the old one, slowly, and the glyph turns in. A person who asked for less motion gets the change at once.
- *
- * With no script it is a plain POST form, and the button itself sends the next
- * scheme. The form names the page the person stands on, and the reply
- * redirects back there.
+ * The act of picking a colour scheme: post it, and where the browser can, let
+ * the new scheme dissolve in over the old. A person who asked for less motion
+ * gets the change at once. The button and the segments both pick through it.
  */
-export function ColourSchemeButton() {
-  const scheme = useColourScheme();
+export function useSchemePick(): (to: ColourScheme) => void {
   const fetcher = useColourSchemeFetcher();
-  const { pathname, search } = useLocation();
-  const next = nextScheme(scheme);
-  const name = `Colour scheme: ${SCHEME_LOOKS[scheme].label}. Switch to ${SCHEME_LOOKS[next].label}.`;
-
-  function pick(event: React.MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
+  return (to) => {
     const send = () =>
       fetcher.submit(
-        { scheme: next },
+        { scheme: to },
         { method: "post", action: COLOUR_SCHEME_ACTION, defaultShouldRevalidate: false, flushSync: true },
       );
 
@@ -89,7 +76,27 @@ export function ColourSchemeButton() {
       void send();
     });
     void transition.finished.finally(() => root.classList.remove("scheme-reveal"));
-  }
+  };
+}
+
+/**
+ * The colour scheme button: one glyph, and one click steps to the next scheme,
+ * Light to Dark to System and round again. See `nextScheme`.
+ *
+ * With script, the pick posts through a fetcher, and the page draws it while
+ * the post is in flight, so it changes at once. Where the browser can, the new
+ * scheme dissolves in over the old one, slowly, and the glyph turns in. A person who asked for less motion gets the change at once.
+ *
+ * With no script it is a plain POST form, and the button itself sends the next
+ * scheme. The form names the page the person stands on, and the reply
+ * redirects back there.
+ */
+export function ColourSchemeButton() {
+  const scheme = useColourScheme();
+  const pickScheme = useSchemePick();
+  const { pathname, search } = useLocation();
+  const next = nextScheme(scheme);
+  const name = `Colour scheme: ${SCHEME_LOOKS[scheme].label}. Switch to ${SCHEME_LOOKS[next].label}.`;
 
   return (
     <form method="post" action={COLOUR_SCHEME_ACTION}>
@@ -97,7 +104,10 @@ export function ColourSchemeButton() {
       <button
         name="scheme"
         value={next}
-        onClick={pick}
+        onClick={(event) => {
+          event.preventDefault();
+          pickScheme(next);
+        }}
         aria-label={name}
         title={name}
         className="press flex size-9 items-center justify-center overflow-hidden rounded-lg border border-border bg-bg hover:border-dim hover:bg-surface-2"
@@ -111,3 +121,40 @@ export function ColourSchemeButton() {
   );
 }
 
+/**
+ * The colour scheme as three segments, Light, Dark and System, each one click,
+ * the one held filled. Each is a submit of a plain POST form, so with no
+ * script a click still picks. The You panel draws this. See ADR-0040.
+ */
+export function SchemeSegments() {
+  const scheme = useColourScheme();
+  const pickScheme = useSchemePick();
+  const { pathname, search } = useLocation();
+
+  return (
+    <form method="post" action={COLOUR_SCHEME_ACTION} role="group" aria-label="Colour scheme" className="flex rounded-xl bg-surface-2 p-0.5">
+      <input type="hidden" name="next" value={`${pathname}${search}`} />
+      {(["light", "dark", "system"] as const).map((one) => {
+        const held = one === scheme;
+        return (
+          <button
+            key={one}
+            name="scheme"
+            value={one}
+            aria-pressed={held}
+            onClick={(event) => {
+              event.preventDefault();
+              if (!held) pickScheme(one);
+            }}
+            className={`press flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[0.625rem] text-xs ${
+              held ? "bg-bg font-medium text-fg shadow-sm" : "text-muted hover:text-fg"
+            }`}
+          >
+            {SCHEME_LOOKS[one].icon("size-3.5")}
+            {SCHEME_LOOKS[one].label}
+          </button>
+        );
+      })}
+    </form>
+  );
+}

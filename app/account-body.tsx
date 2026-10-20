@@ -9,7 +9,7 @@
 import { useRef } from "react";
 import { Form, Link, useFetcher } from "react-router";
 
-import { initialsOf } from "./assignees";
+import { initialsOf, type Me } from "./assignees";
 import { ImageIcon, XMark } from "./icons";
 import { Avatar } from "./initials";
 import { orgPagePath } from "./paths";
@@ -135,6 +135,78 @@ function Look({ person, look }: { person: { name: string; email: string }; look:
         ) : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * Who you are, small: the head of the You panel. Your avatar, which a tap
+ * changes the picture of; your name, edited in place; your email; and your
+ * colour, one click a swatch. It posts to `/account`, as the account page
+ * does, and the dock's avatar follows. See ADR-0040.
+ */
+export function Identity({ me }: { me: Me }) {
+  const fetcher = useFetcher<{ error: string } | null>();
+  const file = useRef<HTMLInputElement>(null);
+  const sent = fetcher.formData;
+  const color = sent?.get("intent") === "color" ? String(sent.get("color")) : (me.color ?? null);
+  const image = sent?.get("intent") === "image" ? String(sent.get("image")) || null : (me.image ?? null);
+  const name = sent?.get("intent") === "name" ? String(sent.get("name")) : me.name;
+  const shown = {
+    initials: initialsOf({ name, email: me.email ?? "" }),
+    color: color ?? undefined,
+    image: image ?? undefined,
+  };
+  const post = (fields: Record<string, string>) => void fetcher.submit(fields, { method: "post", action: ACCOUNT });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => file.current?.click()}
+          aria-label={image ? "Change your picture" : "Add a picture"}
+          title={image ? "Change your picture" : "Add a picture"}
+          className="press group relative shrink-0 rounded-full"
+        >
+          <Avatar person={shown} size="md" className="size-12 border-2 text-sm" />
+          <span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border border-border bg-surface text-muted group-hover:text-fg">
+            <ImageIcon className="size-2.5" />
+          </span>
+        </button>
+        <input
+          ref={file}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={async (event) => {
+            const picked = event.target.files?.[0];
+            event.target.value = "";
+            if (picked) post({ intent: "image", image: await squarePicture(picked) });
+          }}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <SavedInput
+            value={name}
+            aria-label="Your name"
+            placeholder={me.email}
+            onSave={(typed) => post({ intent: "name", name: typed })}
+            className="-mx-1 w-full truncate rounded-md border border-transparent bg-transparent px-1 font-medium hover:border-border focus:border-fg focus:outline-none"
+          />
+          {me.email ? <span className="truncate text-xs text-muted">{me.email}</span> : null}
+        </div>
+      </div>
+      <Swatches
+        name="color"
+        value={color}
+        label="Your colour"
+        onPick={(picked) => post({ intent: "color", color: picked })}
+      />
+      {fetcher.data?.error ? (
+        <p role="alert" className="text-xs text-danger motion-safe:animate-shake">
+          {fetcher.data.error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

@@ -3,8 +3,8 @@
  *
  * - **Backlog** is a tab at the left edge of the screen, hidden but for its
  *   grip. A click, or a pull to the right, slides a drawer out over the board.
- * - **Cancelled** is a tab at the bottom left, hidden but for its grip. A
- *   click, or a pull up, raises a sheet from the foot of the screen.
+ * - **Cancelled** is a tab at the bottom-left corner, on the same edge. It
+ *   pulls into the same drawer; with both out, Backlog sits above Cancelled.
  *
  * A tab whose column holds nothing is not drawn: there is nothing to pull.
  *
@@ -34,9 +34,6 @@ export function isSide(status: Status): status is SideStatus {
 /** How wide the Backlog drawer is, in rem. */
 const DRAWER_REM = 20;
 
-/** How tall the Cancelled sheet is, as a share of the screen. */
-const SHEET_VH = 46;
-
 /** How far a pull must travel before it opens, in px. */
 const PULL = 24;
 
@@ -45,10 +42,7 @@ function tabName(out: boolean, label: string, count: number): string {
   return `${out ? "Put away" : "Pull out"} ${label}, ${count} ${count === 1 ? "task" : "tasks"}`;
 }
 
-/**
- * A press that opens when it is pulled far enough one way: right for the
- * Backlog tab, up for the Cancelled tab.
- */
+/** A press that opens when it is pulled far enough to the right, or up. */
 function usePull(to: string, out: boolean, axis: "right" | "up") {
   const navigate = useNavigate();
   const from = useRef<{ x: number; y: number } | null>(null);
@@ -74,7 +68,18 @@ function usePull(to: string, out: boolean, axis: "right" | "up") {
 }
 
 /** The Backlog tab, at the left edge. `calls` makes it glow for a look. */
-export function BacklogTab({ open, count, calls = false }: { open: boolean; count: number; calls?: boolean }) {
+export function BacklogTab({
+  open,
+  count,
+  calls = false,
+  drawerOpen = open,
+}: {
+  open: boolean;
+  count: number;
+  calls?: boolean;
+  /** True while the drawer is out for either column: the tab rides its edge. */
+  drawerOpen?: boolean;
+}) {
   const [params] = useSearchParams();
   const to = flipped(params, "backlog", open);
   const pull = usePull(to, open, "right");
@@ -87,10 +92,10 @@ export function BacklogTab({ open, count, calls = false }: { open: boolean; coun
       {...pull}
       aria-label={tabName(open, "Backlog", count)}
       title={`${open ? "Put away" : "Pull out"} Backlog`}
-      style={{ left: open ? `${DRAWER_REM}rem` : 0 }}
+      style={{ left: drawerOpen ? `${DRAWER_REM}rem` : 0 }}
       // Shut, the tab hides behind the screen's edge but for its grip, and the
       // pointer over it slides it out to read. Open, it is the drawer's handle.
-      className={`press group fixed top-20 z-40 flex items-stretch rounded-r-xl border border-l-0 shadow-md transition-[left,translate] duration-300 ease-snap hover:translate-x-0 focus-visible:translate-x-0 print:hidden ${
+      className={`press group fixed top-20 z-40 flex items-stretch rounded-r-xl border border-l-0 shadow-md transition-[left,translate] duration-300 ease-out hover:translate-x-0 focus-visible:translate-x-0 print:hidden ${
         open ? "translate-x-0 border-fg bg-fg text-bg" : "-translate-x-8 border-border bg-surface text-muted hover:text-fg"
       } ${calls && !open ? "motion-safe:animate-glow" : ""}`}
     >
@@ -110,11 +115,23 @@ export function BacklogTab({ open, count, calls = false }: { open: boolean; coun
   );
 }
 
-/** The Cancelled tab, at the bottom left: a tab that pulls up. */
-export function CancelledTab({ open, count }: { open: boolean; count: number }) {
+/**
+ * The Cancelled tab, in the bottom-left corner: a tab on the left edge, like
+ * Backlog's, that pulls to the right into the same drawer. See ADR-0040.
+ */
+export function CancelledTab({
+  open,
+  count,
+  drawerOpen = open,
+}: {
+  open: boolean;
+  count: number;
+  /** True while the drawer is out for either column: the tab rides its edge. */
+  drawerOpen?: boolean;
+}) {
   const [params] = useSearchParams();
   const to = flipped(params, "cancelled", open);
-  const pull = usePull(to, open, "up");
+  const pull = usePull(to, open, "right");
   if (count === 0 && !open) return null;
 
   return (
@@ -123,28 +140,30 @@ export function CancelledTab({ open, count }: { open: boolean; count: number }) 
       preventScrollReset
       {...pull}
       aria-label={tabName(open, "Cancelled", count)}
-      title={`${open ? "Put away" : "Pull up"} Cancelled`}
-      style={{ bottom: open ? `${SHEET_VH}dvh` : 0 }}
-      className={`press group fixed left-6 z-40 flex flex-col items-stretch rounded-t-xl border border-b-0 shadow-md transition-[bottom,translate] duration-300 ease-snap hover:translate-y-0 focus-visible:translate-y-0 print:hidden ${
-        open ? "translate-y-0 border-fg bg-fg text-bg" : "translate-y-8 border-border bg-surface text-muted hover:text-fg"
+      title={`${open ? "Put away" : "Pull out"} Cancelled`}
+      style={{ left: drawerOpen ? `${DRAWER_REM}rem` : 0 }}
+      className={`press group fixed bottom-6 z-40 flex items-stretch rounded-r-xl border border-l-0 shadow-md transition-[left,translate] duration-300 ease-out hover:translate-x-0 focus-visible:translate-x-0 print:hidden ${
+        open ? "translate-x-0 border-fg bg-fg text-bg" : "-translate-x-8 border-border bg-surface text-muted hover:text-fg"
       }`}
     >
-      <span aria-hidden="true" className="flex h-3.5 items-center justify-center">
-        <span className={`h-1 w-8 rounded-full ${open ? "bg-bg/50" : "bg-dim group-hover:bg-fg"}`} />
-      </span>
-      <span className="flex h-8 items-center gap-2 px-3">
+      <span className="flex w-8 flex-col items-center gap-2 py-3">
         <CircleXMark className="size-3.5" />
-        <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em]">Cancelled</span>
         <span key={count} className="font-mono text-xs tabular-nums motion-safe:animate-tick">
           {count}
         </span>
+        <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em] [writing-mode:vertical-rl] rotate-180">
+          Cancelled
+        </span>
+      </span>
+      <span aria-hidden="true" className="flex w-3.5 items-center justify-center">
+        <span className={`h-8 w-1 rounded-full ${open ? "bg-bg/50" : "bg-dim group-hover:bg-fg"}`} />
       </span>
     </Link>
   );
 }
 
-/** Escape inside a drawer puts it away. A press anywhere else is the board's. See ADR-0022. */
-function useEscapeAway(status: SideStatus, box: React.RefObject<HTMLElement | null>) {
+/** Escape inside the drawer puts it away. A press anywhere else is the board's. See ADR-0022. */
+function useEscapeAway(open: SideStatus[], box: React.RefObject<HTMLElement | null>) {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   useEffect(() => {
@@ -152,49 +171,31 @@ function useEscapeAway(status: SideStatus, box: React.RefObject<HTMLElement | nu
       if (event.key !== "Escape" || !box.current?.contains(event.target as Node)) return;
       if ((event.target as HTMLElement).closest("input, textarea")) return;
       event.stopPropagation();
-      navigate(flipped(params, status, true), { preventScrollReset: true });
+      let next = params;
+      for (const status of open) next = new URLSearchParams(flipped(next, status, true).slice(1));
+      navigate(`?${next}`, { preventScrollReset: true });
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [status, params, navigate, box]);
+  }, [open, params, navigate, box]);
 }
 
 /**
- * The Backlog drawer, over the board's left edge. Its column keeps the board's
- * own markup; the drawer gives it a fixed width and its own pad.
+ * The drawer, over the board's left edge: the columns pulled out, Backlog
+ * above Cancelled when both are, each scrolling on its own. A column keeps the
+ * board's own markup; the drawer gives it its width and pad.
  */
-export function BacklogDrawer({ open, children }: { open: boolean; children: React.ReactNode }) {
+export function SideDrawer({ open, children }: { open: SideStatus[]; children: React.ReactNode }) {
   const box = useRef<HTMLElement>(null);
-  useEscapeAway("backlog", box);
-  if (!open) return null;
+  useEscapeAway(open, box);
+  if (open.length === 0) return null;
 
   return (
     <aside
       ref={box}
-      aria-label="Backlog"
+      aria-label={open.map((one) => (one === "backlog" ? "Backlog" : "Cancelled")).join(" and ")}
       style={{ width: `${DRAWER_REM}rem` }}
-      className="fixed inset-y-0 left-0 z-30 flex max-w-[90vw] overflow-y-auto overscroll-contain border-r border-border bg-bg shadow-2xl motion-safe:animate-slide-in print:hidden [&>section]:w-full [&>section]:min-w-0 [&>section]:flex-none [&>section]:px-4! [&>section]:animate-none!"
-    >
-      {children}
-    </aside>
-  );
-}
-
-/**
- * The Cancelled sheet, raised from the foot of the screen. Its cards lie in a
- * grid across the sheet's width, so a short sheet holds many.
- */
-export function CancelledSheet({ open, children }: { open: boolean; children: React.ReactNode }) {
-  const box = useRef<HTMLElement>(null);
-  useEscapeAway("cancelled", box);
-  if (!open) return null;
-
-  return (
-    <aside
-      ref={box}
-      aria-label="Cancelled"
-      style={{ height: `${SHEET_VH}dvh` }}
-      className="fixed inset-x-0 bottom-0 z-30 flex overflow-y-auto overscroll-contain rounded-t-2xl border-t border-border bg-bg shadow-2xl motion-safe:animate-sheet-up print:hidden [&>section]:w-full [&>section]:min-w-0 [&>section]:flex-none [&>section]:px-6! [&>section]:animate-none! [&_ul]:grid! [&_ul]:grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] [&_ul]:content-start"
+      className="fixed inset-y-0 left-0 z-30 flex max-w-[90vw] flex-col divide-y divide-border border-r border-border bg-bg shadow-2xl motion-safe:animate-slide-in print:hidden [&>section]:min-h-0 [&>section]:w-full [&>section]:min-w-0 [&>section]:flex-1 [&>section]:overflow-y-auto [&>section]:overscroll-contain [&>section]:px-4! [&>section]:pb-4 [&>section]:animate-none!"
     >
       {children}
     </aside>

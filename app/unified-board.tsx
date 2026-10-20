@@ -22,7 +22,7 @@ import { useSearchParams } from "react-router";
 
 import { EMPTY_LINE, flipped, isFinished, type Status } from "./board";
 import { ColumnHead } from "./board-chrome";
-import { BacklogDrawer, BacklogTab, CancelledSheet, CancelledTab, isSide, PutAway, SIDE_STATUSES, type SideStatus } from "./side-drawer";
+import { BacklogTab, CancelledTab, isSide, PutAway, SideDrawer, SIDE_STATUSES, type SideStatus } from "./side-drawer";
 import { ColumnSweep } from "./column-sweep";
 import { landingInOrg } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
@@ -136,8 +136,8 @@ export function UnifiedBoard({
 
   return (
     <>
-      <BacklogTab open={open.includes("backlog")} count={counts.backlog} />
-      <CancelledTab open={open.includes("cancelled")} count={counts.cancelled} />
+      <BacklogTab open={open.includes("backlog")} count={counts.backlog} drawerOpen={open.length > 0} />
+      <CancelledTab open={open.includes("cancelled")} count={counts.cancelled} drawerOpen={open.length > 0} />
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
         onDrop={onDrop}
@@ -215,12 +215,10 @@ export function UnifiedBoard({
 
           return (
             <>
-              <BacklogDrawer open={open.includes("backlog")}>
+              <SideDrawer open={open}>
                 {columns.filter((column) => column.status === "backlog").map(columnOf)}
-              </BacklogDrawer>
-              <CancelledSheet open={open.includes("cancelled")}>
                 {columns.filter((column) => column.status === "cancelled").map(columnOf)}
-              </CancelledSheet>
+              </SideDrawer>
               {/* Each column is as long as its cards, and the page scrolls.
                   The columns are panes: a divider splits them, and a card is
                   the one thing on the board with an edge. See #184 and #191. */}

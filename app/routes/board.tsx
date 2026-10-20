@@ -30,7 +30,7 @@ import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { AssigneeFilter, ColumnHead, FieldFilterSelect, SearchChip, TodayChip, WeekChip } from "../board-chrome";
 import { BoardFilters, FilterRow } from "../search-panel";
 import { CalendarDay, Folder, Search, Tag, Users } from "../icons";
-import { BacklogDrawer, BacklogTab, CancelledSheet, CancelledTab, isSide, PutAway, SIDE_STATUSES, type SideStatus } from "../side-drawer";
+import { BacklogTab, CancelledTab, isSide, PutAway, SideDrawer, SIDE_STATUSES, type SideStatus } from "../side-drawer";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
 import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
@@ -641,8 +641,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         </FilterRow>
       </BoardFilters>
 
-      <BacklogTab open={open.includes("backlog")} count={loaderData.backlogCount} calls={loaderData.backlogByRule} />
-      <CancelledTab open={open.includes("cancelled")} count={loaderData.cancelledCount} />
+      <BacklogTab open={open.includes("backlog")} count={loaderData.backlogCount} calls={loaderData.backlogByRule} drawerOpen={open.length > 0} />
+      <CancelledTab open={open.includes("cancelled")} count={loaderData.cancelledCount} drawerOpen={open.length > 0} />
 
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
@@ -651,12 +651,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       >
         {(shown) => (
           <>
-            <BacklogDrawer open={open.includes("backlog")}>
+            <SideDrawer open={open}>
               {columns.filter((column) => column.status === "backlog").map((column, at) => columnOf(column, at, shown))}
-            </BacklogDrawer>
-            <CancelledSheet open={open.includes("cancelled")}>
               {columns.filter((column) => column.status === "cancelled").map((column, at) => columnOf(column, at, shown))}
-            </CancelledSheet>
+            </SideDrawer>
             {/* Each column is as long as its cards, and the page scrolls. The
                 columns are panes: a divider splits them, and a card is the one
                 thing on the board with an edge. See #184 and #191. */}

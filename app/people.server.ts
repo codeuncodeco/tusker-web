@@ -111,6 +111,7 @@ export async function meOf(db: D1Database, personId: string): Promise<Me> {
   if (!row) return { name: "", initials: "?" };
   return {
     name: nameOf(row),
+    email: row.email,
     initials: initialsOf(row),
     ...(row.color ? { color: row.color } : {}),
     ...(row.image ? { image: row.image } : {}),

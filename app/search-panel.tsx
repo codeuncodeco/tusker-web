@@ -97,9 +97,11 @@ export function BoardFilters({
 /** One line of the filters: its glyph and what it narrows by, then its chips. */
 export function FilterRow({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-border bg-bg p-3 sm:grid sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-3">
-      <span className="flex items-center gap-2 pt-0.5 text-xs font-medium text-muted">
-        <span className="flex size-6 items-center justify-center rounded-lg bg-surface-2 text-fg">{icon ?? <Sliders className="size-3" />}</span>
+    // A flat row: no box of its own, a hairline between it and the next. The
+    // label sits in one column, the chips in the next. See ADR-0040.
+    <div className="flex flex-col gap-2 py-3 first:pt-1 last:pb-1 sm:grid sm:grid-cols-[6.5rem_1fr] sm:items-start sm:gap-3">
+      <span className="flex h-6 items-center gap-2 text-xs text-muted">
+        <span className="flex text-dim">{icon ?? <Sliders className="size-3" />}</span>
         {label}
       </span>
       <div className="min-w-0">{children}</div>
@@ -281,7 +283,7 @@ export function GlobalSearch() {
           sheet over the whole screen. */}
       <div
         hidden={!open}
-        className="fixed inset-0 flex flex-col bg-surface motion-safe:animate-fade-in sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(44rem,calc(100dvh-5rem))] sm:w-[34rem] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-2xl sm:motion-safe:animate-rise-in"
+        className="fixed inset-0 flex origin-top-right flex-col bg-surface motion-safe:animate-fade sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(42rem,calc(100dvh-5rem))] sm:w-[32rem] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl sm:motion-safe:animate-scale-in"
       >
         <form
           role="search"
@@ -289,7 +291,7 @@ export function GlobalSearch() {
             event.preventDefault();
             go(answers[cursor]);
           }}
-          className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5"
+          className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4"
         >
           <Search className="size-4 text-muted" />
           <input
@@ -339,14 +341,17 @@ export function GlobalSearch() {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           {q ? (
-            <div aria-label="Answers" className="flex flex-col gap-1 border-b border-border p-3">
+            <div aria-label="Answers" className="flex flex-col border-b border-border p-2">
               {answers.length === 0 ? (
                 <p className="px-3 py-6 text-center text-muted">{found.state === "idle" ? "Nothing matches." : "Searching…"}</p>
               ) : (
                 answers.map((answer, index) => (
                   <div key={answer.key}>
                     {index === 0 || answers[index - 1]!.group !== answer.group ? (
-                      <h3 className="px-3 pb-1 pt-2 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">{answer.group}</h3>
+                      <h3 className="flex items-center gap-2 px-2 pb-1 pt-2 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
+                        {answer.group}
+                        <span className="tabular-nums">{answers.filter((one) => one.group === answer.group).length}</span>
+                      </h3>
                     ) : null}
                     <Link
                       to={answer.to}
@@ -357,14 +362,14 @@ export function GlobalSearch() {
                         event.preventDefault();
                         go(answer);
                       }}
-                      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 ${index === cursor ? "bg-fg text-bg" : "text-fg hover:bg-surface-2"}`}
+                      className={`flex h-10 items-center gap-3 rounded-lg px-2 ${index === cursor ? "bg-surface-2 text-fg" : "text-muted hover:text-fg"}`}
                     >
-                      <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${index === cursor ? "bg-bg/15" : "bg-surface-2 text-muted"}`}>
+                      <span className={`flex size-6 shrink-0 items-center justify-center rounded-md ${index === cursor ? "bg-fg text-bg" : "bg-surface-2 text-dim"}`}>
                         {answer.icon}
                       </span>
                       <span className="min-w-0 flex-1 truncate">{answer.body}</span>
                       {answer.meta ? (
-                        <span className={`flex shrink-0 items-center gap-1.5 text-xs ${index === cursor ? "text-bg/70" : "text-dim"}`}>{answer.meta}</span>
+                        <span className="flex shrink-0 items-center gap-1.5 text-xs text-dim">{answer.meta}</span>
                       ) : null}
                     </Link>
                   </div>
@@ -374,18 +379,17 @@ export function GlobalSearch() {
           ) : null}
 
           {/* The board's filters land here. A page with none says so. */}
-          <section className="flex flex-col gap-3 p-4">
-            <div className="flex items-center gap-2 px-1">
+          <section className="flex flex-col gap-1 px-4 py-3">
+            <div className="flex h-7 items-center gap-2">
               <h2 className="flex items-center gap-2 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
-                <Sliders className="size-3" />
                 Filters
-                {active > 0 ? <span className="rounded-full bg-fg px-1.5 py-0.5 text-bg">{active} on</span> : null}
+                {active > 0 ? <span className="text-fg">· {active} on</span> : null}
               </h2>
               {active > 0 && held?.clear ? (
                 <Link
                   to={held.clear}
                   preventScrollReset
-                  className="press ml-auto rounded-full border border-border px-3 py-1 text-xs text-muted hover:border-fg hover:text-fg"
+                  className="press ml-auto rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg"
                 >
                   Clear all
                 </Link>
@@ -396,7 +400,7 @@ export function GlobalSearch() {
                 if (node && slot?.node !== node)
                   setSlot({ node, active: slot?.active ?? 0, clear: slot?.clear ?? null, has: slot?.has ?? false });
               }}
-              className="flex flex-col gap-2 empty:hidden"
+              className="flex flex-col divide-y divide-border empty:hidden"
             />
             {held?.has ? null : (
               <p className="px-1 text-xs text-dim">This page has no filters. A board does.</p>
@@ -404,7 +408,7 @@ export function GlobalSearch() {
           </section>
         </div>
 
-        <footer className="hidden h-10 shrink-0 items-center gap-4 border-t border-border px-5 font-mono text-[0.625rem] text-dim pointer-fine:flex">
+        <footer className="hidden h-9 shrink-0 items-center gap-4 border-t border-border px-4 font-mono text-[0.625rem] text-dim pointer-fine:flex">
           <span>↑↓ move</span>
           <span>↵ open</span>
           <span>esc close</span>
