@@ -42,8 +42,8 @@ const PERSON_PAGE_NAMES: Record<string, string> = {
 export function pageName(pathname: string, onBoard: boolean): string | null {
   const view = viewOf(pathname, onBoard);
   if (view) return VIEW_LOOK[view].label;
-  if (pathname.startsWith("/t/")) return "Task";
-  const org = pathname.match(/^\/o\/[^/]+\/([^/]+)/);
+  if (/(^|\/)t\/\d+$/.test(pathname)) return "Task";
+  const org = pathname.match(/^\/o\/[^/]+\/(?:board\/)?([^/]+)/);
   if (org) return ORG_PAGE_NAMES[org[1]!] ?? null;
   return PERSON_PAGE_NAMES[pathname] ?? null;
 }
@@ -58,7 +58,12 @@ export function pageName(pathname: string, onBoard: boolean): string | null {
 export function Header({ orgs, org, me }: { orgs: OrgHeld[]; org: OrgHeld | null; me?: Me }) {
   const { pathname } = useLocation();
   const onTask = pathname.startsWith("/t/");
-  const onBoard = pathname === "/me" || (org !== null && pathname === boardOf(org.slug));
+  // A board with a modal open over it is still the board in view.
+  const board = org ? boardOf(org.slug) : null;
+  const onBoard =
+    pathname === "/me" ||
+    pathname.startsWith("/me/t/") ||
+    (board !== null && (pathname === board || pathname.startsWith(`${board}/`)));
   const page = pageName(pathname, onBoard);
   // On All, and on Week, Plan and Focus, which span every org, no org is in
   // view. A person in one org always stands in it.

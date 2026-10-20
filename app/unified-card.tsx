@@ -19,7 +19,7 @@ import { Grip, useDragItem } from "./drag-lists";
 import { FinishCircle } from "./finish-circle";
 import { Initials } from "./initials";
 import { keyHint } from "./key-hint";
-import { taskPath, useOrigin } from "./paths";
+import { useTaskHref } from "./paths";
 import { type LiveTask } from "./unified";
 import { moveFields, planFields } from "./unified-row";
 
@@ -48,7 +48,7 @@ export function UnifiedCard({
   /** Posts one act on this page, as a key does: the ring and the plan toggle use it. */
   act?: (fields: Record<string, string>) => void;
 }) {
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
   const drag = useDragItem(task.id);
   // Only work in hand can be planned. See `planFields`.
   const plannable = task.status === "todo" || task.status === "in_progress";
@@ -81,7 +81,7 @@ export function UnifiedCard({
           />
         ) : null}
         <Link
-          to={taskPath(task.id, origin)}
+          to={hrefOf(task.id)}
           className={`flex-1 underline-offset-2 hover:underline ${
             task.finished ? "text-muted line-through" : ""
           }`}

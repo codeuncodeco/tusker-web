@@ -56,7 +56,7 @@ import {
 import type { LinkKind } from "../links";
 import { readLink } from "../links";
 import { OrgDot } from "../org-chip";
-import { taskPath } from "../paths";
+import { orgPagePath, useTaskHref } from "../paths";
 import { useSent } from "../pending";
 import { SavedInput } from "../saved-input";
 import { requireScope } from "../scope.server";
@@ -200,7 +200,7 @@ function Hero({
       className="flex flex-col gap-4 rounded-xl border border-l-[6px] border-border bg-surface p-6 transition-[border-color] duration-500"
     >
       <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-        <Link to={`/o/${org.slug}/clients`} className="hover:text-fg hover:underline">
+        <Link to={orgPagePath(org.slug, "clients")} className="hover:text-fg hover:underline">
           Clients
         </Link>
         <span aria-hidden="true">/</span>
@@ -599,6 +599,7 @@ const STATUS_DOT: Partial<Record<Status, string>> = {
 
 /** The client's open tasks, in progress first, and the way to the filtered board. */
 function OpenTasks({ tasks, board, label }: { tasks: ClientTask[]; board: string; label: string }) {
+  const hrefOf = useTaskHref();
   return (
     <aside className="flex flex-col gap-3 lg:sticky lg:top-24 lg:self-start">
       <SectionHead title="Open tasks" icon={<span className="size-2 rounded-full bg-fg" />}>
@@ -612,7 +613,7 @@ function OpenTasks({ tasks, board, label }: { tasks: ClientTask[]; board: string
         <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
           {tasks.map((task) => (
             <li key={task.id}>
-              <Link to={taskPath(task.id)} className="press-soft flex items-center gap-2 px-3 py-2 hover:bg-surface-2">
+              <Link to={hrefOf(task.id)} className="press-soft flex items-center gap-2 px-3 py-2 hover:bg-surface-2">
                 <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${STATUS_DOT[task.status] ?? "bg-dim"}`} />
                 <span className="min-w-0 flex-1 truncate">{task.title}</span>
                 <span className="shrink-0 text-xs text-muted">

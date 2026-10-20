@@ -16,6 +16,7 @@ import { cloudflareEnv } from "../context.server";
 import { LinkIcon, Note } from "../icons";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/clients";
+import { orgPagePath } from "../paths";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `Clients — ${loaderData.org.name}` }];
@@ -47,7 +48,7 @@ export default function Clients({ loaderData }: Route.ComponentProps) {
       {field === null ? (
         <p className="text-muted">
           {org.name} names no client field yet. On the{" "}
-          <Link to={`/o/${org.slug}/fields`} className="underline">
+          <Link to={orgPagePath(org.slug, "fields")} className="underline">
             fields page
           </Link>
           , press <strong className="font-medium text-fg">Make it the client field</strong> on a select or a reference
@@ -56,7 +57,7 @@ export default function Clients({ loaderData }: Route.ComponentProps) {
       ) : clients.length === 0 ? (
         <p className="text-muted">
           The {field.label} field offers no values yet. Add some on the{" "}
-          <Link to={`/o/${org.slug}/fields`} className="underline">
+          <Link to={orgPagePath(org.slug, "fields")} className="underline">
             fields page
           </Link>
           .

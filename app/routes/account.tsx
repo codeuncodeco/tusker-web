@@ -13,6 +13,7 @@
 import { redirect } from "react-router";
 
 import { AccountBody } from "../account-body";
+import { RouteModal } from "../route-modal";
 import { createAuth } from "../auth.server";
 import { cloudflareEnv } from "../context.server";
 import { waitingFor, withdrawRequest } from "../join-requests.server";
@@ -66,9 +67,13 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Account({ loaderData }: Route.ComponentProps) {
+  // The account in the same sheet the profile button opens, over the page,
+  // closing onto the person's first board. See ADR-0039.
   return (
-    <main className="mx-auto flex flex-1 max-w-2xl flex-col justify-center gap-6 p-8">
-      <AccountBody {...loaderData} />
-    </main>
+    <RouteModal closeTo="/">
+      <main className="flex flex-col gap-6">
+        <AccountBody {...loaderData} />
+      </main>
+    </RouteModal>
   );
 }

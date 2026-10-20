@@ -12,6 +12,7 @@ import { isRefsBaseUrl } from "../refs";
 import { refreshOrgFields } from "../refs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/settings";
+import { orgPagePath } from "../paths";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `Settings for ${loaderData.org.name} — Tusker` }];
@@ -89,7 +90,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (done === "taken") return { error: `Another org already holds /${slug}.` };
 
   // Every page of this org moved, so the answer names the new address.
-  return redirect(`/o/${slug}/settings`);
+  return redirect(orgPagePath(slug, "settings"));
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {

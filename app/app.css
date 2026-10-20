@@ -64,6 +64,7 @@
   --animate-drain: drain linear forwards;
   --animate-fade-in: fade-in 200ms ease-out both;
   --animate-slide-in: slide-in 360ms var(--ease-snap) both;
+  --animate-sheet-up: sheet-up 380ms var(--ease-snap) both;
   --animate-unfold: unfold 460ms var(--ease-snap) both;
   --animate-drift: drift 9s linear infinite;
   --animate-breathe: breathe 3.2s ease-in-out infinite;
@@ -143,6 +144,13 @@
   @keyframes fade-in {
     from {
       opacity: 0;
+    }
+  }
+
+  /* A sheet, raised from the foot of the screen. */
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
     }
   }
 
@@ -299,13 +307,72 @@
   }
 }
 
-/* The colour scheme reveal. While a pick is in flight, `<html>` carries
-   `scheme-reveal`, and the new scheme grows out of the button as a circle over
-   the old one. Script drives the circle; this only turns off the cross-fade
-   the browser would draw by default. See `ColourSchemeButton`. */
+/* The colour scheme change. While a pick is in flight, `<html>` carries
+   `scheme-reveal`, and the new scheme breathes in over the old: the old
+   softens and fades, the new arrives from a light haze, a little bright, and
+   settles. Slow on purpose, so a change of light feels fresh and not like a
+   flash. See `ColourSchemeButton` and ADR-0039. */
 
-html.scheme-reveal::view-transition-old(root),
-html.scheme-reveal::view-transition-new(root) {
-  animation: none;
+html.scheme-reveal::view-transition-group(root) {
+  animation-duration: 1100ms;
+}
+
+html.scheme-reveal::view-transition-old(root) {
+  animation: 900ms cubic-bezier(0.4, 0, 0.2, 1) both scheme-out;
   mix-blend-mode: normal;
+}
+
+html.scheme-reveal::view-transition-new(root) {
+  animation: 1100ms cubic-bezier(0.22, 1, 0.36, 1) both scheme-in;
+  mix-blend-mode: normal;
+}
+
+@keyframes scheme-out {
+  to {
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+
+@keyframes scheme-in {
+  from {
+    opacity: 0;
+    filter: blur(10px) brightness(1.12) saturate(1.25);
+    transform: scale(1.012);
+  }
+  60% {
+    filter: blur(0) brightness(1.04) saturate(1.08);
+  }
+}
+
+/* A page moved to another view crossfades and drifts a step, so the eye
+   follows where it went. A link that asks for it says `viewTransition`. */
+
+html:not(.scheme-reveal)::view-transition-old(root) {
+  animation: 180ms ease-in both view-out;
+}
+
+html:not(.scheme-reveal)::view-transition-new(root) {
+  animation: 320ms cubic-bezier(0.22, 1, 0.36, 1) both view-in;
+}
+
+@keyframes view-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
 }

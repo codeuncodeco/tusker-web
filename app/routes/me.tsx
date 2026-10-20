@@ -19,6 +19,7 @@ import { resolvedFor, MINE, readUnifiedAssignee } from "../assignee-filter";
 import { BOARD_TOGGLES, type Status, narrowingFor, readToggles } from "../board";
 import { TodayChip, UnifiedAssigneeFilter, UnifiedClientFilter, WeekChip } from "../board-chrome";
 import { BoardFilters, FilterRow } from "../search-panel";
+import { CalendarDay, Folder, ListCheck, Users } from "../icons";
 import { readClient } from "../client-filter";
 import { clientsAcross } from "../clients.server";
 import { cloudflareEnv } from "../context.server";
@@ -42,6 +43,7 @@ import { actOnTask } from "../unified-actions.server";
 import { doneAmong, listUnified, membersBySlug } from "../unified.server";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
+import { ModalOutlet, useCloseTo } from "../route-modal";
 import type { Route } from "./+types/me";
 
 export function meta(_: Route.MetaArgs) {
@@ -158,6 +160,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Me({ loaderData }: Route.ComponentProps) {
+  const closeTo = useCloseTo();
   const { orgs, members, personId, assignee, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } =
     loaderData;
   // The board opened bare comes back with the filter it was left with. Its key
@@ -172,22 +175,22 @@ export default function Me({ loaderData }: Route.ComponentProps) {
     // The board takes the whole page: no bar over it, the filters in the
     // search panel, Backlog and Cancelled in the drawer. See ADR-0038.
     <main className="flex flex-1 flex-col pl-8 pr-4 sm:pr-16">
-      <BoardFilters active={active}>
+      <BoardFilters active={active} clear={`?assignee=${MINE}`}>
         {hasPlan ? (
-          <FilterRow label="Today">
+          <FilterRow label="Today" icon={<ListCheck className="size-3" />}>
             <TodayMeter done={loaderData.doneToday} planned={planned.length} />
           </FilterRow>
         ) : null}
-        <FilterRow label="Who">
+        <FilterRow label="Who" icon={<Users className="size-3" />}>
           <UnifiedAssigneeFilter assignee={assignee} />
         </FilterRow>
         {loaderData.clients.length > 0 ? (
-          <FilterRow label="Client">
+          <FilterRow label="Client" icon={<Folder className="size-3" />}>
             <UnifiedClientFilter clients={loaderData.clients} client={loaderData.client} />
           </FilterRow>
         ) : null}
         {hasPlan || hasSet ? (
-          <FilterRow label="Narrow to">
+          <FilterRow label="Narrow to" icon={<CalendarDay className="size-3" />}>
             <span className="flex flex-wrap gap-1">
               {hasPlan ? <TodayChip today={today} hasPlan /> : null}
               {hasSet ? <WeekChip week={week} hasSet /> : null}
@@ -218,6 +221,8 @@ export default function Me({ loaderData }: Route.ComponentProps) {
       />
 
       <DecisionPrompt ask={ask} />
+      {/* A task, or a page of the org, opened over this one. See ADR-0039. */}
+      <ModalOutlet closeTo={closeTo} />
     </main>
   );
 }

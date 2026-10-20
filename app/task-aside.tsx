@@ -91,7 +91,19 @@ const asideClass = [
   "max-sm:motion-safe:transition-transform max-sm:motion-safe:starting:translate-y-full",
 ].join(" ");
 
-export function TaskAside(props: AsideProps) {
+export function TaskAside(props: AsideProps & { inline?: boolean }) {
+  // On a task opened as a modal the aside is a card beside the description,
+  // on a phone as well, and the acts head the sheet instead. See ADR-0039.
+  if (props.inline) {
+    return (
+      <aside className="flex flex-col gap-5 self-start rounded-3xl border border-border bg-surface p-5 [&_legend]:text-xs [&_legend]:uppercase [&_legend]:tracking-wide [&_legend]:text-muted [&>label]:text-xs [&>label]:uppercase [&>label]:tracking-wide [&>label]:text-muted [&_label>input]:normal-case [&_label>select]:normal-case">
+        {props.task.finished ? <ReadAside {...props} /> : <LiveAside {...props} />}
+        <div className="border-t border-border pt-4 text-xs text-muted">
+          <TimesList times={props.task.times} />
+        </div>
+      </aside>
+    );
+  }
   return (
     <aside className={asideClass} {...{ [ASIDE_MARK]: "" }}>
       <ActsRow task={props.task} />
@@ -99,6 +111,11 @@ export function TaskAside(props: AsideProps) {
       <TimesList times={props.task.times} />
     </aside>
   );
+}
+
+/** The acts of a task, for the head of a task opened as a modal. */
+export function TaskActs({ task }: { task: AsideTask }) {
+  return <ActsRow task={task} />;
 }
 
 /**
@@ -237,7 +254,7 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
 
       <div className="flex flex-col gap-1.5">
         <label className="flex flex-col gap-1">
-          Due date
+          <span className="text-xs uppercase tracking-wide text-muted">Due date</span>
           {/* Saved on leaving, so a date half typed is not posted. */}
           <SavedInput
             type="date"

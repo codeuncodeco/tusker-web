@@ -91,3 +91,67 @@ export function useOrigin(): string {
   const { pathname, search } = useLocation();
   return withoutPrompt(pathname, search);
 }
+
+/**
+ * The pages a task opens over, as a modal, rather than leaving: a board, and
+ * the Week, Plan and Focus views. See ADR-0039.
+ */
+const MODAL_PARENTS = [/^\/o\/[^/]+\/board/, /^\/me\/week/, /^\/me\/plan/, /^\/me\/focus/, /^\/me/];
+
+/**
+ * The page a modal at this address opens over: the board or the view the
+ * address starts with, or null for a page that stands alone, as `/t/12` does.
+ * An org page under a board, `/o/acme/board/clients`, opens over that board.
+ */
+export function modalParentOf(pathname: string): string | null {
+  // The bare `/me/week/2026-W43` and `/me/plan/2026-10-19` pages stand alone:
+  // only the view itself holds a modal.
+  for (const parent of MODAL_PARENTS) {
+    const found = pathname.match(parent)?.[0];
+    if (!found) continue;
+    const rest = pathname.slice(found.length);
+    if (rest === "" || rest.startsWith("/t/") || (found.endsWith("/board") && rest.startsWith("/"))) return found;
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Where a task opens from this page: as a modal over the board or view the
+ * person stands on, keeping its address so the page behind keeps its filters;
+ * else its own page, which remembers the way back. See ADR-0039.
+ */
+export function taskHref(id: TaskId, pathname: string, search: string): string {
+  const parent = modalParentOf(pathname);
+  const query = new URLSearchParams(search);
+  query.delete(FROM);
+  const kept = withoutPrompt(parent ?? pathname, query.toString() ? `?${query}` : "");
+  return parent ? `${parent}/t/${id}${kept.slice(parent.length)}` : taskPath(id, withoutPrompt(pathname, search));
+}
+
+/** The same, read from where the person stands. */
+export function useTaskHref(): (id: TaskId) => string {
+  const { pathname, search } = useLocation();
+  return (id) => taskHref(id, pathname, search);
+}
+
+/**
+ * Where a task's page goes back to: the board or view it was opened over, with
+ * that page's address, or for a task's own page, the list it was opened from.
+ */
+export function taskBack(url: string, slug: string): string {
+  const { pathname, search } = new URL(url);
+  const parent = modalParentOf(pathname);
+  if (!parent) return backPath(search, slug);
+  const query = new URLSearchParams(search);
+  query.delete(FROM);
+  return `${parent}${query.toString() ? `?${query}` : ""}`;
+}
+
+/**
+ * Where one page of an org opens: over its board, as a modal, so the board
+ * stays behind it. See ADR-0039.
+ */
+export function orgPagePath(slug: string, page: string): string {
+  return `/o/${slug}/board/${page}`;
+}

@@ -53,11 +53,26 @@ it("draws a hold button that posts nothing by itself", () => {
   expect(html).not.toContain("<form");
 });
 
-describe("Backlog and Cancelled, kept in the drawer", () => {
-  it("pull out from tabs at the edge, each a link that keeps the rest of the address", async () => {
-    const { PullTabs } = await import("../app/side-drawer");
-    const Stub = createRoutesStub([{ path: "/me", Component: () => <PullTabs open={[]} counts={{ backlog: 4, cancelled: 1 }} /> }]);
-    const html = renderToStaticMarkup(<Stub initialEntries={["/me?assignee=anyone"]} />);
+describe("Backlog and Cancelled, kept off the board", () => {
+  /** The two tabs, drawn at one address. */
+  async function tabs(path: string, open: { backlog: boolean; cancelled: boolean }, counts: { backlog: number; cancelled: number }) {
+    const { BacklogTab, CancelledTab } = await import("../app/side-drawer");
+    const Stub = createRoutesStub([
+      {
+        path: "/me",
+        Component: () => (
+          <>
+            <BacklogTab open={open.backlog} count={counts.backlog} />
+            <CancelledTab open={open.cancelled} count={counts.cancelled} />
+          </>
+        ),
+      },
+    ]);
+    return renderToStaticMarkup(<Stub initialEntries={[path]} />);
+  }
+
+  it("pull out from tabs, each a link that keeps the rest of the address", async () => {
+    const html = await tabs("/me?assignee=anyone", { backlog: false, cancelled: false }, { backlog: 4, cancelled: 1 });
 
     expect(html).toContain('href="/me?assignee=anyone&amp;backlog=1"');
     expect(html).toContain('href="/me?assignee=anyone&amp;cancelled=1"');
@@ -66,13 +81,17 @@ describe("Backlog and Cancelled, kept in the drawer", () => {
     expect(html).not.toContain('type="checkbox"');
   });
 
-  it("put a pulled-out column away from its tab, now its handle", async () => {
-    const { PullTabs } = await import("../app/side-drawer");
-    const Stub = createRoutesStub([{ path: "/me", Component: () => <PullTabs open={["backlog"]} counts={{ backlog: 4, cancelled: 1 }} /> }]);
-    const html = renderToStaticMarkup(<Stub initialEntries={["/me?backlog=1"]} />);
+  it("draw no tab for a column that holds nothing", async () => {
+    const html = await tabs("/me", { backlog: false, cancelled: false }, { backlog: 0, cancelled: 0 });
 
-    expect(html).toContain('aria-label="Put away Backlog, 4 tasks"');
-    expect(html).toMatch(/href="\/me\?"|href="\/me"/);
+    expect(html).toBe("");
+  });
+
+  it("put a pulled-out column away from its tab, now its handle", async () => {
+    const html = await tabs("/me?backlog=1", { backlog: true, cancelled: false }, { backlog: 0, cancelled: 0 });
+
+    expect(html).toContain('aria-label="Put away Backlog, 0 tasks"');
+    expect(html).not.toContain("Cancelled");
   });
 });
 

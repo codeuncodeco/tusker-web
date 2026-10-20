@@ -509,6 +509,13 @@ The bare word is right where one scope is in view, or where the rule holds for
 both. Where the two stand together, name them.
 _Avoid_: Kanban, board view, org filter
 
+**Page modal**:
+A page off a board or a view, drawn over it: a task, a client, and every page of
+an org. It is a child route, so the address names it and Back closes it. Its
+app bar holds Back, Forward, the page's name and ✕. The page behind stays drawn,
+with its own address. See ADR-0039.
+_Avoid_: Popup, overlay page, lightbox
+
 **Dock**:
 The three round buttons fixed to the bottom right of every signed-in page:
 the **View button**, the **Settings panel** and the profile button, which
@@ -519,7 +526,9 @@ _Avoid_: Toolbar, floating menu, FAB
 
 **View button**:
 The dock's first button. One click steps to the next view: Board, Week, Plan,
-Focus, and round again; Shift-click steps back. Board is the board of the org
+Focus, and round again; Shift-click steps back. The pointer over it, or a first
+tap on a phone, unfurls every view as a pill above it, the one in view filled;
+the centre still steps, and the fan stays out. Board is the board of the org
 in view, else the board the browser last stood on, else the first org's. It
 works as the colour scheme button does: one glyph, one step a click.
 _Avoid_: View switcher, tabs, page menu
@@ -766,9 +775,10 @@ any more: the add box heads To do, and the board takes the page. See ADR-0038.
 _Avoid_: Top bar, toolbar, board controls, command palette
 
 **Drawer**:
-Where Backlog and Cancelled live, off the board. Each has a tab at the left
-edge of the screen, hidden but for its grip; a click or a pull brings the
-column out over the board, side by side when both are out. A card drags from
+Where Backlog and Cancelled live, off the board. Backlog's tab sits at the left
+edge of the screen and pulls out to the right; Cancelled's sits at the bottom
+left and pulls up as a sheet. Each is hidden but for its grip, and a tab whose
+column holds nothing is not drawn. A card drags from
 the drawer onto the board and back. An open drawer is an address, as the
 column switches were: `backlog=1`, `cancelled=1`. On an org board with no live
 task, Backlog's tab glows instead of opening by itself. See ADR-0038.
@@ -900,7 +910,7 @@ pick belongs to the browser and not to the person, so a laptop and a phone can
 differ, and it outlives a sign-out. Every page honours it, the signed-out ones
 too, but only a signed-in page draws the control that changes it, in the
 settings panel. The control is one button: each click steps Light, Dark, System
-and round again, and the new scheme grows out of the button.
+and round again, and the new scheme dissolves in slowly over the old.
 _Avoid_: Theme, appearance, dark mode
 
 **Ground**:

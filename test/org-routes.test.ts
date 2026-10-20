@@ -169,7 +169,7 @@ describe("changing the slug", () => {
 
     const response = (await rename("codeuncode", ada.cookie, "Code Uncode")) as Response;
 
-    expect(response.headers.get("location")).toBe("/o/code-uncode/settings");
+    expect(response.headers.get("location")).toBe("/o/code-uncode/board/settings");
     const board = await boardRoute.loader(
       routeArgs(get("/o/code-uncode/board", ada.cookie), { slug: "code-uncode" }),
     );
@@ -217,7 +217,7 @@ describe("changing the slug", () => {
 
     const response = (await rename("codeuncode", ada.cookie, "codeuncode")) as Response;
 
-    expect(response.headers.get("location")).toBe("/o/codeuncode/settings");
+    expect(response.headers.get("location")).toBe("/o/codeuncode/board/settings");
   });
 
   it("changes the name, and keeps the slug the org is on", async () => {
@@ -225,7 +225,7 @@ describe("changing the slug", () => {
 
     const response = (await rename("codeuncode", ada.cookie, "codeuncode", "Code Uncode")) as Response;
 
-    expect(response.headers.get("location")).toBe("/o/codeuncode/settings");
+    expect(response.headers.get("location")).toBe("/o/codeuncode/board/settings");
     const board = await boardRoute.loader(
       routeArgs(get("/o/codeuncode/board", ada.cookie), { slug: "codeuncode" }),
     );

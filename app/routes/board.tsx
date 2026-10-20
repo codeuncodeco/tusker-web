@@ -29,7 +29,8 @@ import {
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { AssigneeFilter, ColumnHead, FieldFilterSelect, SearchChip, TodayChip, WeekChip } from "../board-chrome";
 import { BoardFilters, FilterRow } from "../search-panel";
-import { isSide, PullTabs, PutAway, SideDrawer, SIDE_STATUSES, type SideStatus } from "../side-drawer";
+import { CalendarDay, Folder, Search, Tag, Users } from "../icons";
+import { BacklogDrawer, BacklogTab, CancelledSheet, CancelledTab, isSide, PutAway, SIDE_STATUSES, type SideStatus } from "../side-drawer";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
 import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
@@ -60,7 +61,7 @@ import { FinishCircle } from "../finish-circle";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels, refOptionsOfOrg } from "../refs.server";
 import { useLocalDay } from "../local-day";
-import { taskPath, useOrigin } from "../paths";
+import { useTaskHref } from "../paths";
 import { addsSent, boardSent, postAndReport, usePost, useSent } from "../pending";
 import { PendingAdds } from "../pending-adds";
 import { readPlan } from "../plans.server";
@@ -71,6 +72,7 @@ import { requireScope } from "../scope.server";
 import { readSearch } from "../search";
 import { countByStatus, createTasks, listTasks, moveTask, newTasksFrom, stepTask } from "../tasks.server";
 import { revealCursor } from "../top-row";
+import { ModalOutlet, useCloseTo } from "../route-modal";
 import type { Route } from "./+types/board";
 import { readTaskId, type TaskId } from "../task-number";
 
@@ -385,7 +387,7 @@ function CardItem({
    */
   place: () => void;
 }) {
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
   const drag = useDragItem(card.id);
 
   return (
@@ -410,7 +412,7 @@ function CardItem({
           onFinish={() => move(card.id, "done")}
           onReopen={() => move(card.id, "todo")}
         />
-        <Link to={taskPath(card.id, origin)} className="flex-1 underline-offset-2 hover:underline">
+        <Link to={hrefOf(card.id)} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
         <Initials assignees={card.assignees} />
@@ -440,6 +442,7 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
+  const closeTo = useCloseTo();
   const { org, members, toggles, today, hasPlan, week, hasSet, day, ask, search } = loaderData;
   const { assignee, filters } = loaderData;
   const [params] = useSearchParams();
@@ -609,23 +612,27 @@ export default function Board({ loaderData }: Route.ComponentProps) {
     // search panel, Backlog and Cancelled in the drawer. Room at the left for
     // the drawer's tabs and at the right for the search button.
     <main className="flex flex-1 flex-col pl-8 pr-4 sm:pr-16">
-      <BoardFilters active={active}>
+      <BoardFilters active={active} clear={`?assignee=${encodeURIComponent(loaderData.personId)}`}>
         {search ? (
-          <FilterRow label="Search">
+          <FilterRow label="Search" icon={<Search className="size-3" />}>
             <SearchChip search={search} />
           </FilterRow>
         ) : null}
         {members.length > 0 ? (
-          <FilterRow label="Who">
+          <FilterRow label="Who" icon={<Users className="size-3" />}>
             <AssigneeFilter assignee={assignee} members={members} personId={loaderData.personId} />
           </FilterRow>
         ) : null}
         {filters.map((filter) => (
-          <FilterRow key={filter.key} label={filter.label}>
+          <FilterRow
+            key={filter.key}
+            label={filter.label}
+            icon={filter.client ? <Folder className="size-3" /> : <Tag className="size-3" />}
+          >
             <FieldFilterSelect filter={filter} />
           </FilterRow>
         ))}
-        <FilterRow label="Narrow to">
+        <FilterRow label="Narrow to" icon={<CalendarDay className="size-3" />}>
           <span className="flex flex-wrap gap-1">
             <TodayChip today={today} hasPlan={hasPlan} />
             <WeekChip week={week} hasSet={hasSet} />
@@ -633,11 +640,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         </FilterRow>
       </BoardFilters>
 
-      <PullTabs
-        open={open}
-        counts={{ backlog: loaderData.backlogCount, cancelled: loaderData.cancelledCount }}
-        calls={loaderData.backlogByRule ? ["backlog"] : []}
-      />
+      <BacklogTab open={open.includes("backlog")} count={loaderData.backlogCount} calls={loaderData.backlogByRule} />
+      <CancelledTab open={open.includes("cancelled")} count={loaderData.cancelledCount} />
 
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
@@ -646,9 +650,12 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       >
         {(shown) => (
           <>
-            <SideDrawer open={open}>
-              {columns.filter((column) => isSide(column.status)).map((column, at) => columnOf(column, at, shown))}
-            </SideDrawer>
+            <BacklogDrawer open={open.includes("backlog")}>
+              {columns.filter((column) => column.status === "backlog").map((column, at) => columnOf(column, at, shown))}
+            </BacklogDrawer>
+            <CancelledSheet open={open.includes("cancelled")}>
+              {columns.filter((column) => column.status === "cancelled").map((column, at) => columnOf(column, at, shown))}
+            </CancelledSheet>
             {/* Each column is as long as its cards, and the page scrolls. The
                 columns are panes: a divider splits them, and a card is the one
                 thing on the board with an edge. See #184 and #191. */}
@@ -660,6 +667,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       </DragLists>
 
       <DecisionPrompt ask={ask} />
+      {/* A task, or a page of the org, opened over this one. See ADR-0039. */}
+      <ModalOutlet closeTo={closeTo} />
     </main>
   );
 }

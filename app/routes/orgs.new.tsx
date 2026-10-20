@@ -4,6 +4,7 @@ import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
 import { createOrg, freeSlug, slugify } from "../orgs.server";
 import { requirePerson } from "../session.server";
+import { RouteModal } from "../route-modal";
 import type { Route } from "./+types/orgs.new";
 
 export function meta(_: Route.MetaArgs) {
@@ -37,8 +38,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function NewOrg({ actionData }: Route.ComponentProps) {
+  // In the same sheet as every other page off the board. See ADR-0039.
   return (
-    <main className="mx-auto flex flex-1 max-w-md flex-col justify-center gap-6 p-8">
+    <RouteModal closeTo="/">
+    <main className="mx-auto flex max-w-md flex-col gap-6">
       <h1 className="text-3xl tracking-tight">New org</h1>
       <p className="text-muted">
         You become its owner. Add the rest of the people from the org's Members page.
@@ -65,5 +68,6 @@ export default function NewOrg({ actionData }: Route.ComponentProps) {
         </button>
       </Form>
     </main>
+    </RouteModal>
   );
 }

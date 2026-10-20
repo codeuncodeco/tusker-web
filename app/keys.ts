@@ -30,7 +30,11 @@ import type { TaskId } from "./task-number";
 export function isPagePress(event: KeyboardEvent): boolean {
   const target = event.target as HTMLElement | null;
   if (target?.closest("input, textarea, select")) return false;
-  if (document.querySelector('[role="dialog"]')) return false;
+  // A raised prompt takes every press. A page opened as a modal is the page,
+  // so a press inside the top one is the page's. See ADR-0039.
+  const dialogs = document.querySelectorAll('[role="dialog"]');
+  const top = dialogs[dialogs.length - 1];
+  if (top && !(top.hasAttribute("data-page") && target && top.contains(target))) return false;
   return !event.metaKey && !event.ctrlKey && !event.altKey;
 }
 

@@ -8,10 +8,11 @@
 import { Link } from "react-router";
 
 import { colorCss } from "./colors";
+import { orgPagePath } from "./paths";
 
 /** The page of one client of one org. */
 export function clientPath(slug: string, value: string): string {
-  return `/o/${slug}/clients/${encodeURIComponent(value)}`;
+  return orgPagePath(slug, `clients/${encodeURIComponent(value)}`);
 }
 
 /**

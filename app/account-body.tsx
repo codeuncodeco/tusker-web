@@ -12,6 +12,7 @@ import { Form, Link, useFetcher } from "react-router";
 import { initialsOf } from "./assignees";
 import { ImageIcon, XMark } from "./icons";
 import { Avatar } from "./initials";
+import { orgPagePath } from "./paths";
 import { OrgDot } from "./org-chip";
 import { SavedInput } from "./saved-input";
 import { Swatches } from "./swatches";
@@ -154,7 +155,7 @@ export function AccountBody({ person, look, orgs, requests }: AccountData) {
                 {org.name}
               </Link>
               <span className="text-muted">/{org.slug}</span>
-              <Link to={`/o/${org.slug}/members`} className="ml-2 underline">
+              <Link to={orgPagePath(org.slug, "members")} className="ml-2 underline">
                 Members
               </Link>
             </li>

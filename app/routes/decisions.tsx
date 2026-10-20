@@ -11,7 +11,7 @@ import { cloudflareEnv } from "../context.server";
 import { dayDate } from "../day";
 import { DecisionFields } from "../decision-fields";
 import { listDecisions, recordDecision } from "../decisions.server";
-import { taskPath, useOrigin } from "../paths";
+import { useTaskHref } from "../paths";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/decisions";
 
@@ -43,7 +43,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
 export default function Decisions({ loaderData, actionData }: Route.ComponentProps) {
   const { org, decisions } = loaderData;
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
 
   return (
     <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
@@ -95,7 +95,7 @@ export default function Decisions({ loaderData, actionData }: Route.ComponentPro
                   <>
                     {" · "}
                     <Link
-                      to={taskPath(decision.task.id, origin)}
+                      to={hrefOf(decision.task.id)}
                       className="underline underline-offset-2"
                     >
                       {decision.task.title}

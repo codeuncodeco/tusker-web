@@ -328,8 +328,9 @@ describe("the dock", () => {
     const onWeek = settings(headerAt("/me/week", [ada, acme], null));
 
     for (const page of ["clients", "decisions", "archive", "fields", "members", "settings"]) {
-      expect(inOrg).toContain(`href="/o/acme/${page}"`);
-      expect(onWeek).toContain(`href="/o/ada/${page}"`);
+      // Each opens over the org's board, as a modal. See ADR-0039.
+      expect(inOrg).toContain(`href="/o/acme/board/${page}"`);
+      expect(onWeek).toContain(`href="/o/ada/board/${page}"`);
     }
     expect(inOrg).toContain('href="/orgs/new"');
   });

@@ -1,16 +1,19 @@
 /**
  * The search, in the top right corner of every signed-in page: one button,
- * fixed, and a panel under it. See ADR-0038.
+ * fixed, and a panel under it. See ADR-0038 and ADR-0039.
  *
- * - **Search** is global. It finds tasks, by title or number, and clients,
- *   across every org the person belongs to, and the pages of the app, as the
- *   person types. ↑ and ↓ walk the answers and Enter opens one. On an org
- *   board it also offers to narrow the board to the words.
- * - **Filters** are the board's. A board hands its filters to the panel, and
- *   the button counts the ones that narrow anything.
+ * - **Search** is global. It finds tasks, by title or number, clients, and the
+ *   pages of the app, across every org the person belongs to, as they type.
+ *   The answers come in groups, each with its glyph. ↑ and ↓ walk them and
+ *   Enter opens one. On an org board it also offers to narrow the board to
+ *   the words.
+ * - **Filters** are the board's. A board hands its filters to the panel, each
+ *   row named and marked with a glyph, and the button counts the ones that
+ *   narrow anything. Clear all gives the board back as it starts.
  *
  * `/` opens it from anywhere a press is the page's, and so does Cmd or Ctrl
- * and K from anywhere. Escape, a click outside, and the button close it.
+ * and K from anywhere. Escape, a click outside, and the button close it. On a
+ * phone it is a sheet over the whole screen.
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -19,10 +22,10 @@ import { Link, useFetcher, useLocation, useNavigate, useSearchParams } from "rea
 
 import { STATUS_LABEL } from "./board";
 import { clientPath } from "./client-tag";
-import { Search, Sliders, XMark } from "./icons";
+import { ChevronRight, CircleHalf, Folder, Search, Sliders, XMark } from "./icons";
 import { isPagePress } from "./keys";
 import { OrgDot } from "./org-chip";
-import { taskPath } from "./paths";
+import { useTaskHref } from "./paths";
 import type { Found } from "./routes/search";
 import { SEARCH_NAME } from "./search";
 import { taskLabel } from "./task-number";
@@ -32,7 +35,7 @@ import { taskLabel } from "./task-number";
  * the page. `undefined` means no panel has ever been drawn, as in a test that
  * draws a board alone, and the board then draws its filters in place.
  */
-type Slot = { node: HTMLElement | null; active: number };
+type Slot = { node: HTMLElement | null; active: number; clear: string | null; has: boolean };
 
 let slot: Slot | undefined;
 const listeners = new Set<() => void>();
@@ -55,21 +58,29 @@ function useSlot(): Slot | undefined {
 
 /**
  * A board's filters, handed to the search panel. Where no panel is drawn, a
- * server render or a board drawn alone, they stand in place, in a row, as the
- * board's Top row drew them.
+ * server render or a board drawn alone, they stand in place.
  *
  * `active` is how many of them narrow the board, which the button counts.
+ * `clear` is the address that gives the board back as it starts.
  */
-export function BoardFilters({ active, children }: { active: number; children: React.ReactNode }) {
+export function BoardFilters({
+  active,
+  clear = null,
+  children,
+}: {
+  active: number;
+  clear?: string | null;
+  children: React.ReactNode;
+}) {
   const held = useSlot();
 
   useEffect(() => {
-    if (!held || held.active === active) return;
-    setSlot({ ...held, active });
-  }, [held, active]);
+    if (!held || (held.active === active && held.clear === clear && held.has)) return;
+    setSlot({ ...held, active, clear, has: true });
+  }, [held, active, clear]);
   useEffect(
     () => () => {
-      if (slot) setSlot({ ...slot, active: 0 });
+      if (slot) setSlot({ ...slot, active: 0, clear: null, has: false });
     },
     [],
   );
@@ -83,12 +94,15 @@ export function BoardFilters({ active, children }: { active: number; children: R
   return held.node ? createPortal(children, held.node) : null;
 }
 
-/** One line of the filters: what it narrows by, then its chips. */
-export function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
+/** One line of the filters: its glyph and what it narrows by, then its chips. */
+export function FilterRow({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[0.625rem] uppercase tracking-[0.15em] text-dim">{label}</span>
-      {children}
+    <div className="flex flex-col gap-2 rounded-2xl border border-border bg-bg p-3 sm:grid sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-3">
+      <span className="flex items-center gap-2 pt-0.5 text-xs font-medium text-muted">
+        <span className="flex size-6 items-center justify-center rounded-lg bg-surface-2 text-fg">{icon ?? <Sliders className="size-3" />}</span>
+        {label}
+      </span>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
@@ -105,14 +119,14 @@ function pagesOf(pathname: string): { label: string; to: string }[] {
     ...(org
       ? ["clients", "decisions", "archive", "fields", "members", "settings"].map((page) => ({
           label: page[0]!.toUpperCase() + page.slice(1),
-          to: `/o/${org}/${page}`,
+          to: `/o/${org}/board/${page}`,
         }))
       : []),
   ];
 }
 
 /** One answer of the panel, flattened, so ↑ and ↓ walk them all in order. */
-type Answer = { key: string; to: string; body: React.ReactNode };
+type Answer = { key: string; group: string; to: string; icon: React.ReactNode; body: React.ReactNode; meta?: React.ReactNode };
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
@@ -120,11 +134,12 @@ export function GlobalSearch() {
   const [at, setAt] = useState(0);
   const found = useFetcher<Found>();
   const box = useRef<HTMLInputElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [params] = useSearchParams();
   const held = useSlot();
+  const hrefOf = useTaskHref();
   const active = held?.active ?? 0;
   const onOrgBoard = /^\/o\/[^/]+\/board$/.test(pathname);
 
@@ -150,12 +165,15 @@ export function GlobalSearch() {
   useEffect(() => {
     if (!open) return;
     function onDown(event: PointerEvent) {
-      if (panel.current?.parentElement?.contains(event.target as Node)) return;
+      if (root.current?.contains(event.target as Node)) return;
       setOpen(false);
     }
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
   }, [open]);
+
+  // A page change closes it, unless it only narrowed the board it stands on.
+  useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
     if (open) box.current?.focus();
@@ -180,54 +198,49 @@ export function GlobalSearch() {
       narrowed.set(SEARCH_NAME, q);
       answers.push({
         key: "narrow",
+        group: "This board",
         to: `?${narrowed}`,
-        body: (
-          <span className="flex items-center gap-2">
-            <Sliders className="size-3 text-dim" />
-            Narrow this board to “{q}”
-          </span>
-        ),
+        icon: <Sliders className="size-3.5" />,
+        body: <>Narrow this board to “{q}”</>,
       });
     }
     for (const task of found.data?.tasks ?? []) {
       answers.push({
         key: `t${task.id}`,
-        to: taskPath(task.id),
+        group: "Tasks",
+        to: hrefOf(task.id),
+        icon: <CircleHalf className="size-3.5" />,
         body: (
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-xs tabular-nums text-dim">{taskLabel(task.id)}</span>
-            <span className="truncate">{task.title}</span>
-            <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-dim">
-              {STATUS_LABEL[task.status]}
-              <OrgDot color={task.org.color} />
-            </span>
-          </span>
+          <>
+            <span className="mr-2 text-xs tabular-nums text-dim">{taskLabel(task.id)}</span>
+            {task.title}
+          </>
+        ),
+        meta: (
+          <>
+            {STATUS_LABEL[task.status]}
+            <OrgDot color={task.org.color} />
+          </>
         ),
       });
     }
     for (const client of found.data?.clients ?? []) {
       answers.push({
         key: `c${client.slug}:${client.value}`,
+        group: "Clients",
         to: clientPath(client.slug, client.value),
-        body: (
-          <span className="flex items-center gap-2">
-            <span className="text-xs text-dim">Client</span>
-            {client.label}
-            <span className="ml-auto text-xs text-dim">{client.org}</span>
-          </span>
-        ),
+        icon: <Folder className="size-3.5" />,
+        body: client.label,
+        meta: client.org,
       });
     }
     for (const page of pagesOf(pathname).filter((one) => one.label.toLowerCase().includes(lower))) {
       answers.push({
         key: `p${page.to}`,
+        group: "Pages",
         to: page.to,
-        body: (
-          <span className="flex items-center gap-2">
-            <span className="text-xs text-dim">Page</span>
-            {page.label}
-          </span>
-        ),
+        icon: <ChevronRight className="size-3" />,
+        body: page.label,
       });
     }
   }
@@ -241,34 +254,34 @@ export function GlobalSearch() {
   }
 
   return (
-    <div className="fixed right-3 top-3 z-40 print:hidden">
+    <div ref={root} className={`fixed right-3 top-3 print:hidden ${open ? "z-[45]" : "z-40"}`}>
       <button
         type="button"
         onClick={() => setOpen((was) => !was)}
         aria-expanded={open}
         aria-label={active > 0 ? `Search and filters, ${active} on` : "Search and filters"}
         title="Search and filters  /"
-        className={`press relative flex size-11 items-center justify-center rounded-full border shadow-lg hover:-translate-y-0.5 hover:shadow-xl ${
+        className={`press relative flex h-11 items-center gap-2 rounded-full border px-3.5 shadow-lg hover:-translate-y-0.5 hover:shadow-xl ${
           open || active > 0 ? "border-fg bg-fg text-bg" : "border-border bg-surface text-fg"
         }`}
       >
         <Search className="size-4" />
         {active > 0 ? (
-          <span
-            key={active}
-            className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full border-2 border-bg bg-win text-[0.625rem] font-semibold text-bg motion-safe:animate-pop"
-          >
+          <span key={active} className="flex items-center gap-1 text-xs font-medium motion-safe:animate-pop">
+            <Sliders className="size-3" />
             {active}
           </span>
-        ) : null}
+        ) : (
+          <kbd className="hidden rounded border border-border px-1.5 font-mono text-[0.625rem] text-dim pointer-fine:inline">/</kbd>
+        )}
       </button>
 
       {/* Drawn even while shut, so a board's filters have somewhere to go;
-          `hidden` keeps it out of sight and out of reach. */}
+          `hidden` keeps it out of sight and out of reach. On a phone it is a
+          sheet over the whole screen. */}
       <div
-        ref={panel}
         hidden={!open}
-        className="absolute right-0 top-full mt-2 flex max-h-[80dvh] w-[min(30rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl motion-safe:animate-rise-in"
+        className="fixed inset-0 flex flex-col bg-surface motion-safe:animate-fade-in sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(44rem,calc(100dvh-5rem))] sm:w-[34rem] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-2xl sm:motion-safe:animate-rise-in"
       >
         <form
           role="search"
@@ -276,9 +289,9 @@ export function GlobalSearch() {
             event.preventDefault();
             go(answers[cursor]);
           }}
-          className="flex items-center gap-2 border-b border-border px-4"
+          className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5"
         >
-          <Search className="size-4 text-dim" />
+          <Search className="size-4 text-muted" />
           <input
             ref={box}
             value={words}
@@ -296,33 +309,45 @@ export function GlobalSearch() {
                 setAt((one) => Math.max(one - 1, 0));
               }
             }}
-            placeholder="Search every task, client and page"
+            placeholder="Search tasks, clients, pages…"
             aria-label="Search"
             autoComplete="off"
-            className="h-12 min-w-0 flex-1 bg-transparent focus:outline-none"
+            enterKeyHint="go"
+            className="h-full min-w-0 flex-1 bg-transparent text-base focus:outline-none"
           />
           {words ? (
             <button
               type="button"
-              onClick={() => setWords("")}
+              onClick={() => {
+                setWords("");
+                box.current?.focus();
+              }}
               aria-label="Clear the search"
-              className="press flex size-7 items-center justify-center rounded text-dim hover:text-fg"
+              className="press flex size-8 items-center justify-center rounded-full text-dim hover:bg-surface-2 hover:text-fg"
             >
               <XMark className="size-3.5" />
             </button>
-          ) : (
-            <kbd className="hidden rounded border border-border px-1.5 text-[0.625rem] text-dim pointer-fine:inline">/</kbd>
-          )}
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="press rounded-full px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg sm:hidden"
+          >
+            Done
+          </button>
         </form>
 
-        <div className="flex flex-col overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           {q ? (
-            <ul aria-label="Answers" className="flex flex-col border-b border-border p-2">
+            <div aria-label="Answers" className="flex flex-col gap-1 border-b border-border p-3">
               {answers.length === 0 ? (
-                <li className="px-3 py-2 text-muted">{found.state === "idle" ? "Nothing matches." : "Searching…"}</li>
+                <p className="px-3 py-6 text-center text-muted">{found.state === "idle" ? "Nothing matches." : "Searching…"}</p>
               ) : (
                 answers.map((answer, index) => (
-                  <li key={answer.key}>
+                  <div key={answer.key}>
+                    {index === 0 || answers[index - 1]!.group !== answer.group ? (
+                      <h3 className="px-3 pb-1 pt-2 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">{answer.group}</h3>
+                    ) : null}
                     <Link
                       to={answer.to}
                       preventScrollReset
@@ -332,24 +357,59 @@ export function GlobalSearch() {
                         event.preventDefault();
                         go(answer);
                       }}
-                      className={`flex rounded-lg px-3 py-2 ${index === cursor ? "bg-surface-2 text-fg" : "text-muted"}`}
+                      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 ${index === cursor ? "bg-fg text-bg" : "text-fg hover:bg-surface-2"}`}
                     >
-                      {answer.body}
+                      <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${index === cursor ? "bg-bg/15" : "bg-surface-2 text-muted"}`}>
+                        {answer.icon}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{answer.body}</span>
+                      {answer.meta ? (
+                        <span className={`flex shrink-0 items-center gap-1.5 text-xs ${index === cursor ? "text-bg/70" : "text-dim"}`}>{answer.meta}</span>
+                      ) : null}
                     </Link>
-                  </li>
+                  </div>
                 ))
               )}
-            </ul>
+            </div>
           ) : null}
 
-          {/* The board's filters land here. A page with none leaves it empty. */}
-          <div
-            ref={(node) => {
-              if (node && slot?.node !== node) setSlot({ node, active: slot?.active ?? 0 });
-            }}
-            className="flex flex-col gap-4 p-4 empty:hidden"
-          />
+          {/* The board's filters land here. A page with none says so. */}
+          <section className="flex flex-col gap-3 p-4">
+            <div className="flex items-center gap-2 px-1">
+              <h2 className="flex items-center gap-2 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
+                <Sliders className="size-3" />
+                Filters
+                {active > 0 ? <span className="rounded-full bg-fg px-1.5 py-0.5 text-bg">{active} on</span> : null}
+              </h2>
+              {active > 0 && held?.clear ? (
+                <Link
+                  to={held.clear}
+                  preventScrollReset
+                  className="press ml-auto rounded-full border border-border px-3 py-1 text-xs text-muted hover:border-fg hover:text-fg"
+                >
+                  Clear all
+                </Link>
+              ) : null}
+            </div>
+            <div
+              ref={(node) => {
+                if (node && slot?.node !== node)
+                  setSlot({ node, active: slot?.active ?? 0, clear: slot?.clear ?? null, has: slot?.has ?? false });
+              }}
+              className="flex flex-col gap-2 empty:hidden"
+            />
+            {held?.has ? null : (
+              <p className="px-1 text-xs text-dim">This page has no filters. A board does.</p>
+            )}
+          </section>
         </div>
+
+        <footer className="hidden h-10 shrink-0 items-center gap-4 border-t border-border px-5 font-mono text-[0.625rem] text-dim pointer-fine:flex">
+          <span>↑↓ move</span>
+          <span>↵ open</span>
+          <span>esc close</span>
+          <span className="ml-auto">/ or ⌘K anywhere</span>
+        </footer>
       </div>
     </div>
   );

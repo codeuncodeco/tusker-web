@@ -21,7 +21,25 @@ import { ACCOUNT, AccountBody, type AccountData } from "./account-body";
 import { ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
 import type { Me } from "./assignees";
 import type { OrgHeld } from "./current-org";
-import { Bullseye, CalendarWeek, Columns, Gear, ListCheck, User, XMark } from "./icons";
+import {
+  BoxArchive,
+  Bullseye,
+  CalendarWeek,
+  Check,
+  ChevronRight,
+  Columns,
+  Folder,
+  Gear,
+  LayerGroup,
+  ListCheck,
+  Plus,
+  RotateLeft,
+  Scale,
+  TableList,
+  User,
+  Users,
+  XMark,
+} from "./icons";
 import { Avatar } from "./initials";
 import { OrgDot } from "./org-chip";
 import { ColourSchemeButton, KeysButton } from "./look-buttons";
@@ -67,14 +85,22 @@ export function nextView(view: View | null, back = false): View {
 }
 
 /** The pages of one org the settings panel holds. */
-const ORG_PAGES = [
-  { to: "clients", label: "Clients" },
-  { to: "decisions", label: "Decisions" },
-  { to: "archive", label: "Archive" },
-  { to: "fields", label: "Fields" },
-  { to: "members", label: "Members" },
-  { to: "settings", label: "Org settings" },
+export const ORG_PAGES = [
+  { to: "clients", label: "Clients", icon: (c: string) => <Folder className={c} /> },
+  { to: "decisions", label: "Decisions", icon: (c: string) => <Scale className={c} /> },
+  { to: "archive", label: "Archive", icon: (c: string) => <BoxArchive className={c} /> },
+  { to: "fields", label: "Fields", icon: (c: string) => <TableList className={c} /> },
+  { to: "members", label: "Members", icon: (c: string) => <Users className={c} /> },
+  { to: "settings", label: "Settings", icon: (c: string) => <Gear className={c} /> },
 ] as const;
+
+/**
+ * Where one page of an org opens: over its board, as a modal, so the board
+ * stays behind it. See ADR-0039.
+ */
+export function orgPagePath(slug: string, page: string): string {
+  return `/o/${slug}/board/${page}`;
+}
 
 /** Where the board the person last stood on is kept: an org's slug, or empty for All. */
 const SCOPE_KEY = "tusker:scope";
@@ -129,7 +155,7 @@ export function Dock({
   return (
     <nav
       aria-label="Dock"
-      className={`fixed right-4 z-30 flex items-end gap-2 sm:right-6 ${raised ? "bottom-20 sm:bottom-6" : "bottom-4 sm:bottom-6"} print:hidden`}
+      className={`fixed right-4 z-40 flex items-end gap-2 sm:right-6 ${raised ? "bottom-20 sm:bottom-6" : "bottom-4 sm:bottom-6"} print:hidden`}
     >
       <ViewButton board={board} onBoard={onBoard} where={where} />
       <SettingsPanel orgs={orgs} org={org} />
@@ -139,12 +165,28 @@ export function Dock({
 }
 
 /**
- * The View button: one glyph, and one click steps to the next view. The name of
- * the view stands beside the glyph while the pointer is over it.
+ * Whether the view fan is out. It is kept outside the button, because a step
+ * to Week or Plan draws another layout and so another dock, and the fan the
+ * person opened must still be out when it lands.
+ */
+let fanOut = false;
+
+/**
+ * The View button and its fan. See ADR-0039.
+ *
+ * The pointer over it, or a first tap on a phone, unfurls every view as a pill
+ * above it, the one in view filled. A pill goes straight to its view. The
+ * centre still steps to the next view, one click a step, and the fan stays
+ * out while it does, so the filled pill walks as the view changes. Shift-click
+ * steps back. The pointer leaving, a tap outside, or Escape furls it.
  */
 function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean; where?: string }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [open, setOpenState] = useState(fanOut);
+  const touch = useRef(false);
+  const leave = useRef<number | undefined>(undefined);
+  const box = useRef<HTMLDivElement>(null);
   const view = viewOf(pathname, onBoard);
   const next = nextView(view);
   const back = nextView(view, true);
@@ -154,26 +196,101 @@ function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean
     ? `View: ${VIEW_LOOK[view].label}. Switch to ${VIEW_LOOK[next].label}.`
     : `Back to ${VIEW_LOOK[next].label}`;
 
+  function setOpen(value: boolean) {
+    fanOut = value;
+    setOpenState(value);
+  }
+
+  // A tap outside, or Escape, furls it.
+  useEffect(() => {
+    if (!open) return;
+    function onDown(event: PointerEvent) {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <Link
-      to={to(next)}
-      aria-label={name}
-      title={`${where ? `${where}. ` : ""}${name} Shift-click steps back.`}
-      onClick={(event) => {
-        if (!event.shiftKey) return;
-        event.preventDefault();
-        navigate(to(back));
+    <div
+      ref={box}
+      className="relative"
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "mouse") return;
+        window.clearTimeout(leave.current);
+        setOpen(true);
       }}
-      className={`group ${DOCK_BUTTON} w-auto min-w-12 gap-0 px-3.5 hover:gap-2`}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== "mouse") return;
+        leave.current = window.setTimeout(() => setOpen(false), 260);
+      }}
     >
-      <span key={shown} className="flex motion-safe:animate-spin-in">
-        {VIEW_LOOK[shown].icon("size-5")}
-      </span>
-      <span className="max-w-0 overflow-hidden whitespace-nowrap font-medium transition-[max-width] duration-300 ease-snap group-hover:max-w-24 group-focus-visible:max-w-24">
-        {view ? VIEW_LOOK[view].label : "Board"}
-        <span className="text-muted"> → {VIEW_LOOK[next].label}</span>
-      </span>
-    </Link>
+      {open ? (
+        <ul aria-label="Views" className="absolute bottom-full right-0 flex flex-col-reverse items-end gap-1.5 pb-3">
+          {VIEWS.map((one, at) => {
+            const here = one === view;
+            return (
+              <li key={one} style={{ animationDelay: `${at * 35}ms` }} className="motion-safe:animate-rise-in">
+                <Link
+                  to={to(one)}
+                  viewTransition
+                  aria-current={here ? "page" : undefined}
+                  // A pick on a phone is the end of it: the fan furls. The
+                  // pointer over it on a wide screen keeps it out.
+                  onPointerDown={(event) => {
+                    touch.current = event.pointerType !== "mouse";
+                  }}
+                  onClick={() => {
+                    if (touch.current) setOpen(false);
+                  }}
+                  className={`press flex h-10 items-center gap-2 rounded-full border px-4 shadow-lg ${
+                    here
+                      ? "border-fg bg-fg font-medium text-bg"
+                      : "border-border bg-surface text-muted hover:-translate-x-0.5 hover:border-dim hover:text-fg"
+                  }`}
+                >
+                  {VIEW_LOOK[one].icon("size-4")}
+                  {VIEW_LOOK[one].label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      <Link
+        to={to(next)}
+        viewTransition
+        aria-label={name}
+        aria-expanded={open}
+        title={`${where ? `${where}. ` : ""}${name} Shift-click steps back.`}
+        onPointerDown={(event) => {
+          touch.current = event.pointerType !== "mouse";
+        }}
+        onClick={(event) => {
+          // A first tap on a phone unfurls the fan; the next steps.
+          if (touch.current && !open) {
+            event.preventDefault();
+            setOpen(true);
+            return;
+          }
+          if (!event.shiftKey) return;
+          event.preventDefault();
+          navigate(to(back), { viewTransition: true });
+        }}
+        className={`${DOCK_BUTTON} ${open ? "border-fg" : ""}`}
+      >
+        <span key={shown} className="flex motion-safe:animate-spin-in">
+          {VIEW_LOOK[shown].icon("size-5")}
+        </span>
+      </Link>
+    </div>
   );
 }
 
@@ -189,9 +306,10 @@ function usePicked(): (slug: string) => string {
 }
 
 /**
- * The settings panel: the gear, and above it the board's org, every other org
- * and All, then the pages of the org in view. A `<details>`, so it opens with
- * no script; script closes it on a pick, a click outside, and Escape.
+ * The settings panel: the gear, and above it every way to another board and
+ * every page of the org in view, each a row or a tile with its glyph, and how
+ * the page is drawn. A `<details>`, so it opens with no script; script closes
+ * it on a pick, a click outside, and Escape. See ADR-0039.
  */
 function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
   const panel = useRef<HTMLDetailsElement>(null);
@@ -199,7 +317,10 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
   const picked = usePicked();
   // The org whose pages the panel holds: the one in view, else the first.
   const pages = org ?? orgs[0] ?? null;
-  const onAll = pathname === "/me";
+  const onAll = pathname === "/me" || pathname.startsWith("/me/t/");
+  const [extras, setExtras] = useState<{ label: string; run: () => void }[]>([]);
+
+  useEffect(() => setExtras(window.tuskerExtras ?? []), []);
 
   useEffect(() => {
     const close = () => {
@@ -229,61 +350,71 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
     if (panel.current) panel.current.open = false;
   }, [pathname]);
 
+  /** One row of the panel: a glyph in a tile, the words, and where it leads. */
   const row = (here: boolean) =>
-    `press flex items-center gap-2 rounded-lg px-3 py-2 ${here ? "bg-fg font-medium text-bg" : "text-muted hover:bg-surface-2 hover:text-fg"}`;
+    `press flex min-h-11 items-center gap-3 rounded-xl px-2 ${here ? "bg-fg text-bg" : "hover:bg-surface-2"}`;
+  const tile = (here: boolean) =>
+    `flex size-8 shrink-0 items-center justify-center rounded-lg ${here ? "bg-bg/15" : "bg-surface-2 text-muted"}`;
 
   return (
     <details ref={panel} className="group/settings relative">
-      <summary aria-label="Settings" title="Settings" className={`${DOCK_BUTTON} list-none [&::-webkit-details-marker]:hidden`}>
+      <summary
+        aria-label="Settings"
+        title="Settings"
+        className={`${DOCK_BUTTON} list-none group-open/settings:border-fg group-open/settings:bg-fg group-open/settings:text-bg [&::-webkit-details-marker]:hidden`}
+      >
         <Gear className="size-5 transition-transform duration-300 ease-spring group-open/settings:rotate-90" />
       </summary>
-      <div className="absolute bottom-full right-0 mb-3 flex w-72 flex-col gap-3 rounded-2xl border border-border bg-surface p-3 shadow-2xl motion-safe:animate-rise-in">
-        {/* How the page is drawn: the colour scheme, one click a step, and
-            the Key guide where the page gives list keys. */}
-        <div className="flex items-center gap-2 px-1">
-          <span className="text-xs uppercase tracking-wide text-muted">Look</span>
-          <span className="ml-auto flex items-center gap-2">
-            <KeysButton />
-            <ColourSchemeButton />
-          </span>
-        </div>
+      {/* Over the gear on a wide screen; on a phone, a sheet across the foot
+          of the screen, over the dock. */}
+      <div className="fixed inset-x-3 bottom-20 flex max-h-[calc(100dvh-7rem)] flex-col sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-3 sm:max-h-[min(36rem,calc(100dvh-7rem))] sm:w-[22rem] gap-1 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface p-2 shadow-2xl motion-safe:animate-rise-in">
         {orgs.length > 0 ? (
-          <section className="flex flex-col gap-1">
-            <h2 className="px-3 pt-1 text-xs uppercase tracking-wide text-muted">Board</h2>
+          <section className="flex flex-col gap-0.5">
+            <PanelHead>Board</PanelHead>
             {orgs.map((one) => {
               const here = org?.slug === one.slug && !onAll;
               return (
-                <Link key={one.slug} to={picked(one.slug)} aria-current={here ? "page" : undefined} className={row(here)}>
-                  <OrgDot color={one.color} />
-                  <span className="truncate">{one.name}</span>
+                <Link key={one.slug} to={picked(one.slug)} viewTransition aria-current={here ? "page" : undefined} className={row(here)}>
+                  <span className={tile(here)}>
+                    <OrgDot color={one.color} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{one.name}</span>
+                  {here ? <Check className="size-3.5" /> : <ChevronRight className="size-3 text-dim" />}
                 </Link>
               );
             })}
             {orgs.length > 1 ? (
-              <Link to={picked("")} aria-current={onAll ? "page" : undefined} className={row(onAll)}>
-                <span aria-hidden="true" className="flex -space-x-1">
-                  {orgs.slice(0, 3).map((one) => (
-                    <OrgDot key={one.slug} color={one.color} />
-                  ))}
+              <Link to={picked("")} viewTransition aria-current={onAll ? "page" : undefined} className={row(onAll)}>
+                <span className={tile(onAll)}>
+                  <LayerGroup className="size-3.5" />
                 </span>
-                All orgs
+                <span className="flex-1">All orgs</span>
+                {onAll ? <Check className="size-3.5" /> : <ChevronRight className="size-3 text-dim" />}
               </Link>
             ) : null}
           </section>
         ) : null}
 
         {pages ? (
-          <section className="flex flex-col gap-1 border-t border-border pt-3">
-            <h2 className="flex items-center gap-1.5 px-3 text-xs uppercase tracking-wide text-muted">
+          <section className="flex flex-col gap-1 border-t border-border pt-2">
+            <PanelHead>
               <OrgDot color={pages.color} />
               {pages.name}
-            </h2>
-            <div className="grid grid-cols-2 gap-1">
+            </PanelHead>
+            <div className="grid grid-cols-3 gap-1.5 px-1 pb-1">
               {ORG_PAGES.map((page) => {
-                const to = `/o/${pages.slug}/${page.to}`;
-                const here = pathname.startsWith(to);
+                const to = orgPagePath(pages.slug, page.to);
+                const here = pathname.startsWith(to) || pathname.startsWith(`/o/${pages.slug}/${page.to}`);
                 return (
-                  <Link key={page.to} to={to} aria-current={here ? "page" : undefined} className={row(here)}>
+                  <Link
+                    key={page.to}
+                    to={to}
+                    aria-current={here ? "page" : undefined}
+                    className={`press flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 text-xs ${
+                      here ? "border-fg bg-fg text-bg" : "border-border bg-bg text-muted hover:-translate-y-0.5 hover:border-dim hover:text-fg"
+                    }`}
+                  >
+                    {page.icon("size-4")}
                     {page.label}
                   </Link>
                 );
@@ -292,11 +423,46 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
           </section>
         ) : null}
 
-        <Link to="/orgs/new" className={`${row(pathname === "/orgs/new")} border-t border-border`}>
-          New org
-        </Link>
+        <section className="flex flex-col gap-0.5 border-t border-border pt-2">
+          <PanelHead>Look</PanelHead>
+          <div className="flex min-h-11 items-center gap-3 px-2">
+            <span className="flex-1 text-muted">Light, dark or the system’s</span>
+            <ColourSchemeButton />
+          </div>
+          <div className="hidden min-h-11 items-center gap-3 px-2 pointer-fine:flex">
+            <span className="flex-1 text-muted">Keys</span>
+            <KeysButton />
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-0.5 border-t border-border pt-2">
+          <Link to="/orgs/new" className={row(pathname === "/orgs/new")}>
+            <span className={tile(pathname === "/orgs/new")}>
+              <Plus className="size-3.5" />
+            </span>
+            <span className="flex-1">New org</span>
+            <ChevronRight className="size-3 text-dim" />
+          </Link>
+          {extras.map((extra) => (
+            <button key={extra.label} type="button" onClick={extra.run} className={`${row(false)} text-left`}>
+              <span className={tile(false)}>
+                <RotateLeft className="size-3.5" />
+              </span>
+              <span className="flex-1">{extra.label}</span>
+            </button>
+          ))}
+        </section>
       </div>
     </details>
+  );
+}
+
+/** The heading of one part of the settings panel. */
+function PanelHead({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-1.5 px-2 pb-1 pt-1.5 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
+      {children}
+    </h2>
   );
 }
 

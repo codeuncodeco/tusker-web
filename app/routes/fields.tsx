@@ -31,6 +31,7 @@ import { isLinked, isRefsPath } from "../refs";
 import { refOptionsOfOrg, refreshField } from "../refs.server";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/fields";
+import { orgPagePath } from "../paths";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `Fields of ${loaderData.org.name} — Tusker` }];
@@ -549,7 +550,7 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
         ) : (
           <p className="text-muted">
             A reference field reads from this org's org app. Name its base URL and key in{" "}
-            <Link to={`/o/${org.slug}/settings`} className="underline">
+            <Link to={orgPagePath(org.slug, "settings")} className="underline">
               settings
             </Link>{" "}
             first.

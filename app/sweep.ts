@@ -9,6 +9,7 @@
 
 import type { Toast } from "./toast";
 import { readTaskId, type TaskId } from "./task-number";
+import { orgPagePath } from "./paths";
 
 /** One card a sweep names: the task, and the org that holds it. */
 export type Swept = { id: TaskId; slug: string };
@@ -112,6 +113,6 @@ export function sweptToast({
           },
     links: byOrg(archived)
       .filter((group) => names[group.slug] !== undefined)
-      .map((group) => ({ label: names[group.slug], to: `/o/${group.slug}/archive` })),
+      .map((group) => ({ label: names[group.slug], to: orgPagePath(group.slug, "archive") })),
   };
 }

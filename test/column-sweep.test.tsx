@@ -225,8 +225,8 @@ describe("what a finished sweep says", () => {
     );
 
     expect(toast.links).toEqual([
-      { label: "Acme", to: "/o/acme/archive" },
-      { label: "Ada", to: "/o/ada/archive" },
+      { label: "Acme", to: "/o/acme/board/archive" },
+      { label: "Ada", to: "/o/ada/board/archive" },
     ]);
   });
 

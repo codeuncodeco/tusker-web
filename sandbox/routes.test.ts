@@ -121,11 +121,15 @@ describe("every page loads over the browser database", () => {
     "/account",
     "/orgs/new",
     "/o/studio/board",
-    "/o/studio/fields",
-    "/o/studio/decisions",
-    "/o/studio/archive",
-    "/o/studio/members",
-    "/o/studio/settings",
+    // An org's pages open over its board. See ADR-0039.
+    "/o/studio/board/fields",
+    "/o/studio/board/decisions",
+    "/o/studio/board/archive",
+    "/o/studio/board/members",
+    "/o/studio/board/settings",
+    "/o/studio/board/clients",
+    "/o/studio/board/t/1",
+    "/me/t/1",
     "/o/garden/board",
     "/t/1",
   ];
@@ -136,6 +140,10 @@ describe("every page loads over the browser database", () => {
       expect(thrown).toBeUndefined();
     });
   }
+
+  it("sends an org page's old address on to the board it opens over", async () => {
+    expect(redirectOf((await load("/o/studio/members?x=1")).thrown)).toBe("/o/studio/board/members?x=1");
+  });
 
   it("sends / to the board of the first org, with no sign-in", async () => {
     expect(redirectOf((await load("/")).thrown)).toBe("/o/studio/board");
@@ -164,7 +172,7 @@ describe("every page loads over the browser database", () => {
 describe("a post runs its action over the browser database", () => {
   it("invites a person, and mails nobody", async () => {
     const body = new URLSearchParams({ email: "new@sandbox.test" });
-    const { data, thrown } = await load("/o/studio/members", { method: "POST", body });
+    const { data, thrown } = await load("/o/studio/board/members", { method: "POST", body });
     expect(thrown).toBeUndefined();
     expect(data[0]).toMatchObject({ ok: expect.stringContaining("new@sandbox.test") });
     const { results } = await env.DB.prepare('SELECT email FROM "user" WHERE email = ?').bind("new@sandbox.test").all();

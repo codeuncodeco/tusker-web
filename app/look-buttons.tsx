@@ -47,19 +47,13 @@ const SCHEME_LOOKS: Record<ColourScheme, { label: string; icon: (className: stri
   system: { label: "System", icon: (className) => <Desktop className={className} /> },
 };
 
-/** The radius the reveal grows to: far enough to cover the farthest corner. */
-function revealRadius(x: number, y: number): number {
-  return Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-}
-
 /**
  * The colour scheme button: one glyph, and one click steps to the next scheme,
  * Light to Dark to System and round again. See `nextScheme`.
  *
  * With script, the pick posts through a fetcher, and the page draws it while
  * the post is in flight, so it changes at once. Where the browser can, the new
- * scheme grows out of the button as a circle over the old one, and the glyph
- * spins in. A person who asked for less motion gets the change at once.
+ * scheme dissolves in over the old one, slowly, and the glyph turns in. A person who asked for less motion gets the change at once.
  *
  * With no script it is a plain POST form, and the button itself sends the next
  * scheme. The form names the page the person stands on, and the reply
@@ -86,20 +80,13 @@ export function ColourSchemeButton() {
       return;
     }
 
-    // The circle grows from the button's centre.
-    const box = event.currentTarget.getBoundingClientRect();
-    const x = box.left + box.width / 2;
-    const y = box.top + box.height / 2;
+    // The new scheme breathes in over the old: a slow dissolve with a soft
+    // bloom, drawn in `app.css`, so a change of light feels like morning
+    // and not a flash. See ADR-0039.
     const root = document.documentElement;
     root.classList.add("scheme-reveal");
     const transition = document.startViewTransition(() => {
       void send();
-    });
-    void transition.ready.then(() => {
-      root.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${revealRadius(x, y)}px at ${x}px ${y}px)`] },
-        { duration: 520, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)", pseudoElement: "::view-transition-new(root)" },
-      );
     });
     void transition.finished.finally(() => root.classList.remove("scheme-reveal"));
   }

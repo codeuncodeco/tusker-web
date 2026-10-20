@@ -171,17 +171,29 @@ function links(html: string): string[] {
 }
 
 describe("the link a list draws into a task", () => {
-  it("records the list, from plan mode and focus mode", () => {
+  it("opens over plan mode as a modal, so the plan stays behind it", () => {
     const html = markup(
       <ul>
         <UnifiedRow task={live(1)} planned={false} selected={false} domId="row-a" showsOrg />
       </ul>,
     );
 
-    expect(links(html)).toEqual(["/t/1?from=%2Fme%2Fplan"]);
+    // See ADR-0039.
+    expect(links(html)).toEqual(["/me/plan/t/1"]);
   });
 
-  it("records the unified board, with the query that narrowed it", () => {
+  it("records the list on a page that holds no modal, as a day read back", () => {
+    const html = markup(
+      <ul>
+        <UnifiedRow task={live(1)} planned={false} selected={false} domId="row-a" showsOrg />
+      </ul>,
+      "/me/plan/2026-10-09",
+    );
+
+    expect(links(html)).toEqual(["/t/1?from=%2Fme%2Fplan%2F2026-10-09"]);
+  });
+
+  it("opens over the unified board, keeping the query that narrowed it", () => {
     const html = markup(
       <ul>
         <UnifiedCard task={live(1)} selected={false} domId="card-a" place={() => {}} showsOrg />
@@ -189,7 +201,7 @@ describe("the link a list draws into a task", () => {
       "/me?backlog=1",
     );
 
-    expect(links(html)).toEqual(["/t/1?from=%2Fme%3Fbacklog%3D1"]);
+    expect(links(html)).toEqual(["/me/t/1?backlog=1"]);
   });
 
   // The prompt is a raised prompt and not a view, so it is no part of the
@@ -203,7 +215,7 @@ describe("the link a list draws into a task", () => {
       "/me?backlog=1&ask=2&org=acme",
     );
 
-    expect(links(html)).toEqual(["/t/1?from=%2Fme%3Fbacklog%3D1"]);
+    expect(links(html)).toEqual(["/me/t/1?backlog=1"]);
   });
 });
 
