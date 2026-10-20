@@ -267,7 +267,7 @@ export function GlobalSearch() {
       >
         <Search className="size-4" />
         {active > 0 ? (
-          <span key={active} className="flex items-center gap-1 text-xs font-medium motion-safe:animate-pop">
+          <span key={active} className="flex items-center gap-1 text-xs font-medium motion-safe:animate-pop-soft">
             <Sliders className="size-3" />
             {active}
           </span>

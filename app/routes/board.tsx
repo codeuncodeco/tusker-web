@@ -61,6 +61,7 @@ import { FinishCircle } from "../finish-circle";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels, refOptionsOfOrg } from "../refs.server";
 import { useLocalDay } from "../local-day";
+import { markOpening } from "../route-modal";
 import { useTaskHref } from "../paths";
 import { addsSent, boardSent, postAndReport, usePost, useSent } from "../pending";
 import { PendingAdds } from "../pending-adds";
@@ -412,7 +413,7 @@ function CardItem({
           onFinish={() => move(card.id, "done")}
           onReopen={() => move(card.id, "todo")}
         />
-        <Link to={hrefOf(card.id)} className="flex-1 underline-offset-2 hover:underline">
+        <Link to={hrefOf(card.id)} viewTransition onClick={(event) => markOpening(event.currentTarget.closest("li"))} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
         <Initials assignees={card.assignees} />

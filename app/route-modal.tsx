@@ -14,7 +14,7 @@
  * pulls down to close it.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router";
 
 import { ArrowLeft, ArrowRight, XMark } from "./icons";
@@ -29,6 +29,30 @@ const NAMES: Record<string, string> = {
   members: "Members",
   settings: "Settings",
 };
+
+/**
+ * Names a card as the one a task opens from, for the one step of the view
+ * transition: its box grows into the sheet's. The sheet takes the name back
+ * as it mounts, so the page never holds two elements of one name. See
+ * ADR-0040.
+ */
+export function markOpening(card: HTMLElement | null) {
+  if (!card || typeof document.startViewTransition !== "function") return;
+  card.style.viewTransitionName = "task";
+  card.dataset.opening = "";
+  // The page behind holds still while the card grows; only the card moves.
+  document.documentElement.classList.add("opening-task");
+}
+
+/** Takes the name back from the card a task opened from. */
+function unmarkOpening() {
+  for (const card of document.querySelectorAll<HTMLElement>("[data-opening]")) {
+    card.style.viewTransitionName = "";
+    delete card.dataset.opening;
+  }
+  // The class lasts the transition, which is captured by now and runs 320ms.
+  window.setTimeout(() => document.documentElement.classList.remove("opening-task"), 400);
+}
 
 /** What a modal at this address is called. */
 export function modalTitle(pathname: string): string {
@@ -73,6 +97,10 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
   // land there, and so does the end of a delete.
   const close = () => navigate(closeTo, { preventScrollReset: true });
 
+  // The card this sheet grew from gives its name back before the new page is
+  // captured. See `markOpening`.
+  useLayoutEffect(unmarkOpening, [key]);
+
   // The page behind does not scroll while the modal is up.
   useEffect(() => {
     const root = document.documentElement;
@@ -110,7 +138,9 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-fg/25 backdrop-blur-[3px] sm:items-center sm:p-6 motion-safe:animate-fade-in"
+      // A plain shade, and no blur: blurring the whole board behind a sheet
+      // as it opens is what made the opening stutter. See ADR-0040.
+      className="fixed inset-0 z-50 flex items-end justify-center bg-fg/30 sm:items-center sm:p-6 motion-safe:animate-fade"
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}
@@ -123,8 +153,13 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
         // A page, not a prompt: a press inside it is the page's. See `isPagePress`.
         data-page
         tabIndex={-1}
-        style={pulled ? { transform: `translateY(${pulled}px)` } : undefined}
-        className="flex h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-bg shadow-2xl focus:outline-none sm:h-[min(56rem,calc(100dvh-3rem))] sm:max-w-5xl sm:rounded-3xl motion-safe:animate-sheet-up sm:motion-safe:animate-pop"
+        style={{
+          ...(pulled ? { transform: `translateY(${pulled}px)` } : {}),
+          // A task's sheet shares its name with the card it opened from, so
+          // the card's box grows into it. See `CardItem` and ADR-0040.
+          ...(/\/t\/\d+$/.test(pathname) ? { viewTransitionName: "task" } : {}),
+        }}
+        className="flex h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-bg shadow-2xl will-change-transform focus:outline-none sm:h-[min(56rem,calc(100dvh-3rem))] sm:max-w-6xl sm:rounded-3xl motion-safe:animate-sheet-up sm:motion-safe:animate-scale-in"
       >
         {/* The grip: a phone pulls it down to close the sheet. */}
         <div
@@ -154,7 +189,7 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
           <button type="button" onClick={() => navigate(1)} disabled={!steps.forward} aria-label="Forward" title="Forward" className={appButton}>
             <ArrowRight className="size-3.5" />
           </button>
-          <span key={title} className="ml-2 min-w-0 flex-1 truncate font-medium motion-safe:animate-rise-in">
+          <span className="ml-2 min-w-0 flex-1 truncate font-medium">
             {title}
           </span>
           <button type="button" onClick={close} aria-label="Close" title="Close  Esc" className={appButton}>
@@ -167,7 +202,7 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div
             key={key}
-            className="contents [&>main]:mx-0 [&>main]:w-full [&>main]:max-w-none [&>main]:flex-none [&>main]:justify-start [&>main]:p-5 sm:[&>main]:p-8 motion-safe:[&>main]:animate-rise-in"
+            className="contents [&>main]:mx-0 [&>main]:w-full [&>main]:max-w-none [&>main]:flex-none [&>main]:justify-start [&>main]:p-4 sm:[&>main]:p-6 motion-safe:[&>main]:animate-fade"
           >
             {children}
           </div>

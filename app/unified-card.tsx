@@ -19,6 +19,7 @@ import { Grip, useDragItem } from "./drag-lists";
 import { FinishCircle } from "./finish-circle";
 import { Initials } from "./initials";
 import { keyHint } from "./key-hint";
+import { markOpening } from "./route-modal";
 import { useTaskHref } from "./paths";
 import { type LiveTask } from "./unified";
 import { moveFields, planFields } from "./unified-row";
@@ -82,6 +83,8 @@ export function UnifiedCard({
         ) : null}
         <Link
           to={hrefOf(task.id)}
+          viewTransition
+          onClick={(event) => markOpening(event.currentTarget.closest("li"))}
           className={`flex-1 underline-offset-2 hover:underline ${
             task.finished ? "text-muted line-through" : ""
           }`}
@@ -100,7 +103,7 @@ export function UnifiedCard({
             }}
             className={`press shrink-0 self-center rounded-full border px-2 py-0.5 text-[0.625rem] uppercase tracking-wide ${
               planned
-                ? "border-fg text-fg motion-safe:animate-pop"
+                ? "border-fg text-fg motion-safe:animate-pop-soft"
                 : "hidden border-border text-muted hover:border-fg hover:text-fg pointer-fine:group-hover/card:inline-flex"
             }`}
           >

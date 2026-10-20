@@ -120,7 +120,7 @@ function withValue(params: URLSearchParams, name: string, value: string): string
 export function chipClass(on: boolean): string {
   return `press inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs ${
     on
-      ? "border-fg bg-fg text-bg motion-safe:animate-pop"
+      ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft"
       : "border-border text-muted hover:border-dim hover:bg-surface-2 hover:text-fg"
   }`;
 }
@@ -213,7 +213,7 @@ export function AssigneeFilter({
             to={to(one.id)}
             on={on}
             label={`Tasks ${one.name} holds`}
-            className={`press flex rounded-full ${on ? "ring-2 ring-fg ring-offset-1 ring-offset-bg motion-safe:animate-pop" : "opacity-60 hover:opacity-100"}`}
+            className={`press flex rounded-full ${on ? "ring-2 ring-fg ring-offset-1 ring-offset-bg motion-safe:animate-pop-soft" : "opacity-60 hover:opacity-100"}`}
           >
             <Avatar person={one} size="md" />
           </FilterChip>
@@ -434,7 +434,7 @@ export function ColumnSwitch({ which, toggles }: { which: Status; toggles: Toggl
       preventScrollReset
       className="press inline-flex items-baseline gap-1.5 text-xs uppercase tracking-wide text-muted hover:text-fg"
     >
-      <span key={on ? "on" : "off"} className="inline-flex self-center motion-safe:animate-pop">
+      <span key={on ? "on" : "off"} className="inline-flex self-center motion-safe:animate-pop-soft">
         {on ? <SquareCheck /> : <Square />}
       </span>
       {label}
@@ -478,7 +478,7 @@ export function ColumnHead({
 
   return (
     <h2 className="flex items-center gap-2 font-mono uppercase tracking-wide text-muted">
-      <span key={count} aria-hidden="true" className={`flex ${look.tone} motion-safe:animate-pop`}>
+      <span key={count} aria-hidden="true" className={`flex ${look.tone} motion-safe:animate-pop-soft`}>
         <span className={`flex ${look.motion}`}>{look.icon}</span>
       </span>
       {label}

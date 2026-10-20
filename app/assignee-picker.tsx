@@ -67,7 +67,7 @@ export function AssigneePicker({
             onClick={() => toggle(member.id)}
             className={`press flex shrink-0 rounded-full ${on ? "" : "opacity-40 grayscale hover:opacity-80 hover:grayscale-0"}`}
           >
-            <span key={on ? "on" : "off"} className={`flex rounded-full ${on ? "motion-safe:animate-pop" : ""}`}>
+            <span key={on ? "on" : "off"} className={`flex rounded-full ${on ? "motion-safe:animate-pop-soft" : ""}`}>
               <Avatar person={member} size="md" className={on ? "" : "border-dashed"} />
             </span>
           </button>

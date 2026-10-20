@@ -181,7 +181,7 @@ function PrimaryAct({ task }: { task: AsideTask }) {
 /** The look of a chip in the aside, pressed or not. */
 function radioChip(on: boolean): string {
   return `press inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs has-focus-visible:outline-2 has-focus-visible:outline-accent ${
-    on ? "border-fg bg-fg text-bg motion-safe:animate-pop" : "border-border text-muted hover:border-dim hover:text-fg"
+    on ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft" : "border-border text-muted hover:border-dim hover:text-fg"
   }`;
 }
 
@@ -321,7 +321,7 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
                     }
                     className="sr-only"
                   />
-                  <span key={on ? "on" : "off"} className={`flex ${on ? "motion-safe:animate-pop" : "grayscale"}`}>
+                  <span key={on ? "on" : "off"} className={`flex ${on ? "motion-safe:animate-pop-soft" : "grayscale"}`}>
                     <Avatar person={member} />
                   </span>
                   {member.name}

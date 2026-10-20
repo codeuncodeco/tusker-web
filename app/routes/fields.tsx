@@ -400,7 +400,7 @@ function ClientSwitch({ field }: { field: OrgField }) {
         aria-pressed={on}
         title={on ? "This field names the client. Click to stop." : "Make this the client field: tag cards, filter every board and give each client a page."}
         className={`press inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${
-          on ? "border-fg bg-fg text-bg motion-safe:animate-pop" : "border-border text-muted hover:text-fg"
+          on ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft" : "border-border text-muted hover:text-fg"
         }`}
       >
         {on ? <Check className="size-3" /> : null}

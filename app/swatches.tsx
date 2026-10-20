@@ -48,7 +48,7 @@ export function Swatches({
               onPick(color);
             }}
             style={{ backgroundColor: colorCss(color) }}
-            className={`press flex size-7 items-center justify-center rounded-full text-white ring-offset-2 ring-offset-bg hover:scale-110 ${held ? "ring-2 ring-fg motion-safe:animate-pop" : ""}`}
+            className={`press flex size-7 items-center justify-center rounded-full text-white ring-offset-2 ring-offset-bg hover:scale-110 ${held ? "ring-2 ring-fg motion-safe:animate-pop-soft" : ""}`}
           >
             {held ? <Check className="size-3" /> : null}
           </button>

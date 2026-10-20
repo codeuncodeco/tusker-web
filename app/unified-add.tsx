@@ -183,7 +183,7 @@ export function UnifiedAdd({
                     <label
                       key={org.slug}
                       className={`press inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs has-focus-visible:outline-2 has-focus-visible:outline-accent ${
-                        on ? "border-fg bg-fg text-bg motion-safe:animate-pop" : "border-border text-muted hover:border-dim hover:text-fg"
+                        on ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft" : "border-border text-muted hover:border-dim hover:text-fg"
                       }`}
                     >
                       <input

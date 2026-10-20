@@ -52,39 +52,75 @@
      system for less motion gets none. */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-snap: cubic-bezier(0.2, 0.9, 0.3, 1);
+  /* The default for anything that arrives: quick, then a long soft landing,
+     with no overshoot. The spring is kept for the smallest marks only, where a
+     bounce reads as play and not as a wobble. See ADR-0040. */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  --animate-pop: pop 280ms var(--ease-spring);
-  --animate-rise-in: rise-in 320ms var(--ease-spring) both;
+  --animate-pop: pop 240ms var(--ease-spring);
+  --animate-pop-soft: pop-soft 180ms var(--ease-out);
+  --animate-rise-in: rise-in 280ms var(--ease-out) both;
+  --animate-scale-in: scale-in 260ms var(--ease-out) both;
+  --animate-fade: fade-in 160ms ease-out both;
+  --animate-orbit-in: orbit-in 320ms var(--ease-out) both;
   --animate-shake: shake 360ms ease-in-out;
-  --animate-spin-in: spin-in 420ms var(--ease-spring) both;
+  --animate-spin-in: spin-in 360ms var(--ease-out) both;
   --animate-float-up: float-up 900ms var(--ease-snap) forwards;
   --animate-burst: burst 620ms var(--ease-snap) forwards;
-  --animate-tick: tick 260ms var(--ease-spring) both;
+  --animate-tick: tick 220ms var(--ease-out) both;
   --animate-glow: glow 1.6s ease-in-out infinite;
   --animate-drain: drain linear forwards;
   --animate-fade-in: fade-in 200ms ease-out both;
-  --animate-slide-in: slide-in 360ms var(--ease-snap) both;
-  --animate-sheet-up: sheet-up 380ms var(--ease-snap) both;
+  --animate-slide-in: slide-in 320ms var(--ease-out) both;
+  --animate-sheet-up: sheet-up 340ms var(--ease-out) both;
   --animate-unfold: unfold 460ms var(--ease-snap) both;
   --animate-drift: drift 9s linear infinite;
   --animate-breathe: breathe 3.2s ease-in-out infinite;
 
   @keyframes pop {
     0% {
-      transform: scale(0.85);
+      transform: scale(0.94);
     }
     60% {
-      transform: scale(1.08);
+      transform: scale(1.03);
     }
     100% {
       transform: scale(1);
     }
   }
 
+  /* A chip turning on: a breath, so the row it sits in does not jump. */
+  @keyframes pop-soft {
+    from {
+      transform: scale(0.96);
+    }
+  }
+
   @keyframes rise-in {
     from {
       opacity: 0;
-      transform: translateY(8px) scale(0.98);
+      transform: translateY(6px);
+    }
+  }
+
+  /* A modal or a panel arriving from its corner. */
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+  }
+
+  /* One pill of the view dial, flying out from the centre to its place on the
+     arc. Its place is `--ox` and `--oy`, set on the pill. */
+  @keyframes orbit-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4);
+    }
+    to {
+      opacity: 1;
+      transform: translate(calc(-50% + var(--ox)), calc(-50% + var(--oy))) scale(1);
     }
   }
 
@@ -102,7 +138,7 @@
   @keyframes spin-in {
     from {
       opacity: 0;
-      transform: rotate(-120deg) scale(0.4);
+      transform: rotate(-90deg) scale(0.6);
     }
   }
 
@@ -348,31 +384,51 @@ html.scheme-reveal::view-transition-new(root) {
 /* A page moved to another view crossfades and drifts a step, so the eye
    follows where it went. A link that asks for it says `viewTransition`. */
 
-html:not(.scheme-reveal)::view-transition-old(root) {
-  animation: 180ms ease-in both view-out;
+html.opening-task::view-transition-old(root),
+html.opening-task::view-transition-new(root) {
+  animation: none;
 }
 
-html:not(.scheme-reveal)::view-transition-new(root) {
-  animation: 320ms cubic-bezier(0.22, 1, 0.36, 1) both view-in;
+html:not(.scheme-reveal):not(.opening-task)::view-transition-old(root) {
+  animation: 140ms ease-in both view-out;
+}
+
+html:not(.scheme-reveal):not(.opening-task)::view-transition-new(root) {
+  animation: 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both view-in;
+}
+
+/* A card opening into its task: the card's box morphs into the sheet's, so the
+   eye follows the task and not a page that appears. The card names itself
+   `task` for the step, and so does the sheet. See ADR-0040. */
+::view-transition-group(task) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(task),
+::view-transition-new(task) {
+  animation-duration: 320ms;
+  height: 100%;
+  object-fit: cover;
 }
 
 @keyframes view-out {
   to {
     opacity: 0;
-    transform: translateY(-6px);
   }
 }
 
 @keyframes view-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation: none !important;
   }
 }
