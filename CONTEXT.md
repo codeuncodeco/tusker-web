@@ -43,8 +43,11 @@ The colour one org carries, drawn wherever a page names that org beside
 another: the unified board, the cross-org list, plan mode, the week page and
 focus mode. It is a palette name or an exact colour, as an option colour is. A
 new org takes the first palette name no org of its maker holds, and any member
-changes it on the org's settings page. An org with no colour draws grey. A person in one org sees no org chip,
-because there is no other org to tell it from. See ADR-0020.
+changes it on the org's settings page. An org with no colour draws grey. It is
+drawn where orgs are picked, the settings panel and the add box's org chips,
+and not on a card: a card names its org by letters. A person in one org sees no
+org chip, because there is no other org to tell it from. See ADR-0020 and
+ADR-0038.
 _Avoid_: Org theme, org tag, workspace colour
 
 **Org chip**:
@@ -222,7 +225,7 @@ _Avoid_: Shortcut badge, keycap, tooltip
 
 **Key guide**:
 The dialog that names every list key the page a person stands on gives. `?`
-opens it from inside a keyed list, and the keys button in the header opens it
+opens it from inside a keyed list, and the keys button in the settings panel opens it
 from anywhere on that page. A page that gives no list keys has no key guide,
 and a phone draws none, because it has no keyboard. It is the one place a
 person learns the keys that no control carries a hint for.
@@ -437,8 +440,9 @@ _Avoid_: Source URL, endpoint root
 **Option colour**:
 A colour one value of a reference field carries, so a card tells one client from
 another at a glance. It belongs to the value, not to the field, and Tusker holds
-it rather than the org app. A value with no option colour draws plain. See
-ADR-0006.
+it rather than the org app. A value with no option colour draws plain. A card
+draws the colour of the client's value alone; the other fields' values read
+as plain words. See ADR-0006 and ADR-0038.
 _Avoid_: Field colour, tag colour, client dot
 
 **Palette**:
@@ -521,7 +525,8 @@ works as the colour scheme button does: one glyph, one step a click.
 _Avoid_: View switcher, tabs, page menu
 
 **Settings panel**:
-What the dock's gear opens: the **Org select**, then the pages of the org in
+What the dock's gear opens: the **Colour scheme** button and the keys button,
+then the **Org select**, then the pages of the org in
 view, or of the first org on a page that spans them: Clients, Decisions,
 Archive, Fields, Members and the org's own settings, then New org.
 _Avoid_: Admin menu, more menu
@@ -540,8 +545,7 @@ _Avoid_: Org switcher, org dropdown, org filter
 
 **Org board**:
 The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
-Backlog and Cancelled shown by rule. Backlog folded away is a slim bar at the
-board's left edge, and a click opens the column out of it. The order inside a column is the org's and
+Backlog and Cancelled in the **Drawer**. The order inside a column is the org's and
 it is stored, so this is the one board that binds `J` and `K`. A drag draws
 where the card will land, and the drop writes that place. A card carries no
 reorder button, and the **Key guide** names `J` and `K`. See ADR-0016, ADR-0025 and ADR-0026.
@@ -744,24 +748,31 @@ task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
 
 **Header**:
-The one bar every signed-in page draws, in one row. At its left, where the
-person stands: the org in view, or All orgs on a page that spans them, and the
-page, as "Studio / Board". On a board that line is the page's heading, and
-every other page heads itself. At its right, the keys button, where the page
-gives list keys, and the **Colour scheme** button. Everything that moves the
-person elsewhere is in the **Dock**. A label names the destination and never
-what the page holds, so "Week" and "Plan" stand while those pages head with
-the week and the day they draw. The address is the only place the header
-reads an org from. See ADR-0011, ADR-0029 and ADR-0037.
+No bar. A signed-in page gives its width and height to the work: the **Search
+panel**'s button sits in the top right corner and the **Dock** in the bottom
+right. On a board the page's heading, "Studio / Board", is said to a screen
+reader, and the View button's title says it to the eye. See ADR-0037 and
+ADR-0038.
 _Avoid_: Chrome, nav bar, top bar
 
-**Top row**:
-The row of a board under the header: the quick-add box at the left, and the
-search, the filters, the chips and the column switches at the right. A border
-splits it from the columns. On a wide screen it stays in sight with the header
-while the page scrolls, and the columns do not scroll on their own. On a phone
-it scrolls away with the page.
-_Avoid_: Top bar, toolbar, board controls
+**Search panel**:
+What the search button in the top right corner opens, fixed on every
+signed-in page. Its box is a global search: tasks by title or number, clients
+and pages, across every org the person belongs to, as they type. Under it sit
+the board's filters: the assignee filter, the field filters, the client
+filter and the Today and Week chips. The button counts the filters that
+narrow anything. `/` opens it, and Cmd or Ctrl and K. A board draws no Top row
+any more: the add box heads To do, and the board takes the page. See ADR-0038.
+_Avoid_: Top bar, toolbar, board controls, command palette
+
+**Drawer**:
+Where Backlog and Cancelled live, off the board. Each has a tab at the left
+edge of the screen, hidden but for its grip; a click or a pull brings the
+column out over the board, side by side when both are out. A card drags from
+the drawer onto the board and back. An open drawer is an address, as the
+column switches were: `backlog=1`, `cancelled=1`. On an org board with no live
+task, Backlog's tab glows instead of opening by itself. See ADR-0038.
+_Avoid_: Sidebar, side panel, hidden columns
 
 **Assignee filter**:
 The chips on a board that narrow it to the tasks one person holds. The org board
@@ -887,8 +898,8 @@ Whether a page draws light or dark: Light, Dark, or System, which follows the
 operating system. System is what a browser holds until a person picks. The
 pick belongs to the browser and not to the person, so a laptop and a phone can
 differ, and it outlives a sign-out. Every page honours it, the signed-out ones
-too, but only a signed-in page draws the control that changes it, at the
-right of the header. The control is one button: each click steps Light, Dark, System
+too, but only a signed-in page draws the control that changes it, in the
+settings panel. The control is one button: each click steps Light, Dark, System
 and round again, and the new scheme grows out of the button.
 _Avoid_: Theme, appearance, dark mode
 

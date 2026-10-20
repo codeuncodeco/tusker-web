@@ -49,6 +49,9 @@ export default [
   // board it names. See ADR-0029.
   route("go", "routes/go.ts"),
 
+  // What the global search answers as a person types. See ADR-0038.
+  route("search", "routes/search.ts"),
+
   // Where the colour scheme control sends a pick. See #223.
   route("colour-scheme", "routes/colour-scheme.ts"),
 

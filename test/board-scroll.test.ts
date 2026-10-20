@@ -11,7 +11,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 
-import { covered, TopRow, TopRowBox } from "../app/top-row";
+import { covered } from "../app/top-row";
 import { headerAt } from "./routes";
 
 const sources = import.meta.glob("../app/**/*.tsx", {
@@ -89,56 +89,21 @@ function classesIn(markup: string): string[] {
   return found[1].split(/\s+/);
 }
 
-it("draws the Top row on both board pages", () => {
+it("draws no bar over either board: the columns take the page", () => {
+  // The filters live in the search panel and the add box heads To do. See
+  // ADR-0038.
   for (const page of ["routes/board.tsx", "routes/me.tsx"]) {
-    expect([page, /<TopRow>/.test(sourceOf(page)), /<TopRowBox>/.test(sourceOf(page))]).toEqual([
-      page,
-      true,
-      true,
-    ]);
+    expect([page, /<TopRow/.test(sourceOf(page))]).toEqual([page, false]);
   }
-});
-
-it("sticks the Top row under the header from sm up, with a border under it", () => {
-  // The header is `h-16`, so the row sticks at `top-16`. Below `sm` nothing
-  // sticks, so every sticky class is `sm:`-prefixed.
-  const markup = renderToStaticMarkup(createElement(TopRow, null, "x"));
-  // The cursor finds the row by this, to keep a card clear of it.
-  expect(markup).toMatch(/^<header data-top-row/);
-  const row = classesIn(markup);
-  for (const one of ["sm:sticky", "sm:top-16", "border-b", "border-border", "bg-bg"]) {
-    expect([one, row.includes(one)]).toEqual([one, true]);
-  }
-  expect(row.includes("sticky")).toBe(false);
-});
-
-it("gives the quick-add box all the Top row on a phone, half at sm and a third at lg", () => {
-  const box = classesIn(renderToStaticMarkup(createElement(TopRowBox, null, "x")));
-  expect(box).toEqual(["w-full", "sm:w-1/2", "lg:w-1/3"]);
 });
 
 /** The org the header names on an org page. */
 const ACME = { slug: "acme", name: "Acme", color: "blue" as const };
 
-/** The header's own class names, drawn at one address. */
-function headerClasses(pathname: string): string[] {
-  const org = pathname.startsWith("/o/") ? ACME : null;
-  return classesIn(headerAt(pathname, [], org));
-}
-
-it("sticks the header from sm up on both boards, as tall as the Top row's offset", () => {
-  for (const pathname of ["/me", "/o/acme/board"]) {
-    const header = headerClasses(pathname);
-    for (const one of ["sm:sticky", "top-0", "h-16", "bg-bg"]) {
-      expect([pathname, one, header.includes(one)]).toEqual([pathname, one, true]);
-    }
-    expect([pathname, header.includes("sticky")]).toEqual([pathname, false]);
-  }
-});
-
-it("leaves the header in the page on every page but a board", () => {
-  for (const pathname of ["/me/week", "/me/plan", "/account", "/o/acme/members"]) {
-    expect([pathname, headerClasses(pathname).includes("sm:sticky")]).toEqual([pathname, false]);
+it("draws no header bar on any page", () => {
+  for (const pathname of ["/me", "/o/acme/board", "/me/week", "/account", "/o/acme/members"]) {
+    const org = pathname.startsWith("/o/") ? ACME : null;
+    expect([pathname, headerAt(pathname, [], org).includes("<header")]).toEqual([pathname, false]);
   }
 });
 

@@ -1,5 +1,8 @@
 /**
- * The Top row of a board, and the cursor kept clear of it.
+ * The cursor kept clear of whatever is stuck over a board. A board draws no
+ * bar now (ADR-0038), so nothing covers a card, and the cursor only scrolls
+ * into view; a page that sticks a row over its list marks it `data-top-row`
+ * and the card is kept clear of it.
  *
  * The page scrolls and no column does. From `sm` up the header and the Top row
  * stick, so a card the keys walk to can land under them: a scroll to the
@@ -8,35 +11,6 @@
  * covers. Below `sm` the row scrolls away with the page and covers nothing.
  * See #191.
  */
-
-/**
- * The Top row: the quick-add box on the left and the filters on the right, on
- * one line where the width allows. The header's org select is the page's
- * heading. See ADR-0029.
- *
- * From `sm` up it sticks under the header, which is `h-16`, and the border
- * under it sticks with it. It takes the page's pad as its own and spans the
- * page's width, so a card scrolls under a solid row and not into a gap above
- * it.
- */
-export function TopRow({ children }: { children: React.ReactNode }) {
-  return (
-    <header
-      data-top-row
-      className="-mx-8 -mt-8 flex flex-wrap items-start gap-x-6 gap-y-3 border-b border-border bg-bg px-8 pb-6 pt-8 sm:sticky sm:top-16 sm:z-10"
-    >
-      {children}
-    </header>
-  );
-}
-
-/**
- * The quick-add box's share of the Top row: all of it on a phone, half from
- * `sm`, a third from `lg`. The filters take the rest.
- */
-export function TopRowBox({ children }: { children: React.ReactNode }) {
-  return <div className="w-full sm:w-1/2 lg:w-1/3">{children}</div>;
-}
 
 /** The room left between the Top row's border and a card scrolled clear of it. */
 const ROOM = 8;

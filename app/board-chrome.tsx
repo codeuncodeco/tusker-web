@@ -89,6 +89,24 @@ export function SearchBox({ search }: { search: string }) {
 }
 
 /**
+ * The words an org board is narrowed to, as a chip: one click clears them.
+ * The global search sets them, from "Narrow this board to". See ADR-0038.
+ */
+export function SearchChip({ search }: { search: string }) {
+  const [params] = useSearchParams();
+  return (
+    <Link
+      to={`?${new URLSearchParams(without(params, SEARCH_NAME))}`}
+      preventScrollReset
+      aria-label={`Clear the search for ${search}`}
+      className={`${chipClass(true)} self-start`}
+    >
+      “{search}”<span aria-hidden="true">✕</span>
+    </Link>
+  );
+}
+
+/**
  * The address with one name set to one value, and the rest of it kept, so a
  * chip keeps the search, the other filters and the columns a person turned on.
  */
@@ -480,36 +498,5 @@ export function ColumnHead({
         </Link>
       ) : null}
     </h2>
-  );
-}
-
-/**
- * Backlog, folded: one slim bar at the left edge of the board, its count and
- * its name set on end. A click opens the column out of it; the fold in the
- * column's head puts it back. It replaces the Backlog checkbox: a column a
- * person opens from where it lives, not from a switch across the page.
- *
- * It is a link that flips `backlog=1`, as the switch was, so the board stays
- * an address and works with no script.
- */
-export function BacklogBar({ count }: { count: number }) {
-  const [params] = useSearchParams();
-
-  return (
-    <Link
-      to={flipped(params, "backlog", false)}
-      preventScrollReset
-      aria-label={`Open Backlog, ${count} ${count === 1 ? "task" : "tasks"}`}
-      title="Open Backlog"
-      className="press group mt-6 mr-4 flex w-11 shrink-0 flex-col items-center gap-3 self-start rounded-lg border border-dashed border-border bg-surface py-4 text-muted hover:w-12 hover:border-solid hover:border-dim hover:bg-surface-2 hover:text-fg"
-    >
-      <Inbox className="size-4 transition-transform group-hover:-translate-y-0.5" />
-      <span key={count} className="font-mono text-xs tabular-nums text-fg motion-safe:animate-tick">
-        {count}
-      </span>
-      <span className="font-mono text-xs uppercase tracking-[0.2em] [writing-mode:vertical-rl] rotate-180">
-        Backlog
-      </span>
-    </Link>
   );
 }

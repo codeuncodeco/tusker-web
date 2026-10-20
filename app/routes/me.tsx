@@ -16,8 +16,9 @@
 import { redirect } from "react-router";
 
 import { resolvedFor, MINE, readUnifiedAssignee } from "../assignee-filter";
-import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
-import { ColumnSwitch, TodayChip, UnifiedAssigneeFilter, UnifiedClientFilter, WeekChip } from "../board-chrome";
+import { BOARD_TOGGLES, type Status, narrowingFor, readToggles } from "../board";
+import { TodayChip, UnifiedAssigneeFilter, UnifiedClientFilter, WeekChip } from "../board-chrome";
+import { BoardFilters, FilterRow } from "../search-panel";
 import { readClient } from "../client-filter";
 import { clientsAcross } from "../clients.server";
 import { cloudflareEnv } from "../context.server";
@@ -37,7 +38,6 @@ import { columnsFor, finishedSince, unifiedColumns } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { UnifiedBoard } from "../unified-board";
 import { TodayMeter } from "../today-meter";
-import { TopRow, TopRowBox } from "../top-row";
 import { actOnTask } from "../unified-actions.server";
 import { doneAmong, listUnified, membersBySlug } from "../unified.server";
 import { weekOf } from "../week";
@@ -73,15 +73,15 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   // Done and Cancelled cap to the last seven days. Across every org they would
   // otherwise be every task the person ever finished.
-  // Backlog is read whether or not it is open, so its folded bar can count
-  // what waits there under the same narrowing.
+  // Backlog and Cancelled are read whether or not their drawer is out, so
+  // their tabs can count what they hold under the same narrowing.
   const read = await listUnified(env.DB, set, [], {
-    statuses: shown.includes("backlog") ? shown : ["backlog", ...shown],
+    statuses: [...new Set<Status>(["backlog", ...shown, "cancelled"])],
     since: finishedSince(day),
     assignee: resolvedFor(assignee, set.personId),
     client,
   });
-  const tasks = shown.includes("backlog") ? read : read.filter((task) => task.status !== "backlog");
+  const tasks = read.filter((task) => shown.includes(task.status));
 
   // The two chips narrow the board to the tasks today's plan holds, or to the
   // tasks this week's set holds. A null plan is a day the person has not
@@ -111,8 +111,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     clients,
     client,
     columns: columnsFor(drawn, shown),
-    /** How many tasks wait in Backlog under this narrowing, for its folded bar. */
-    backlogCount: waiting.filter((task) => task.status === "backlog").length,
+    /** How many tasks Backlog and Cancelled hold under this narrowing, for their tabs. */
+    counts: {
+      backlog: waiting.filter((task) => task.status === "backlog").length,
+      cancelled: waiting.filter((task) => task.status === "cancelled").length,
+    },
     planned,
     toggles,
     today,
@@ -161,13 +164,48 @@ export default function Me({ loaderData }: Route.ComponentProps) {
   // is one no org's board can name.
   useRemembered(null);
 
+  // The filters that narrow anything, which the search button counts. `Mine`
+  // is the start, so it counts for nothing. See ADR-0035.
+  const active = (assignee !== MINE ? 1 : 0) + (loaderData.client ? 1 : 0) + (today || week ? 1 : 0);
+
   return (
-    <main className="flex flex-1 flex-col p-8">
-      <TopRow>
-        {/* One box for the board, outside every keyed list, so no press of a
-            typed word is ever the page's. The picker starts with no org every
-            time. See ADR-0012 and ADR-0027. */}
-        <TopRowBox>
+    // The board takes the whole page: no bar over it, the filters in the
+    // search panel, Backlog and Cancelled in the drawer. See ADR-0038.
+    <main className="flex flex-1 flex-col pl-8 pr-4 sm:pr-16">
+      <BoardFilters active={active}>
+        {hasPlan ? (
+          <FilterRow label="Today">
+            <TodayMeter done={loaderData.doneToday} planned={planned.length} />
+          </FilterRow>
+        ) : null}
+        <FilterRow label="Who">
+          <UnifiedAssigneeFilter assignee={assignee} />
+        </FilterRow>
+        {loaderData.clients.length > 0 ? (
+          <FilterRow label="Client">
+            <UnifiedClientFilter clients={loaderData.clients} client={loaderData.client} />
+          </FilterRow>
+        ) : null}
+        {hasPlan || hasSet ? (
+          <FilterRow label="Narrow to">
+            <span className="flex flex-wrap gap-1">
+              {hasPlan ? <TodayChip today={today} hasPlan /> : null}
+              {hasSet ? <WeekChip week={week} hasSet /> : null}
+            </span>
+          </FilterRow>
+        ) : null}
+      </BoardFilters>
+
+      <UnifiedBoard
+        columns={columns}
+        orgs={orgs}
+        planned={new Set(planned)}
+        day={day}
+        counts={loaderData.counts}
+        // One box for the board, outside every keyed list, so no press of a
+        // typed word is ever the page's. The picker starts with no org every
+        // time. See ADR-0012 and ADR-0027.
+        add={
           <UnifiedAdd
             orgs={orgs}
             members={members}
@@ -176,26 +214,8 @@ export default function Me({ loaderData }: Route.ComponentProps) {
             // On a board narrowed to Mine, a task added here is the person's.
             seed={assignee === MINE ? personId : null}
           />
-        </TopRowBox>
-        {/* No search box here to stand as tall as the title, so the switches
-            drop to the title's text line. They take the rest of the row, and
-            wrap under the box where they do not fit beside it. */}
-        <nav className="flex flex-1 flex-wrap items-baseline justify-end gap-4 pt-1.5">
-          {/* A person with no plan for today gets no chip: there is nothing
-              to narrow to, and the header's ⋯ holds Plan on every page. The
-              week set reads the same way, and ⋯ holds Week. */}
-          {hasPlan ? <TodayMeter done={loaderData.doneToday} planned={planned.length} /> : null}
-          {hasPlan ? <TodayChip today={today} hasPlan /> : null}
-          {hasSet ? <WeekChip week={week} hasSet /> : null}
-          <UnifiedAssigneeFilter assignee={assignee} />
-          <UnifiedClientFilter clients={loaderData.clients} client={loaderData.client} />
-          {/* Backlog folds into a bar at the board's left edge; only
-              Cancelled is a switch. */}
-          <ColumnSwitch which="cancelled" toggles={toggles} />
-        </nav>
-      </TopRow>
-
-      <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} backlogCount={loaderData.backlogCount} />
+        }
+      />
 
       <DecisionPrompt ask={ask} />
     </main>

@@ -24,6 +24,7 @@ import type { OrgHeld } from "./current-org";
 import { Bullseye, CalendarWeek, Columns, Gear, ListCheck, User, XMark } from "./icons";
 import { Avatar } from "./initials";
 import { OrgDot } from "./org-chip";
+import { ColourSchemeButton, KeysButton } from "./look-buttons";
 import { boardOf } from "./org-select";
 
 /** The views the View button steps through, in order. */
@@ -111,7 +112,10 @@ export function Dock({
   me,
   onBoard,
   raised,
+  where,
 }: {
+  /** Where the person stands, as "Studio / Board", which the View button says. */
+  where?: string;
   orgs: OrgHeld[];
   /** The org of the address, or null on a page of no one org. */
   org: OrgHeld | null;
@@ -127,7 +131,7 @@ export function Dock({
       aria-label="Dock"
       className={`fixed right-4 z-30 flex items-end gap-2 sm:right-6 ${raised ? "bottom-20 sm:bottom-6" : "bottom-4 sm:bottom-6"} print:hidden`}
     >
-      <ViewButton board={board} onBoard={onBoard} />
+      <ViewButton board={board} onBoard={onBoard} where={where} />
       <SettingsPanel orgs={orgs} org={org} />
       <Profile me={me} />
     </nav>
@@ -138,7 +142,7 @@ export function Dock({
  * The View button: one glyph, and one click steps to the next view. The name of
  * the view stands beside the glyph while the pointer is over it.
  */
-function ViewButton({ board, onBoard }: { board: string; onBoard: boolean }) {
+function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean; where?: string }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const view = viewOf(pathname, onBoard);
@@ -154,7 +158,7 @@ function ViewButton({ board, onBoard }: { board: string; onBoard: boolean }) {
     <Link
       to={to(next)}
       aria-label={name}
-      title={`${name} Shift-click steps back.`}
+      title={`${where ? `${where}. ` : ""}${name} Shift-click steps back.`}
       onClick={(event) => {
         if (!event.shiftKey) return;
         event.preventDefault();
@@ -234,6 +238,15 @@ function SettingsPanel({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) 
         <Gear className="size-5 transition-transform duration-300 ease-spring group-open/settings:rotate-90" />
       </summary>
       <div className="absolute bottom-full right-0 mb-3 flex w-72 flex-col gap-3 rounded-2xl border border-border bg-surface p-3 shadow-2xl motion-safe:animate-rise-in">
+        {/* How the page is drawn: the colour scheme, one click a step, and
+            the Key guide where the page gives list keys. */}
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-xs uppercase tracking-wide text-muted">Look</span>
+          <span className="ml-auto flex items-center gap-2">
+            <KeysButton />
+            <ColourSchemeButton />
+          </span>
+        </div>
         {orgs.length > 0 ? (
           <section className="flex flex-col gap-1">
             <h2 className="px-3 pt-1 text-xs uppercase tracking-wide text-muted">Board</h2>

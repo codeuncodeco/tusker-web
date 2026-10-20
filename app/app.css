@@ -63,6 +63,7 @@
   --animate-glow: glow 1.6s ease-in-out infinite;
   --animate-drain: drain linear forwards;
   --animate-fade-in: fade-in 200ms ease-out both;
+  --animate-slide-in: slide-in 360ms var(--ease-snap) both;
   --animate-unfold: unfold 460ms var(--ease-snap) both;
   --animate-drift: drift 9s linear infinite;
   --animate-breathe: breathe 3.2s ease-in-out infinite;
@@ -142,6 +143,13 @@
   @keyframes fade-in {
     from {
       opacity: 0;
+    }
+  }
+
+  /* A side drawer, pulled out from the left edge. */
+  @keyframes slide-in {
+    from {
+      transform: translateX(-100%);
     }
   }
 

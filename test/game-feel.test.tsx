@@ -53,23 +53,26 @@ it("draws a hold button that posts nothing by itself", () => {
   expect(html).not.toContain("<form");
 });
 
-describe("Backlog, folded into a bar", () => {
-  it("opens the column with one click, keeping the rest of the address, and counts what waits", async () => {
-    const { BacklogBar } = await import("../app/board-chrome");
-    const Stub = createRoutesStub([{ path: "/me", Component: () => <BacklogBar count={4} /> }]);
+describe("Backlog and Cancelled, kept in the drawer", () => {
+  it("pull out from tabs at the edge, each a link that keeps the rest of the address", async () => {
+    const { PullTabs } = await import("../app/side-drawer");
+    const Stub = createRoutesStub([{ path: "/me", Component: () => <PullTabs open={[]} counts={{ backlog: 4, cancelled: 1 }} /> }]);
     const html = renderToStaticMarkup(<Stub initialEntries={["/me?assignee=anyone"]} />);
 
     expect(html).toContain('href="/me?assignee=anyone&amp;backlog=1"');
-    expect(html).toContain('aria-label="Open Backlog, 4 tasks"');
+    expect(html).toContain('href="/me?assignee=anyone&amp;cancelled=1"');
+    expect(html).toContain('aria-label="Pull out Backlog, 4 tasks"');
+    expect(html).toContain('aria-label="Pull out Cancelled, 1 task"');
     expect(html).not.toContain('type="checkbox"');
   });
 
-  it("folds back from the column's head", async () => {
-    const { ColumnHead } = await import("../app/board-chrome");
-    const html = drawn(<ColumnHead status="backlog" label="Backlog" count={2} fold="?" />);
+  it("put a pulled-out column away from its tab, now its handle", async () => {
+    const { PullTabs } = await import("../app/side-drawer");
+    const Stub = createRoutesStub([{ path: "/me", Component: () => <PullTabs open={["backlog"]} counts={{ backlog: 4, cancelled: 1 }} /> }]);
+    const html = renderToStaticMarkup(<Stub initialEntries={["/me?backlog=1"]} />);
 
-    expect(html).toContain('aria-label="Fold Backlog away"');
-    expect(drawn(<ColumnHead status="todo" label="To do" count={2} />)).not.toContain("Fold");
+    expect(html).toContain('aria-label="Put away Backlog, 4 tasks"');
+    expect(html).toMatch(/href="\/me\?"|href="\/me"/);
   });
 });
 

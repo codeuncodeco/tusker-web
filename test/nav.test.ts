@@ -244,52 +244,50 @@ describe("the header", () => {
   const ada = org("ada");
   const acme = org("acme");
 
-  it("draws one row and no wordmark", () => {
+  it("draws no bar and no wordmark: the page is the work", () => {
     const markup = headerAt("/me/week", [ada, acme], null);
 
-    expect(markup.match(/<header/g)).toHaveLength(1);
+    expect(markup).not.toContain("<header");
     expect(markup).not.toContain(">Tusker<");
   });
 
-  it("names All orgs on every person page, and the org on every org page", () => {
-    for (const path of ["/me", "/me/week", "/me/plan/2026-10-09", "/me/focus"]) {
-      expect(headerAt(path, [ada, acme], null)).toContain(">All orgs<");
-    }
-    for (const path of ["/o/acme/board", "/o/acme/decisions", "/t/12", "/o/acme/settings"]) {
-      const markup = headerAt(path, [ada, acme], acme);
-      expect(markup.slice(0, markup.indexOf("</header>"))).toContain(">acme<");
-    }
+  it("names where the person stands in the View button's title", () => {
+    const view = (path: string, org = acme as typeof acme | null) =>
+      viewButton(headerAt(path, [ada, acme], org)).match(/title="([^"]*)"/)?.[1] ?? "";
+
+    expect(view("/o/acme/board")).toMatch(/^acme \/ Board\./);
+    expect(view("/o/acme/clients")).toMatch(/^acme \/ Clients\./);
+    expect(view("/me/plan", null)).toMatch(/^All orgs \/ Plan\./);
+    expect(view("/t/12")).toMatch(/^acme \/ Task\./);
   });
 
-  it("names the page beside the org", () => {
-    expect(headerAt("/o/acme/board", [ada, acme], acme)).toMatch(/>acme<[\s\S]*>Board</);
-    expect(headerAt("/o/acme/clients", [ada, acme], acme)).toMatch(/>Clients</);
-    expect(headerAt("/me/plan", [ada, acme], null)).toMatch(/>Plan</);
-    expect(headerAt("/t/12", [ada, acme], acme)).toMatch(/>Task</);
-  });
-
-  it("steps the colour scheme with one button, in a form that works with no script", () => {
+  it("steps the colour scheme with one button in the settings panel, in a form that works with no script", () => {
     const markup = headerAt("/me/week?day=2026-10-13", [ada, acme], null);
 
     const form = markup.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
     expect(form).toContain('method="post"');
     expect(form).toContain('<input type="hidden" name="next" value="/me/week?day=2026-10-13"/>');
-    // With no loader data and nothing in flight, the pick reads System, and
-    // one click sends Light: the button is the form's own submit.
     const button = form.match(/<button[^>]*>/)?.[0] ?? "";
     expect(button).toContain('name="scheme"');
     expect(button).toContain('value="light"');
     expect(button).toContain('aria-label="Colour scheme: System. Switch to Light."');
-    expect(form).not.toContain("<select");
-    // It sits in the header, at the right.
-    expect(markup.indexOf('aria-label="Colour scheme')).toBeLessThan(markup.indexOf("</header>"));
+    // It sits in the settings panel, not in a corner of its own.
+    expect(settings(markup)).toContain('aria-label="Colour scheme');
   });
 
-  it("makes the org and page the board's heading, and no other page's", () => {
-    expect(headerAt("/o/acme/board", [ada, acme], acme)).toMatch(/<h1[^>]*>[\s\S]*acme[\s\S]*Board[\s\S]*<\/h1>/);
-    expect(headerAt("/me", [ada, acme], null)).toMatch(/<h1[^>]*>[\s\S]*All orgs[\s\S]*<\/h1>/);
+  it("heads a board, for a screen reader, with the org and the page, and no other page", () => {
+    expect(headerAt("/o/acme/board", [ada, acme], acme)).toContain('<h1 class="sr-only">acme / Board</h1>');
+    expect(headerAt("/me", [ada, acme], null)).toContain('<h1 class="sr-only">All orgs / Board</h1>');
     expect(headerAt("/me/week", [ada, acme], null)).not.toContain("<h1");
-    expect(headerAt("/o/ada/board", [ada], ada)).toMatch(/<h1[^>]*>[\s\S]*ada[\s\S]*<\/h1>/);
+    expect(headerAt("/o/ada/board", [ada], ada)).toContain('<h1 class="sr-only">ada / Board</h1>');
+  });
+
+  it("puts the search in the corner, with a button that opens it", () => {
+    const markup = headerAt("/o/acme/board", [ada, acme], acme);
+
+    expect(markup).toMatch(/<button[^>]*aria-label="Search and filters"/);
+    expect(markup).toContain('role="search"');
+    expect(markup).toContain('aria-label="Search"');
   });
 });
 

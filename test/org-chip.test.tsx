@@ -210,13 +210,10 @@ describe("the header", () => {
     return { slug, name: slug, color };
   }
 
-  it("puts the dot of the org in view beside its name, and every org's in the settings panel", () => {
+  it("draws every org's dot in the settings panel, where orgs are picked", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
     const markup = headerAt("/o/acme/board", orgs, orgs[0]!);
 
-    const header = markup.slice(0, markup.indexOf("</header>"));
-    expect(header).toContain("var(--color-opt-teal)");
-    expect(header).not.toContain("var(--color-opt-pink)");
     const panel = markup.slice(markup.indexOf('aria-label="Settings"'));
     expect(panel).toContain("var(--color-opt-teal)");
     expect(panel).toContain("var(--color-opt-pink)");

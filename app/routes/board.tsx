@@ -27,7 +27,9 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { AssigneeFilter, BacklogBar, ColumnHead, ColumnSwitch, FieldFilterSelect, SearchBox, TodayChip, WeekChip } from "../board-chrome";
+import { AssigneeFilter, ColumnHead, FieldFilterSelect, SearchChip, TodayChip, WeekChip } from "../board-chrome";
+import { BoardFilters, FilterRow } from "../search-panel";
+import { isSide, PullTabs, PutAway, SideDrawer, SIDE_STATUSES, type SideStatus } from "../side-drawer";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
 import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
@@ -68,7 +70,7 @@ import { useRemembered } from "../remembered";
 import { requireScope } from "../scope.server";
 import { readSearch } from "../search";
 import { countByStatus, createTasks, listTasks, moveTask, newTasksFrom, stepTask } from "../tasks.server";
-import { revealCursor, TopRow, TopRowBox } from "../top-row";
+import { revealCursor } from "../top-row";
 import type { Route } from "./+types/board";
 import { readTaskId, type TaskId } from "../task-number";
 
@@ -191,6 +193,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     backlogByRule: backlogByRule(counts),
     /** How many tasks wait in Backlog, for the bar it folds into. */
     backlogCount: counts.backlog,
+    /** How many tasks Cancelled holds, for its tab. */
+    cancelledCount: counts.cancelled,
   };
 }
 
@@ -442,7 +446,14 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // The board as the server holds it, with every post still in flight laid
   // over it, so a move or a step shows before the server answers. See #168.
   const sent = useSent();
-  const columns = boardSent(loaderData.columns, sent);
+  // Backlog and Cancelled live in the drawer, and only a drawer pulled out
+  // draws its column: the keys and the drag walk what is on screen. Backlog
+  // the rule asks for is not pulled out for the person; its tab calls
+  // instead. See ADR-0038.
+  const open = SIDE_STATUSES.filter((one) => toggles[one]);
+  const columns = boardSent(loaderData.columns, sent).filter(
+    (column) => !isSide(column.status) || open.includes(column.status),
+  );
   // Each press posts on its own, so a held key is every press and not the
   // last one: the board draws all of them while they are in flight.
   const post = usePost();
@@ -514,27 +525,119 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // stays clear of the Top row stuck over it.
   useEffect(() => revealCursor(board.current), [cursor]);
 
-  return (
-    <main className="flex flex-1 flex-col p-8">
-      <TopRow>
-        {/* One box for the board, outside every keyed list, so a typed word is
-            never a press the page reads. See ADR-0022. */}
-        <TopRowBox>
-          <QuickAdd members={members} assignee={assignee} filters={filters} />
-        </TopRowBox>
-        {/* The filters take the rest of the row, and wrap under the box where
-            they do not fit beside it. */}
-        <nav className="flex flex-1 flex-wrap items-baseline justify-end gap-4">
-          <SearchBox search={search} />
-          <AssigneeFilter assignee={assignee} members={members} personId={loaderData.personId} />
-          {filters.map((filter) => (
-            <FieldFilterSelect key={filter.key} filter={filter} />
+  // The filters that narrow anything, which the search button counts. The
+  // reader's own work is the start, so it counts for nothing. See ADR-0035.
+  const active =
+    (members.length > 0 && assignee !== loaderData.personId ? 1 : 0) +
+    filters.filter((filter) => filter.value).length +
+    (today || week ? 1 : 0) +
+    (search ? 1 : 0);
+
+  /** One column: its head, the add box at the top of To do, and its cards. */
+  function columnOf(column: (typeof columns)[number], at: number, shown: Record<string, TaskId[]>) {
+    const drawn = shown[column.status]!.flatMap((id) => cards.get(id) ?? []);
+    const side = isSide(column.status);
+    return (
+      <section
+        key={column.status}
+        // Every column takes an equal share of the width, down to the width
+        // it always had. Past that the row scrolls sideways. Each rises in,
+        // one after another.
+        style={{ animationDelay: side ? undefined : `${at * 50}ms` }}
+        className="flex min-w-72 flex-1 flex-col gap-3 px-4 pt-4 first:pl-0 last:pr-0 motion-safe:animate-rise-in"
+      >
+        <div className="flex items-baseline gap-3">
+          <ColumnHead status={column.status} label={column.label} count={column.tasks.length} />
+          {/* The sweep acts on the whole column, so it is column chrome. It
+              sits with the name and the count, so the act on the column is
+              where the column says what it holds. */}
+          {isFinished(column.status) ? (
+            <ColumnSweep
+              label={column.label}
+              cards={column.tasks.map((card) => ({ id: card.id, slug: org.slug }))}
+              undoAt={`/o/${org.slug}/board`}
+            />
+          ) : null}
+          {side ? <PutAway status={column.status as SideStatus} label={column.label} /> : null}
+        </div>
+
+        {/* The add box heads To do, where what it adds lands. It sits outside
+            the keyed list, so a typed word is never a press the page reads.
+            See ADR-0022. */}
+        {column.status === "todo" ? <QuickAdd members={members} assignee={assignee} filters={filters} /> : null}
+
+        {/* This is the keyed list: the cards and nothing else. It is as long
+            as its cards, and the page scrolls, not the list. It fills the rest
+            of a short column, so a drop below the last card still lands in
+            it. See #193. */}
+        <DropList
+          id={column.status}
+          ids={drawn.map((one) => one.id)}
+          props={keyed(`${column.label} tasks`)}
+          className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
+        >
+          {/* The box files into To do, so an add in flight draws there. */}
+          {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
+          {drawn.length === 0 && !(column.status === "todo" && addsSent(sent).length > 0) ? (
+            <li
+              aria-hidden="true"
+              className="pointer-events-none rounded border border-dashed border-border p-3 text-center text-xs text-dim motion-safe:animate-rise-in"
+            >
+              {EMPTY_LINE[column.status]}
+            </li>
+          ) : null}
+          {drawn.map((card) => (
+            <CardItem
+              key={card.id}
+              card={card}
+              selected={cursor === card.id}
+              domId={`card-${card.id}`}
+              place={() => setOn(card.id)}
+              slug={org.slug}
+              finished={column.status === "done" || column.status === "cancelled"}
+              move={move}
+              color={org.color}
+            />
           ))}
-          <TodayChip today={today} hasPlan={hasPlan} />
-          <WeekChip week={week} hasSet={hasSet} />
-          <ColumnSwitch which="cancelled" toggles={toggles} />
-        </nav>
-      </TopRow>
+        </DropList>
+      </section>
+    );
+  }
+
+  return (
+    // The board takes the whole page: no bar over it, the filters in the
+    // search panel, Backlog and Cancelled in the drawer. Room at the left for
+    // the drawer's tabs and at the right for the search button.
+    <main className="flex flex-1 flex-col pl-8 pr-4 sm:pr-16">
+      <BoardFilters active={active}>
+        {search ? (
+          <FilterRow label="Search">
+            <SearchChip search={search} />
+          </FilterRow>
+        ) : null}
+        {members.length > 0 ? (
+          <FilterRow label="Who">
+            <AssigneeFilter assignee={assignee} members={members} personId={loaderData.personId} />
+          </FilterRow>
+        ) : null}
+        {filters.map((filter) => (
+          <FilterRow key={filter.key} label={filter.label}>
+            <FieldFilterSelect filter={filter} />
+          </FilterRow>
+        ))}
+        <FilterRow label="Narrow to">
+          <span className="flex flex-wrap gap-1">
+            <TodayChip today={today} hasPlan={hasPlan} />
+            <WeekChip week={week} hasSet={hasSet} />
+          </span>
+        </FilterRow>
+      </BoardFilters>
+
+      <PullTabs
+        open={open}
+        counts={{ backlog: loaderData.backlogCount, cancelled: loaderData.cancelledCount }}
+        calls={loaderData.backlogByRule ? ["backlog"] : []}
+      />
 
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
@@ -542,91 +645,17 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         overlay={(id) => <DragCopy title={cards.get(id)?.title ?? ""} />}
       >
         {(shown) => (
-          // Each column is as long as its cards, and the page scrolls. The
-          // columns are panes: a divider splits them, and a card is the one
-          // thing on the board with an edge. See #184 and #191.
-          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
-            {/* Backlog, folded into a bar at the left edge, until it is opened. */}
-            {columns.some((column) => column.status === "backlog") ? null : (
-              <BacklogBar count={loaderData.backlogCount} />
-            )}
-            {columns.map((column, at) => {
-              const drawn = shown[column.status].flatMap((id) => cards.get(id) ?? []);
-              return (
-                <section
-                  key={column.status}
-                  // Every column takes an equal share of the width, down to the
-                  // width it always had. Past that the row scrolls sideways.
-                  // Each rises in, one after another, and Backlog unrolls.
-                  style={{ animationDelay: column.status === "backlog" ? undefined : `${at * 50}ms` }}
-                  className={`flex min-w-72 pt-6 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0 ${
-                    column.status === "backlog" ? "motion-safe:animate-unfold" : "motion-safe:animate-rise-in"
-                  }`}
-                >
-                  <div className="flex items-baseline gap-3">
-                    <ColumnHead
-                      status={column.status}
-                      label={column.label}
-                      count={column.tasks.length}
-                      // Backlog opened by hand folds back into its bar. Opened
-                      // by the rule, it stays: the board has nothing else.
-                      fold={column.status === "backlog" && !loaderData.backlogByRule ? flipped(params, "backlog", true) : null}
-                    />
-                    {/* The sweep acts on the whole column, so it is column chrome.
-                        It sits with the name and the count, the way the extension
-                        drew it, so the act on the column is where the column says
-                        what it holds. The head scrolls away with the column's
-                        cards. */}
-                    {isFinished(column.status) ? (
-                      <ColumnSweep
-                        label={column.label}
-                        cards={column.tasks.map((card) => ({ id: card.id, slug: org.slug }))}
-                        undoAt={`/o/${org.slug}/board`}
-                      />
-                    ) : null}
-                  </div>
-
-                  {/* This is the keyed list: the cards and nothing else. It is
-                      as long as its cards, and the page scrolls, not the list.
-                      It fills the rest of a short column, so a drop below the
-                      last card still lands in it. The focus outline is drawn
-                      inside, as the row clips what is past its edge, and the
-                      floor gives an empty column a box to draw it on. See
-                      #193. */}
-                  <DropList
-                    id={column.status}
-                    ids={drawn.map((one) => one.id)}
-                    props={keyed(`${column.label} tasks`)}
-                    className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
-                  >
-                    {/* The box files into To do, so an add in flight draws there. */}
-                    {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
-                    {drawn.length === 0 && !(column.status === "todo" && addsSent(sent).length > 0) ? (
-                      <li
-                        aria-hidden="true"
-                        className="pointer-events-none rounded border border-dashed border-border p-3 text-center text-xs text-dim motion-safe:animate-rise-in"
-                      >
-                        {EMPTY_LINE[column.status]}
-                      </li>
-                    ) : null}
-                    {drawn.map((card) => (
-                      <CardItem
-                        key={card.id}
-                        card={card}
-                        selected={cursor === card.id}
-                        domId={`card-${card.id}`}
-                        place={() => setOn(card.id)}
-                        slug={org.slug}
-                        finished={column.status === "done" || column.status === "cancelled"}
-                        move={move}
-                        color={org.color}
-                      />
-                    ))}
-                  </DropList>
-                </section>
-              );
-            })}
-          </div>
+          <>
+            <SideDrawer open={open}>
+              {columns.filter((column) => isSide(column.status)).map((column, at) => columnOf(column, at, shown))}
+            </SideDrawer>
+            {/* Each column is as long as its cards, and the page scrolls. The
+                columns are panes: a divider splits them, and a card is the one
+                thing on the board with an edge. See #184 and #191. */}
+            <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
+              {columns.filter((column) => !isSide(column.status)).map((column, at) => columnOf(column, at, shown))}
+            </div>
+          </>
         )}
       </DragLists>
 
