@@ -57,6 +57,7 @@ import type { LinkKind } from "../links";
 import { readLink } from "../links";
 import { OrgDot } from "../org-chip";
 import { orgPagePath, useTaskHref } from "../paths";
+import { ModalControls } from "../route-modal";
 import { useSent } from "../pending";
 import { SavedInput } from "../saved-input";
 import { requireScope } from "../scope.server";
@@ -200,13 +201,14 @@ function Hero({
       style={{ borderLeftColor: paint }}
       className="col-span-2 flex flex-col gap-4 rounded-2xl border-l-[6px] bg-surface p-5 transition-[border-color] duration-500 sm:col-span-3"
     >
-      <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
+      <span className="flex min-h-8 items-center gap-2 text-xs uppercase tracking-wide text-muted">
         <Link to={orgPagePath(org.slug, "clients")} className="hover:text-fg hover:underline">
           Clients
         </Link>
         <span aria-hidden="true">/</span>
         <OrgDot color={org.color} />
         {org.name}
+        <ModalControls className="-my-1 ml-auto normal-case" />
       </span>
       <h1 className="font-serif text-4xl tracking-tight">{client.label}</h1>
       <span className="flex flex-wrap items-center gap-2">

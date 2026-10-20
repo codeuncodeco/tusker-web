@@ -28,6 +28,7 @@ import { useLocalDay } from "../local-day";
 import { useTaskHref } from "../paths";
 import { readPlan } from "../plans.server";
 import { refLabels } from "../refs.server";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
 import { Bento, Stat, Tile } from "../bento";
 import { BoxArchive } from "../icons";
@@ -136,12 +137,15 @@ export default function Archive({ loaderData }: Route.ComponentProps) {
     <main className="flex flex-col gap-3">
       <Bento>
         <Tile span={4} tone="plain" className="p-1!">
-          <header className="flex flex-wrap items-end gap-x-6 gap-y-2">
-            <h1 className="font-serif text-3xl tracking-tight">Archive</h1>
-            <Stat value={lines.length} word={lines.length === 1 ? "task kept" : "tasks kept"} />
-            <nav className="ml-auto flex items-baseline gap-4">
-              <TodayChip today={today} hasPlan={hasPlan} />
-            </nav>
+          <header className="flex items-start gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-2">
+              <h1 className="font-serif text-3xl tracking-tight">Archive</h1>
+              <Stat value={lines.length} word={lines.length === 1 ? "task kept" : "tasks kept"} />
+              <nav className="ml-auto flex items-baseline gap-4">
+                <TodayChip today={today} hasPlan={hasPlan} />
+              </nav>
+            </div>
+            <ModalControls />
           </header>
         </Tile>
 

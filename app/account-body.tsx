@@ -14,6 +14,7 @@ import { ArrowRight, Building, ImageIcon, Plus, Users, XMark } from "./icons";
 import { Bento, Tile } from "./bento";
 import { Avatar } from "./initials";
 import { orgPagePath } from "./paths";
+import { ModalControls } from "./route-modal";
 import { OrgDot } from "./org-chip";
 import { SavedInput } from "./saved-input";
 import { Swatches } from "./swatches";
@@ -218,8 +219,9 @@ export function AccountBody({ person, look, orgs, requests }: AccountData) {
   // and the way out. See ADR-0040.
   return (
     <Bento>
-      <Tile span={4}>
+      <Tile span={4} className="relative sm:pr-32">
         <Look person={person} look={look} />
+        <ModalControls className="absolute right-3 top-3" />
       </Tile>
 
       <Tile span={2} label="Orgs" icon={<Building className="size-3" />} action={<span className="font-mono text-[0.625rem] tabular-nums text-dim">{orgs.length}</span>}>

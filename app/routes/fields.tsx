@@ -29,6 +29,7 @@ import { fieldClass } from "../forms";
 import { readOrgApp } from "../orgs.server";
 import { isLinked, isRefsPath } from "../refs";
 import { refOptionsOfOrg, refreshField } from "../refs.server";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
 import { Stat } from "../bento";
 import type { Route } from "./+types/fields";
@@ -496,10 +497,13 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
     // A bento: a head, one tile per declared field, two abreast, and the
     // form that declares one more as a tile of its own. See ADR-0040.
     <main className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-2 px-1">
-        <h1 className="font-serif text-3xl tracking-tight">Fields</h1>
-        <Stat value={fields.length} word={fields.length === 1 ? "field" : "fields"} />
-        <p className="text-xs text-muted">Each shows on every task of this org, and on no task of another one.</p>
+      <div className="flex items-start gap-3 p-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-2">
+          <h1 className="font-serif text-3xl tracking-tight">Fields</h1>
+          <Stat value={fields.length} word={fields.length === 1 ? "field" : "fields"} />
+          <p className="text-xs text-muted">Each shows on every task of this org, and on no task of another one.</p>
+        </div>
+        <ModalControls />
       </div>
 
       <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">

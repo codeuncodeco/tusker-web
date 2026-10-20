@@ -40,7 +40,7 @@ import {
   tickDescriptionBox,
   type TaskEdit,
 } from "../tasks.server";
-import { RouteModal } from "../route-modal";
+import { ModalControls, RouteModal } from "../route-modal";
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -379,6 +379,9 @@ export default function Task({ loaderData, actionData }: Route.ComponentProps) {
               {loaderData.org.name}
             </>
           }
+          // Back, Forward and ✕ of the modal: part of the bento, not a bar
+          // over it. See ADR-0040.
+          action={<ModalControls />}
         >
           <TaskTitle id={task.id} title={drawn.title} finished={task.finished} large />
         </Tile>

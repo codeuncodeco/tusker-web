@@ -27,6 +27,7 @@ import {
   type Member,
   type MemberChange,
 } from "../orgs.server";
+import { ModalControls } from "../route-modal";
 import { requireScope, type Scope } from "../scope.server";
 import type { Route } from "./+types/members";
 
@@ -185,10 +186,13 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
     <main className="flex flex-col gap-3">
       <Bento>
         <Tile span={4} tone="plain" className="p-1!">
-          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
-            <h1 className="font-serif text-3xl tracking-tight">Members</h1>
-            <Stat value={members.length} word={members.length === 1 ? "person" : "people"} />
-            <Stat value={owners} word={owners === 1 ? "owner" : "owners"} />
+          <div className="flex items-start gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-2">
+              <h1 className="font-serif text-3xl tracking-tight">Members</h1>
+              <Stat value={members.length} word={members.length === 1 ? "person" : "people"} />
+              <Stat value={owners} word={owners === 1 ? "owner" : "owners"} />
+            </div>
+            <ModalControls />
           </div>
         </Tile>
 

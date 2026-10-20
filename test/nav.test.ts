@@ -335,6 +335,16 @@ describe("the dock", () => {
     expect(inOrg).toContain('href="/orgs/new"');
   });
 
+  it("opens the You panel on four tabs, You picked, with every section drawn for a page with no script", () => {
+    const panel = settings(headerAt("/o/acme/board", [ada, acme], acme));
+    const bar = panel.match(/<div[^>]*role="tablist"[^>]*>[\s\S]*?<\/div>/)?.[0] ?? "";
+    const tabs = [...bar.matchAll(/<button[^>]*role="tab"[^>]*>/g)].map((one) => one[0]);
+
+    expect(tabs.map((one) => one.match(/id="you-tab-(\w+)"/)?.[1])).toEqual(["you", "boards", "org", "look"]);
+    expect(tabs.map((one) => one.match(/aria-selected="(\w+)"/)?.[1])).toEqual(["true", "false", "false", "false"]);
+    expect(panel.match(/role="tabpanel"/g)).toHaveLength(4);
+  });
+
   it("merges you and settings into one button that wears your avatar", () => {
     const markup = headerAt("/me", [ada, acme], null, { name: "Ada Byron", initials: "AB", color: "teal", email: "ada@example.test" });
     const you = markup.match(/<summary[^>]*aria-label="You[^"]*"[^>]*>[\s\S]*?<\/summary>/)?.[0] ?? "";

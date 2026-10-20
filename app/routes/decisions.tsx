@@ -12,6 +12,7 @@ import { dayDate } from "../day";
 import { DecisionFields } from "../decision-fields";
 import { listDecisions, recordDecision } from "../decisions.server";
 import { useTaskHref } from "../paths";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
 import { Bento, Stat, Tile } from "../bento";
 import { CircleHalf, Pen, Scale } from "../icons";
@@ -53,7 +54,13 @@ export default function Decisions({ loaderData, actionData }: Route.ComponentPro
     <main className="flex flex-col gap-3">
       <h1 className="sr-only">Decisions</h1>
       <Bento>
-        <Tile span={4} label="Keep a decision" icon={<Pen className="size-3" />} action={<Stat value={decisions.length} word="kept" />}>
+        <Tile span={4} label="Keep a decision" icon={<Pen className="size-3" />} action={
+            <>
+              <Stat value={decisions.length} word="kept" />
+              <ModalControls />
+            </>
+          }
+        >
           {/* The decision box. The prompt catches a decision a task produced,
               and this catches one no task did. See ADR-0024. It is keyed on
               the newest decision, so a save draws it again, empty; a refusal

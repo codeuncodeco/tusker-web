@@ -6,22 +6,23 @@
  * ADR-0039.
  *
  * It is a route: the address names it, a link opens it, and the browser's Back
- * closes it. Its app bar holds Back and Forward, which walk the browser's
- * history, the page's name, and ✕, which closes it onto the page behind.
- * Escape and a click on the shade close it too.
+ * closes it. It draws no bar of its own: the page puts `ModalControls`, Back,
+ * Forward and ✕, in its head tile, so the controls are part of the bento. A
+ * page that holds none still gets a lone ✕ at the modal's top right. Escape
+ * and a click on the shade close it too. See ADR-0040.
  *
  * On a phone it is a full sheet, risen from the foot of the screen; its grip
  * pulls down to close it.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useOutlet } from "react-router";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useOutlet } from "react-router";
 
 import { play } from "./sound";
 import { ArrowLeft, ArrowRight, XMark } from "./icons";
 import { modalParentOf } from "./paths";
 
-/** The page names a modal's app bar reads from its address. */
+/** The page names a modal reads from its address, for a screen reader. */
 const NAMES: Record<string, string> = {
   clients: "Clients",
   decisions: "Decisions",
@@ -86,6 +87,62 @@ function canStep(way: "back" | "forward"): boolean {
   return way === "back" ? navigation.canGoBack !== false : navigation.canGoForward !== false;
 }
 
+/** What a page inside a modal needs to draw its controls: where ✕ goes, and each step. */
+type ModalNav = {
+  closeTo: string;
+  close: () => void;
+  back: () => void;
+  forward: () => void;
+  canBack: boolean;
+  canForward: boolean;
+};
+
+const ModalNavContext = createContext<ModalNav | null>(null);
+
+/** The modal this page is drawn in, or null for a page drawn on its own. */
+export function useModalNav(): ModalNav | null {
+  return useContext(ModalNavContext);
+}
+
+/** The look of one modal control: round, 32px, no surface until hovered. */
+const CONTROL =
+  "press flex size-8 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30 disabled:hover:bg-transparent";
+
+/**
+ * Back, Forward and ✕, as one compact cluster for a page's head tile. Back
+ * and Forward walk the browser's history; ✕ closes onto the page behind, and
+ * is a link, so it works with no script. Outside a modal it draws nothing.
+ * The modal sees it is here, by its `data-modal-controls`, and drops its own
+ * lone ✕. See ADR-0040.
+ */
+export function ModalControls({ className = "" }: { className?: string }) {
+  const nav = useModalNav();
+  if (!nav) return null;
+  return (
+    <span data-modal-controls className={`flex shrink-0 items-center gap-0.5 ${className}`}>
+      <button type="button" onClick={nav.back} disabled={!nav.canBack} aria-label="Back" title="Back" className={CONTROL}>
+        <ArrowLeft className="size-3.5" />
+      </button>
+      <button type="button" onClick={nav.forward} disabled={!nav.canForward} aria-label="Forward" title="Forward" className={CONTROL}>
+        <ArrowRight className="size-3.5" />
+      </button>
+      <Link
+        to={nav.closeTo}
+        preventScrollReset
+        onClick={(event) => {
+          event.preventDefault();
+          nav.close();
+        }}
+        aria-label="Close"
+        title="Close  Esc"
+        className={CONTROL}
+      >
+        <XMark className="size-4" />
+      </Link>
+    </span>
+  );
+}
+
 export function RouteModal({ closeTo, children }: { closeTo: string; children: React.ReactNode }) {
   const navigate = useNavigate();
   const { pathname, key } = useLocation();
@@ -140,8 +197,14 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeTo]);
 
-  const appButton =
-    "press flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30";
+  const nav: ModalNav = {
+    closeTo,
+    close,
+    back: () => void navigate(-1),
+    forward: () => void navigate(1),
+    canBack: steps.back,
+    canForward: steps.forward,
+  };
 
   return (
     <div
@@ -166,7 +229,7 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
           // the card's box grows into it. See `CardItem` and ADR-0040.
           ...(/\/t\/\d+$/.test(pathname) ? { viewTransitionName: "task" } : {}),
         }}
-        className="flex h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-bg shadow-2xl will-change-transform focus:outline-none sm:h-[min(56rem,calc(100dvh-3rem))] sm:max-w-6xl sm:rounded-3xl motion-safe:animate-sheet-up sm:motion-safe:animate-scale-in"
+        className="group/modal relative flex h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-bg shadow-2xl will-change-transform focus:outline-none sm:h-[min(56rem,calc(100dvh-3rem))] sm:max-w-6xl sm:rounded-3xl motion-safe:animate-sheet-up sm:motion-safe:animate-scale-in"
       >
         {/* The grip: a phone pulls it down to close the sheet. */}
         <div
@@ -189,29 +252,31 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
           <span className="h-1 w-10 rounded-full bg-border" />
         </div>
 
-        <header className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-3 sm:px-4">
-          <button type="button" onClick={() => navigate(-1)} disabled={!steps.back} aria-label="Back" title="Back" className={appButton}>
-            <ArrowLeft className="size-3.5" />
-          </button>
-          <button type="button" onClick={() => navigate(1)} disabled={!steps.forward} aria-label="Forward" title="Forward" className={appButton}>
-            <ArrowRight className="size-3.5" />
-          </button>
-          <span className="ml-2 min-w-0 flex-1 truncate font-medium">
-            {title}
-          </span>
-          <button type="button" onClick={close} aria-label="Close" title="Close  Esc" className={appButton}>
-            <XMark className="size-4" />
-          </button>
-        </header>
+        {/* No bar: the page's head tile holds the controls. A page that
+            holds none gets this lone ✕, which hides as soon as the page's
+            own controls are in the dialog. */}
+        <Link
+          to={closeTo}
+          preventScrollReset
+          onClick={(event) => {
+            event.preventDefault();
+            close();
+          }}
+          aria-label="Close"
+          title="Close  Esc"
+          className="press absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-sm hover:text-fg group-has-[[data-modal-controls]]/modal:hidden max-sm:top-6"
+        >
+          <XMark className="size-4" />
+        </Link>
 
         {/* The page itself. A page drawn here gives up its own frame: the
             modal is its frame. */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div
             key={key}
-            className="contents [&>main]:mx-0 [&>main]:w-full [&>main]:max-w-none [&>main]:flex-none [&>main]:justify-start [&>main]:p-4 sm:[&>main]:p-6 motion-safe:[&>main]:animate-fade"
+            className="contents [&>main]:mx-0 [&>main]:w-full [&>main]:max-w-none [&>main]:flex-none [&>main]:justify-start [&>main]:p-4 sm:[&>main]:px-6 sm:[&>main]:pb-6 sm:[&>main]:pt-4 motion-safe:[&>main]:animate-fade"
           >
-            {children}
+            <ModalNavContext.Provider value={nav}>{children}</ModalNavContext.Provider>
           </div>
         </div>
       </div>

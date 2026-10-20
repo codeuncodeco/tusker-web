@@ -26,6 +26,7 @@ import {
   VolumeHigh,
   VolumeXmark,
   BoxArchive,
+  Building,
   Bullseye,
   CalendarWeek,
   Check,
@@ -38,6 +39,7 @@ import {
   Plus,
   RotateLeft,
   Scale,
+  Sun,
   TableList,
   User,
   Users,
@@ -336,24 +338,57 @@ function usePicked(): (slug: string) => string {
     assignee === null ? boardOf(slug || null) : `/go?${new URLSearchParams({ to: slug, [ASSIGNEE_NAME]: assignee })}`;
 }
 
+/** The tabs of the You panel, in order: one section each. See ADR-0040. */
+export const YOU_TABS = [
+  { key: "you", label: "You" },
+  { key: "boards", label: "Boards" },
+  { key: "org", label: "Org" },
+  { key: "look", label: "Look" },
+] as const;
+
+type YouTab = (typeof YOU_TABS)[number]["key"];
+
+/**
+ * The tab the You panel last showed. It is kept outside the panel, as the
+ * view dial's `fanOut` is, because a step to another view draws another
+ * layout and so another dock, and the panel must open where it was left.
+ */
+let lastTab: YouTab = "you";
+
 /**
  * The You panel: the one dock button that is you and your settings, merged.
- * It wears your avatar, with a small gear at its edge, and opens on who you
- * are, then every board, the pages of the org in view, how the page is drawn,
- * and the rest. One surface, rows a thumb can hit, a glyph on every row. A
- * `<details>`, so it opens with no script; script closes it on a pick, a click
- * outside, and Escape. See ADR-0040.
+ * It wears your avatar, with a small gear at its edge, and opens a small card
+ * of fixed size with four tabs: You, Boards, Org and Look. One section shows
+ * at a time, and a tab switch only swaps it, so the card never jumps. Rows a
+ * thumb can hit, a glyph on every row.
+ *
+ * A `<details>`, so it opens with no script; then every section is drawn,
+ * stacked, because only script hides the ones not picked. Script closes it on
+ * a pick, a click outside, and Escape. See ADR-0040.
  */
 function YouPanel({ orgs, org, me }: { orgs: OrgHeld[]; org: OrgHeld | null; me?: Me }) {
   const panel = useRef<HTMLDetailsElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
   const picked = usePicked();
   // The org whose pages the panel holds: the one in view, else the first.
   const pages = org ?? orgs[0] ?? null;
   const onAll = pathname === "/me" || pathname.startsWith("/me/t/");
   const [extras, setExtras] = useState<{ label: string; run: () => void }[]>([]);
+  const [tab, setTabState] = useState<YouTab>(lastTab);
+  // Until script runs, every section stands, so the panel works with none.
+  const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => setExtras(window.tuskerExtras ?? []), []);
+  useEffect(() => {
+    setExtras(window.tuskerExtras ?? []);
+    setHydrated(true);
+  }, []);
+
+  function setTab(next: YouTab) {
+    if (next !== tab) play("pick");
+    lastTab = next;
+    setTabState(next);
+  }
 
   useEffect(() => {
     const close = () => {
@@ -384,11 +419,44 @@ function YouPanel({ orgs, org, me }: { orgs: OrgHeld[]; org: OrgHeld | null; me?
     if (panel.current) panel.current.open = false;
   }, [pathname]);
 
+  /** ← and → walk the tabs while the bar has the focus. */
+  function onBarKey(event: React.KeyboardEvent) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const at = YOU_TABS.findIndex((one) => one.key === tab);
+    const step = event.key === "ArrowRight" ? 1 : YOU_TABS.length - 1;
+    const next = YOU_TABS[(at + step) % YOU_TABS.length]!.key;
+    setTab(next);
+    bar.current?.querySelector<HTMLElement>(`#you-tab-${next}`)?.focus();
+  }
+
   /** One row: a glyph in a tile, the words, and where it leads. */
   const row = (here: boolean) =>
     `press flex h-11 items-center gap-3 rounded-xl px-2 ${here ? "bg-fg text-bg" : "hover:bg-surface-2"}`;
   const tile = (here: boolean) =>
     `flex size-8 shrink-0 items-center justify-center rounded-lg ${here ? "bg-bg/15" : "bg-surface-2 text-muted"}`;
+
+  /** The glyph each tab wears over its name. */
+  const glyph: Record<YouTab, React.ReactNode> = {
+    you: me ? <Avatar person={me} size="sm" className="size-5! border text-[0.4375rem]!" /> : <User className="size-4" />,
+    boards: <LayerGroup className="size-4" />,
+    org: <Building className="size-4" />,
+    look: <Sun className="size-4" />,
+  };
+
+  /** One section, drawn while its tab is picked, or always before script runs. */
+  const section = (key: YouTab, className: string, children: React.ReactNode) =>
+    hydrated && key !== tab ? null : (
+      <section
+        key={key}
+        id={`you-panel-${key}`}
+        role="tabpanel"
+        aria-labelledby={`you-tab-${key}`}
+        className={`${className} ${hydrated ? "motion-safe:animate-fade" : ""}`}
+      >
+        {children}
+      </section>
+    );
 
   return (
     <details ref={panel} className="group/you relative" onToggle={(event) => play(event.currentTarget.open ? "open" : "close")}>
@@ -402,125 +470,163 @@ function YouPanel({ orgs, org, me }: { orgs: OrgHeld[]; org: OrgHeld | null; me?
           <Gear className="size-2.5 transition-transform duration-300 ease-out group-open/you:rotate-90" />
         </span>
       </summary>
-      {/* Over the button on a wide screen, from its corner; on a phone, a
-          sheet across the foot of the screen, over the dock. */}
-      <div className="fixed inset-x-3 bottom-20 flex max-h-[calc(100dvh-7rem)] origin-bottom-right flex-col divide-y divide-border overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface shadow-2xl motion-safe:animate-scale-in sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-3 sm:max-h-[min(40rem,calc(100dvh-7rem))] sm:w-[22rem]">
-        {me ? (
-          <section className="p-3">
-            <Identity me={me} />
-          </section>
-        ) : null}
+      {/* A card of one size over the button on a wide screen, from its
+          corner; on a phone, a sheet of the same height across the foot of
+          the screen, over the dock. */}
+      <div className="fixed inset-x-3 bottom-20 flex h-[24rem] max-h-[calc(100dvh-7rem)] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl motion-safe:animate-scale-in sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-3 sm:w-[22rem]">
+        {/* The tabs: a segmented control, a glyph over each name. */}
+        <div
+          ref={bar}
+          role="tablist"
+          aria-label="You and settings"
+          onKeyDown={onBarKey}
+          className="m-2 grid shrink-0 grid-cols-4 gap-1 rounded-xl bg-surface-2 p-1"
+        >
+          {YOU_TABS.map((one) => {
+            const here = one.key === tab;
+            return (
+              <button
+                key={one.key}
+                id={`you-tab-${one.key}`}
+                type="button"
+                role="tab"
+                aria-selected={here}
+                aria-controls={`you-panel-${one.key}`}
+                tabIndex={here ? 0 : -1}
+                onClick={() => setTab(one.key)}
+                className={`press flex h-12 flex-col items-center justify-center gap-1 rounded-lg ${
+                  here ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg"
+                }`}
+              >
+                {glyph[one.key]}
+                <span className="text-[0.625rem] leading-none">{one.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        {orgs.length > 0 ? (
-          <section className="flex flex-col gap-0.5 p-2">
-            <PanelHead>Board</PanelHead>
-            {orgs.map((one) => {
-              const here = org?.slug === one.slug && !onAll;
-              return (
-                <Link key={one.slug} to={picked(one.slug)} viewTransition aria-current={here ? "page" : undefined} className={row(here)}>
-                  <span className={tile(here)}>
-                    <OrgDot color={one.color} />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{one.name}</span>
-                  {here ? <Check className="size-3.5" /> : <ChevronRight className="size-3 text-dim" />}
-                </Link>
-              );
-            })}
-            {orgs.length > 1 ? (
-              <Link to={picked("")} viewTransition aria-current={onAll ? "page" : undefined} className={row(onAll)}>
-                <span className={tile(onAll)}>
-                  <LayerGroup className="size-3.5" />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {section(
+            "you",
+            "flex flex-col gap-0.5 px-2 pb-2",
+            <>
+              {me ? (
+                <div className="px-1 pb-2 pt-1">
+                  <Identity me={me} />
+                </div>
+              ) : null}
+              <Link to="/account" className={row(pathname === "/account")}>
+                <span className={tile(pathname === "/account")}>
+                  <User className="size-3.5" />
                 </span>
-                <span className="flex-1">All orgs</span>
-                {onAll ? <Check className="size-3.5" /> : <ChevronRight className="size-3 text-dim" />}
+                <span className="flex-1">Account</span>
+                <ChevronRight className="size-3 text-dim" />
               </Link>
-            ) : null}
-          </section>
-        ) : null}
+              {extras.map((extra) => (
+                <button key={extra.label} type="button" onClick={extra.run} className={`${row(false)} text-left`}>
+                  <span className={tile(false)}>
+                    <RotateLeft className="size-3.5" />
+                  </span>
+                  <span className="flex-1">{extra.label}</span>
+                </button>
+              ))}
+              <Form method="post" action={ACCOUNT}>
+                <button className={`${row(false)} w-full text-left text-danger`}>
+                  <span className={`${tile(false)} text-danger`}>
+                    <ArrowRight className="size-3.5" />
+                  </span>
+                  <span className="flex-1">Sign out</span>
+                </button>
+              </Form>
+            </>,
+          )}
 
-        {pages ? (
-          <section className="flex flex-col gap-1 p-2">
-            <PanelHead>
-              <OrgDot color={pages.color} />
-              {pages.name}
-            </PanelHead>
-            <div className="grid grid-cols-3 gap-1">
-              {ORG_PAGES.map((page) => {
-                const to = orgPagePath(pages.slug, page.to);
-                const here = pathname.startsWith(to);
+          {section(
+            "boards",
+            "flex flex-col gap-0.5 px-2 pb-2",
+            <>
+              {orgs.map((one) => {
+                const here = org?.slug === one.slug && !onAll;
                 return (
-                  <Link
-                    key={page.to}
-                    to={to}
-                    aria-current={here ? "page" : undefined}
-                    className={`press flex flex-col items-center gap-1.5 rounded-xl py-2.5 text-xs ${
-                      here ? "bg-fg text-bg" : "text-muted hover:bg-surface-2 hover:text-fg"
-                    }`}
-                  >
-                    <span className={`flex size-8 items-center justify-center rounded-lg ${here ? "bg-bg/15" : "bg-surface-2"}`}>
-                      {page.icon("size-3.5")}
+                  <Link key={one.slug} to={picked(one.slug)} viewTransition aria-current={here ? "page" : undefined} className={row(here)}>
+                    <span className={tile(here)}>
+                      <OrgDot color={one.color} />
                     </span>
-                    {page.label}
+                    <span className="min-w-0 flex-1 truncate">{one.name}</span>
+                    {here ? <Check className="size-3.5" /> : <ChevronRight className="size-3 text-dim" />}
                   </Link>
                 );
               })}
-            </div>
-          </section>
-        ) : null}
+              {orgs.length > 1 ? (
+                <Link to={picked("")} viewTransition aria-current={onAll ? "page" : undefined} className={row(onAll)}>
+                  <span className={tile(onAll)}>
+                    <LayerGroup className="size-3.5" />
+                  </span>
+                  <span className="flex-1">All orgs</span>
+                  {onAll ? <Check className="size-3.5" /> : <ChevronRight className="size-3 text-dim" />}
+                </Link>
+              ) : null}
+              <Link to="/orgs/new" className={row(pathname === "/orgs/new")}>
+                <span className={tile(pathname === "/orgs/new")}>
+                  <Plus className="size-3.5" />
+                </span>
+                <span className="flex-1">New org</span>
+                <ChevronRight className="size-3 text-dim" />
+              </Link>
+            </>,
+          )}
 
-        <section className="flex flex-col gap-2 p-3">
-          <PanelHead>Look</PanelHead>
-          <SchemeSegments />
-          <SoundRow />
-          <div className="hidden h-9 items-center gap-3 pointer-fine:flex">
-            <span className="flex-1 text-muted">Keys</span>
-            <KeysButton />
-          </div>
-        </section>
+          {section(
+            "org",
+            "flex flex-col gap-2 px-2 pb-2",
+            pages ? (
+              <>
+                <p className="flex items-center gap-2 px-2 pt-1 font-medium">
+                  <OrgDot color={pages.color} />
+                  <span className="min-w-0 truncate">{pages.name}</span>
+                </p>
+                <div className="grid grid-cols-3 gap-1">
+                  {ORG_PAGES.map((page) => {
+                    const to = orgPagePath(pages.slug, page.to);
+                    const here = pathname.startsWith(to);
+                    return (
+                      <Link
+                        key={page.to}
+                        to={to}
+                        aria-current={here ? "page" : undefined}
+                        className={`press flex flex-col items-center gap-1.5 rounded-xl py-3 text-xs ${
+                          here ? "bg-fg text-bg" : "text-muted hover:bg-surface-2 hover:text-fg"
+                        }`}
+                      >
+                        <span className={`flex size-9 items-center justify-center rounded-lg ${here ? "bg-bg/15" : "bg-surface-2"}`}>
+                          {page.icon("size-4")}
+                        </span>
+                        {page.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="px-2 py-6 text-center text-muted">No org yet. Boards makes one.</p>
+            ),
+          )}
 
-        <section className="flex flex-col gap-0.5 p-2">
-          <Link to="/account" className={row(pathname === "/account")}>
-            <span className={tile(pathname === "/account")}>
-              <User className="size-3.5" />
-            </span>
-            <span className="flex-1">Account</span>
-            <ChevronRight className="size-3 text-dim" />
-          </Link>
-          <Link to="/orgs/new" className={row(pathname === "/orgs/new")}>
-            <span className={tile(pathname === "/orgs/new")}>
-              <Plus className="size-3.5" />
-            </span>
-            <span className="flex-1">New org</span>
-            <ChevronRight className="size-3 text-dim" />
-          </Link>
-          {extras.map((extra) => (
-            <button key={extra.label} type="button" onClick={extra.run} className={`${row(false)} text-left`}>
-              <span className={tile(false)}>
-                <RotateLeft className="size-3.5" />
-              </span>
-              <span className="flex-1">{extra.label}</span>
-            </button>
-          ))}
-          <Form method="post" action={ACCOUNT}>
-            <button className={`${row(false)} w-full text-left text-danger`}>
-              <span className={`${tile(false)} text-danger`}>
-                <ArrowRight className="size-3.5" />
-              </span>
-              <span className="flex-1">Sign out</span>
-            </button>
-          </Form>
-        </section>
+          {section(
+            "look",
+            "flex flex-col gap-2 px-3 pb-3 pt-1",
+            <>
+              <SchemeSegments />
+              <SoundRow />
+              <div className="hidden h-9 items-center gap-3 pointer-fine:flex">
+                <span className="flex-1 text-muted">Keys</span>
+                <KeysButton />
+              </div>
+            </>,
+          )}
+        </div>
       </div>
     </details>
-  );
-}
-
-/** The heading of one part of the You panel. */
-function PanelHead({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="flex items-center gap-1.5 px-2 pb-1 pt-0.5 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
-      {children}
-    </h2>
   );
 }
 

@@ -205,3 +205,23 @@ describe("a finished task", () => {
     expect(html.match(/value="restore"/g)).toHaveLength(1);
   });
 });
+
+describe("a task in its modal", () => {
+  it("draws no bar over the page, and puts Back, Forward and ✕ in its first tile", () => {
+    const html = page();
+    const main = html.indexOf("<main");
+    const frame = html.slice(0, main);
+
+    // The modal is the frame, named for a screen reader, with no header bar.
+    expect(frame).toContain('role="dialog"');
+    expect(frame).toContain('aria-label="Task #12"');
+    expect(frame).not.toContain("<header");
+
+    // The first tile, the title's, holds the three controls.
+    const start = html.indexOf("<section", main);
+    const first = html.slice(start, html.indexOf("<section", start + 1));
+    expect(first).toContain("data-modal-controls");
+    for (const name of ["Back", "Forward", "Close"]) expect(first).toContain(`aria-label="${name}"`);
+    expect(first).toContain("Pack the tent");
+  });
+});

@@ -14,6 +14,7 @@ import { clientsOf } from "../clients.server";
 import { colorCss } from "../colors";
 import { cloudflareEnv } from "../context.server";
 import { LinkIcon, Note } from "../icons";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
 import { Bento, Stat, Tile } from "../bento";
 import type { Route } from "./+types/clients";
@@ -53,14 +54,17 @@ export default function Clients({ loaderData }: Route.ComponentProps) {
     <main className="flex flex-col gap-3">
       <Bento>
         <Tile span={4} tone="plain" className="p-1!">
-          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
-            <h1 className="font-serif text-3xl tracking-tight">Clients</h1>
-            {field ? (
-              <>
-                <Stat value={clients.length} word={clients.length === 1 ? "client" : "clients"} />
-                <Stat value={open} word="open" />
-              </>
-            ) : null}
+          <div className="flex items-start gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-2">
+              <h1 className="font-serif text-3xl tracking-tight">Clients</h1>
+              {field ? (
+                <>
+                  <Stat value={clients.length} word={clients.length === 1 ? "client" : "clients"} />
+                  <Stat value={open} word="open" />
+                </>
+              ) : null}
+            </div>
+            <ModalControls />
           </div>
         </Tile>
 

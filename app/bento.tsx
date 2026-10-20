@@ -64,7 +64,7 @@ export function Tile({
   return (
     <section className={`flex min-w-0 flex-col gap-3 rounded-2xl p-4 ${ground} ${SPAN[span]} ${ROWS[rows]} ${className}`}>
       {label || action ? (
-        <header className="flex min-h-5 items-center gap-2">
+        <div className="flex min-h-5 items-center gap-2">
           {label ? (
             <h2 className={`flex items-center gap-1.5 font-mono text-[0.625rem] uppercase tracking-[0.15em] ${tone === "ink" ? "text-bg/60" : "text-dim"}`}>
               {icon ? <span className="flex">{icon}</span> : null}
@@ -72,7 +72,7 @@ export function Tile({
             </h2>
           ) : null}
           {action ? <span className="ml-auto flex items-center gap-2">{action}</span> : null}
-        </header>
+        </div>
       ) : null}
       {children}
     </section>

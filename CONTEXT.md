@@ -511,9 +511,11 @@ _Avoid_: Kanban, board view, org filter
 
 **Page modal**:
 A page off a board or a view, drawn over it: a task, a client, and every page of
-an org. It is a child route, so the address names it and Back closes it. Its
-app bar holds Back, Forward, the page's name and ✕. The page behind stays drawn,
-with its own address. See ADR-0039.
+an org. It is a child route, so the address names it and Back closes it. It draws
+no bar of its own: Back, Forward and ✕ sit in the page's head tile, as part of
+the bento, and a page with no controls gets a lone ✕ in the corner. A screen
+reader still hears the page's name. The page behind stays drawn, with its own
+address. See ADR-0039 and ADR-0040.
 _Avoid_: Popup, overlay page, lightbox
 
 **Tile**:
@@ -548,12 +550,16 @@ _Avoid_: View switcher, tabs, page menu
 
 **You panel**:
 What the dock's second button opens. The button wears the person's avatar,
-because it is them and their settings at once. The panel holds who they are
-(picture, name, email, colour), the **Org select**, the pages of the org in
-view, or of the first org on a page that spans them (Clients, Decisions,
-Archive, Fields, Members and the org's own settings), how the page looks (the
-**Colour scheme**, **Sound**, keys), then Account, New org and Sign out. See
-ADR-0040.
+because it is them and their settings at once. The panel is a small card of
+one size with four tabs, one section each:
+- **You**: picture, name, email and colour, then Account and Sign out.
+- **Boards**: the **Org select** and New org.
+- **Org**: the pages of the org in view, or of the first org on a page that
+  spans them: Clients, Decisions, Archive, Fields, Members and its settings.
+- **Look**: the **Colour scheme**, **Sound** and keys.
+
+It opens on the tab last used. With no script every section is drawn, stacked.
+See ADR-0040.
 _Avoid_: Settings panel, profile menu, admin menu
 
 **Org select**:
@@ -783,9 +789,11 @@ _Avoid_: Chrome, nav bar, top bar
 **Search panel**:
 What the search button in the top right corner opens, fixed on every
 signed-in page. Its box is a global search: tasks by title or number, clients
-and pages, across every org the person belongs to, as they type. Under it sit
-the board's filters: the assignee filter, the field filters, the client
-filter and the Today and Week chips. The button counts the filters that
+and pages, across every org the person belongs to, as they type. It shows one
+thing at a time. With the box empty it shows the board's filters: the assignee
+filter, the field filters, the client filter and the Today and Week chips, a
+row of chips each, the first chip naming the row. With words in the box it
+shows the answers instead, one flat list. The button counts the filters that
 narrow anything. `/` opens it, and Cmd or Ctrl and K. A board draws no Top row
 any more: the add box heads To do, and the board takes the page. See ADR-0038.
 _Avoid_: Top bar, toolbar, board controls, command palette

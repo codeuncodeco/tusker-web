@@ -11,6 +11,7 @@ import { createOrgKey, listOrgKeys, revokeOrgKey } from "../org-keys.server";
 import { readOrgApp, renameOrg, setOrgApp, setOrgColor, slugify } from "../orgs.server";
 import { isRefsBaseUrl } from "../refs";
 import { refreshOrgFields } from "../refs.server";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/settings";
 import { orgPagePath } from "../paths";
@@ -102,7 +103,10 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
   const part = "[&>section]:border-0 [&>section]:pt-0 [&>section>h2]:sr-only";
   return (
     <main className="flex flex-col gap-3">
-      <h1 className="sr-only">Settings</h1>
+      <div className="flex items-start gap-3 p-1">
+        <h1 className="font-serif text-3xl tracking-tight">Settings</h1>
+        <ModalControls className="ml-auto" />
+      </div>
       <Bento>
         <Tile span={2} label="Name and address" icon={<Building className="size-3" />}>
           <Form method="post" className="flex flex-col gap-3">

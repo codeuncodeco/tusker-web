@@ -43,6 +43,37 @@ one panel:
 
 The account modal is gone; `/account` still draws the full sheet.
 
+### Amended: tabs, no modal bar, one thing at a time
+
+The first cut of this round drew three things too big or too busy. They changed
+as follows.
+
+- **The You panel has tabs.** It stacked five sections into one tall scrolling
+  panel. Now it is a card of one size, 22 by 24 rem, a sheet of the same height
+  on a phone. Four tabs head it as a segmented control, each a glyph over a
+  small name:
+  - **You**: who they are, then Account and Sign out.
+  - **Boards**: every org, All, and New org.
+  - **Org**: the org's six pages, three by two.
+  - **Look**: the colour scheme, sound and keys.
+
+  A tab switch swaps the section in place, so the card never jumps. The panel
+  opens on the tab last used, kept outside the panel as the dial's state is.
+  ← and → walk the tabs. With no script the `<details>` still opens and every
+  section is drawn, stacked.
+- **A modal has no header bar.** Back, Forward and ✕ are `ModalControls`, one
+  small cluster that each page puts in its head tile, so the controls are part
+  of the bento. A page that holds none still gets a lone ✕ at the modal's top
+  right; it hides itself with CSS once the page's own controls are inside, so
+  it works on a page drawn by the server too. The dialog keeps the page's name
+  for a screen reader.
+- **Search shows filters or answers, never both.** With the box empty the
+  panel holds the board's filters, a row of chips each with no label or glyph,
+  and a small ✕ that clears them. With words in the box it holds the answers:
+  one flat list of at most eight rows, with no group headings or counts, and a
+  muted hint at each row's right. "Narrow this board" is the last row on an org
+  board. The panel is narrower, and the key hints at its foot are gone.
+
 ## The view dial
 
 The View button's views sit on a quarter arc round it, from its left to
