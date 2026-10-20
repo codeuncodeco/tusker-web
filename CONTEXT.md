@@ -516,10 +516,23 @@ app bar holds Back, Forward, the page's name and ✕. The page behind stays draw
 with its own address. See ADR-0039.
 _Avoid_: Popup, overlay page, lightbox
 
+**Tile**:
+One part of a page laid out as a bento: a surface on the page's ground, with a
+small-caps label and its glyph, sized by what it holds. Nothing inside a tile
+draws a box of its own. A task's sheet is tiles, and so is every page off the
+board. See ADR-0040.
+_Avoid_: Card, panel, widget, box
+
+**Sound**:
+The small, quiet notes the app plays for what a person does: a tick for any
+control, a chime for a finished task, and others for open, close, add, undo and
+an error. It is on by default, and muted in the You panel. See ADR-0040.
+_Avoid_: Audio feedback, SFX
+
 **Dock**:
-The three round buttons fixed to the bottom right of every signed-in page:
-the **View button**, the **Settings panel** and the profile button, which
-wears the person's avatar and opens the account as a modal over the page.
+The two round buttons fixed to the bottom right of every signed-in page: the
+**View button** and the **You panel**'s button, which wears the person's
+avatar.
 Each is a link or a `<details>` underneath, so each still reaches its page
 with no script. See ADR-0037.
 _Avoid_: Toolbar, floating menu, FAB
@@ -527,18 +540,21 @@ _Avoid_: Toolbar, floating menu, FAB
 **View button**:
 The dock's first button. One click steps to the next view: Board, Week, Plan,
 Focus, and round again; Shift-click steps back. The pointer over it, or a first
-tap on a phone, unfurls every view as a pill above it, the one in view filled;
-the centre still steps, and the fan stays out. Board is the board of the org
+tap on a phone, opens a dial: every view on a quarter arc round it, the one in
+view filled. The centre still steps, and the dial stays open. Board is the board of the org
 in view, else the board the browser last stood on, else the first org's. It
 works as the colour scheme button does: one glyph, one step a click.
 _Avoid_: View switcher, tabs, page menu
 
-**Settings panel**:
-What the dock's gear opens: the **Colour scheme** button and the keys button,
-then the **Org select**, then the pages of the org in
-view, or of the first org on a page that spans them: Clients, Decisions,
-Archive, Fields, Members and the org's own settings, then New org.
-_Avoid_: Admin menu, more menu
+**You panel**:
+What the dock's second button opens. The button wears the person's avatar,
+because it is them and their settings at once. The panel holds who they are
+(picture, name, email, colour), the **Org select**, the pages of the org in
+view, or of the first org on a page that spans them (Clients, Decisions,
+Archive, Fields, Members and the org's own settings), how the page looks (the
+**Colour scheme**, **Sound**, keys), then Account, New org and Sign out. See
+ADR-0040.
+_Avoid_: Settings panel, profile menu, admin menu
 
 **Org select**:
 The part of the settings panel that sets the board's scope: every org the
@@ -776,8 +792,9 @@ _Avoid_: Top bar, toolbar, board controls, command palette
 
 **Drawer**:
 Where Backlog and Cancelled live, off the board. Backlog's tab sits at the left
-edge of the screen and pulls out to the right; Cancelled's sits at the bottom
-left and pulls up as a sheet. Each is hidden but for its grip, and a tab whose
+edge of the screen, and Cancelled's in the bottom-left corner of the same edge.
+Both pull out to the right into one drawer, Backlog above Cancelled when both
+are out. Each is hidden but for its grip, and a tab whose
 column holds nothing is not drawn. A card drags from
 the drawer onto the board and back. An open drawer is an address, as the
 column switches were: `backlog=1`, `cancelled=1`. On an org board with no live
