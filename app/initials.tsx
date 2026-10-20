@@ -11,17 +11,14 @@ const SIZES = {
 export type AvatarSize = keyof typeof SIZES;
 
 /**
- * The paint one person's avatar takes: a tint of their colour behind their
- * initials, and a ring of the colour itself. A person with no colour draws in
+ * The paint one person's avatar takes: a ring of their colour round their
+ * initials. A person with no colour draws in
  * the page's own greys. See ADR-0034.
  */
 export function avatarStyle(color: string | undefined | null): React.CSSProperties {
   if (!color) return {};
-  const paint = colorCss(color);
-  return {
-    backgroundColor: `color-mix(in oklab, ${paint} 22%, var(--color-bg))`,
-    borderColor: paint,
-  };
+  // The ring carries the colour; the ground stays the page's. See ADR-0038.
+  return { borderColor: colorCss(color) };
 }
 
 /**

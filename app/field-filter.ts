@@ -89,6 +89,8 @@ export type FieldFilter = {
   value: string;
   /** The values after Any, in the order the field holds them. */
   options: Choice[];
+  /** True for the client field, whose chips alone draw their colour. See ADR-0038. */
+  client?: boolean;
 };
 
 /**
@@ -113,7 +115,7 @@ export function filterSelects(
         : (refs[field.key] ?? []).map((one) => ({ value: one.id, label: one.label, color: tint[one.id] ?? null }));
     const value = filters[field.key] ?? "";
     if (value && !options.some((one) => one.value === value)) options.push({ value, label: value, color: null });
-    return { key: field.key, label: field.label, value, options };
+    return { key: field.key, label: field.label, value, options, ...(field.client ? { client: true } : {}) };
   });
 }
 

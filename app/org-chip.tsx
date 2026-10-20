@@ -30,7 +30,8 @@ export function OrgChip({ org }: { org: { name: string; color: string | null } }
       title={org.name}
       className="flex shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-[0.625rem] leading-none font-medium tracking-wide text-muted"
     >
-      <OrgDot color={org.color} />
+      {/* Letters and no dot: the org's colour is drawn where orgs are picked,
+          not on every card. See ADR-0038. */}
       <span className="sr-only">{org.name}</span>
       <span aria-hidden="true">{orgInitialsOf(org.name)}</span>
     </span>

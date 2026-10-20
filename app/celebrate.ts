@@ -16,7 +16,9 @@ const SPARKS = 12;
 const LIFE = 950;
 
 /** Throws one burst, centred on a point of the window, in a colour. */
-export function celebrate(x: number, y: number, color = "var(--color-win)"): void {
+export function celebrate(x: number, y: number, _color?: string): void {
+  // Success has one colour on this board. See ADR-0038.
+  const color = "var(--color-win)";
   if (typeof window === "undefined") return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 

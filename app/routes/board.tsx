@@ -41,7 +41,6 @@ import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, promptFor } from "../decisions.server";
-import { Dot } from "../dot";
 import {
   filterSelects,
   fieldName,
@@ -424,11 +423,8 @@ function CardItem({
                 <ClientTag label={field.value} color={field.color} to={clientPath(slug, field.client.stored)} />
               </li>
             ) : (
-              <li
-                key={field.key}
-                className="flex items-center gap-1 whitespace-nowrap rounded bg-surface-2 px-1.5 py-0.5"
-              >
-                <Dot color={field.color} />
+              // Only the client carries a colour on a card. See ADR-0038.
+              <li key={field.key} className="flex items-center gap-1 whitespace-nowrap px-0.5 py-0.5">
                 <span className="text-dim">{field.label}</span> {field.value}
               </li>
             ),

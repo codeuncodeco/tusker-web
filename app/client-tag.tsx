@@ -1,5 +1,5 @@
 /**
- * The tag a card draws for its client: the client's name on a tint of its
+ * The tag a card draws for its client: the client's name beside a dot of its
  * option colour, first on the card's line, so a board reads by client at a
  * glance. Where the card can hold a link, the tag opens the client's page.
  * See ADR-0036.
@@ -14,14 +14,12 @@ export function clientPath(slug: string, value: string): string {
   return `/o/${slug}/clients/${encodeURIComponent(value)}`;
 }
 
-/** The paint a client tag takes from its colour: a tint, and the colour as its edge. */
-function tagStyle(color: string | null): React.CSSProperties {
-  if (!color) return {};
-  const paint = colorCss(color);
-  return {
-    backgroundColor: `color-mix(in oklab, ${paint} 16%, transparent)`,
-    borderColor: `color-mix(in oklab, ${paint} 45%, transparent)`,
-  };
+/**
+ * A client tag is a neutral pill: its colour is the dot alone. The board
+ * holds few colours, and the client's is one of them. See ADR-0038.
+ */
+function tagStyle(_color: string | null): React.CSSProperties {
+  return {};
 }
 
 export function ClientTag({

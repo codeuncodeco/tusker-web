@@ -100,7 +100,7 @@ export function UnifiedCard({
             }}
             className={`press shrink-0 self-center rounded-full border px-2 py-0.5 text-[0.625rem] uppercase tracking-wide ${
               planned
-                ? "border-win text-win motion-safe:animate-pop"
+                ? "border-fg text-fg motion-safe:animate-pop"
                 : "hidden border-border text-muted hover:border-fg hover:text-fg pointer-fine:group-hover/card:inline-flex"
             }`}
           >

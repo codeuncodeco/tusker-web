@@ -1,5 +1,4 @@
 import { ClientTag } from "./client-tag";
-import { Dot } from "./dot";
 import { OrgChip } from "./org-chip";
 import type { LiveTask } from "./unified";
 
@@ -27,7 +26,7 @@ export function ContentLine({ task, showsOrg }: { task: LiveTask; showsOrg: bool
             ) : (
               <span key={field.key} className="flex items-center gap-1 truncate">
                 {at > 0 && !task.fields[at - 1]!.client ? <span aria-hidden="true">·</span> : null}
-                <Dot color={field.color} />
+                {/* Only the client carries a colour on a card. See ADR-0038. */}
                 {field.value}
               </span>
             ),

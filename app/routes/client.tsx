@@ -194,11 +194,10 @@ function Hero({
 
   return (
     <header
-      style={{
-        backgroundImage: `linear-gradient(120deg, color-mix(in oklab, ${paint} 26%, transparent), color-mix(in oklab, ${paint} 6%, transparent) 70%)`,
-        borderColor: `color-mix(in oklab, ${paint} 40%, transparent)`,
-      }}
-      className="flex flex-col gap-4 rounded-xl border p-6 transition-[background-image,border-color] duration-500"
+      // A plain ground with the client's colour as one stripe: the page holds
+      // few colours. See ADR-0038.
+      style={{ borderLeftColor: paint }}
+      className="flex flex-col gap-4 rounded-xl border border-l-[6px] border-border bg-surface p-6 transition-[border-color] duration-500"
     >
       <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
         <Link to={`/o/${org.slug}/clients`} className="hover:text-fg hover:underline">
@@ -417,11 +416,10 @@ function LinkCard({ link }: { link: ClientLink }) {
 
 /** A service's tile: its mark on a wash of its colour. */
 function Tile({ look }: { look: (typeof KIND_LOOK)[LinkKind] }) {
+  // The service's mark, in the page's ink: the board holds few colours, and
+  // the mark alone tells Figma from Drive. See ADR-0038.
   return (
-    <span
-      style={{ color: look.color, backgroundColor: `color-mix(in oklab, ${look.color} 14%, transparent)` }}
-      className="flex size-10 shrink-0 items-center justify-center rounded-lg transition-transform group-hover:scale-105"
-    >
+    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-fg transition-transform group-hover:scale-105">
       {look.mark("size-5")}
     </span>
   );
@@ -594,8 +592,8 @@ function NoteBody({
 
 /** The dot each status draws in the open list. */
 const STATUS_DOT: Partial<Record<Status, string>> = {
-  in_progress: "bg-win",
-  todo: "bg-fg",
+  in_progress: "bg-fg",
+  todo: "bg-dim",
   backlog: "bg-dim",
 };
 
@@ -603,7 +601,7 @@ const STATUS_DOT: Partial<Record<Status, string>> = {
 function OpenTasks({ tasks, board, label }: { tasks: ClientTask[]; board: string; label: string }) {
   return (
     <aside className="flex flex-col gap-3 lg:sticky lg:top-24 lg:self-start">
-      <SectionHead title="Open tasks" icon={<span className="size-2 rounded-full bg-win" />}>
+      <SectionHead title="Open tasks" icon={<span className="size-2 rounded-full bg-fg" />}>
         <Link to={board} className="text-xs text-muted underline-offset-2 hover:text-fg hover:underline">
           Board →
         </Link>

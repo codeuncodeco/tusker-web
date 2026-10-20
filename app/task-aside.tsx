@@ -171,10 +171,10 @@ function radioChip(on: boolean): string {
 /** The dot each status draws on its chip. */
 export const STATUS_DOT: Record<Status, string> = {
   backlog: "bg-dim",
-  todo: "bg-muted",
-  in_progress: "bg-[var(--color-opt-blue)]",
+  todo: "bg-dim",
+  in_progress: "bg-fg",
   done: "bg-win",
-  cancelled: "bg-danger",
+  cancelled: "bg-dim",
 };
 
 /** The most options a select draws as chips; a longer one is a select. */
@@ -336,7 +336,8 @@ function LiveAside({ task, fields, refs, colors, optionColors, members, assignee
           value={drawn.data[field.key]}
           picker={refs[field.key]}
           color={colors[field.key] ?? null}
-          tints={optionColors?.[field.key] ?? {}}
+          // Only the client's values draw a colour. See ADR-0038.
+          tints={field.client ? (optionColors?.[field.key] ?? {}) : {}}
           onSave={(value) => post({ intent: "field", key: field.key, [`field.${field.key}`]: value })}
         />
       ))}

@@ -33,7 +33,7 @@ import { fieldName, type FieldFilter } from "./field-filter";
 import { fieldClass, smallFieldClass } from "./forms";
 import { AnglesLeft, Circle, CircleCheck, CircleHalf, CircleXMark, Inbox, Square, SquareCheck } from "./icons";
 import { Avatar } from "./initials";
-import { OrgDot } from "./org-chip";
+import { orgInitialsOf } from "./org-chip";
 import { without } from "./query";
 import { SEARCH_NAME } from "./search";
 
@@ -266,7 +266,7 @@ export function UnifiedClientFilter({
           >
             <Dot color={one.color} />
             {one.label}
-            {orgs.size > 1 ? <OrgDot color={one.org.color} /> : null}
+            {orgs.size > 1 ? <span className="text-dim">{orgInitialsOf(one.org.name)}</span> : null}
           </FilterChip>
         );
       })}
@@ -305,7 +305,7 @@ export function FieldFilterSelect({ filter }: { filter: FieldFilter }) {
           const on = filter.value === one.value;
           return (
             <FilterChip key={one.value} to={on ? any : withValue(params, name, one.value)} on={on}>
-              <Dot color={one.color ?? null} />
+              {filter.client ? <Dot color={one.color ?? null} /> : null}
               {one.label}
             </FilterChip>
           );
@@ -433,9 +433,9 @@ export function ColumnSwitch({ which, toggles }: { which: Status; toggles: Toggl
 const COLUMN_LOOK: Record<Status, { icon: React.ReactNode; tone: string; motion: string }> = {
   backlog: { icon: <Inbox className="size-3.5" />, tone: "text-dim", motion: "" },
   todo: { icon: <Circle className="size-3.5" />, tone: "text-muted", motion: "motion-safe:animate-breathe" },
-  in_progress: { icon: <CircleHalf className="size-3.5" />, tone: "text-[var(--color-opt-blue)]", motion: "motion-safe:animate-drift" },
+  in_progress: { icon: <CircleHalf className="size-3.5" />, tone: "text-fg", motion: "motion-safe:animate-drift" },
   done: { icon: <CircleCheck className="size-3.5" />, tone: "text-win", motion: "" },
-  cancelled: { icon: <CircleXMark className="size-3.5" />, tone: "text-danger", motion: "" },
+  cancelled: { icon: <CircleXMark className="size-3.5" />, tone: "text-dim", motion: "" },
 };
 
 /**
