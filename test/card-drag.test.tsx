@@ -1,10 +1,10 @@
 /**
- * A card drags by its grip and holds no empty line. The grip is the one part a
- * drag starts from, and the keys already move a card, so the grip is hidden
- * from a screen reader and takes no focus. A control never adds a line to a
+ * A card drags from anywhere on it and holds no empty line. There is no grip:
+ * movement tells a drag from a click. The keys already move a card, so the
+ * drag makes no card a tab stop or a button. A control never adds a line to a
  * card: the Archive button is gone from the org board card, and the unified
- * card draws one content line, only when it holds something. See #182 and
- * ADR-0025.
+ * card draws one content line, only when it holds something. See #182,
+ * ADR-0025 and ADR-0041.
  */
 
 import { renderToStaticMarkup } from "react-dom/server";
@@ -63,42 +63,47 @@ function orgBoard(): string {
   return renderToStaticMarkup(<Stub initialEntries={["/o/acme/board"]} />);
 }
 
-/** A grip as it is drawn: a hidden mark holding the six dots. */
-const GRIP = /<span aria-hidden="true"[^>]*data-grip=""[^>]*><svg[^>]*>(<circle[^>]*><\/circle>){6}<\/svg><\/span>/g;
+/** A card that drags: a list item with the grab cursor. */
+const DRAGS = /<li[^>]*class="[^"]*\bcursor-grab\b[^"]*"[^>]*>/g;
 
-function grips(html: string): number {
-  return html.match(GRIP)?.length ?? 0;
+function dragging(html: string): number {
+  return html.match(DRAGS)?.length ?? 0;
 }
 
-describe("the grip", () => {
-  it("is drawn on every org board card", () => {
-    expect(grips(orgBoard())).toBe(2);
+describe("the whole-card drag", () => {
+  it("draws no grip on any card", () => {
+    const unified = markup(<UnifiedCard task={live(1)} selected={false} domId="c1" place={() => {}} showsOrg />);
+
+    expect(orgBoard()).not.toContain("data-grip");
+    expect(unified).not.toContain("data-grip");
   });
 
-  it("is drawn on a unified board card", () => {
+  it("makes every org board card drag", () => {
+    expect(dragging(orgBoard())).toBe(2);
+  });
+
+  it("makes a unified board card drag", () => {
     const html = markup(<UnifiedCard task={live(1)} selected={false} domId="c1" place={() => {}} showsOrg />);
 
-    expect(grips(html)).toBe(1);
+    expect(dragging(html)).toBe(1);
   });
 
-  it("is drawn on a row of the plan, and on no row that does not drag", () => {
+  it("makes a row of the plan drag, and no row that does not drag", () => {
     const plan: Group[] = [{ key: "today", label: "Plan", tasks: [live(1), live(2)], sinks: false }];
     const week: Group[] = [{ key: "week", label: "This week", tasks: [live(1)], sinks: true }];
     const planned = new Set([1, 2]);
 
-    const dragging = markup(<UnifiedList groups={plan} planned={planned} day="2026-10-09" showsOrg ordered="today" drags />);
+    const drags = markup(<UnifiedList groups={plan} planned={planned} day="2026-10-09" showsOrg ordered="today" drags />);
     const still = markup(<UnifiedList groups={week} planned={planned} day="2026-10-09" showsOrg ordered="week" />);
 
-    expect(grips(dragging)).toBe(2);
-    expect(grips(still)).toBe(0);
+    expect(dragging(drags)).toBe(2);
+    expect(dragging(still)).toBe(0);
   });
 
-  it("takes no focus, because the keys already move a card", () => {
-    const html = orgBoard();
-
-    for (const grip of html.match(GRIP) ?? []) {
-      expect(grip).not.toContain("tabindex");
-      expect(grip).not.toContain("role=");
+  it("makes no card a tab stop or a button, because the keys already move a card", () => {
+    for (const card of orgBoard().match(DRAGS) ?? []) {
+      expect(card).not.toContain("tabindex");
+      expect(card).not.toContain("role=");
     }
   });
 });
@@ -114,26 +119,23 @@ describe("the org board card", () => {
 });
 
 /**
- * A grip with the title link straight after it. The grip leads the title line,
- * and nothing sits between them: a card shows no rank. See #192.
+ * The title line leads with the title. Nothing sits before it: a card shows
+ * no rank. See #192.
  */
-// The finish ring may sit between them: it finishes, and it ranks nothing.
-const GRIP_THEN_TITLE = new RegExp(
-  `${GRIP.source}(?:<button[^>]*aria-label="(?:Finish|Open)[^"]*"[^>]*>.*?</button>)?<a `,
-  "g",
-);
+// The finish ring may sit before it: it finishes, and it ranks nothing.
+const TITLE_LEADS = /<span class="flex items-baseline gap-2">(?:<button[^>]*aria-label="(?:Finish|Open)[^"]*"[^>]*>.*?<\/button>)?<a /g;
 
 describe("a board card", () => {
-  it("shows no rank on the org board, so the grip leads straight into the title", () => {
+  it("shows no rank on the org board, so the line leads with the title", () => {
     const html = orgBoard();
 
-    expect(html.match(GRIP_THEN_TITLE)?.length).toBe(2);
+    expect(html.match(TITLE_LEADS)?.length).toBe(2);
   });
 
-  it("shows no rank on the unified board, so the grip leads straight into the title", () => {
+  it("shows no rank on the unified board, so the line leads with the title", () => {
     const html = markup(<UnifiedCard task={live(1)} selected={false} domId="c1" place={() => {}} showsOrg />);
 
-    expect(html.match(GRIP_THEN_TITLE)?.length).toBe(1);
+    expect(html.match(TITLE_LEADS)?.length).toBe(1);
   });
 });
 

@@ -169,15 +169,23 @@ export function Dock({
   );
 }
 
-/** How far the dial's pills sit from the button's centre, in px. */
-const DIAL_RADIUS = 120;
+/**
+ * How far the dial's pills sit from the button's centre, in px: close, so a
+ * pill is a short reach from the button it flew out of. See ADR-0040.
+ */
+const DIAL_RADIUS = 84;
+
+/** How far round the dial runs, in radians: a third of a turn. */
+const DIAL_SWEEP = (Math.PI * 2) / 3;
 
 /**
- * Where one pill of the dial sits, from the button's centre: on a quarter arc
- * from the button's left (the first view) to straight above it (the last).
+ * Where one pill of the dial sits, from the button's centre: on an arc from
+ * the button's left (the first view) round past straight above it (the
+ * last). The arc is a third of a turn, wider than a quarter, so the pills
+ * keep a gap between them at the short radius.
  */
 export function onDial(at: number, of: number): { x: number; y: number } {
-  const turn = Math.PI + (of > 1 ? (at / (of - 1)) * (Math.PI / 2) : 0);
+  const turn = Math.PI + (of > 1 ? (at / (of - 1)) * DIAL_SWEEP : 0);
   return { x: Math.round(Math.cos(turn) * DIAL_RADIUS), y: Math.round(Math.sin(turn) * DIAL_RADIUS) };
 }
 
@@ -281,14 +289,14 @@ function ViewButton({ board, onBoard, where }: { board: string; onBoard: boolean
                   onClick={() => {
                     if (touch.current) setOpen(false);
                   }}
-                  className={`press flex size-14 flex-col items-center justify-center gap-0.5 rounded-full border shadow-lg ${
+                  className={`press flex size-12 flex-col items-center justify-center gap-0.5 rounded-full border shadow-lg ${
                     here
                       ? "border-fg bg-fg text-bg ring-2 ring-fg ring-offset-2 ring-offset-bg"
                       : "border-border bg-surface text-muted hover:scale-105 hover:border-dim hover:text-fg"
                   }`}
                 >
-                  {VIEW_LOOK[one].icon("size-4")}
-                  <span className="font-mono text-[0.5625rem] uppercase tracking-wider">{VIEW_LOOK[one].label}</span>
+                  {VIEW_LOOK[one].icon("size-3.5")}
+                  <span className="font-mono text-[0.5rem] uppercase tracking-wider">{VIEW_LOOK[one].label}</span>
                 </Link>
               </li>
             );

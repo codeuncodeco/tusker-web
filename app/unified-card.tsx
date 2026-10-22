@@ -8,14 +8,15 @@
  * plan it. See ADR-0006, "One order per column", and ADR-0025.
  *
  * The card is its title line and at most one line under it, the content line.
- * A drag starts from the grip, so the rest of the card scrolls.
+ * A drag starts from anywhere on it; a swipe on a phone still scrolls, since a
+ * finger drags only after a short hold. See ADR-0041.
  */
 
 import { Link } from "react-router";
 
 import { colorCss } from "./colors";
 import { ContentLine } from "./content-line";
-import { Grip, useDragItem } from "./drag-lists";
+import { useDragItem } from "./drag-lists";
 import { FinishCircle } from "./finish-circle";
 import { Initials } from "./initials";
 import { keyHint } from "./key-hint";
@@ -62,16 +63,17 @@ export function UnifiedCard({
       onClick={place}
       ref={drag.ref}
       style={drag.style}
+      // The whole card drags; a press that does not move is a click.
+      {...drag.listeners}
       // The card being dragged stays faded where it will land, and the copy
       // under the pointer is the one that moves.
-      className={`group/card press-soft flex flex-col gap-2 rounded border p-3 hover:shadow-md ${
+      className={`group/card press-soft flex flex-col gap-2 rounded border p-3 hover:shadow-md ${drag.card} ${
         selected
           ? "border-fg bg-surface-2"
           : "border-border bg-surface"
       } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
-        <Grip grip={drag.grip} />
         {act ? (
           <FinishCircle
             finished={task.finished}

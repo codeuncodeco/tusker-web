@@ -76,9 +76,13 @@ as follows.
 
 ## The view dial
 
-The View button's views sit on a quarter arc round it, from its left to
-straight above it, and fly out from its centre. The centre still steps one view
-a click.
+The View button's views sit on an arc round it and fly out from its centre.
+The centre still steps one view a click.
+
+*Amended.* The pills flew out 120 px, too far from the button they came from.
+They now sit 84 px out and are the dock button's size, 48 px. To keep a gap
+between them at that radius, the arc is a third of a turn, from the button's
+left round to just past straight above it.
 
 ## Motion that does not wobble
 
@@ -89,6 +93,20 @@ a click.
 - A chip turning on breathes instead of bouncing.
 - A card opening its task grows into the sheet through a shared view
   transition, while the board behind holds still.
+
+*Amended.* That first morph was rough. It stretched the card's picture to the
+sheet's size, and the shade popped in at once. The sheet also ran its own
+scale-in inside the morph. Now it is a container transform:
+
+- The card's box grows into the sheet's on the curve a sheet moves on, 380 ms.
+  The box is solid paper with soft corners, and it clips what it holds.
+- Neither picture is scaled. Each sits at its own size at the box's top left.
+  The card fades out early, and the sheet fades in on the paper.
+- The shade fades in over the board, which holds still.
+- A sheet that grew from a card skips its own entry, so only the morph moves.
+- **Closing runs it in reverse.** The sheet shrinks back into the card it grew
+  from while the shade fades out. This holds only for the task that grew, and
+  only while its card is on the page. Any other close is plain.
 
 ## Sound
 

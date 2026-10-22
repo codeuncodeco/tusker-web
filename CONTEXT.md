@@ -576,7 +576,7 @@ _Avoid_: Org switcher, org dropdown, org filter
 
 **Org board**:
 The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
-Backlog and Cancelled in the **Drawer**. The order inside a column is the org's and
+Backlog and Cancelled on their **Sheets**. The order inside a column is the org's and
 it is stored, so this is the one board that binds `J` and `K`. A drag draws
 where the card will land, and the drop writes that place. A card carries no
 reorder button, and the **Key guide** names `J` and `K`. See ADR-0016, ADR-0025 and ADR-0026.
@@ -798,16 +798,19 @@ narrow anything. `/` opens it, and Cmd or Ctrl and K. A board draws no Top row
 any more: the add box heads To do, and the board takes the page. See ADR-0038.
 _Avoid_: Top bar, toolbar, board controls, command palette
 
-**Drawer**:
-Where Backlog and Cancelled live, off the board. Backlog's tab sits at the left
-edge of the screen, and Cancelled's in the bottom-left corner of the same edge.
-Both pull out to the right into one drawer, Backlog above Cancelled when both
-are out. Each is hidden but for its grip, and a tab whose
-column holds nothing is not drawn. A card drags from
-the drawer onto the board and back. An open drawer is an address, as the
-column switches were: `backlog=1`, `cancelled=1`. On an org board with no live
-task, Backlog's tab glows instead of opening by itself. See ADR-0038.
-_Avoid_: Sidebar, side panel, hidden columns
+**Sheet**:
+Where Backlog and Cancelled live, off the board, each on a sheet of its own.
+Backlog's tab sits at the left edge of the screen, and its sheet hangs from the
+top-left corner. Cancelled's tab sits in the bottom-left corner, and its sheet
+rises from there. Each sheet is as tall as its cards. Neither moves or resizes
+the other, and each tab rides its own sheet only. With both out they may
+overlap, and the one opened or touched last lies on top. Each tab is hidden
+but for its edge, and a tab whose column holds nothing is not drawn. A card
+drags from a sheet onto the board and back. An open sheet is an address, as
+the column switches were: `backlog=1`, `cancelled=1`. On an org board with no
+live task, Backlog's tab glows instead of opening by itself. See ADR-0038 and
+ADR-0041.
+_Avoid_: Drawer, sidebar, side panel, hidden columns
 
 **Assignee filter**:
 The chips on a board that narrow it to the tasks one person holds. The org board
@@ -904,19 +907,19 @@ holds it. It names a card and not a place,
 so the card keeps the cursor while the page redraws around it. It starts empty,
 `Escape` empties it again, and `j` and `k` fill it: `j` takes the first card,
 `k` the last, and `ArrowDown` and `ArrowUp` do the same. A click on a card body
-places it. On a board `ArrowLeft` and `ArrowRight` carry it across the columns,
+places it; a drag from the body moves the card instead (see **Card drag**). On a board `ArrowLeft` and `ArrowRight` carry it across the columns,
 and `<` and `>` still move the card. A card the page stops drawing
 takes the cursor with it, and every key that needs a card does nothing while
 the cursor is empty. Focus mode draws three rows and gives no click.
 See ADR-0015 and ADR-0022.
 _Avoid_: Selection, focus, highlight
 
-**Grip**:
-The six-dot mark at the left edge of a card or a plan row, and the one part of
-it a drag starts from. The rest of the card is for reading and for the cursor,
-so a swipe over it scrolls. The grip adds width and never a line, and it is for
-the pointer alone: the keys already move a card.
-_Avoid_: Drag handle, handle, grabber
+**Card drag**:
+A card, or a plan row that drags, drags from anywhere on it. A mouse drags once
+it moves five pixels, and a press that does not move is a click. A finger drags
+after a short hold, so a swipe over a card still scrolls the column. The drag
+makes no card a tab stop: the keys already move a card. See ADR-0041.
+_Avoid_: Grip, drag handle, grabber
 
 ### Look
 

@@ -30,10 +30,10 @@ import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
 import { AssigneeFilter, ColumnHead, FieldFilterSelect, SearchChip, TodayChip, WeekChip } from "../board-chrome";
 import { BoardFilters, FilterRow } from "../search-panel";
 import { CalendarDay, Folder, Search, Tag, Users } from "../icons";
-import { BacklogTab, CancelledTab, isSide, PutAway, SideDrawer, SIDE_STATUSES, type SideStatus } from "../side-drawer";
+import { BacklogTab, CancelledTab, isSide, PutAway, SideSheet, SIDE_STATUSES, type SideStatus } from "../side-drawer";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
-import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
+import { DragCopy, DragLists, DropList, useDragItem, type Drop } from "../drag-lists";
 import { useBoardKeys } from "../board-keys";
 import { ANYONE, keeps, readBoardAssignee, seededBy } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
@@ -352,7 +352,7 @@ function QuickAdd({
 type Move = (id: TaskId, status: Status, before?: TaskId | null) => void;
 
 /**
- * One card. It carries no reorder button. A drag from its grip places it, and
+ * One card. It carries no reorder button. A drag from anywhere on it places it, and
  * the keys step it: `>` and `<` move the card to another column, and `J` and
  * `K` step it inside its column. See ADR-0016 and ADR-0026.
  *
@@ -398,14 +398,15 @@ function CardItem({
       onClick={place}
       ref={drag.ref}
       style={drag.style}
+      // The whole card drags; a press that does not move is a click.
+      {...drag.listeners}
       // The card being dragged stays faded where it will land, and the copy
       // under the pointer is the one that moves.
-      className={`press-soft flex flex-col gap-2 rounded border p-3 shadow-sm hover:shadow-md ${
+      className={`press-soft flex flex-col gap-2 rounded border p-3 shadow-sm hover:shadow-md ${drag.card} ${
         selected ? "border-fg bg-surface-2" : "border-border bg-surface"
       } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
-        <Grip grip={drag.grip} />
         <FinishCircle
           finished={finished}
           title={card.title}
@@ -450,10 +451,10 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // The board as the server holds it, with every post still in flight laid
   // over it, so a move or a step shows before the server answers. See #168.
   const sent = useSent();
-  // Backlog and Cancelled live in the drawer, and only a drawer pulled out
-  // draws its column: the keys and the drag walk what is on screen. Backlog
-  // the rule asks for is not pulled out for the person; its tab calls
-  // instead. See ADR-0038.
+  // Backlog and Cancelled live on sheets of their own, and only a sheet
+  // pulled out draws its column: the keys and the drag walk what is on
+  // screen. Backlog the rule asks for is not pulled out for the person; its
+  // tab calls instead. See ADR-0038 and ADR-0041.
   const open = SIDE_STATUSES.filter((one) => toggles[one]);
   const columns = boardSent(loaderData.columns, sent).filter(
     (column) => !isSide(column.status) || open.includes(column.status),
@@ -641,8 +642,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         </FilterRow>
       </BoardFilters>
 
-      <BacklogTab open={open.includes("backlog")} count={loaderData.backlogCount} calls={loaderData.backlogByRule} drawerOpen={open.length > 0} />
-      <CancelledTab open={open.includes("cancelled")} count={loaderData.cancelledCount} drawerOpen={open.length > 0} />
+      <BacklogTab open={open.includes("backlog")} count={loaderData.backlogCount} calls={loaderData.backlogByRule} />
+      <CancelledTab open={open.includes("cancelled")} count={loaderData.cancelledCount} />
 
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
@@ -651,10 +652,12 @@ export default function Board({ loaderData }: Route.ComponentProps) {
       >
         {(shown) => (
           <>
-            <SideDrawer open={open}>
-              {columns.filter((column) => column.status === "backlog").map((column, at) => columnOf(column, at, shown))}
-              {columns.filter((column) => column.status === "cancelled").map((column, at) => columnOf(column, at, shown))}
-            </SideDrawer>
+            {columns.filter((column) => isSide(column.status)).map((column, at) => (
+              // Each pulled-out column on a sheet of its own. See ADR-0041.
+              <SideSheet key={column.status} status={column.status as SideStatus}>
+                {columnOf(column, at, shown)}
+              </SideSheet>
+            ))}
             {/* Each column is as long as its cards, and the page scrolls. The
                 columns are panes: a divider splits them, and a card is the one
                 thing on the board with an edge. See #184 and #191. */}

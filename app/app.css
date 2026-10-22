@@ -190,7 +190,7 @@
     }
   }
 
-  /* A side drawer, pulled out from the left edge. */
+  /* A side sheet, pulled out from the left edge. */
   @keyframes slide-in {
     from {
       transform: translateX(-100%);
@@ -384,32 +384,79 @@ html.scheme-reveal::view-transition-new(root) {
 /* A page moved to another view crossfades and drifts a step, so the eye
    follows where it went. A link that asks for it says `viewTransition`. */
 
-html.opening-task::view-transition-old(root),
-html.opening-task::view-transition-new(root) {
+/* A card opening into its task: the page behind holds still, and the new
+   page, which carries the shade, fades in over it, so the dimming arrives
+   with the card and never pops. */
+html.opening-task::view-transition-old(root) {
   animation: none;
 }
 
-html:not(.scheme-reveal):not(.opening-task)::view-transition-old(root) {
+html.opening-task::view-transition-new(root) {
+  animation: 240ms ease-out both fade-in;
+}
+
+/* A task closing into its card: the shade and the sheet's page fade out over
+   the board, which holds still beneath. */
+html.closing-task::view-transition-old(root) {
+  animation: 240ms ease-out both view-out;
+}
+
+html.closing-task::view-transition-new(root) {
+  animation: none;
+}
+
+html:not(.scheme-reveal):not(.opening-task):not(.closing-task)::view-transition-old(root) {
   animation: 140ms ease-in both view-out;
 }
 
-html:not(.scheme-reveal):not(.opening-task)::view-transition-new(root) {
+html:not(.scheme-reveal):not(.opening-task):not(.closing-task)::view-transition-new(root) {
   animation: 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both view-in;
 }
 
-/* A card opening into its task: the card's box morphs into the sheet's, so the
-   eye follows the task and not a page that appears. The card names itself
-   `task` for the step, and so does the sheet. See ADR-0040. */
+/* A card opening into its task, as a container transform: the card's box
+   grows into the sheet's, on the curve a sheet moves on, with soft corners
+   between the card's and the sheet's. Neither snapshot is scaled: each sits
+   at its own size at the box's top left, clipped by the box, so no text
+   stretches. The box is solid paper; the card fades out early and the sheet
+   fades in on it. Closing runs the same steps the other way. `MORPH_MS` in
+   `route-modal.tsx` matches the length. See ADR-0040. */
 ::view-transition-group(task) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  border-radius: 0.75rem;
+  overflow: clip;
+  /* The box is paper of its own, so the board never shows through it while
+     the card fades out and the sheet fades in. */
+  background-color: var(--color-bg);
+}
+
+::view-transition-image-pair(task) {
+  isolation: auto;
 }
 
 ::view-transition-old(task),
 ::view-transition-new(task) {
-  animation-duration: 320ms;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  width: auto;
+  object-fit: none;
+  object-position: top left;
+  inset: 0 auto auto 0;
+}
+
+html.opening-task::view-transition-old(task) {
+  animation: 120ms ease-out both view-out;
+}
+
+html.opening-task::view-transition-new(task) {
+  animation: 180ms ease-out 40ms both fade-in;
+}
+
+html.closing-task::view-transition-old(task) {
+  animation: 160ms ease-out both view-out;
+}
+
+html.closing-task::view-transition-new(task) {
+  animation: 200ms ease-out 120ms both fade-in;
 }
 
 @keyframes view-out {

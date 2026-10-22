@@ -95,6 +95,54 @@ describe("Backlog and Cancelled, kept off the board", () => {
   });
 });
 
+describe("Backlog and Cancelled sheets", () => {
+  it("are separate sheets, one hung from the top and one from the bottom", async () => {
+    const { SideSheet } = await import("../app/side-drawer");
+    const Stub = createRoutesStub([
+      {
+        path: "/me",
+        Component: () => (
+          <>
+            <SideSheet status="backlog">
+              <section>b</section>
+            </SideSheet>
+            <SideSheet status="cancelled">
+              <section>c</section>
+            </SideSheet>
+          </>
+        ),
+      },
+    ]);
+    const html = renderToStaticMarkup(<Stub initialEntries={["/me?backlog=1&cancelled=1"]} />);
+
+    const sheets = html.match(/<aside[^>]*>/g) ?? [];
+    expect(sheets).toHaveLength(2);
+    expect(sheets[0]).toContain('aria-label="Backlog"');
+    expect(sheets[0]).toContain("top-3");
+    expect(sheets[1]).toContain('aria-label="Cancelled"');
+    expect(sheets[1]).toContain("bottom-3");
+  });
+
+  it("leave a shut tab at the edge while the other sheet is out", async () => {
+    const { BacklogTab, CancelledTab } = await import("../app/side-drawer");
+    const Stub = createRoutesStub([
+      {
+        path: "/me",
+        Component: () => (
+          <>
+            <BacklogTab open count={3} />
+            <CancelledTab open={false} count={2} />
+          </>
+        ),
+      },
+    ]);
+    const html = renderToStaticMarkup(<Stub initialEntries={["/me?backlog=1"]} />);
+
+    expect(html).toMatch(/aria-label="Put away Backlog[^"]*"[^>]*style="left:20rem"/);
+    expect(html).toMatch(/aria-label="Pull out Cancelled[^"]*"[^>]*style="left:0"/);
+  });
+});
+
 describe("the View button's ring", () => {
   it("steps Board, Week, Plan, Focus and round, and back with Shift", async () => {
     const { nextView } = await import("../app/dock");
@@ -116,18 +164,30 @@ describe("the View button's ring", () => {
 });
 
 describe("the view dial", () => {
-  it("lays the views on a quarter arc, from the button's left to straight above it", async () => {
+  it("lays the views on a third of a turn, from the button's left round past straight above it", async () => {
     const { onDial } = await import("../app/dock");
 
     const first = onDial(0, 4);
     const last = onDial(3, 4);
     expect(first.x).toBeLessThan(0);
     expect(Math.abs(first.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(last.x)).toBeLessThanOrEqual(1);
+    expect(last.x).toBeGreaterThan(0);
     expect(last.y).toBeLessThan(0);
-    // Every pill sits as far from the centre as every other.
-    const reach = (one: { x: number; y: number }) => Math.round(Math.hypot(one.x, one.y));
-    expect(new Set([0, 1, 2, 3].map((at) => reach(onDial(at, 4)))).size).toBe(1);
+    // Every pill sits as far from the centre as every other, and close to it.
+    const reach = (one: { x: number; y: number }) => Math.hypot(one.x, one.y);
+    const reaches = [0, 1, 2, 3].map((at) => reach(onDial(at, 4)));
+    expect(Math.max(...reaches) - Math.min(...reaches)).toBeLessThanOrEqual(1);
+    expect(Math.max(...reaches)).toBeLessThan(100);
+  });
+
+  it("keeps a gap between two pills side by side, each 48px across", async () => {
+    const { onDial } = await import("../app/dock");
+
+    for (let at = 0; at < 3; at++) {
+      const one = onDial(at, 4);
+      const next = onDial(at + 1, 4);
+      expect(Math.hypot(next.x - one.x, next.y - one.y)).toBeGreaterThan(48);
+    }
   });
 });
 

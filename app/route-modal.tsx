@@ -32,6 +32,15 @@ const NAMES: Record<string, string> = {
   settings: "Settings",
 };
 
+/** How long a card takes to grow into its task, or the task to shrink back, in ms. Matches `app.css`. */
+const MORPH_MS = 380;
+
+/**
+ * The card the open task grew from, while it is still on the page. Closing
+ * the task shrinks the sheet back into it. See ADR-0040.
+ */
+let openedFrom: HTMLElement | null = null;
+
 /**
  * Names a card as the one a task opens from, for the one step of the view
  * transition: its box grows into the sheet's. The sheet takes the name back
@@ -42,7 +51,9 @@ export function markOpening(card: HTMLElement | null) {
   if (!card || typeof document.startViewTransition !== "function") return;
   card.style.viewTransitionName = "task";
   card.dataset.opening = "";
-  // The page behind holds still while the card grows; only the card moves.
+  openedFrom = card;
+  // The page behind holds still while the card grows; only the card moves,
+  // and the shade fades in over it.
   document.documentElement.classList.add("opening-task");
 }
 
@@ -52,8 +63,36 @@ function unmarkOpening() {
     card.style.viewTransitionName = "";
     delete card.dataset.opening;
   }
-  // The class lasts the transition, which is captured by now and runs 320ms.
-  window.setTimeout(() => document.documentElement.classList.remove("opening-task"), 400);
+  // The class lasts the transition, which is captured by now.
+  window.setTimeout(() => document.documentElement.classList.remove("opening-task"), MORPH_MS + 80);
+}
+
+/**
+ * Readies a task's close to run the open in reverse: the sheet shrinks back
+ * into the card it grew from, while the shade fades out. It holds only where
+ * that card is still on the page and the browser draws view transitions;
+ * else the close is a plain one. True when it is readied.
+ */
+function readyClosing(): boolean {
+  if (typeof document.startViewTransition !== "function") return false;
+  if (!openedFrom?.isConnected) return false;
+  document.documentElement.classList.add("closing-task");
+  return true;
+}
+
+/**
+ * Hands the name `task` to the card the sheet grew from. It runs as the sheet
+ * unmounts, inside the transition's update, so the new page has the card
+ * named where the old one had the sheet.
+ */
+function landClosing() {
+  const card = openedFrom;
+  if (!card?.isConnected || !document.documentElement.classList.contains("closing-task")) return;
+  card.style.viewTransitionName = "task";
+  window.setTimeout(() => {
+    card.style.viewTransitionName = "";
+    document.documentElement.classList.remove("closing-task");
+  }, MORPH_MS + 80);
 }
 
 /** What a modal at this address is called. */
@@ -151,9 +190,23 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
   const from = useRef<number | null>(null);
   const [steps, setSteps] = useState({ back: true, forward: true });
   const title = modalTitle(pathname);
+  const isTask = /\/t\/\d+$/.test(pathname);
+  // A sheet that grows out of a card leaves the moving to the card: its own
+  // entry would run inside the morph and shake it. Read once, as it mounts.
+  const [grown] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("opening-task"),
+  );
+  // The task the sheet grew into: only that task shrinks back into the card.
+  // A step to another task inside the sheet closes it plainly.
+  const grewAt = useRef(grown ? pathname : null);
   // The page behind owns its own address: a click on the shade, ✕ and Escape
-  // land there, and so does the end of a delete.
-  const close = () => navigate(closeTo, { preventScrollReset: true });
+  // land there, and so does the end of a delete. A task shrinks back into the
+  // card it grew from, where that card is still on the page.
+  const close = () =>
+    navigate(closeTo, {
+      preventScrollReset: true,
+      viewTransition: isTask && grewAt.current === pathname && readyClosing(),
+    });
 
   // A sheet opening and closing has a sound of its own. See `app/sound.ts`.
   useEffect(() => {
@@ -164,6 +217,10 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
   // The card this sheet grew from gives its name back before the new page is
   // captured. See `markOpening`.
   useLayoutEffect(unmarkOpening, [key]);
+
+  // As the sheet goes, the card it grew from takes the name back, so the
+  // close runs the open in reverse. See `readyClosing`.
+  useLayoutEffect(() => landClosing, []);
 
   // The page behind does not scroll while the modal is up.
   useEffect(() => {
@@ -193,9 +250,9 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // `close` reads the address it was given.
+    // `close` reads the address it was given, and the task it is on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [closeTo]);
+  }, [closeTo, pathname]);
 
   const nav: ModalNav = {
     closeTo,
@@ -227,9 +284,9 @@ export function RouteModal({ closeTo, children }: { closeTo: string; children: R
           ...(pulled ? { transform: `translateY(${pulled}px)` } : {}),
           // A task's sheet shares its name with the card it opened from, so
           // the card's box grows into it. See `CardItem` and ADR-0040.
-          ...(/\/t\/\d+$/.test(pathname) ? { viewTransitionName: "task" } : {}),
+          ...(isTask ? { viewTransitionName: "task" } : {}),
         }}
-        className="group/modal relative flex h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-bg shadow-2xl will-change-transform focus:outline-none sm:h-[min(56rem,calc(100dvh-3rem))] sm:max-w-6xl sm:rounded-3xl motion-safe:animate-sheet-up sm:motion-safe:animate-scale-in"
+        className={`group/modal relative flex h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-bg shadow-2xl will-change-transform focus:outline-none sm:h-[min(56rem,calc(100dvh-3rem))] sm:max-w-6xl sm:rounded-3xl ${grown ? "" : "motion-safe:animate-sheet-up sm:motion-safe:animate-scale-in"}`}
       >
         {/* The grip: a phone pulls it down to close the sheet. */}
         <div

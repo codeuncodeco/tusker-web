@@ -22,7 +22,7 @@ import { useSearchParams } from "react-router";
 
 import { EMPTY_LINE, flipped, isFinished, type Status } from "./board";
 import { ColumnHead } from "./board-chrome";
-import { BacklogTab, CancelledTab, isSide, PutAway, SideDrawer, SIDE_STATUSES, type SideStatus } from "./side-drawer";
+import { BacklogTab, CancelledTab, isSide, PutAway, SideSheet, SIDE_STATUSES, type SideStatus } from "./side-drawer";
 import { ColumnSweep } from "./column-sweep";
 import { landingInOrg } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
@@ -71,7 +71,7 @@ export function UnifiedBoard({
     answered.map((column) => column.status),
   );
   const planned = new Set(drawn.picked);
-  // Backlog and Cancelled live in the drawer. See ADR-0038.
+  // Backlog and Cancelled live on sheets of their own. See ADR-0041.
   const open = SIDE_STATUSES.filter((status) => columns.some((column) => column.status === status));
   // A post per press, so every press of a burst is drawn.
   const post = usePost();
@@ -136,8 +136,8 @@ export function UnifiedBoard({
 
   return (
     <>
-      <BacklogTab open={open.includes("backlog")} count={counts.backlog} drawerOpen={open.length > 0} />
-      <CancelledTab open={open.includes("cancelled")} count={counts.cancelled} drawerOpen={open.length > 0} />
+      <BacklogTab open={open.includes("backlog")} count={counts.backlog} />
+      <CancelledTab open={open.includes("cancelled")} count={counts.cancelled} />
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
         onDrop={onDrop}
@@ -215,10 +215,12 @@ export function UnifiedBoard({
 
           return (
             <>
-              <SideDrawer open={open}>
-                {columns.filter((column) => column.status === "backlog").map(columnOf)}
-                {columns.filter((column) => column.status === "cancelled").map(columnOf)}
-              </SideDrawer>
+              {columns.filter((column) => isSide(column.status)).map((column, at) => (
+                // Each pulled-out column on a sheet of its own. See ADR-0041.
+                <SideSheet key={column.status} status={column.status as SideStatus}>
+                  {columnOf(column, at)}
+                </SideSheet>
+              ))}
               {/* Each column is as long as its cards, and the page scrolls.
                   The columns are panes: a divider splits them, and a card is
                   the one thing on the board with an edge. See #184 and #191. */}
