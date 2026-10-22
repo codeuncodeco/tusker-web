@@ -195,3 +195,16 @@ export function flipped(params: URLSearchParams, which: string, on: boolean): st
   const query = next.toString();
   return query ? `?${query}` : "?";
 }
+
+/**
+ * What an empty column says, in place of a blank box: where the work is, or
+ * that there is none. A board that reads "nothing here" in a friendly voice
+ * reads as cleared, not as broken.
+ */
+export const EMPTY_LINE: Record<Status, string> = {
+  backlog: "Nothing waiting.",
+  todo: "All clear. Add one above.",
+  in_progress: "Nothing in hand. Drag a card here to start it.",
+  done: "Nothing finished yet. Soon.",
+  cancelled: "Nothing dropped.",
+};

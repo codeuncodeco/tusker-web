@@ -136,10 +136,10 @@ describe("who lands on the directory", () => {
 
     const response = await caught(directory(bo.cookie));
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/me");
+    expect(response.headers.get("location")).toBe("/");
 
     const asked = await caught(onDirectory(bo.cookie, { intent: "ask", org: "anything" }));
-    expect(asked.headers.get("location")).toBe("/me");
+    expect(asked.headers.get("location")).toBe("/");
   });
 });
 

@@ -13,6 +13,7 @@
  * work. Neither names a status.
  */
 
+import { play } from "./sound";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
@@ -21,8 +22,8 @@ import { seededBy } from "./assignee-filter";
 import { AssigneePicker } from "./assignee-picker";
 import type { Assignee } from "./assignees";
 import type { OrgHeld } from "./current-org";
-import { smallFieldClass } from "./forms";
-import { OrgNameChip, tellsOrgsApart } from "./org-chip";
+
+import { OrgDot, OrgNameChip, tellsOrgsApart } from "./org-chip";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "./quick-add";
 import type { Added } from "./unified";
 import type { Acted } from "./unified-actions.server";
@@ -84,7 +85,7 @@ export function UnifiedAdd({
   const [undone, setUndone] = useState(0);
 
   const box = useRef<HTMLTextAreaElement>(null);
-  const picker = useRef<HTMLSelectElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
 
   const answer = add.data;
   const error = answer && "error" in answer ? answer.error : null;
@@ -125,6 +126,7 @@ export function UnifiedAdd({
 
   /** Takes the add back and gives the box the words again. */
   function refile(one: Added) {
+    play("undo");
     // One add is one act, so the undo names every row it made in one post.
     const form = new FormData();
     form.append("intent", "undo");
@@ -171,26 +173,37 @@ export function UnifiedAdd({
         picker={
           <>
             {several ? (
-              <select
-                ref={picker}
-                name="slug"
-                // Empty until a pick, and required, so the browser refuses an
-                // add that names no org. The action refuses it as well.
-                required
-                value={filing?.slug ?? ""}
-                onChange={(event) => pick(event.target.value)}
-                aria-label="Add to org"
-                className={smallFieldClass}
-              >
-                <option value="" disabled>
-                  Pick an org
-                </option>
-                {orgs.map((org) => (
-                  <option key={org.slug} value={org.slug}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
+              // One chip per org, each a radio, so a pick is one click and the
+              // org the box files into is pressed in plain sight. None is
+              // picked until a person picks, and the group is required, so the
+              // browser refuses an add that names no org. The action refuses
+              // it as well.
+              <fieldset aria-label="Add to org" className="flex flex-wrap items-center gap-1">
+                {orgs.map((org, at) => {
+                  const on = filing?.slug === org.slug;
+                  return (
+                    <label
+                      key={org.slug}
+                      className={`press inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs has-focus-visible:outline-2 has-focus-visible:outline-accent ${
+                        on ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft" : "border-border text-muted hover:border-dim hover:text-fg"
+                      }`}
+                    >
+                      <input
+                        ref={at === 0 ? picker : undefined}
+                        type="radio"
+                        name="slug"
+                        value={org.slug}
+                        required
+                        checked={on}
+                        onChange={() => pick(org.slug)}
+                        className="sr-only"
+                      />
+                      <OrgDot color={org.color} />
+                      {org.name}
+                    </label>
+                  );
+                })}
+              </fieldset>
             ) : null}
 
             {/* The members of the org the pick holds. An org of one is not

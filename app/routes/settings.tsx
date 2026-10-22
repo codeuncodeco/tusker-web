@@ -1,15 +1,20 @@
-import { Form, redirect } from "react-router";
+import { Form, redirect, useFetcher } from "react-router";
 
 import { colorHex, readColor } from "../colors";
 import { cloudflareEnv } from "../context.server";
 import { fieldClass } from "../forms";
+import { Building, KeyIcon, Plug, XMark } from "../icons";
+import { Bento, Tile } from "../bento";
 import { OrgDot } from "../org-chip";
+import { Swatches } from "../swatches";
 import { createOrgKey, listOrgKeys, revokeOrgKey } from "../org-keys.server";
 import { readOrgApp, renameOrg, setOrgApp, setOrgColor, slugify } from "../orgs.server";
 import { isRefsBaseUrl } from "../refs";
 import { refreshOrgFields } from "../refs.server";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
 import type { Route } from "./+types/settings";
+import { orgPagePath } from "../paths";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `Settings for ${loaderData.org.name} — Tusker` }];
@@ -87,47 +92,56 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (done === "taken") return { error: `Another org already holds /${slug}.` };
 
   // Every page of this org moved, so the answer names the new address.
-  return redirect(`/o/${slug}/settings`);
+  return redirect(orgPagePath(slug, "settings"));
 }
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
   const { org, keys, app } = loaderData;
 
+  // A bento: name and address, colour, the org app and its keys, each a
+  // tile. A part's own heading gives way to the tile's. See ADR-0040.
+  const part = "[&>section]:border-0 [&>section]:pt-0 [&>section>h2]:sr-only";
   return (
-    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
-      <h1 className="text-2xl tracking-tight">Settings</h1>
+    <main className="flex flex-col gap-3">
+      <div className="flex items-start gap-3 p-1">
+        <h1 className="font-serif text-3xl tracking-tight">Settings</h1>
+        <ModalControls className="ml-auto" />
+      </div>
+      <Bento>
+        <Tile span={2} label="Name and address" icon={<Building className="size-3" />}>
+          <Form method="post" className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted">Name</span>
+              <input name="name" required defaultValue={org.name} className={fieldClass} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted">Slug</span>
+              <input name="slug" required defaultValue={org.slug} className={fieldClass} />
+              <span className="text-xs text-dim">
+                Every page of this org lives under /o/{org.slug}. An old link stops working once you change it.
+              </span>
+            </label>
+            {actionData && "error" in actionData && actionData.error ? (
+              <p role="alert" className="text-danger motion-safe:animate-shake">
+                {actionData.error}
+              </p>
+            ) : null}
+            <button className="press self-start rounded-xl bg-fg px-4 py-2 text-bg">Save</button>
+          </Form>
+        </Tile>
 
-      <Form method="post" className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          Name
-          <input name="name" required defaultValue={org.name} className={fieldClass} />
-        </label>
+        <Tile span={2} label="Colour" icon={<OrgDot color={org.color} />} className={part}>
+          <ColorForm org={org} actionData={actionData} />
+        </Tile>
 
-        <label className="flex flex-col gap-1">
-          Slug
-          <span className="text-muted">
-            The URL of every page of this org, as in /o/{org.slug}/board. An old link stops working
-            once you change it.
-          </span>
-          <input name="slug" required defaultValue={org.slug} className={fieldClass} />
-        </label>
+        <Tile span={2} label="Org app" icon={<Plug className="size-3" />} className={part}>
+          <OrgAppForm app={app} actionData={actionData} />
+        </Tile>
 
-        {actionData && "error" in actionData && actionData.error ? (
-          <p role="alert" className="text-danger">
-            {actionData.error}
-          </p>
-        ) : null}
-
-        <button className="self-start rounded border border-border px-3 py-2">
-          Save
-        </button>
-      </Form>
-
-      <ColorForm org={org} actionData={actionData} />
-
-      <OrgAppForm app={app} actionData={actionData} />
-
-      <Keys slug={org.slug} keys={keys} actionData={actionData} />
+        <Tile span={2} label="Keys for org apps" icon={<KeyIcon className="size-3" />} className={part}>
+          <Keys slug={org.slug} keys={keys} actionData={actionData} />
+        </Tile>
+      </Bento>
     </main>
   );
 }
@@ -135,11 +149,10 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
 /**
  * The colour this org draws on a page that mixes several.
  *
- * The control is the browser's own colour picker, so a person chooses a colour
- * rather than spelling one. It always answers an exact colour, and it cannot
- * answer nothing, so Clear is its own button: it posts an empty box, which the
- * action already reads as no colour. An org with no colour draws grey. See
- * ADR-0020.
+ * The palette is a row of swatches, and one click saves one. The browser's
+ * own colour picker stays below it for an exact colour. ✕ clears it: it posts
+ * an empty value, which the action already reads as no colour. An org with no
+ * colour draws grey. See ADR-0020.
  *
  * An org that already holds a palette name keeps it until somebody saves. The
  * picker opens on the swatch that name draws.
@@ -151,6 +164,10 @@ function ColorForm({
   org: Route.ComponentProps["loaderData"]["org"];
   actionData: Route.ComponentProps["actionData"];
 }) {
+  const fetcher = useFetcher();
+  const sent = fetcher.formData;
+  const color = sent ? String(sent.get("color")) || null : org.color;
+
   return (
     <section className="flex flex-col gap-3 border-t border-border pt-6">
       <h2 className="text-lg tracking-tight">Colour</h2>
@@ -159,38 +176,52 @@ function ColorForm({
         org you belong to sit together. Any member can change it.
       </p>
 
-      <div className="flex items-end gap-2">
-        <Form method="post" className="flex items-end gap-2">
-          <input type="hidden" name="intent" value="color" />
+      {/* One click on a swatch saves it. Each swatch submits the form with
+          its own value, so with no script it still saves. */}
+      <Form method="post" className="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="intent" value="color" />
+        <Swatches
+          name="color"
+          value={color}
+          label="Colour of this org"
+          onPick={(picked) => void fetcher.submit({ intent: "color", color: picked }, { method: "post" })}
+          extra={
+            color ? (
+              <button
+                name="color"
+                value=""
+                aria-label="Clear the colour"
+                title="Clear"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void fetcher.submit({ intent: "color", color: "" }, { method: "post" });
+                }}
+                className="press flex size-7 items-center justify-center rounded-full border border-dashed border-border text-muted hover:text-fg"
+              >
+                <XMark className="size-3" />
+              </button>
+            ) : null
+          }
+        />
+      </Form>
 
-          <label className="flex flex-col gap-1">
-            <span className="flex items-center gap-2">
-              Colour
-              <OrgDot color={org.color} />
-            </span>
-            <input
-              type="color"
-              name="color"
-              defaultValue={colorHex(org.color)}
-              className="h-10 w-16 cursor-pointer rounded border border-border bg-transparent p-1"
-            />
-          </label>
-
-          <button className="rounded border border-border px-3 py-2">
-            Save the colour
-          </button>
-        </Form>
-
-        {org.color ? (
-          <Form method="post">
-            <input type="hidden" name="intent" value="color" />
-            <input type="hidden" name="color" value="" />
-            <button className="rounded border border-border px-3 py-2 text-muted">
-              Clear
-            </button>
-          </Form>
-        ) : null}
-      </div>
+      {/* An exact colour, for an org whose colour is its brand's. */}
+      <Form method="post" className="flex items-end gap-2">
+        <input type="hidden" name="intent" value="color" />
+        <label className="flex flex-col gap-1">
+          <span className="flex items-center gap-2 text-muted">
+            Or an exact colour
+            <OrgDot color={color} />
+          </span>
+          <input
+            type="color"
+            name="color"
+            defaultValue={colorHex(org.color)}
+            className="h-10 w-16 cursor-pointer rounded border border-border bg-transparent p-1"
+          />
+        </label>
+        <button className="press rounded border border-border px-3 py-2">Save it</button>
+      </Form>
 
       {actionData && "colorError" in actionData && actionData.colorError ? (
         <p role="alert" className="text-danger">

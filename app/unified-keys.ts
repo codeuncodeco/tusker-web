@@ -23,7 +23,7 @@ import { line, type GuideLine } from "./key-guide";
 import { fires } from "./key-map";
 import { BOARD_ARROWS, LIST_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
-import { taskPath, useOrigin } from "./paths";
+import { useTaskHref } from "./paths";
 import { STEPS } from "./plan";
 import { isPlannable, type LiveTask } from "./unified";
 import { PLAN_VERBS, finishFields, moveFields, planFields, type Verbs } from "./unified-row";
@@ -211,7 +211,7 @@ export function useTaskKeys({
   verbs?: Verbs;
 }): (label: string) => Keyed {
   const navigate = useNavigate();
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
 
   return useKeyedList((key) => {
     if (columns) {
@@ -227,7 +227,7 @@ export function useTaskKeys({
 
     if (press.kind === "cursor") setOn(press.id);
     else if (press.kind === "open")
-      navigate(taskPath(press.task.id, origin));
+      navigate(hrefOf(press.task.id));
     else act(press.fields);
 
     return true;

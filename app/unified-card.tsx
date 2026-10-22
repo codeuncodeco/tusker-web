@@ -8,16 +8,22 @@
  * plan it. See ADR-0006, "One order per column", and ADR-0025.
  *
  * The card is its title line and at most one line under it, the content line.
- * A drag starts from the grip, so the rest of the card scrolls.
+ * A drag starts from anywhere on it; a swipe on a phone still scrolls, since a
+ * finger drags only after a short hold. See ADR-0041.
  */
 
 import { Link } from "react-router";
 
+import { colorCss } from "./colors";
 import { ContentLine } from "./content-line";
-import { Grip, useDragItem } from "./drag-lists";
+import { useDragItem } from "./drag-lists";
+import { FinishCircle } from "./finish-circle";
 import { Initials } from "./initials";
-import { taskPath, useOrigin } from "./paths";
+import { keyHint } from "./key-hint";
+import { markOpening } from "./route-modal";
+import { useTaskHref } from "./paths";
 import { type LiveTask } from "./unified";
+import { moveFields, planFields } from "./unified-row";
 
 export function UnifiedCard({
   task,
@@ -25,6 +31,8 @@ export function UnifiedCard({
   domId,
   place,
   showsOrg,
+  planned = false,
+  act,
 }: {
   task: LiveTask;
   selected: boolean;
@@ -37,9 +45,16 @@ export function UnifiedCard({
   place: () => void;
   /** True when the card names its org with a chip. See `tellsOrgsApart`. */
   showsOrg: boolean;
+  /** True while today's plan holds the task. */
+  planned?: boolean;
+  /** Posts one act on this page, as a key does: the ring and the plan toggle use it. */
+  act?: (fields: Record<string, string>) => void;
 }) {
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
   const drag = useDragItem(task.id);
+  // Only work in hand can be planned. See `planFields`.
+  const plannable = task.status === "todo" || task.status === "in_progress";
+  const plan = keyHint(planned ? "unplan" : "plan");
 
   return (
     <li
@@ -48,24 +63,55 @@ export function UnifiedCard({
       onClick={place}
       ref={drag.ref}
       style={drag.style}
+      // The whole card drags; a press that does not move is a click.
+      {...drag.listeners}
       // The card being dragged stays faded where it will land, and the copy
       // under the pointer is the one that moves.
-      className={`flex flex-col gap-2 rounded border p-3 ${
+      className={`group/card press-soft flex flex-col gap-2 rounded border p-3 hover:shadow-md ${drag.card} ${
         selected
           ? "border-fg bg-surface-2"
           : "border-border bg-surface"
       } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
-        <Grip grip={drag.grip} />
+        {act ? (
+          <FinishCircle
+            finished={task.finished}
+            title={task.title}
+            color={task.org.color ? colorCss(task.org.color) : undefined}
+            onFinish={() => act(moveFields(task, "done"))}
+            onReopen={() => act(moveFields(task, "todo"))}
+          />
+        ) : null}
         <Link
-          to={taskPath(task.id, origin)}
+          to={hrefOf(task.id)}
+          viewTransition
+          onClick={(event) => markOpening(event.currentTarget.closest("li"))}
           className={`flex-1 underline-offset-2 hover:underline ${
             task.finished ? "text-muted line-through" : ""
           }`}
         >
           {task.title}
         </Link>
+        {act && plannable ? (
+          // One click plans it for today, where the pointer is fine; `p` does
+          // the same from the keys. A planned task says so at all times.
+          <button
+            type="button"
+            {...plan.keys}
+            onClick={(event) => {
+              event.stopPropagation();
+              act(planFields(task, Boolean(planned)));
+            }}
+            className={`press shrink-0 self-center rounded-full border px-2 py-0.5 text-[0.625rem] uppercase tracking-wide ${
+              planned
+                ? "border-fg text-fg motion-safe:animate-pop-soft"
+                : "hidden border-border text-muted hover:border-fg hover:text-fg pointer-fine:group-hover/card:inline-flex"
+            }`}
+          >
+            {planned ? "Today" : "Plan"}
+          </button>
+        ) : null}
         <Initials assignees={task.assignees} />
       </span>
 

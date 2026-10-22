@@ -29,9 +29,9 @@ function box(orgs: OrgHeld[]): string {
   return renderToStaticMarkup(<Stub initialEntries={["/me"]} />);
 }
 
-/** The org select, or undefined when the box draws none. */
+/** The org chips, or undefined when the box draws none. */
 function picker(html: string): string | undefined {
-  return /<select[^>]*aria-label="Add to org"[^>]*>.*?<\/select>/s.exec(html)?.[0];
+  return /<fieldset[^>]*aria-label="Add to org"[^>]*>.*?<\/fieldset>/s.exec(html)?.[0];
 }
 
 describe("a box for a person in several orgs", () => {
@@ -39,9 +39,11 @@ describe("a box for a person in several orgs", () => {
     const select = picker(box([ADA, ACME]));
 
     expect(select).toBeDefined();
-    expect(select).toMatch(/<select[^>]*required/);
-    expect(select).toMatch(/<option value="" disabled="" selected="">/);
-    expect(select).not.toMatch(/value="(ada|acme)" selected/);
+    // One radio chip per org, one click each, required as a group.
+    const radios = [...select!.matchAll(/<input[^>]*type="radio"[^>]*>/g)].map((one) => one[0]);
+    expect(radios).toHaveLength(2);
+    for (const radio of radios) expect(radio).toContain("required");
+    expect(select).not.toContain("checked");
   });
 
   it("names no org over the box while none is picked", () => {

@@ -11,7 +11,8 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { ANYONE, ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
+import { addressed, ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
+import { CLIENT_NAME } from "./client-filter";
 import { fieldKeyOf } from "./field-filter";
 import { readSearch, SEARCH_NAME } from "./search";
 
@@ -37,8 +38,13 @@ export function narrowingOf(params: URLSearchParams): string {
   const narrowing = new URLSearchParams();
   const search = readSearch(params);
   if (search) narrowing.set(SEARCH_NAME, search);
-  const assignee = readAssignee(params);
-  if (assignee !== ANYONE) narrowing.set(ASSIGNEE_NAME, assignee);
+  // A filter the address says is kept, `Anyone` included: an absent filter is
+  // the reader's own work, so a board widened to everybody has to remember
+  // that it was. See ADR-0035.
+  if (params.has(ASSIGNEE_NAME)) narrowing.set(ASSIGNEE_NAME, addressed(readAssignee(params)));
+  // The unified board's client, which names its org. See ADR-0036.
+  const client = params.get(CLIENT_NAME)?.trim();
+  if (client) narrowing.set(CLIENT_NAME, client);
   // The page holds no declarations here, so every field filter is kept, and
   // the loader ignores the ones the org no longer offers.
   for (const [name, value] of params) {

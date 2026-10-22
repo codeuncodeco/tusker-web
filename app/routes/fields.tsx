@@ -1,10 +1,11 @@
-import { Form, Link } from "react-router";
+import { Form, Link, useFetcher } from "react-router";
 
-import { colorRows, PALETTE, readColor, type ColorRow } from "../colors";
+import { ASSIGNABLE, colorRows, readColor, type ColorRow } from "../colors";
 import { listColors, setColors } from "../colors.server";
 import { cloudflareEnv } from "../context.server";
 import { Dot } from "../dot";
 import {
+  canNameClient,
   FIELD_TYPES,
   FIELD_TYPE_LABEL,
   fieldKey,
@@ -18,15 +19,21 @@ import {
   editField,
   heldValues,
   listFields,
+  markClientField,
   readField,
   removeField,
 } from "../fields.server";
+import { Check, Plus, XMark } from "../icons";
+import { Swatches } from "../swatches";
 import { fieldClass } from "../forms";
 import { readOrgApp } from "../orgs.server";
 import { isLinked, isRefsPath } from "../refs";
 import { refOptionsOfOrg, refreshField } from "../refs.server";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
+import { Stat } from "../bento";
 import type { Route } from "./+types/fields";
+import { orgPagePath } from "../paths";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `Fields of ${loaderData.org.name} — Tusker` }];
@@ -45,11 +52,18 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     readOrgApp(env.DB, scope),
   ]);
 
-  // The lines the colour form draws for each reference field: the cached
-  // options, and then every other value a task holds or a colour names.
+  // The lines the colour rows draw for each field with a list: a reference
+  // field's cached options, then every other value a task holds or a colour
+  // names; a select's own options. See ADR-0006 and ADR-0036.
   const rows: Record<string, ColorRow[]> = {};
   for (const key of references) {
     rows[key] = colorRows(options[key] ?? [], colors[key] ?? {}, held[key] ?? []);
+  }
+  for (const field of fields.filter((one) => one.type === "select")) {
+    rows[field.key] = colorRows(
+      field.options.map((option) => ({ id: option, label: option })),
+      colors[field.key] ?? {},
+    );
   }
 
   return {
@@ -114,14 +128,34 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (intent === "colors") {
     const field = await readField(env.DB, scope, String(form.get("key") ?? ""));
     if (!field) throw new Response("Not found", { status: 404 });
-    // Only a reference field takes a colour. A select holds its own list and
-    // no endpoint, and that list has no colour screen yet. See ADR-0006.
-    if (field.type !== "reference") throw new Response("That field takes no colour.", { status: 400 });
+    // A field with a list takes a colour per value: a reference field and a
+    // select. Text and a date have no list to colour. See ADR-0006.
+    if (!canNameClient(field.type)) throw new Response("That field takes no colour.", { status: 400 });
 
     const read = readColors(form, field.label);
     if ("error" in read) return read;
 
     await setColors(env.DB, scope, field.key, read.colors);
+    return { ok: true };
+  }
+
+  // One value's colour, from one click on a swatch. An empty colour clears it.
+  if (intent === "color") {
+    const field = await readField(env.DB, scope, String(form.get("key") ?? ""));
+    if (!field) throw new Response("Not found", { status: 404 });
+    if (!canNameClient(field.type)) throw new Response("That field takes no colour.", { status: 400 });
+
+    const read = readColor(form.get("color"));
+    if ("error" in read) return { error: `${field.label}: ${read.error}` };
+    await setColors(env.DB, scope, field.key, { [String(form.get("value") ?? "")]: read.color });
+    return { ok: true };
+  }
+
+  // Names the field that holds the client, or none for an empty key. See ADR-0036.
+  if (intent === "client") {
+    const key = String(form.get("key") ?? "");
+    const marked = await markClientField(env.DB, scope, key || null);
+    if (!marked) return { error: "Only a select or a reference field can name the client." };
     return { ok: true };
   }
 
@@ -206,15 +240,21 @@ function check(
  * a date field has no list of values to pick from. The box says so, rather
  * than take a tick that draws nothing.
  */
-function Flags({ field }: { field?: OrgField }) {
+function Flags({ field, saves = false }: { field?: OrgField; saves?: boolean }) {
+  // On a declared field a tick saves at once, as the rest of the field does
+  // when it is left: the form goes as it stands.
+  const save = saves
+    ? (event: React.ChangeEvent<HTMLInputElement>) => event.currentTarget.form?.requestSubmit()
+    : undefined;
+
   return (
     <span className="flex flex-wrap items-center gap-4">
       <label className="flex items-center gap-2">
-        <input type="checkbox" name="show_on_card" value="1" defaultChecked={field?.show_on_card} />
+        <input type="checkbox" name="show_on_card" value="1" defaultChecked={field?.show_on_card} onChange={save} />
         Show on the card
       </label>
       <label className="flex items-center gap-2">
-        <input type="checkbox" name="filterable" value="1" defaultChecked={field?.filterable} />
+        <input type="checkbox" name="filterable" value="1" defaultChecked={field?.filterable} onChange={save} />
         Filter by it
       </label>
       <span className="text-muted">The board filters by a select or a reference field, not by text or a date.</span>
@@ -265,63 +305,110 @@ function RefCache({ field, cached }: { field: OrgField; cached: number }) {
 }
 
 /**
- * The colours of one reference field: one box per value, and one save.
+ * The colours of one field's values: a row of swatches per value, and one
+ * click saves a colour. The ✕ clears it, and the value draws plain. A colour
+ * set as an exact hex still draws, and still shows its dot; a swatch only
+ * replaces it. See ADR-0006.
  *
- * The box takes a palette name or an exact colour. The list offers the palette
- * names, and a person can still type `#2563eb`, which draws as typed in both
- * themes. See ADR-0006.
+ * Each row is its own form, and each swatch a submit of it, so with no script
+ * a click still saves. With script it saves through a fetcher, in place.
  */
-function RefColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
-  const list = `palette-${field.key}`;
-
+function OptionColors({ field, rows }: { field: OrgField; rows: ColorRow[] }) {
   if (rows.length === 0) {
     return (
       <p className="text-muted">
-        Nothing to colour yet. Refresh the options, and each one takes a colour here.
+        Nothing to colour yet. {field.type === "reference" ? "Refresh the options, and each" : "Each option"} takes a
+        colour here.
       </p>
     );
   }
 
   return (
-    <Form method="post" className="flex flex-col gap-2">
-      <input type="hidden" name="intent" value="colors" />
-      <input type="hidden" name="key" value={field.key} />
-
-      <span className="text-muted">
-        A colour draws as a dot on the card and beside the box on the task page. Type a palette
-        name or an exact colour, for example blue or #2563eb. Empty draws plain.
-      </span>
-
-      <datalist id={list}>
-        {PALETTE.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
-
-      <ul className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
+      <span className="text-xs uppercase tracking-wide text-muted">Colours</span>
+      <ul className="flex flex-col gap-2">
         {rows.map((row) => (
-          <li key={row.value} className="flex items-center gap-2">
-            <Dot color={row.color} />
-            <span className="w-48 truncate">
-              {row.label}
-              {row.cached ? null : <span className="text-muted"> (gone)</span>}
-            </span>
-            <input
-              name={`${COLOR_BOX}${row.value}`}
-              list={list}
-              defaultValue={row.color ?? ""}
-              aria-label={`Colour for ${row.label}`}
-              placeholder="blue or #2563eb"
-              className={`${fieldClass} py-1`}
-            />
-          </li>
+          <ColorLine key={row.value} field={field} row={row} />
         ))}
       </ul>
+    </div>
+  );
+}
 
-      <button className="self-start rounded border border-border px-3 py-1">
-        Save colours
+/** One value's line of swatches. */
+function ColorLine({ field, row }: { field: OrgField; row: ColorRow }) {
+  const fetcher = useFetcher();
+  const sent = fetcher.formData;
+  const color = sent ? String(sent.get("color")) || null : row.color;
+  const post = (picked: string) =>
+    void fetcher.submit({ intent: "color", key: field.key, value: row.value, color: picked }, { method: "post" });
+
+  return (
+    <li>
+      <Form method="post" className="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="intent" value="color" />
+        <input type="hidden" name="key" value={field.key} />
+        <input type="hidden" name="value" value={row.value} />
+        <span className="flex w-40 items-center gap-2 truncate">
+          <Dot color={color} />
+          {row.label}
+          {row.cached ? null : <span className="text-muted"> (gone)</span>}
+        </span>
+        <Swatches
+          name="color"
+          value={color}
+          label={`Colour for ${row.label}`}
+          names={ASSIGNABLE}
+          onPick={post}
+          extra={
+            color ? (
+              <button
+                name="color"
+                value=""
+                aria-label={`Clear the colour of ${row.label}`}
+                title="Clear"
+                onClick={(event) => {
+                  event.preventDefault();
+                  post("");
+                }}
+                className="press flex size-7 items-center justify-center rounded-full border border-dashed border-border text-muted hover:text-fg"
+              >
+                <XMark className="size-3" />
+              </button>
+            ) : null
+          }
+        />
+      </Form>
+    </li>
+  );
+}
+
+/**
+ * The switch that names a field as the org's client field: one click. A field
+ * that holds it says so, and a click on it lets go. Only a select or a
+ * reference can hold it. See ADR-0036.
+ */
+function ClientSwitch({ field }: { field: OrgField }) {
+  const fetcher = useFetcher();
+  if (!canNameClient(field.type)) return null;
+  const sent = fetcher.formData;
+  const on = sent ? String(sent.get("key")) === field.key : Boolean(field.client);
+
+  return (
+    <fetcher.Form method="post" className="ml-auto">
+      <input type="hidden" name="intent" value="client" />
+      <input type="hidden" name="key" value={on ? "" : field.key} />
+      <button
+        aria-pressed={on}
+        title={on ? "This field names the client. Click to stop." : "Make this the client field: tag cards, filter every board and give each client a page."}
+        className={`press inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${
+          on ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft" : "border-border text-muted hover:text-fg"
+        }`}
+      >
+        {on ? <Check className="size-3" /> : null}
+        {on ? "Client field" : "Make it the client field"}
       </button>
-    </Form>
+    </fetcher.Form>
   );
 }
 
@@ -341,14 +428,17 @@ function DeclaredField({
   cached: number;
   colors: ColorRow[];
 }) {
+  const edit = useFetcher();
+
   return (
-    <li className="flex flex-col gap-2 rounded border border-border p-3">
-      <span className="flex items-baseline gap-2">
+    <li className="flex flex-col gap-3 rounded-2xl bg-surface p-4 motion-safe:animate-rise-in">
+      <span className="flex items-center gap-2">
         <code>{field.key}</code>
         <span className="text-muted">{FIELD_TYPE_LABEL[field.type]}</span>
+        <ClientSwitch field={field} />
       </span>
 
-      <Form method="post" className="flex flex-col gap-2">
+      <edit.Form method="post" className="flex flex-col gap-2">
         <input type="hidden" name="intent" value="edit" />
         <input type="hidden" name="key" value={field.key} />
 
@@ -374,21 +464,17 @@ function DeclaredField({
 
         {field.type === "reference" ? <RefPath base={base} field={field} /> : null}
 
-        <Flags field={field} />
+        <Flags field={field} saves />
 
         <span className="flex gap-2">
-          <button className="rounded border border-border px-3 py-1">
-            Save
+          <button className="press rounded border border-border px-3 py-1">
+            {edit.state === "idle" ? "Save" : "Saving…"}
           </button>
         </span>
-      </Form>
+      </edit.Form>
 
-      {field.type === "reference" ? (
-        <>
-          <RefCache field={field} cached={cached} />
-          <RefColors field={field} rows={colors} />
-        </>
-      ) : null}
+      {field.type === "reference" ? <RefCache field={field} cached={cached} /> : null}
+      {canNameClient(field.type) ? <OptionColors field={field} rows={colors} /> : null}
 
       <Form method="post">
         <input type="hidden" name="intent" value="remove" />
@@ -408,14 +494,19 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
   const pulled = actionData && "pulled" in actionData ? actionData.pulled : null;
 
   return (
-    <main className="mx-auto flex flex-1 max-w-2xl flex-col gap-6 p-8">
-      <h1 className="text-2xl tracking-tight">Fields</h1>
+    // A bento: a head, one tile per declared field, two abreast, and the
+    // form that declares one more as a tile of its own. See ADR-0040.
+    <main className="flex flex-col gap-3">
+      <div className="flex items-start gap-3 p-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-2">
+          <h1 className="font-serif text-3xl tracking-tight">Fields</h1>
+          <Stat value={fields.length} word={fields.length === 1 ? "field" : "fields"} />
+          <p className="text-xs text-muted">Each shows on every task of this org, and on no task of another one.</p>
+        </div>
+        <ModalControls />
+      </div>
 
-      <p className="text-muted">
-        A field this org declares shows on every task of this org, and on no task of another one.
-      </p>
-
-      <ul className="flex flex-col gap-3">
+      <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {fields.map((field) => (
           <DeclaredField
             key={field.key}
@@ -427,8 +518,11 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
         ))}
       </ul>
 
-      <Form method="post" className="flex flex-col gap-3 border-t border-border pt-6">
-        <h2 className="text-lg">Declare a field</h2>
+      <Form method="post" className="group/declare flex flex-col gap-3 rounded-2xl bg-surface p-4 lg:w-1/2">
+        <h2 className="flex items-center gap-1.5 font-mono text-[0.625rem] uppercase tracking-[0.15em] text-dim">
+          <Plus className="size-3" />
+          Declare a field
+        </h2>
         <input type="hidden" name="intent" value="declare" />
 
         <label className="flex flex-col gap-1">
@@ -436,29 +530,37 @@ export default function Fields({ loaderData, actionData }: Route.ComponentProps)
           <input name="label" required className={fieldClass} />
         </label>
 
-        <label className="flex flex-col gap-1">
-          Type
-          <select name="type" defaultValue="text" className={fieldClass}>
+        {/* The type is one click, and the boxes below it are the ones that
+            type reads: the options for a select, the refs path for a
+            reference. */}
+        <fieldset className="flex flex-col gap-1">
+          <legend>Type</legend>
+          <span className="flex flex-wrap gap-1">
             {FIELD_TYPES.map((type) => (
-              <option key={type} value={type}>
+              <label
+                key={type}
+                className="press cursor-pointer rounded-full border border-border px-3 py-1 text-xs text-muted hover:text-fg has-[:checked]:border-fg has-[:checked]:bg-fg has-[:checked]:text-bg has-focus-visible:outline-2 has-focus-visible:outline-accent"
+              >
+                <input type="radio" name="type" value={type} defaultChecked={type === "text"} className="sr-only" />
                 {FIELD_TYPE_LABEL[type]}
-              </option>
+              </label>
             ))}
-          </select>
-        </label>
+          </span>
+        </fieldset>
 
-        <label className="flex flex-col gap-1">
+        <label className="flex-col gap-1 hidden group-has-[input[name=type][value=select]:checked]/declare:flex">
           Options, one per line
-          <span className="text-muted">A select reads these. The other types do not.</span>
           <textarea name="options" rows={3} className={fieldClass} />
         </label>
 
         {linked ? (
-          <RefPath base={app.refs_base_url} />
+          <div className="hidden group-has-[input[name=type][value=reference]:checked]/declare:block">
+            <RefPath base={app.refs_base_url} />
+          </div>
         ) : (
           <p className="text-muted">
             A reference field reads from this org's org app. Name its base URL and key in{" "}
-            <Link to={`/o/${org.slug}/settings`} className="underline">
+            <Link to={orgPagePath(org.slug, "settings")} className="underline">
               settings
             </Link>{" "}
             first.

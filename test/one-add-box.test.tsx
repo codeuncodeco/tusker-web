@@ -51,6 +51,8 @@ function unifiedBoard(): string {
       { slug: "acme", name: "Acme", color: "blue" },
     ],
     members: {},
+    clients: [],
+    client: null,
     columns: COLUMNS.map((one) => ({ ...one, tasks: [] })),
     planned: [],
     toggles: { backlog: true, cancelled: true },
@@ -79,21 +81,18 @@ describe.each([
     expect(boxes(draw())).toHaveLength(1);
   });
 
-  it("sits above the row of columns, outside every one", () => {
+  it("heads To do, under its heading and above its cards, outside the keyed list", () => {
     const html = draw();
-    // Every column opens on its heading, so the box is outside them all when
-    // the whole of it comes before the first one.
+    // The board draws no bar: the box sits in To do, where what it adds
+    // lands. See ADR-0038.
+    const todo = html.indexOf(">To do<");
     const box = html.indexOf('value="create"');
+    const list = html.indexOf("<ul", box);
 
-    expect(html.indexOf('name="title"', box)).toBeLessThan(html.indexOf("<h2"));
-  });
-
-  it("takes the left of the top row, and the filters take the right", () => {
-    const html = draw();
-    const row = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
-
-    expect(row).toContain('value="create"');
-    expect(row.indexOf('value="create"')).toBeLessThan(row.indexOf("<nav"));
+    expect(todo).toBeGreaterThan(-1);
+    expect(box).toBeGreaterThan(todo);
+    expect(html.indexOf('name="title"', box)).toBeLessThan(list);
+    expect(html.indexOf(">In progress<")).toBeGreaterThan(box);
   });
 
   it("draws no decision tick: the task page sets the mark", () => {

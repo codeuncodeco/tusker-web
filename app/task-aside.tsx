@@ -17,14 +17,19 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Form } from "react-router";
+import { Form, useSubmit } from "react-router";
 
 import type { Assignee } from "./assignees";
 import { STATUSES, STATUS_LABEL, type Status } from "./board";
-import { stampDate, stampTime } from "./day";
+import { localDay, stampDate, stampTime } from "./day";
+import type { OptionColors } from "./colors";
 import { Dot } from "./dot";
 import type { OrgField } from "./fields";
 import { fieldClass } from "./forms";
+import { HoldButton } from "./hold-button";
+import { CalendarDay, CircleHalf, Clock, Folder, Scale, Tag, Trash, Users } from "./icons";
+import { Avatar } from "./initials";
+import { Tile } from "./bento";
 import { taskSent, usePost, useSent, type TaskHeld } from "./pending";
 import { PostButton } from "./posting";
 import type { RefPicker } from "./refs.server";
@@ -50,6 +55,8 @@ export type AsideProps = {
   fields: OrgField[];
   refs: Record<string, RefPicker>;
   colors: Record<string, string | null>;
+  /** Every value's colour, as `field key → value → colour`, for the chips a short select draws. */
+  optionColors?: OptionColors;
   /** The org's members. Empty for an org of one, which draws no picker. */
   members: Assignee[];
   assignees: Assignee[];
@@ -85,7 +92,19 @@ const asideClass = [
   "max-sm:motion-safe:transition-transform max-sm:motion-safe:starting:translate-y-full",
 ].join(" ");
 
-export function TaskAside(props: AsideProps) {
+export function TaskAside(props: AsideProps & { inline?: boolean }) {
+  // On a task opened as a modal the aside is a card beside the description,
+  // on a phone as well, and the acts head the sheet instead. See ADR-0039.
+  if (props.inline) {
+    return (
+      <aside className="flex flex-col gap-5 self-start rounded-3xl border border-border bg-surface p-5 [&_legend]:text-xs [&_legend]:uppercase [&_legend]:tracking-wide [&_legend]:text-muted [&>label]:text-xs [&>label]:uppercase [&>label]:tracking-wide [&>label]:text-muted [&_label>input]:normal-case [&_label>select]:normal-case">
+        {props.task.finished ? <ReadAside {...props} /> : <LiveAside {...props} />}
+        <div className="border-t border-border pt-4 text-xs text-muted">
+          <TimesList times={props.task.times} />
+        </div>
+      </aside>
+    );
+  }
   return (
     <aside className={asideClass} {...{ [ASIDE_MARK]: "" }}>
       <ActsRow task={props.task} />
@@ -93,6 +112,30 @@ export function TaskAside(props: AsideProps) {
       <TimesList times={props.task.times} />
     </aside>
   );
+}
+
+/**
+ * The task's properties as bento tiles: Status, Due, Assignees, Decision,
+ * one tile per field, and Timeline. Each control is the aside's own, on the
+ * same form, and saves on its own; only the frame differs. A finished task
+ * draws the same tiles as text. See ADR-0040.
+ */
+export function TaskTiles(props: AsideProps) {
+  return (
+    <>
+      {props.task.finished ? <ReadAside {...props} tiled /> : <LiveAside {...props} tiled />}
+      <Tile label="Timeline" icon={<Clock className="size-3" />}>
+        <div className="text-xs [&_dt]:text-dim">
+          <TimesList times={props.task.times} />
+        </div>
+      </Tile>
+    </>
+  );
+}
+
+/** The acts of a task, for the head of a task opened as a modal. */
+export function TaskActs({ task }: { task: AsideTask }) {
+  return <ActsRow task={task} />;
 }
 
 /**
@@ -115,61 +158,23 @@ function ActsRow({ task }: { task: AsideTask }) {
 }
 
 /**
- * Delete, which asks before it writes. The first click turns the button into a
- * confirm in its place, and only the confirm's Delete posts. Keep puts the
- * button back. The ask is this block's own state: no route, no dialog, and no
- * key reaches it. See ADR-0031.
+ * Delete, which asks before it writes: hold it and a bar fills, and the task
+ * goes when it is full; let go early and nothing happens. A click asks
+ * instead, by the task's number, and a second click deletes. The ask is this
+ * block's own state: no route, no dialog, and no key reaches it. See ADR-0031
+ * and `HoldButton`.
  */
-function DeleteAct({ taskId }: { taskId: TaskId }) {
-  const [asking, setAsking] = useState(false);
-  // Focus follows the swap, so a person on the keyboard is not dropped at the
-  // top of the page: the confirm takes it on Keep, so a second Enter deletes
-  // nothing, and Keep gives it back to the button. The button takes no focus
-  // when the page first draws.
-  const [asked, setAsked] = useState(false);
+export function DeleteAct({ taskId }: { taskId: TaskId }) {
+  const submit = useSubmit();
 
-  return asking ? (
-    <DeleteAsk taskId={taskId} onKeep={() => setAsking(false)} />
-  ) : (
-    <DeleteButton
-      focused={asked}
-      onAsk={() => {
-        setAsking(true);
-        setAsked(true);
-      }}
+  return (
+    <HoldButton
+      label="Delete"
+      sure={`Delete ${taskLabel(taskId)}? Click again`}
+      icon={<Trash className="size-3.5" />}
+      onConfirm={() => void submit({ intent: "delete" }, { method: "post" })}
+      className="self-start"
     />
-  );
-}
-
-/** Delete as it first draws: a plain button that posts nothing. */
-export function DeleteButton({ onAsk, focused = false }: { onAsk: () => void; focused?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onAsk}
-      autoFocus={focused}
-      className="self-start rounded border border-border px-3 py-2 text-danger"
-    >
-      Delete
-    </button>
-  );
-}
-
-/** The confirm Delete turns into: the task named, a Delete that posts, and Keep. */
-export function DeleteAsk({ taskId, onKeep }: { taskId: TaskId; onKeep: () => void }) {
-  return (
-    <Form method="post" className="flex basis-full flex-wrap items-center gap-2">
-      <span className="basis-full">Delete {taskLabel(taskId)}?</span>
-      <PostButton intent="delete" label="Delete" busyLabel="Deleting…" />
-      <button
-        type="button"
-        onClick={onKeep}
-        autoFocus
-        className="self-start rounded border border-border px-3 py-2"
-      >
-        Keep
-      </button>
-    </Form>
   );
 }
 
@@ -193,77 +198,174 @@ function PrimaryAct({ task }: { task: AsideTask }) {
   );
 }
 
+/** The look of a chip in the aside, pressed or not. */
+function radioChip(on: boolean): string {
+  return `press inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs has-focus-visible:outline-2 has-focus-visible:outline-accent ${
+    on ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft" : "border-border text-muted hover:border-dim hover:text-fg"
+  }`;
+}
+
+/** The dot each status draws on its chip. */
+export const STATUS_DOT: Record<Status, string> = {
+  backlog: "bg-dim",
+  todo: "bg-dim",
+  in_progress: "bg-fg",
+  done: "bg-win",
+  cancelled: "bg-dim",
+};
+
+/** The most options a select draws as chips; a longer one is a select. */
+const CHIP_OPTIONS = 8;
+
+/** The due dates one click sets, in days from today, and Clear. */
+const DUE_CHIPS = [
+  { label: "Today", days: 0 },
+  { label: "Tomorrow", days: 1 },
+  { label: "Next week", days: 7 },
+  { label: "Clear", days: null },
+] as const;
+
+/** Today, moved on by a number of days, on the person's own clock. */
+function addDays(days: number): Date {
+  const at = new Date();
+  at.setDate(at.getDate() + days);
+  return at;
+}
+
+/** The status one tap of the phone bar moves a task to: along the board, and round again. */
+export function nextStatus(status: Status): Status {
+  const walk: Status[] = ["backlog", "todo", "in_progress", "done"];
+  const at = walk.indexOf(status);
+  return at === -1 || at === walk.length - 1 ? "todo" : walk[at + 1]!;
+}
+
 /** The controls of an open task. Each one saves on its own. */
-function LiveAside({ task, fields, refs, colors, members, assignees }: AsideProps) {
+function LiveAside({ task, fields, refs, colors, optionColors, members, assignees, tiled = false }: AsideProps & { tiled?: boolean }) {
   const post = usePost({ flushSync: true });
   const drawn = useDrawnTask(task, assignees);
   const held = new Set(drawn.assignees);
+  // As tiles, each part is a tile that names it, and the part's own heading
+  // is said to a screen reader only.
+  const Part = tiled ? Tile : Plain;
+  const legend = tiled ? "sr-only" : "mb-1.5";
 
   return (
     <>
-      <label className="flex flex-col gap-1">
-        Status
-        {/* Moving to Done here is the same act as Finish, so a marked task
-            raises the same prompt. See ADR-0010. */}
-        <select
-          name="status"
-          form={TASK_FORM}
-          value={drawn.status}
-          onChange={(event) => post({ intent: "status", status: event.target.value })}
-          className={fieldClass}
-        >
+      {/* Every status is one chip, one click. Moving to Done here is the same
+          act as Finish, so a marked task raises the same prompt. See
+          ADR-0010. Each chip is a radio of the page's one form, so with no
+          script Save posts it. */}
+      <Part label="Status" icon={<CircleHalf className="size-3" />}>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className={legend}>Status</legend>
+        <span className="flex flex-wrap gap-1">
           {STATUSES.map((one) => (
-            <option key={one} value={one}>
+            <label key={one} className={radioChip(drawn.status === one)}>
+              <input
+                type="radio"
+                name="status"
+                value={one}
+                form={TASK_FORM}
+                checked={drawn.status === one}
+                onChange={() => post({ intent: "status", status: one })}
+                className="sr-only"
+              />
+              <span aria-hidden="true" className={`size-1.5 rounded-full ${STATUS_DOT[one]}`} />
               {STATUS_LABEL[one]}
-            </option>
+            </label>
           ))}
-        </select>
-      </label>
+        </span>
+      </fieldset>
+      </Part>
 
-      <label className="flex flex-col gap-1">
-        Due date
-        {/* Saved on leaving, so a date half typed is not posted. */}
-        <SavedInput
-          type="date"
-          name="due_date"
-          form={TASK_FORM}
-          value={drawn.due_date ?? ""}
-          onSave={(value) => post({ intent: "due", due_date: value })}
-          className={fieldClass}
-        />
-      </label>
+      <Part label="Due" icon={<CalendarDay className="size-3" />}>
+      <div className="flex flex-col gap-1.5">
+        <label className="flex flex-col gap-1">
+          <span className={tiled ? "sr-only" : "text-xs uppercase tracking-wide text-muted"}>Due date</span>
+          {/* Saved on leaving, so a date half typed is not posted. */}
+          <SavedInput
+            type="date"
+            name="due_date"
+            form={TASK_FORM}
+            value={drawn.due_date ?? ""}
+            onSave={(value) => post({ intent: "due", due_date: value })}
+            className={fieldClass}
+          />
+        </label>
+        {/* The days a due date usually is, one click each. The day is read
+            when the chip is pressed, on the person's own clock. */}
+        <span className="flex flex-wrap gap-1">
+          {DUE_CHIPS.map((chip) => {
+            const day = chip.days === null ? "" : localDay(addDays(chip.days));
+            const on = chip.days !== null && drawn.due_date === day;
+            return (
+              <button
+                key={chip.label}
+                type="button"
+                aria-pressed={chip.days === null ? undefined : on}
+                onClick={() => post({ intent: "due", due_date: chip.days === null ? "" : localDay(addDays(chip.days)) })}
+                disabled={chip.days === null && !drawn.due_date}
+                className={`${radioChip(on)} disabled:opacity-40`}
+              >
+                {chip.label}
+              </button>
+            );
+          })}
+        </span>
+      </div>
+      </Part>
 
       {members.length > 0 ? (
-        <fieldset className="flex flex-col gap-1">
-          <legend>Assignees</legend>
+        <Part label="Assignees" icon={<Users className="size-3" />} span={members.length > 3 ? 2 : 1}>
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className={legend}>Assignees</legend>
           {/* Unticking every box posts no name, so this says the picker was
               on the form and an empty set is a task nobody holds. */}
           <input type="hidden" name="assignees" value="picked" form={TASK_FORM} />
-          {members.map((member) => (
-            <label key={member.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="assignee"
-                value={member.id}
-                form={TASK_FORM}
-                checked={held.has(member.id)}
-                onChange={(event) =>
-                  post({
-                    intent: "assign",
-                    assignee: member.id,
-                    held: event.target.checked ? "1" : "0",
-                  })
-                }
-              />
-              {member.name}
-            </label>
-          ))}
+          {/* One avatar per member, each a checkbox: one click holds them,
+              another lets go. */}
+          <span className="flex flex-wrap gap-1.5">
+            {members.map((member) => {
+              const on = held.has(member.id);
+              return (
+                <label
+                  key={member.id}
+                  title={on ? `${member.name}: holds it` : `Assign to ${member.name}`}
+                  className={`press flex cursor-pointer items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs has-focus-visible:outline-2 has-focus-visible:outline-accent ${
+                    on ? "border-fg bg-surface-2 text-fg" : "border-border text-muted opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    name="assignee"
+                    value={member.id}
+                    form={TASK_FORM}
+                    checked={on}
+                    onChange={(event) =>
+                      post({
+                        intent: "assign",
+                        assignee: member.id,
+                        held: event.target.checked ? "1" : "0",
+                      })
+                    }
+                    className="sr-only"
+                  />
+                  <span key={on ? "on" : "off"} className={`flex ${on ? "motion-safe:animate-pop-soft" : "grayscale"}`}>
+                    <Avatar person={member} />
+                  </span>
+                  {member.name}
+                </label>
+              );
+            })}
+          </span>
         </fieldset>
+        </Part>
       ) : null}
 
       {/* Off by default, and only a marked task raises the prompt when it is
-          finished. See ADR-0010. */}
-      <label className="flex items-center gap-2">
+          finished. See ADR-0010. As a tile it is a switch. */}
+      <Part label="Decision" icon={<Scale className="size-3" />}>
+      <label className={tiled ? "flex cursor-pointer items-center gap-3" : "flex items-center gap-2"}>
         <input
           type="checkbox"
           name="decides"
@@ -271,22 +373,40 @@ function LiveAside({ task, fields, refs, colors, members, assignees }: AsideProp
           form={TASK_FORM}
           checked={drawn.decides}
           onChange={(event) => post({ intent: "mark", decides: event.target.checked ? "1" : "0" })}
+          className={tiled ? "peer sr-only" : undefined}
         />
-        Holds a decision
+        {tiled ? (
+          <span
+            aria-hidden="true"
+            className="relative h-6 w-10 shrink-0 rounded-full bg-border transition-colors duration-200 after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-bg after:shadow-sm after:transition-transform after:duration-200 after:ease-out peer-checked:bg-fg peer-checked:after:translate-x-4 peer-focus-visible:outline-2 peer-focus-visible:outline-accent"
+          />
+        ) : null}
+        <span>Holds a decision</span>
       </label>
+      </Part>
 
       {fields.map((field) => (
+        <Part key={field.key} label={field.label} icon={field.client ? <Folder className="size-3" /> : <Tag className="size-3" />}>
         <FieldBox
           key={field.key}
           field={field}
           value={drawn.data[field.key]}
           picker={refs[field.key]}
           color={colors[field.key] ?? null}
+          // Only the client's values draw a colour. See ADR-0038.
+          tints={field.client ? (optionColors?.[field.key] ?? {}) : {}}
           onSave={(value) => post({ intent: "field", key: field.key, [`field.${field.key}`]: value })}
+          tiled={tiled}
         />
+        </Part>
       ))}
     </>
   );
+}
+
+/** No frame: the aside's own parts, drawn in line. Takes and drops a tile's props. */
+function Plain({ children }: { children?: React.ReactNode; label?: React.ReactNode; icon?: React.ReactNode; span?: 1 | 2 | 3 | 4 }) {
+  return <>{children}</>;
 }
 
 /** What one field box takes from the aside. */
@@ -295,24 +415,62 @@ type FieldBoxProps = {
   value: string | undefined;
   picker: RefPicker | undefined;
   color: string | null;
+  /** Each value's colour, for a select drawn as chips. */
+  tints?: Record<string, string>;
   onSave: (value: string) => void;
+  /** True inside a tile, which names the field: its own label is said to a screen reader only. */
+  tiled?: boolean;
 };
 
 /**
  * One declared field, drawn by its type. Every type reads one box. A pick
  * saves at once, and a typed value saves when the box is left.
  */
-function FieldBox({ field, value, picker, color, onSave }: FieldBoxProps) {
+function FieldBox({ field, value, picker, color, tints = {}, onSave, tiled = false }: FieldBoxProps) {
   const name = `field.${field.key}`;
 
   if (field.type === "reference") {
-    return <RefBox field={field} value={value} picker={picker} color={color} onSave={onSave} />;
+    return <RefBox field={field} value={value} picker={picker} color={color} onSave={onSave} tiled={tiled} />;
+  }
+
+  // A short select is a row of chips: one click picks, and a click on the
+  // value held clears it. Each is a radio of the page's one form, so with no
+  // script Save posts it.
+  if (field.type === "select" && field.options.length <= CHIP_OPTIONS) {
+    return (
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className={tiled ? "sr-only" : "mb-1.5"}>{field.label}</legend>
+        <span className="flex flex-wrap gap-1">
+          {field.options.map((option) => {
+            const on = value === option;
+            return (
+              <label key={option} className={radioChip(on)}>
+                <input
+                  type="radio"
+                  name={name}
+                  value={option}
+                  form={TASK_FORM}
+                  checked={on}
+                  onChange={() => onSave(option)}
+                  onClick={() => {
+                    if (on) onSave("");
+                  }}
+                  className="sr-only"
+                />
+                <Dot color={tints[option] ?? null} />
+                {option}
+              </label>
+            );
+          })}
+        </span>
+      </fieldset>
+    );
   }
 
   if (field.type === "select") {
     return (
       <label className="flex flex-col gap-1">
-        {field.label}
+        <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
         <select
           name={name}
           form={TASK_FORM}
@@ -333,7 +491,7 @@ function FieldBox({ field, value, picker, color, onSave }: FieldBoxProps) {
 
   return (
     <label className="flex flex-col gap-1">
-      {field.label}
+      <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
       <SavedInput
         name={name}
         form={TASK_FORM}
@@ -355,7 +513,7 @@ function FieldBox({ field, value, picker, color, onSave }: FieldBoxProps) {
  * An id the options do not name keeps its place in the list, drawn raw, so a
  * save of the rest of the task does not silently drop it.
  */
-function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
+function RefBox({ field, value, picker, color, onSave, tiled = false }: FieldBoxProps) {
   const name = `field.${field.key}`;
   const options = picker?.options ?? [];
   const unnamed = value && !options.some((one) => one.id === value);
@@ -363,7 +521,7 @@ function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
   if (!picker?.pulled) {
     return (
       <label className="flex flex-col gap-1">
-        {field.label}
+        <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
         <span className="text-muted">
           No options pulled yet. Refresh this field on the fields screen, or type the id.
         </span>
@@ -383,7 +541,7 @@ function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
 
   return (
     <label className="flex flex-col gap-1">
-      {field.label}
+      <span className={tiled ? "sr-only" : undefined}>{field.label}</span>
       <span className="flex items-center gap-2">
         <select
           name={name}
@@ -410,7 +568,35 @@ function RefBox({ field, value, picker, color, onSave }: FieldBoxProps) {
  * A finished task, read: the same aside drawn as text. Nothing here posts, so
  * the one way to change the task is Reopen, in the acts row. See #164.
  */
-function ReadAside({ task, fields, refs, colors, members, assignees }: AsideProps) {
+function ReadAside({ task, fields, refs, colors, members, assignees, tiled = false }: AsideProps & { tiled?: boolean }) {
+  if (tiled) {
+    return (
+      <>
+        <Tile label="Status" icon={<CircleHalf className="size-3" />}>
+          <span>{STATUS_LABEL[task.status]}</span>
+        </Tile>
+        <Tile label="Due" icon={<CalendarDay className="size-3" />}>
+          <span>{task.due_date ?? "—"}</span>
+        </Tile>
+        {members.length > 0 ? (
+          <Tile label="Assignees" icon={<Users className="size-3" />}>
+            <span>{assignees.length > 0 ? assignees.map((one) => one.name).join(", ") : "—"}</span>
+          </Tile>
+        ) : null}
+        <Tile label="Decision" icon={<Scale className="size-3" />}>
+          <span>{task.decides ? "Holds a decision" : "Holds none"}</span>
+        </Tile>
+        {fields.map((field) => (
+          <Tile key={field.key} label={field.label} icon={field.client ? <Folder className="size-3" /> : <Tag className="size-3" />}>
+            <span className="flex items-center gap-2">
+              <Dot color={colors[field.key] ?? null} />
+              {heldText(field, task.data[field.key], refs[field.key])}
+            </span>
+          </Tile>
+        ))}
+      </>
+    );
+  }
   return (
     <dl className="flex flex-col gap-3">
       <ReadLine label="Status">{STATUS_LABEL[task.status]}</ReadLine>
@@ -500,6 +686,33 @@ function drawerPress(event: KeyboardEvent): boolean {
  * before the page's own `Esc` reads it, so shutting the drawer does not also
  * go back to the list.
  */
+/**
+ * The status on the phone bar, as a button: one tap moves the task one column
+ * along, Backlog to To do to In progress to Done. The drawer still holds every
+ * status.
+ */
+function StatusStep({ status }: { status: Status }) {
+  const post = usePost({ flushSync: true });
+  const next = nextStatus(status);
+
+  return (
+    <button
+      type="button"
+      onClick={() => post({ intent: "status", status: next })}
+      aria-label={`Status: ${STATUS_LABEL[status]}. Move to ${STATUS_LABEL[next]}.`}
+      className="press flex min-w-0 flex-1 items-center gap-2 truncate rounded-full border border-border px-3 py-2 text-left"
+    >
+      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${STATUS_DOT[status]}`} />
+      <span key={status} className="truncate motion-safe:animate-rise-in">
+        {STATUS_LABEL[status]}
+      </span>
+      <span aria-hidden="true" className="ml-auto text-muted">
+        → {STATUS_LABEL[next]}
+      </span>
+    </button>
+  );
+}
+
 export function TaskBar({ task, assignees }: { task: AsideTask; assignees: Assignee[] }) {
   const drawer = useRef<HTMLDetailsElement>(null);
   const status: Status = useDrawnTask(task, assignees).status;
@@ -533,7 +746,11 @@ export function TaskBar({ task, assignees }: { task: AsideTask; assignees: Assig
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 flex h-16 items-center gap-3 border-t border-border bg-bg px-4 sm:hidden">
-      <span className="flex-1 truncate text-muted">{STATUS_LABEL[status]}</span>
+      {task.finished ? (
+        <span className="flex-1 truncate text-muted">{STATUS_LABEL[status]}</span>
+      ) : (
+        <StatusStep status={status} />
+      )}
       <PrimaryAct task={task} />
       <details ref={drawer} {...{ [DRAWER_MARK]: "" }}>
         <summary className="cursor-pointer list-none rounded border border-border px-3 py-2 [&::-webkit-details-marker]:hidden">

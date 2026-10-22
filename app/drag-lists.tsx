@@ -5,10 +5,12 @@
  * gesture is one gesture wherever it is offered. See ADR-0025.
  *
  * It is `@dnd-kit/sortable`, the pattern Payload's admin uses for a row drag.
- * A drag starts from the grip and nowhere else, so the rest of the card places
- * the cursor on a click and scrolls the column on a swipe. On the grip, a
- * mouse drags once it has moved a few pixels and a finger drags at once. No
- * key drags: the keys are the list keys, and they do not change.
+ * A drag starts from anywhere on the card, and movement tells it from a
+ * click: a mouse drags once it has moved a few pixels, and a press that does
+ * not move is a click, which places the cursor or opens the task. A finger
+ * drags after a short hold, so a swipe over a card still scrolls the column.
+ * No key drags: the keys are the list keys, and they do not change. See
+ * ADR-0041.
  *
  * The page hands this the lists it draws and gets back the lists to draw,
  * which are the same lists until a drag moves a card. A drop calls `onDrop`
@@ -79,6 +81,20 @@ export function whereOver(lists: Lists): CollisionDetection {
 /** One drop: the card, the list it landed in, and that list's new order. */
 export type Drop = { id: TaskId; list: string; order: TaskId[] };
 
+/**
+ * Swallows the click a browser may fire as a drag lets go, so a drop never
+ * opens the task or ticks the ring it was let go over. It lasts the one
+ * click that follows the release and no longer.
+ */
+function swallowClick() {
+  const stop = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  window.addEventListener("click", stop, { capture: true, once: true });
+  window.setTimeout(() => window.removeEventListener("click", stop, { capture: true }), 0);
+}
+
 export function DragLists({
   lists,
   onDrop,
@@ -106,8 +122,9 @@ export function DragLists({
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    // No hold: only the grip starts a drag, so a touch there is never a swipe.
-    useSensor(TouchSensor),
+    // A short hold: the whole card drags, so a finger that moves at once is a
+    // swipe, and scrolls the column.
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
   );
 
   // After a drop the held copy stays until the page draws the post, so the
@@ -144,6 +161,7 @@ export function DragLists({
 
   function onDragEnd({ active: dragged, over }: DragEndEvent) {
     setActive(null);
+    swallowClick();
     // A card is dragged by its task number, and a list is never dragged.
     const card = dragged.id as TaskId;
     if (!over || !held) return setHeld(null);
@@ -162,6 +180,7 @@ export function DragLists({
 
   const onDragCancel = useCallback(() => {
     setActive(null);
+    swallowClick();
     setHeld(null);
   }, []);
 
@@ -225,55 +244,26 @@ export function DropList({
 
 /**
  * What one card needs to drag: its ref, the style that slides it out of the
- * way, and the grip a drag starts from. The card being dragged is drawn faded
- * where it will land, and the overlay follows the pointer.
+ * way, and the listeners that start a drag from anywhere on it. The card being
+ * dragged is drawn faded where it will land, and the overlay follows the
+ * pointer.
+ *
+ * `card` is the class a card that drags takes: the grab cursor, no text
+ * selection under a drag, and `touch-manipulation`, which lets a finger still
+ * scroll the column while the hold decides. A card that does not drag takes
+ * none of it. See ADR-0041.
  */
 export function useDragItem(id: TaskId, disabled = false) {
-  const { setNodeRef, setActivatorNodeRef, transform, transition, listeners, isDragging } =
-    useSortable({ id, disabled });
+  const { setNodeRef, transform, transition, listeners, isDragging } = useSortable({ id, disabled });
   return {
     ref: setNodeRef,
     style: { transform: CSS.Translate.toString(transform), transition },
-    // No `attributes`: they would make the grip a tab stop and a button, and
+    // No `attributes`: they would make the card a tab stop and a button, and
     // the list, not the card, holds the focus and the keys. See ADR-0022.
-    grip: { ref: setActivatorNodeRef, listeners: disabled ? undefined : listeners },
+    listeners: disabled ? undefined : listeners,
+    card: disabled ? "" : "cursor-grab select-none touch-manipulation",
     dragging: isDragging,
   };
-}
-
-/** What the grip takes from `useDragItem`: the node a drag starts from. */
-type DragGrip = ReturnType<typeof useDragItem>["grip"];
-
-/**
- * The six dots at the left edge of a card, and the one part of it a drag
- * starts from. It adds width and never a line. It is for the pointer alone:
- * the keys already move a card, so it is hidden and takes no focus.
- *
- * `touch-none` keeps the browser from scrolling under a finger on the grip,
- * which would take the touch before the drag could. See ADR-0025.
- *
- * The dots are drawn here and not in `icons.tsx`: they are six circles, not a
- * Font Awesome path, and the grip is their one use.
- */
-export function Grip({ grip }: { grip: DragGrip }) {
-  return (
-    <span
-      aria-hidden="true"
-      data-grip=""
-      ref={grip.ref}
-      {...grip.listeners}
-      className="-ml-1.5 shrink-0 cursor-grab touch-none self-center px-1.5 py-1 text-dim hover:text-fg"
-    >
-      <svg viewBox="0 0 10 16" fill="currentColor" className="block h-4 w-2.5">
-        <circle cx="2.5" cy="3" r="1.5" />
-        <circle cx="7.5" cy="3" r="1.5" />
-        <circle cx="2.5" cy="8" r="1.5" />
-        <circle cx="7.5" cy="8" r="1.5" />
-        <circle cx="2.5" cy="13" r="1.5" />
-        <circle cx="7.5" cy="13" r="1.5" />
-      </svg>
-    </span>
-  );
 }
 
 /**
@@ -282,6 +272,10 @@ export function Grip({ grip }: { grip: DragGrip }) {
  */
 export function DragCopy({ title }: { title: string }) {
   return (
-    <div className="cursor-grabbing rounded border border-fg bg-surface p-3 shadow-md">{title}</div>
+    // Lifted off the board: a little larger, a little turned, with a deeper
+    // shadow, as a card picked up in a game. It lands with the drop.
+    <div className="-rotate-1 scale-[1.03] cursor-grabbing rounded border border-fg bg-surface p-3 shadow-xl motion-safe:animate-pop">
+      {title}
+    </div>
   );
 }

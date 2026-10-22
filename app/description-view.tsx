@@ -14,7 +14,18 @@ import { tickedSent, usePost, useSent } from "./pending";
  * This view only reads and ticks. The textarea that edits the text sits in
  * `description-box.tsx`, which draws this view when the box is shut.
  */
-export function DescriptionView({ text }: { text: string }) {
+export function DescriptionView({
+  text,
+  names = {},
+}: {
+  text: string;
+  /**
+   * More fields a tick posts, to name which text it ticks where a page holds
+   * more than one: a client page names the note. A tick in flight is drawn
+   * only on the text these name.
+   */
+  names?: Record<string, string>;
+}) {
   const blocks = descriptionBlocks(text);
 
   if (blocks.length === 0) {
@@ -24,14 +35,14 @@ export function DescriptionView({ text }: { text: string }) {
   return (
     <div className="flex flex-col">
       {blocks.map((block, at) => (
-        <Block key={at} block={block} />
+        <Block key={at} block={block} names={names} />
       ))}
     </div>
   );
 }
 
 /** One block, drawn by its kind. */
-function Block({ block }: { block: DescriptionBlock }) {
+function Block({ block, names }: { block: DescriptionBlock; names: Record<string, string> }) {
   if (block.kind === "code") {
     return (
       <pre className="my-1 overflow-x-auto rounded bg-surface p-2">
@@ -42,7 +53,7 @@ function Block({ block }: { block: DescriptionBlock }) {
 
   if (block.kind === "blank") return <div className="h-3" />;
 
-  if (block.kind === "check") return <CheckLine block={block} />;
+  if (block.kind === "check") return <CheckLine block={block} names={names} />;
 
   return (
     <div
@@ -65,19 +76,30 @@ function Block({ block }: { block: DescriptionBlock }) {
  * second reads as one that did not work, and a second tick must not drop the
  * first. See `app/pending.ts`.
  */
-function CheckLine({ block }: { block: Extract<DescriptionBlock, { kind: "check" }> }) {
+function CheckLine({
+  block,
+  names,
+}: {
+  block: Extract<DescriptionBlock, { kind: "check" }>;
+  names: Record<string, string>;
+}) {
   const post = usePost();
-  const checked = tickedSent(block.checked, block.box, useSent());
+  const named = Object.entries(names);
+  const sent = useSent().filter((form) => named.every(([name, value]) => form.get(name) === value));
+  const checked = tickedSent(block.checked, block.box, sent);
 
   return (
     <Form method="post" navigate={false} style={nested(block.indent)}>
       <input type="hidden" name="intent" value="tick" />
       <input type="hidden" name="box" value={block.box} />
+      {named.map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
       <label className="flex items-baseline gap-2">
         <input
           type="checkbox"
           checked={checked}
-          onChange={() => post({ intent: "tick", box: String(block.box) })}
+          onChange={() => post({ intent: "tick", box: String(block.box), ...names })}
         />
         <span
           className={checked ? "text-muted line-through" : ""}

@@ -12,6 +12,7 @@ import { Outlet } from "react-router";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { Header } from "../header";
+import { meOf } from "../people.server";
 import { listOrgsForPerson } from "../orgs.server";
 import { orgScope, requireScope } from "../scope.server";
 import type { Route } from "./+types/org";
@@ -33,14 +34,15 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const scope = await requireScope(request, env, params.slug, context);
 
   const orgs = await listOrgsForPerson(env.DB, scope.personId);
-  return { org: held(scope.org), orgs: orgs.map(held) };
+  return { org: held(scope.org), orgs: orgs.map(held), me: await meOf(env.DB, scope.personId) };
 }
 
 export default function Org({ loaderData }: Route.ComponentProps) {
   return (
     <div className="flex min-h-full flex-col">
-      <Header orgs={loaderData.orgs} org={loaderData.org} />
-      <div className="flex flex-1 flex-col">
+      <Header orgs={loaderData.orgs} org={loaderData.org} me={loaderData.me} />
+      {/* Room at the foot for the dock, so it never sits over the last line. */}
+      <div className="flex flex-1 flex-col pb-20">
         <Outlet />
       </div>
     </div>

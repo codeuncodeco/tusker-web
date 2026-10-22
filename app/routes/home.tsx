@@ -1,16 +1,17 @@
 /**
  * The Landing page at `/`, and the one decision in front of it.
  *
- * `/` sends a person where they belong. A signed-in person goes to their board,
- * because a person opens Tusker to work: the unified board, or the org board
- * of a person in one org, who always stands in it. See ADR-0029.
+ * `/` sends a person where they belong. A signed-in person goes to the board of
+ * their first org, because a person opens Tusker to work, and one org's board
+ * has the powers: its order, its filters, its search. Every other org, and All,
+ * are one pick away in the settings panel. See ADR-0029 and ADR-0037.
  */
 
 import { Link, redirect } from "react-router";
 
 import { noAccountYet } from "../accounts.server";
 import { cloudflareEnv } from "../context.server";
-import { boardOf, onlyOrg } from "../org-select";
+import { boardOf } from "../org-select";
 import { listOrgsForPerson } from "../orgs.server";
 import { getSession } from "../session.server";
 import type { Route } from "./+types/home";
@@ -27,8 +28,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   if (await noAccountYet(env.DB)) throw redirect("/bootstrap");
   const session = await getSession(request, env);
   if (session) {
-    const only = onlyOrg(await listOrgsForPerson(env.DB, session.user.id));
-    throw redirect(boardOf(only?.slug ?? null));
+    const [first] = await listOrgsForPerson(env.DB, session.user.id);
+    throw redirect(boardOf(first?.slug ?? null));
   }
   return null;
 }

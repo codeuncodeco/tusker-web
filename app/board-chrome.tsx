@@ -7,14 +7,17 @@
  * business, and so is which controls it draws: the search box and the field
  * filters are the org board's alone, because a search is one org's rows and
  * each org declares its own fields. Both boards draw an assignee filter, but
- * the unified board's names no member, because a member select across every
+ * the unified board's names no member, because a member list across every
  * org would name strangers. See ADR-0017, ADR-0029 and ADR-0033.
+ *
+ * Every filter is a row of chips, and one click narrows: nothing opens first.
+ * See ADR-0035.
  */
 
 import { useEffect, useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 
-import { ANYONE, ASSIGNEE_NAME, MINE, UNASSIGNED } from "./assignee-filter";
+import { addressed, ANYONE, ASSIGNEE_NAME, MINE, UNASSIGNED } from "./assignee-filter";
 import type { Assignee } from "./assignees";
 import {
   flipped,
@@ -24,9 +27,13 @@ import {
   type Status,
   type Toggles,
 } from "./board";
+import { CLIENT_NAME, clientValue, sameClient, type ClientChoice, type ClientPick } from "./client-filter";
+import { Dot } from "./dot";
 import { fieldName, type FieldFilter } from "./field-filter";
 import { fieldClass, smallFieldClass } from "./forms";
-import { Square, SquareCheck } from "./icons";
+import { AnglesLeft, Circle, CircleCheck, CircleHalf, CircleXMark, Inbox, Square, SquareCheck } from "./icons";
+import { Avatar } from "./initials";
+import { orgInitialsOf } from "./org-chip";
 import { without } from "./query";
 import { SEARCH_NAME } from "./search";
 
@@ -82,84 +89,248 @@ export function SearchBox({ search }: { search: string }) {
 }
 
 /**
- * The select that narrows the board to the tasks one member holds, or to the
- * tasks nobody holds.
- *
- * A board that draws no assignee draws no select, and says so by handing back
- * no members.
+ * The words an org board is narrowed to, as a chip: one click clears them.
+ * The global search sets them, from "Narrow this board to". See ADR-0038.
  */
-export function AssigneeFilter({ assignee, members }: { assignee: string; members: Assignee[] }) {
-  if (members.length === 0) return null;
-
+export function SearchChip({ search }: { search: string }) {
+  const [params] = useSearchParams();
   return (
-    <AssigneeSelect assignee={assignee}>
-      <option value={ANYONE}>Anyone</option>
-      <option value={UNASSIGNED}>Unassigned</option>
-      {members.map((one) => (
-        <option key={one.id} value={one.id}>
-          {one.name}
-        </option>
-      ))}
-    </AssigneeSelect>
+    <Link
+      to={`?${new URLSearchParams(without(params, SEARCH_NAME))}`}
+      preventScrollReset
+      aria-label={`Clear the search for ${search}`}
+      className={`${chipClass(true)} self-start`}
+    >
+      “{search}”<span aria-hidden="true">✕</span>
+    </Link>
   );
 }
 
 /**
- * The unified board's select: `Anyone`, `Mine` and `Unassigned`. It names no
+ * The address with one name set to one value, and the rest of it kept, so a
+ * chip keeps the search, the other filters and the columns a person turned on.
+ */
+function withValue(params: URLSearchParams, name: string, value: string): string {
+  const next = new URLSearchParams(without(params, name));
+  next.set(name, value);
+  return `?${next}`;
+}
+
+/** The look of a filter chip, pressed or not. A chip that turns on pops. */
+export function chipClass(on: boolean): string {
+  return `press inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs ${
+    on
+      ? "border-fg bg-fg text-bg motion-safe:animate-pop-soft"
+      : "border-border text-muted hover:border-dim hover:bg-surface-2 hover:text-fg"
+  }`;
+}
+
+/**
+ * One chip of a filter: a link that sets one value of the address. It is a
+ * link and not a form, so a filter is a place, Back works, and no script is
+ * needed. The page keeps its scroll.
+ */
+function FilterChip({
+  to,
+  on,
+  label,
+  className,
+  children,
+}: {
+  to: string;
+  on: boolean;
+  /** What a screen reader hears, where the chip draws a picture. */
+  label?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      preventScrollReset
+      className={className ?? chipClass(on)}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** A row of chips that are one filter, read as one group. */
+function ChipGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The chips that narrow an org board to the tasks one member holds, or to the
+ * tasks nobody holds: the reader first, then `Anyone` and `Unassigned`, then
+ * every other member as an avatar. One click narrows; nothing opens.
+ *
+ * A bare address is the reader's own work, so their chip is the start. See
+ * ADR-0035. A board that draws no assignee draws no chips, and says so by
+ * handing back no members.
+ */
+export function AssigneeFilter({
+  assignee,
+  members,
+  personId,
+}: {
+  assignee: string;
+  members: Assignee[];
+  personId: string;
+}) {
+  const [params] = useSearchParams();
+  if (members.length === 0) return null;
+  const to = (value: string) => withValue(params, ASSIGNEE_NAME, addressed(value));
+  const me = members.find((one) => one.id === personId);
+  const others = members.filter((one) => one.id !== personId);
+
+  return (
+    <ChipGroup label="Filter by assignee">
+      {me ? (
+        <FilterChip to={to(me.id)} on={assignee === me.id} label={`Mine: tasks ${me.name} holds`}>
+          <Avatar person={me} className="-ml-1.5 size-4 text-[0.5rem]" />
+          Mine
+        </FilterChip>
+      ) : null}
+      <FilterChip to={to(ANYONE)} on={assignee === ANYONE}>
+        Anyone
+      </FilterChip>
+      <FilterChip to={to(UNASSIGNED)} on={assignee === UNASSIGNED}>
+        Unassigned
+      </FilterChip>
+      {others.map((one) => {
+        const on = assignee === one.id;
+        return (
+          <FilterChip
+            key={one.id}
+            to={to(one.id)}
+            on={on}
+            label={`Tasks ${one.name} holds`}
+            className={`press flex rounded-full ${on ? "ring-2 ring-fg ring-offset-1 ring-offset-bg motion-safe:animate-pop-soft" : "opacity-60 hover:opacity-100"}`}
+          >
+            <Avatar person={one} size="md" />
+          </FilterChip>
+        );
+      })}
+    </ChipGroup>
+  );
+}
+
+/**
+ * The unified board's chips: `Mine`, `Anyone` and `Unassigned`. They name no
  * member, because the board spans orgs and a member list across them names
  * strangers. `Mine` is a word in the address, so a shared link shows whoever
- * opens it their own work. See ADR-0033.
+ * opens it their own work, and a bare address is `Mine`. See ADR-0033 and
+ * ADR-0035.
  */
 export function UnifiedAssigneeFilter({ assignee }: { assignee: string }) {
+  const [params] = useSearchParams();
+  const to = (value: string) => withValue(params, ASSIGNEE_NAME, addressed(value));
+
   return (
-    <AssigneeSelect assignee={assignee}>
-      <option value={ANYONE}>Anyone</option>
-      <option value={MINE}>Mine</option>
-      <option value={UNASSIGNED}>Unassigned</option>
-    </AssigneeSelect>
+    <ChipGroup label="Filter by assignee">
+      <FilterChip to={to(MINE)} on={assignee === MINE}>
+        Mine
+      </FilterChip>
+      <FilterChip to={to(ANYONE)} on={assignee === ANYONE}>
+        Anyone
+      </FilterChip>
+      <FilterChip to={to(UNASSIGNED)} on={assignee === UNASSIGNED}>
+        Unassigned
+      </FilterChip>
+    </ChipGroup>
   );
 }
 
 /**
- * The form both assignee selects draw.
- *
- * It is a GET form, as the search box is, so a narrowed board is a place: the
- * address carries it, Back works and the link is shareable. The rest of the
- * query rides along as hidden fields, so a pick keeps the search, the chip and
- * the columns a person turned on.
+ * The unified board's client chips: `Every client`, then each client of each
+ * org that names a client field, with its option colour and its org's dot
+ * where the person holds more than one such org. One click narrows the board
+ * to that client's tasks; a click on the chip held gives the board back. An
+ * org set with no client field draws nothing. See ADR-0036.
  */
-function AssigneeSelect({ assignee, children }: { assignee: string; children: React.ReactNode }) {
+export function UnifiedClientFilter({
+  clients,
+  client,
+}: {
+  clients: ClientChoice[];
+  client: ClientPick | null;
+}) {
+  const [params] = useSearchParams();
+  if (clients.length === 0) return null;
+  const every = `?${new URLSearchParams(without(params, CLIENT_NAME))}`;
+  const orgs = new Set(clients.map((one) => one.slug));
+
   return (
-    <Form method="get" className="flex items-baseline">
-      <RestOfQuery except={ASSIGNEE_NAME} />
-      <select
-        name={ASSIGNEE_NAME}
-        aria-label="Filter by assignee"
-        // A value naming somebody who left matches no option, and the board
-        // behind it is empty. That is the honest pair: their assignments went
-        // with them.
-        value={assignee}
-        onChange={(event) => event.currentTarget.form?.requestSubmit()}
-        className={smallFieldClass}
-      >
-        {children}
-      </select>
-      {/* The submit the select needs when no script runs. */}
-      <button className="sr-only">Filter</button>
-    </Form>
+    <ChipGroup label="Filter by client">
+      <FilterChip to={every} on={client === null}>
+        Every client
+      </FilterChip>
+      {clients.map((one) => {
+        const on = sameClient(client, one);
+        return (
+          <FilterChip
+            key={`${one.slug}:${one.value}`}
+            to={on ? every : withValue(params, CLIENT_NAME, clientValue(one))}
+            on={on}
+            label={orgs.size > 1 ? `${one.label}, ${one.org.name}` : undefined}
+          >
+            <Dot color={one.color} />
+            {one.label}
+            {orgs.size > 1 ? <span className="text-dim">{orgInitialsOf(one.org.name)}</span> : null}
+          </FilterChip>
+        );
+      })}
+    </ChipGroup>
   );
 }
 
 /**
- * The select that narrows the board to the tasks holding one value of one
- * field: `Any`, then the values the field offers.
+ * The most values a field filter draws as chips. A longer list would fill the
+ * row, so it draws the select instead.
+ */
+export const CHIP_LIMIT = 8;
+
+/**
+ * The filter that narrows the board to the tasks holding one value of one
+ * field: `Any`, then the values the field offers, each a chip with its option
+ * colour. A field with more values than `CHIP_LIMIT` draws a select instead.
  *
- * It is a GET form, as the assignee filter is, under the name the task API
- * reads, `field.<key>`. The rest of the query rides along as hidden fields, so
- * picking a value keeps the search, the member and every other field filter.
+ * Either way it rides the address under the name the task API reads,
+ * `field.<key>`, and keeps the rest of the address, so picking a value keeps
+ * the search, the member and every other field filter. A click on the value
+ * already held gives the board back to `Any`.
  */
 export function FieldFilterSelect({ filter }: { filter: FieldFilter }) {
   const name = fieldName(filter.key);
+  const [params] = useSearchParams();
+
+  if (filter.options.length <= CHIP_LIMIT) {
+    const any = `?${new URLSearchParams(without(params, name))}`;
+    return (
+      <ChipGroup label={`Filter by ${filter.label}`}>
+        <FilterChip to={any} on={filter.value === ""}>
+          Any {filter.label.toLowerCase()}
+        </FilterChip>
+        {filter.options.map((one) => {
+          const on = filter.value === one.value;
+          return (
+            <FilterChip key={one.value} to={on ? any : withValue(params, name, one.value)} on={on}>
+              {filter.client ? <Dot color={one.color ?? null} /> : null}
+              {one.label}
+            </FilterChip>
+          );
+        })}
+      </ChipGroup>
+    );
+  }
 
   return (
     <Form method="get" className="flex items-baseline">
@@ -236,9 +407,7 @@ function Chip({
       // With nothing to narrow to the chip is a way to a page and not a
       // filter, so it announces no pressed state it does not hold.
       aria-pressed={narrows ? on : undefined}
-      className={`rounded-full border px-2 py-0.5 text-xs ${
-        on ? "border-fg bg-fg text-bg" : "border-border"
-      }`}
+      className={chipClass(on)}
     >
       {label}
     </Link>
@@ -262,10 +431,72 @@ export function ColumnSwitch({ which, toggles }: { which: Status; toggles: Toggl
     <Link
       to={flipped(params, which, on)}
       aria-label={`${on ? "Hide" : "Show"} ${label}`}
-      className="inline-flex items-baseline gap-1.5 text-xs uppercase tracking-wide"
+      preventScrollReset
+      className="press inline-flex items-baseline gap-1.5 text-xs uppercase tracking-wide text-muted hover:text-fg"
     >
-      {on ? <SquareCheck /> : <Square />}
+      <span key={on ? "on" : "off"} className="inline-flex self-center motion-safe:animate-pop-soft">
+        {on ? <SquareCheck /> : <Square />}
+      </span>
       {label}
     </Link>
+  );
+}
+
+/**
+ * The glyph, colour and motion each column's head draws, so a column reads at
+ * a glance before its name is read. The motion is slight and runs forever
+ * only where it says something: work in progress turns, work to do waits.
+ * Every motion stops for a person who asked for less.
+ */
+const COLUMN_LOOK: Record<Status, { icon: React.ReactNode; tone: string; motion: string }> = {
+  backlog: { icon: <Inbox className="size-3.5" />, tone: "text-dim", motion: "" },
+  todo: { icon: <Circle className="size-3.5" />, tone: "text-muted", motion: "motion-safe:animate-breathe" },
+  in_progress: { icon: <CircleHalf className="size-3.5" />, tone: "text-fg", motion: "motion-safe:animate-drift" },
+  done: { icon: <CircleCheck className="size-3.5" />, tone: "text-win", motion: "" },
+  cancelled: { icon: <CircleXMark className="size-3.5" />, tone: "text-dim", motion: "" },
+};
+
+/**
+ * The head of one column: its glyph, its name and its count. When the count
+ * changes the count ticks and the glyph pops, so a card that lands is seen to
+ * land. Backlog, when it is open by choice, carries the fold that closes it
+ * back into its bar.
+ */
+export function ColumnHead({
+  status,
+  label,
+  count,
+  fold,
+}: {
+  status: Status;
+  label: string;
+  count: number;
+  /** The address that folds the column away, or null where it cannot be folded. */
+  fold?: string | null;
+}) {
+  const look = COLUMN_LOOK[status];
+
+  return (
+    <h2 className="flex items-center gap-2 font-mono uppercase tracking-wide text-muted">
+      <span key={count} aria-hidden="true" className={`flex ${look.tone} motion-safe:animate-pop-soft`}>
+        <span className={`flex ${look.motion}`}>{look.icon}</span>
+      </span>
+      {label}
+      {/* The key draws the count again when it changes, so it ticks. */}
+      <span key={`n${count}`} className="inline-block text-dim tabular-nums motion-safe:animate-tick">
+        {count}
+      </span>
+      {fold ? (
+        <Link
+          to={fold}
+          preventScrollReset
+          aria-label={`Fold ${label} away`}
+          title={`Fold ${label} away`}
+          className="press -my-1 ml-1 flex size-6 items-center justify-center rounded text-dim hover:bg-surface-2 hover:text-fg"
+        >
+          <AnglesLeft className="size-3" />
+        </Link>
+      ) : null}
+    </h2>
   );
 }

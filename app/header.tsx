@@ -1,460 +1,81 @@
 /**
- * The one header every signed-in page draws, in one row.
+ * What every signed-in page draws round its work, and no bar: the page gives
+ * its width and its height to the tasks. See ADR-0037 and ADR-0038.
  *
- * At the centre, the org select and ⋯ beside it. The select sets the board's
- * scope: All, or one org. ⋯ names the page a person stands on and holds every
- * page: one Board, whose scope the select sets, then Week, Plan and Focus, then
- * the pages of the org the select names. While the select reads All, no org is
- * named, so ⋯ holds no org page. At the far right, a person menu holds what is
- * no org's, and "Keys ?" on a page that gives list keys. Beside it, a select
- * sets the colour scheme. See ADR-0029 and #223.
+ * - **Search** sits in the top right corner, fixed: one button that opens the
+ *   global search and the board's filters. See `search-panel.tsx`.
+ * - **The dock** sits in the bottom right corner: the View button, the
+ *   settings panel and the profile button. See `dock.tsx`.
  *
- * The address is the only current org. The select reads it, and a pick goes to
- * the board of that scope at once.
- *
- * The page a person is on takes no link, and the header reads which page that
- * is from the location, so no route has to say.
+ * Where the person stands, "Studio / Board", is still said: to a screen
+ * reader as the page's heading on a board, and in the title of the View
+ * button. The address is the only current org, and the header reads which
+ * page the person stands on from the location, so no route has to say.
  */
 
-import { useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
+import { useLocation } from "react-router";
 
-import { ASSIGNEE_NAME, readAssignee } from "./assignee-filter";
-import {
-  COLOUR_SCHEME_ACTION,
-  COLOUR_SCHEMES,
-  type ColourScheme,
-  isColourScheme,
-  useColourScheme,
-  useColourSchemeFetcher,
-} from "./colour-scheme";
+import type { Me } from "./assignees";
 import type { OrgHeld } from "./current-org";
-import { Desktop, Ellipsis, Moon, Sun, User } from "./icons";
-import { keyHint } from "./key-hint";
-import { KEY_MAP } from "./key-map";
-import { useKeyGuide } from "./keyed-list";
-import { OrgDot } from "./org-chip";
+import { Dock, VIEW_LOOK, viewOf } from "./dock";
 import { boardOf } from "./org-select";
+import { GlobalSearch } from "./search-panel";
 
-/**
- * The pages of the person axis after the board, which the select scopes.
- *
- * A label names the destination and never what the page holds, which is why
- * "Plan" and "Week" stand while those pages head with a day and a week. See
- * #146.
- */
-const PERSON = [
-  { to: "/me/week", label: "Week" },
-  { to: "/me/plan", label: "Plan" },
-  { to: "/me/focus", label: "Focus" },
-] as const;
-
-/** The pages of one org after its board, in the order ⋯ lists them. */
-const ORG = [
-  { to: "decisions", label: "Decisions" },
-  { to: "archive", label: "Archive" },
-  { to: "fields", label: "Fields" },
-  { to: "members", label: "Members" },
-  { to: "settings", label: "Settings" },
-] as const;
-
-/** The pages of the person menu. They belong to no org and to no board. */
-const YOURS = [
-  { to: "/account", label: "Account" },
-  { to: "/orgs/new", label: "New org" },
-] as const;
-
-/** The address of one page of one org. Every org link in ⋯ is one. */
-function pageOf(slug: string, page: string): string {
-  return `/o/${slug}/${page}`;
-}
-
-/**
- * The look of the two menu buttons, as tall as the select beside them. The
- * person menu fills softly while a person stands on one of its pages.
- */
-function buttonClass(here: boolean): string {
-  return `flex h-[38px] items-center rounded border px-1.5 leading-none sm:px-3 ${here ? "border-dim bg-surface-2 font-medium text-fg" : "border-border"}`;
-}
-
-/**
- * One row of a menu: a link, or the plain word where the person stands. The
- * whole row is the target, not only its words.
- */
-function Item({ to, here, children }: { to: string; here: boolean; children: React.ReactNode }) {
-  const row = "flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5";
-  return (
-    <li>
-      {here ? (
-        <span aria-current="page" className={`${row} bg-surface-2 font-medium`}>
-          {children}
-        </span>
-      ) : (
-        <Link to={to} className={`${row} text-muted hover:bg-border hover:text-fg`}>
-          {children}
-        </Link>
-      )}
-    </li>
-  );
-}
-
-/**
- * The row of the person menu that opens the Key guide. It is no page, so it is
- * a button and not a link. It is drawn only where the page gives list keys, and
- * only where the pointer is fine, because a phone has no keyboard. See #206.
- */
-function KeysItem() {
-  const guide = useKeyGuide();
-  if (!guide.given) return null;
-  const mark = keyHint("guide");
-
-  return (
-    <li className="hidden pointer-fine:block">
-      <button
-        type="button"
-        {...mark.keys}
-        // No place to go back to: the menu closes as the guide opens, so the
-        // guide gives the focus to the page's keyed list, where the keys are.
-        onClick={() => guide.open(null)}
-        className="flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-muted hover:bg-border hover:text-fg"
-      >
-        {KEY_MAP.guide.label}
-        {mark.hint}
-      </button>
-    </li>
-  );
-}
-
-/** A rule between two groups of a menu. */
-function Rule() {
-  return <li aria-hidden="true" className="border-t border-border" />;
-}
-
-/** The heading of one org's group in ⋯: its dot and its name. */
-function Section({ org }: { org: OrgHeld }) {
-  return (
-    <li className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-xs uppercase tracking-wide text-muted">
-      <OrgDot color={org.color} />
-      <span className="truncate">{org.name}</span>
-    </li>
-  );
-}
-
-/**
- * A menu that needs no script. `details` opens on click and on Enter, and a
- * browser with no script still opens it, which keeps every page reachable.
- *
- * Script only closes it. A click outside and Esc close the menu, which every
- * other menu does. With no script the menu still opens, and a second click on
- * the summary still closes it.
- */
-function Menu({
-  label,
-  icon,
-  name,
-  here = false,
-  align,
-  children,
-}: {
-  /** Words drawn before the glyph: ⋯ names the page you stand on here. */
-  label?: string;
-  /** The glyph on the button. */
-  icon: React.ReactNode;
-  /** What a screen reader reads for the glyph. */
-  name: string;
-  /** True while the person stands on a page only this menu holds. */
-  here?: boolean;
-  /** The edge of the summary the panel lines up with. */
-  align: "left" | "right";
-  children: React.ReactNode;
-}) {
-  const menu = useRef<HTMLDetailsElement>(null);
-
-  useEffect(() => {
-    const close = () => {
-      if (menu.current) menu.current.open = false;
-    };
-    // `pointerdown`, not `click`: the menu has to go before the thing under
-    // the pointer reacts.
-    const onPointerDown = (event: PointerEvent) => {
-      const it = menu.current;
-      if (it?.open && event.target instanceof Node && !it.contains(event.target)) close();
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !menu.current?.open) return;
-      // One press means one thing. A keyed list reads Escape on itself now, so
-      // a press made in this menu never reaches one; what this stops is every
-      // other listener above, the decision prompt's included. See ADR-0022.
-      event.stopPropagation();
-      close();
-      // The summary takes the focus back, or the focus falls to the body and
-      // the keyboard loses its place.
-      menu.current.querySelector("summary")?.focus();
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, []);
-
-  return (
-    <details ref={menu} className="relative">
-      <summary
-        className={`cursor-pointer list-none gap-1 whitespace-nowrap sm:gap-2 marker:content-none ${buttonClass(here)}`}
-      >
-        {label ? <span className="max-w-48 truncate font-medium">{label}</span> : null}
-        {icon}
-        <span className="sr-only">{name}</span>
-      </summary>
-      {/* The panel grows to its widest item (`w-max`) and stops at `max-w-72`.
-          A name longer than that clips; it does not wrap. */}
-      <ul
-        // A link inside keeps the page, so the menu has to close itself.
-        onClick={() => {
-          if (menu.current) menu.current.open = false;
-        }}
-        className={`absolute ${align === "left" ? "left-0" : "right-0"} z-10 mt-1 flex w-max min-w-40 max-w-72 flex-col overflow-hidden whitespace-nowrap rounded border border-border bg-surface shadow-lg`}
-      >
-        {children}
-      </ul>
-    </details>
-  );
-}
-
-/**
- * The org select: All, then every org the person belongs to. A pick goes to
- * that scope's board at once. With no script it is a GET form to `/go`, which
- * redirects, and the button inside `<noscript>` sends it.
- *
- * On the board the select is the page's heading. A heading holds no form, so
- * the `h1` sits inside the form and around the control.
- */
-function OrgSelect({
-  orgs,
-  org,
-  heading,
-}: {
-  orgs: OrgHeld[];
-  /** The org of the address, or null on a person page, where it reads All. */
-  org: OrgHeld | null;
-  heading: boolean;
-}) {
-  const navigate = useNavigate();
-  // The assignee filter the board holds goes with the pick. Only `/go` knows
-  // the next board's words for it, so a pick that carries one goes through
-  // it. See `carried` and ADR-0033.
-  // A filter set to Anyone by hand is carried too, so the next board's memory
-  // does not stand in for it.
-  const [params] = useSearchParams();
-  const assignee = params.has(ASSIGNEE_NAME) ? readAssignee(params) : null;
-
-  /** Where a pick lands: the board itself, or `/go` with the filter to carry. */
-  function picked(slug: string): string {
-    if (assignee === null) return boardOf(slug || null);
-    return `/go?${new URLSearchParams({ to: slug, [ASSIGNEE_NAME]: assignee })}`;
-  }
-
-  // The border is the label's, so it rings the dot and the select as one
-  // control. The select draws no border of its own, and an option cannot draw
-  // a dot, so the named org's dot sits before it.
-  const control = (
-    <label className="flex items-center rounded border border-border bg-bg focus-within:border-fg">
-      {org ? (
-        <span className="pl-2 sm:pl-2.5">
-          <OrgDot color={org.color} />
-        </span>
-      ) : null}
-      {/* The select holds its own value, so a pick shows at once. The key
-          draws it again from the address on every move, so a step back reads
-          the board it lands on. */}
-      <select
-        key={org?.slug ?? ""}
-        name="to"
-        aria-label="Board"
-        defaultValue={org?.slug ?? ""}
-        onChange={(event) => navigate(picked(event.target.value))}
-        className="h-9 rounded bg-transparent px-1.5 text-base font-medium sm:px-2 sm:text-lg focus:outline-none"
-      >
-        <option value="">All</option>
-        {orgs.map((one) => (
-          <option key={one.slug} value={one.slug}>
-            {one.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-
-  return (
-    <form method="get" action="/go" className="flex items-center gap-2">
-      {heading ? <h1 className="font-normal">{control}</h1> : control}
-      {assignee === null ? null : <input type="hidden" name={ASSIGNEE_NAME} value={assignee} />}
-      <noscript>
-        <button className={buttonClass(false)}>Go</button>
-      </noscript>
-    </form>
-  );
-}
-
-/** The name and the glyph of each colour scheme, as the select draws them. */
-const SCHEME_LOOKS: Record<ColourScheme, { label: string; icon: React.ReactNode }> = {
-  light: { label: "Light", icon: <Sun /> },
-  dark: { label: "Dark", icon: <Moon /> },
-  system: { label: "System", icon: <Desktop /> },
+/** The org pages, by the last step of their address, as the header names them. */
+const ORG_PAGE_NAMES: Record<string, string> = {
+  clients: "Clients",
+  decisions: "Decisions",
+  archive: "Archive",
+  fields: "Fields",
+  members: "Members",
+  settings: "Settings",
 };
 
-/**
- * The colour scheme select: Light, Dark or System. A pick posts through a
- * fetcher, and the page draws it while the post is in flight, so it changes at
- * once. The post reloads no page's data: only the root reads the cookie.
- *
- * With no script it is a plain POST form, and the button inside `<noscript>`
- * sends it. The form names the page the person stands on, and the reply
- * redirects back there.
- */
-function ColourSchemeSelect() {
-  const scheme = useColourScheme();
-  const fetcher = useColourSchemeFetcher();
-  const { pathname, search } = useLocation();
+/** The person pages that are no view, as the header names them. */
+const PERSON_PAGE_NAMES: Record<string, string> = {
+  "/account": "Account",
+  "/orgs/new": "New org",
+  "/orgs": "Orgs",
+};
 
-  return (
-    <form method="post" action={COLOUR_SCHEME_ACTION} className="flex items-center gap-2">
-      <input type="hidden" name="next" value={`${pathname}${search}`} />
-      {/* The border is the label's, so it rings the glyph and the select as
-          one control, the way the org select rings its dot. */}
-      <label className="flex items-center rounded border border-border bg-bg pl-1.5 focus-within:border-fg sm:pl-2">
-        {SCHEME_LOOKS[scheme].icon}
-        <select
-          name="scheme"
-          aria-label="Colour scheme"
-          value={scheme}
-          onChange={(event) => {
-            const picked = event.target.value;
-            if (!isColourScheme(picked)) return;
-            void fetcher.submit(
-              { scheme: picked },
-              { method: "post", action: COLOUR_SCHEME_ACTION, defaultShouldRevalidate: false },
-            );
-          }}
-          className="h-9 rounded bg-transparent pl-1 pr-0.5 focus:outline-none sm:pl-1.5 sm:pr-1"
-        >
-          {COLOUR_SCHEMES.map((one) => (
-            <option key={one} value={one}>
-              {SCHEME_LOOKS[one].label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <noscript>
-        <button className={buttonClass(false)}>Set</button>
-      </noscript>
-    </form>
-  );
+/** What the header calls the page at this address, or null for none. */
+export function pageName(pathname: string, onBoard: boolean): string | null {
+  const view = viewOf(pathname, onBoard);
+  if (view) return VIEW_LOOK[view].label;
+  if (/(^|\/)t\/\d+$/.test(pathname)) return "Task";
+  const org = pathname.match(/^\/o\/[^/]+\/(?:board\/)?([^/]+)/);
+  if (org) return ORG_PAGE_NAMES[org[1]!] ?? null;
+  return PERSON_PAGE_NAMES[pathname] ?? null;
 }
 
 /**
- * The header, on every signed-in page.
+ * The search, the dock and, on a board, the page's heading.
  *
  * `orgs` is every org the person belongs to, first joined first. `org` is the
- * org the header names: the org of the address, or the one org of a person in
- * one, and null on a person page of a person in several. A person in one org
- * has nothing to pick, so the select is not drawn and the org's name stands in
- * its place.
+ * org of the address, or the one org of a person in one, and null on a person
+ * page of a person in several, where the board in view is All.
  */
-export function Header({ orgs, org }: { orgs: OrgHeld[]; org: OrgHeld | null }) {
+export function Header({ orgs, org, me }: { orgs: OrgHeld[]; org: OrgHeld | null; me?: Me }) {
   const { pathname } = useLocation();
-  // A task belongs to one org and never to two, so a task page stands in that
-  // org like every other org page, though its path names no org. See ADR-0030.
   const onTask = pathname.startsWith("/t/");
-  const inOrg = pathname.startsWith("/o/") || onTask;
-  // One Board, whose scope the select sets.
-  const board = boardOf(org?.slug ?? null);
-  const onBoard = pathname === "/me" || (org !== null && pathname === boardOf(org.slug));
-  const hereOrg = (page: string) => inOrg && org !== null && pathname === pageOf(org.slug, page);
-
-  // The page you stand on, named on ⋯. A task page names no page of the menu,
-  // and the person menu's pages are named there instead.
-  const page = onBoard
-    ? "Board"
-    : (PERSON.find((one) => pathname.startsWith(one.to))?.label ??
-      ORG.find((one) => hereOrg(one.to))?.label ??
-      (onTask ? "Task" : undefined));
-
-  const name = org ? (
-    <span className="flex items-center gap-1.5 text-lg font-medium">
-      <OrgDot color={org.color} />
-      <span className="max-w-48 truncate">{org.name}</span>
-    </span>
-  ) : null;
+  // A board with a modal open over it is still the board in view.
+  const board = org ? boardOf(org.slug) : null;
+  const onBoard =
+    pathname === "/me" ||
+    pathname.startsWith("/me/t/") ||
+    (board !== null && (pathname === board || pathname.startsWith(`${board}/`)));
+  const page = pageName(pathname, onBoard);
+  // On All, and on Week, Plan and Focus, which span every org, no org is in
+  // view. A person in one org always stands in it.
+  const spansOrgs = org === null || (pathname.startsWith("/me") && orgs.length > 1);
+  const where = `${spansOrgs ? "All orgs" : org!.name}${page ? ` / ${page}` : ""}`;
 
   return (
-    // Three columns: an empty left, the select and ⋯ at the centre, the person
-    // menu at the right. The outer two share the rest equally, so the centre
-    // stays centred whatever either side holds.
-    //
-    // Below `sm` the empty left column goes and the gaps, padding and the
-    // select's text shrink, so the header still fits one row at 360px with
-    // the colour scheme select in it. See #223.
-    //
-    // On a board, from `sm` up, the header sticks, and the board's Top row
-    // sticks under it at `top-16`, so the height is fixed and not its
-    // content's. Every other page scrolls it away. See #191.
-    <header
-      className={`top-0 z-20 grid h-16 grid-cols-[auto_1fr] items-center gap-x-2 border-b border-border bg-bg px-2 sm:grid-cols-[1fr_auto_1fr] sm:gap-x-4 sm:px-8 ${onBoard ? "sm:sticky" : ""}`}
-    >
-      <span aria-hidden="true" className="hidden sm:block" />
-      <div className="flex items-center gap-1 sm:gap-2">
-        {orgs.length > 1 ? (
-          <OrgSelect orgs={orgs} org={org} heading={onBoard} />
-        ) : onBoard && name ? (
-          <h1 className="font-normal">{name}</h1>
-        ) : (
-          name
-        )}
-
-        <Menu label={page} icon={<Ellipsis />} name="Pages" align="left">
-          <Item to={board} here={onBoard}>
-            Board
-          </Item>
-          {PERSON.map((one) => (
-            <Item key={one.to} to={one.to} here={pathname.startsWith(one.to)}>
-              {one.label}
-            </Item>
-          ))}
-          {org ? (
-            <>
-              <Rule />
-              <Section org={org} />
-              {ORG.map((one) => (
-                <Item key={one.to} to={pageOf(org.slug, one.to)} here={hereOrg(one.to)}>
-                  {one.label}
-                </Item>
-              ))}
-            </>
-          ) : null}
-        </Menu>
-      </div>
-
-      {/* What is yours and no org's, at the far right, and the colour scheme
-          beside it. */}
-      <div className="flex items-center gap-1 justify-self-end sm:gap-2">
-        <ColourSchemeSelect />
-        <Menu
-          icon={<User />}
-          name="You"
-          here={YOURS.some((one) => pathname === one.to)}
-          align="right"
-        >
-          {YOURS.map((one) => (
-            <Item key={one.to} to={one.to} here={pathname === one.to}>
-              {one.label}
-            </Item>
-          ))}
-          <KeysItem />
-        </Menu>
-      </div>
-    </header>
+    <>
+      {/* A board has no other heading: the columns are the page. */}
+      {onBoard ? <h1 className="sr-only">{where}</h1> : null}
+      <GlobalSearch />
+      <Dock orgs={orgs} org={spansOrgs && !onTask ? null : org} me={me} onBoard={onBoard} raised={onTask} where={where} />
+    </>
   );
 }

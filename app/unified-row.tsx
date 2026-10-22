@@ -2,10 +2,10 @@ import { Link, useFetcher } from "react-router";
 
 import type { Status } from "./board";
 import { ContentLine } from "./content-line";
-import { Grip, useDragItem } from "./drag-lists";
+import { useDragItem } from "./drag-lists";
 import { keyHint } from "./key-hint";
 import { KEY_MAP } from "./key-map";
-import { taskPath, useOrigin } from "./paths";
+import { useTaskHref } from "./paths";
 import type { LiveTask } from "./unified";
 import type { TaskId } from "./task-number";
 
@@ -41,8 +41,8 @@ export function finishFields(task: LiveTask) {
  * The unified board draws a card of its own.
  *
  * A row is its title line and the content line under it. The title line holds
- * the grip where the row drags, the title and the buttons, so a control never
- * adds a line. The week set's six buttons are the exception: they wrap under
+ * the title and the buttons, so a control never adds a line. Where the row
+ * drags, it drags from anywhere on it. See ADR-0041. The week set's six buttons are the exception: they wrap under
  * the title on a narrow screen, because that row has no drag to replace them.
  *
  * The two acts sit in a form of their own, so they work with no script. The
@@ -96,7 +96,7 @@ export function UnifiedRow({
   showsOrg: boolean;
 }) {
   const post = useFetcher();
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
   const drag = useDragItem(task.id, !drags);
   const plan = planFields(task, planned);
   const up = keyHint("up");
@@ -113,26 +113,30 @@ export function UnifiedRow({
       onClick={place}
       ref={drag.ref}
       style={drag.style}
+      // The whole row drags, where it drags at all; a press that does not
+      // move is a click.
+      {...drag.listeners}
       // The row being dragged stays faded where it will land, and the copy
       // under the pointer is the one that moves.
-      className={`flex flex-col gap-1 rounded border p-3 ${
+      className={`press-soft flex flex-col gap-2 rounded-xl border p-3 hover:shadow-md ${drag.card} ${
         selected
           ? "border-fg bg-surface-2"
           : "border-border"
       } ${drags ? "bg-surface" : ""} ${drag.dragging ? "opacity-40" : ""}`}
     >
-      <span className={`flex items-baseline gap-x-3 ${moves ? "flex-wrap gap-y-1" : ""}`}>
-        {drags ? <Grip grip={drag.grip} /> : null}
+      {/* The title takes the line; the controls follow it, and wrap under it
+          where the line runs out, as on a phone. */}
+      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
         <Link
-          to={taskPath(task.id, origin)}
-          className={`min-w-0 flex-1 underline-offset-2 hover:underline ${
+          to={hrefOf(task.id)}
+          className={`min-w-[10rem] flex-1 underline-offset-2 hover:underline ${
             task.finished ? "text-muted line-through" : ""
           }`}
         >
           {task.title}
         </Link>
 
-        <post.Form method="post" className="flex shrink-0 gap-2">
+        <post.Form method="post" className="flex shrink-0 flex-wrap gap-1.5">
           <input type="hidden" name="id" value={task.id} />
           <input type="hidden" name="slug" value={task.org.slug} />
           {moves ? (
@@ -143,7 +147,7 @@ export function UnifiedRow({
                 disabled={!moves.up}
                 aria-label={`Move ${task.title} up`}
                 {...up.keys}
-                className="rounded border border-border px-1 text-xs disabled:opacity-30"
+                className="press min-h-7 rounded-full border border-border px-2 text-xs text-muted hover:border-dim hover:text-fg disabled:opacity-30"
               >
                 ↑{up.hint}
               </button>
@@ -153,7 +157,7 @@ export function UnifiedRow({
                 disabled={!moves.down}
                 aria-label={`Move ${task.title} down`}
                 {...down.keys}
-                className="rounded border border-border px-1 text-xs disabled:opacity-30"
+                className="press min-h-7 rounded-full border border-border px-2 text-xs text-muted hover:border-dim hover:text-fg disabled:opacity-30"
               >
                 ↓{down.hint}
               </button>
@@ -165,7 +169,7 @@ export function UnifiedRow({
                 disabled={!moves.up}
                 aria-label={`Move ${task.title} to the top`}
                 {...top.keys}
-                className="rounded border border-border px-1 text-xs disabled:opacity-30"
+                className="press min-h-7 rounded-full border border-border px-2 text-xs text-muted hover:border-dim hover:text-fg disabled:opacity-30"
               >
                 {KEY_MAP.top.label}
                 {top.hint}
@@ -176,7 +180,7 @@ export function UnifiedRow({
                 disabled={!moves.down}
                 aria-label={`Move ${task.title} to the bottom`}
                 {...bottom.keys}
-                className="rounded border border-border px-1 text-xs disabled:opacity-30"
+                className="press min-h-7 rounded-full border border-border px-2 text-xs text-muted hover:border-dim hover:text-fg disabled:opacity-30"
               >
                 {KEY_MAP.bottom.label}
                 {bottom.hint}
@@ -188,7 +192,7 @@ export function UnifiedRow({
               name="intent"
               value={plan.intent}
               {...pick.keys}
-              className="rounded border border-border px-1.5 text-xs"
+              className="press min-h-7 rounded-full border border-border px-2.5 text-xs text-muted hover:border-fg hover:text-fg"
             >
               {planned ? verbs.drop : verbs.pick}
               {pick.hint}
@@ -199,7 +203,7 @@ export function UnifiedRow({
             value="finish"
             disabled={task.finished}
             {...finish.keys}
-            className="rounded border border-border px-1.5 text-xs disabled:opacity-30"
+            className="press min-h-7 rounded-full border border-win px-2.5 text-xs text-win hover:bg-win/10 disabled:opacity-30"
           >
             {KEY_MAP.finish.label}
             {finish.hint}

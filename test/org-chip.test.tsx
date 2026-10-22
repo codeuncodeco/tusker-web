@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { OrgHeld } from "../app/current-org";
 import { FocusList } from "../app/focus-list";
-import { OrgChip, OrgNameChip, orgInitialsOf, tellsOrgsApart } from "../app/org-chip";
+import { OrgChip, OrgDot, OrgNameChip, orgInitialsOf, tellsOrgsApart } from "../app/org-chip";
 import type { Group, LiveTask } from "../app/unified";
 import { UnifiedCard } from "../app/unified-card";
 import { UnifiedList } from "../app/unified-list";
@@ -34,31 +34,32 @@ function draw(Component: () => React.ReactNode): string {
 }
 
 describe("the chip that names an org", () => {
-  it("paints the dot with the org's colour and still reads the name", () => {
+  it("names the org by its letters, in no colour, and still reads the name", () => {
     const markup = renderToStaticMarkup(<OrgChip org={{ name: "Acme", color: "teal" }} />);
 
-    expect(markup).toContain("var(--color-opt-teal)");
+    // The org's colour is drawn where orgs are picked, not on a card. See ADR-0038.
+    expect(markup).not.toContain("--color-opt-");
     expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain(">AC<");
     expect(markup).toContain("Acme");
+  });
+});
+
+describe("the dot that names an org where orgs are picked", () => {
+  it("paints the org's colour", () => {
+    expect(renderToStaticMarkup(<OrgDot color="teal" />)).toContain("var(--color-opt-teal)");
   });
 
   it("draws grey for an org nobody gave a colour", () => {
-    const markup = renderToStaticMarkup(<OrgChip org={{ name: "Acme", color: null }} />);
-
-    expect(markup).toContain("var(--color-opt-grey)");
+    expect(renderToStaticMarkup(<OrgDot color={null} />)).toContain("var(--color-opt-grey)");
   });
 
   it("draws grey, and throws no page away, for a name the palette dropped", () => {
-    const markup = renderToStaticMarkup(<OrgChip org={{ name: "Acme", color: "chartreuse" }} />);
-
-    expect(markup).toContain("var(--color-opt-grey)");
-    expect(markup).toContain("Acme");
+    expect(renderToStaticMarkup(<OrgDot color="chartreuse" />)).toContain("var(--color-opt-grey)");
   });
 
   it("draws an exact colour as the person typed it", () => {
-    const markup = renderToStaticMarkup(<OrgChip org={{ name: "Acme", color: "#2563EB" }} />);
-
-    expect(markup).toContain("#2563EB");
+    expect(renderToStaticMarkup(<OrgDot color="#2563EB" />)).toContain("#2563EB");
   });
 });
 
@@ -126,12 +127,12 @@ describe("the initials chip", () => {
 });
 
 describe("a card of the unified board", () => {
-  it("names its org with the initials chip, colour and all", () => {
+  it("names its org with the initials chip, and no colour", () => {
     const markup = draw(() => (
       <UnifiedCard task={live("purple")} selected={false} domId="c1" place={() => {}} showsOrg />
     ));
 
-    expect(markup).toContain("var(--color-opt-purple)");
+    expect(markup).not.toContain("var(--color-opt-purple)");
     expect(markup).toContain('title="Acme"');
     expect(markup).toMatch(/<span aria-hidden="true">AC<\/span>/);
   });
@@ -209,13 +210,13 @@ describe("the header", () => {
     return { slug, name: slug, color };
   }
 
-  it("puts the dot of the org the select names inside the select's border", () => {
+  it("draws every org's dot in the You panel, where orgs are picked", () => {
     const orgs = [org("acme", "teal"), org("ada", "pink")];
     const markup = headerAt("/o/acme/board", orgs, orgs[0]!);
 
-    // An option cannot draw a dot, so the header draws the named org's alone.
-    expect(markup).toMatch(/<label[^>]*>[\s\S]*--color-opt-teal[\s\S]*<select/);
-    expect(markup).not.toContain("var(--color-opt-pink)");
+    const panel = markup.slice(markup.search(/aria-label="You[^"]*"/));
+    expect(panel).toContain("var(--color-opt-teal)");
+    expect(panel).toContain("var(--color-opt-pink)");
   });
 
   it("gives a colourless org a grey dot, so the header keeps one shape", () => {

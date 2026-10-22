@@ -18,6 +18,7 @@
  * line, so a person who types one title sees no change.
  */
 
+import { play } from "./sound";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { FetcherWithComponents } from "react-router";
 
@@ -102,6 +103,7 @@ export function useSendDraft(
   useEffect(() => {
     if (add.state !== "submitting" || !add.formData) return;
     sent.current = String(add.formData.get("title") ?? "");
+    play("add");
     clear();
   }, [add.state, add.formData, clear]);
 

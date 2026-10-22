@@ -187,8 +187,10 @@ describe("a person in one org", () => {
     const board = await meRoute.loader(routeArgs(get("/me", ada.cookie)));
     const landing = await caught(homeRoute.loader(routeArgs(get("/", ada.cookie))));
 
+    // The unified board stays, and `/` opens the first org's board. See
+    // ADR-0037.
     expect(board).not.toBeInstanceOf(Response);
-    expect(landing.headers.get("location")).toBe("/me");
+    expect(landing.headers.get("location")).toBe(`/o/${ada.org.slug}/board`);
   });
 });
 
@@ -227,122 +229,138 @@ describe("the scope of a page under the org layout", () => {
 });
 
 /** The option the select reads, out of the header's markup. */
-function picked(markup: string): string | null {
-  return markup.match(/<option value="([^"]*)" selected=""/)?.[1] ?? null;
+/** The dock's settings panel, as markup. */
+/** The dock's You panel, which holds you and your settings, as markup. */
+function settings(markup: string): string {
+  const at = markup.search(/aria-label="You[^"]*"/);
+  return markup.slice(at, markup.indexOf("</details>", at));
+}
+
+/** The dock's View button, as its opening tag. */
+function viewButton(markup: string): string {
+  return markup.match(/<a[^>]*aria-label="(?:View|Back to)[^"]*"[^>]*>/)?.[0] ?? "";
 }
 
 describe("the header", () => {
   const ada = org("ada");
   const acme = org("acme");
 
-  it("draws one row and no wordmark", () => {
+  it("draws no bar and no wordmark: the page is the work", () => {
     const markup = headerAt("/me/week", [ada, acme], null);
 
-    expect(markup.match(/<header/g)).toHaveLength(1);
+    expect(markup).not.toContain("<header");
     expect(markup).not.toContain(">Tusker<");
   });
 
-  it("reads All on every person page", () => {
-    for (const path of ["/me", "/me/week", "/me/plan/2026-10-09", "/me/focus", "/account"]) {
-      expect(picked(headerAt(path, [ada, acme], null))).toBe("");
-    }
+  it("names where the person stands in the View button's title", () => {
+    const view = (path: string, org = acme as typeof acme | null) =>
+      viewButton(headerAt(path, [ada, acme], org)).match(/title="([^"]*)"/)?.[1] ?? "";
+
+    expect(view("/o/acme/board")).toMatch(/^acme \/ Board\./);
+    expect(view("/o/acme/clients")).toMatch(/^acme \/ Clients\./);
+    expect(view("/me/plan", null)).toMatch(/^All orgs \/ Plan\./);
+    expect(view("/t/12")).toMatch(/^acme \/ Task\./);
   });
 
-  it("reads the org of every org page", () => {
-    for (const path of ["/o/acme/board", "/o/acme/decisions", "/t/12", "/o/acme/settings"]) {
-      expect(picked(headerAt(path, [ada, acme], acme))).toBe("acme");
-    }
-  });
-
-  it("sets the colour scheme beside the person menu, in a form that works with no script", () => {
+  it("sets the colour scheme with three segments in the You panel, in a form that works with no script", () => {
     const markup = headerAt("/me/week?day=2026-10-13", [ada, acme], null);
+    const panel = settings(markup);
 
-    const form = markup.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
+    const form = panel.match(/<form[^>]*action="\/colour-scheme"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
     expect(form).toContain('method="post"');
     expect(form).toContain('<input type="hidden" name="next" value="/me/week?day=2026-10-13"/>');
-    expect(form).toMatch(/<select name="scheme" aria-label="Colour scheme"/);
-    expect(form.replace(/ selected=""/g, "")).toMatch(/<option value="light">Light<\/option><option value="dark">Dark<\/option><option value="system">System<\/option>/);
+    const buttons = [...form.matchAll(/<button[^>]*>/g)].map((one) => one[0]);
+    expect(buttons.map((one) => one.match(/value="(\w+)"/)?.[1])).toEqual(["light", "dark", "system"]);
     // With no loader data and nothing in flight, the pick reads System.
-    expect(form).toContain('<option value="system" selected="">System</option>');
-    expect(form).toMatch(/<svg[^>]*aria-hidden="true"/);
-    expect(form).toMatch(/<noscript>[\s\S]*Set[\s\S]*<\/noscript>/);
-    // The person menu stays at the far right edge.
-    expect(markup.indexOf('aria-label="Colour scheme"')).toBeLessThan(markup.indexOf(">You<"));
+    expect(buttons.map((one) => one.match(/aria-pressed="(\w+)"/)?.[1])).toEqual(["false", "false", "true"]);
   });
 
-  it("calls a task page Task, though its path names no org", () => {
-    const markup = headerAt("/t/12", [ada, acme], acme);
-
-    expect(markup).toMatch(/>Task</);
+  it("heads a board, for a screen reader, with the org and the page, and no other page", () => {
+    expect(headerAt("/o/acme/board", [ada, acme], acme)).toContain('<h1 class="sr-only">acme / Board</h1>');
+    expect(headerAt("/me", [ada, acme], null)).toContain('<h1 class="sr-only">All orgs / Board</h1>');
+    expect(headerAt("/me/week", [ada, acme], null)).not.toContain("<h1");
+    expect(headerAt("/o/ada/board", [ada], ada)).toContain('<h1 class="sr-only">ada / Board</h1>');
   });
 
-  it("lists All, then every org, in a form that works with no script", () => {
-    const markup = headerAt("/me", [ada, acme], null);
+  it("puts the search in the corner, with a button that opens it", () => {
+    const markup = headerAt("/o/acme/board", [ada, acme], acme);
 
-    const form = markup.match(/<form[^>]*>/)?.[0] ?? "";
-    expect(form).toContain('method="get"');
-    expect(form).toContain('action="/go"');
-    expect(markup).toMatch(/<select name="to"/);
-    expect(markup.replace(/ selected=""/g, "")).toMatch(/<option value="">All<\/option><option value="ada">ada<\/option><option value="acme">acme<\/option>/);
+    expect(markup).toMatch(/<button[^>]*aria-label="Search and filters"/);
+    expect(markup).toContain('role="search"');
+    expect(markup).toContain('aria-label="Search"');
+  });
+});
+
+describe("the dock", () => {
+  const ada = org("ada");
+  const acme = org("acme");
+
+  it("steps the view with one click: Board, Week, Plan, Focus, and round", () => {
+    expect(viewButton(headerAt("/o/acme/board", [ada, acme], acme))).toContain('href="/me/week"');
+    expect(viewButton(headerAt("/me/week", [ada, acme], null))).toContain('href="/me/plan"');
+    expect(viewButton(headerAt("/me/plan", [ada, acme], null))).toContain('href="/me/focus"');
+    // From Focus the board is the first org's, where Tusker starts, until the
+    // browser remembers another.
+    expect(viewButton(headerAt("/me/focus", [ada, acme], null))).toContain('href="/o/ada/board"');
+    expect(viewButton(headerAt("/o/acme/board", [ada, acme], acme))).toContain('aria-label="View: Board. Switch to Week."');
   });
 
-  it("holds no org page while the select reads All", () => {
-    const markup = headerAt("/me/week", [ada, acme], null);
+  it("goes back to the board from a page that is no view", () => {
+    const button = viewButton(headerAt("/o/acme/decisions", [ada, acme], acme));
 
-    expect(markup).toMatch(/<a[^>]*href="\/me"[^>]*>Board</);
-    expect(markup).toMatch(/<a[^>]*href="\/me\/plan"/);
-    expect(markup).not.toContain("/o/");
+    expect(button).toContain('href="/o/acme/board"');
+    expect(button).toContain('aria-label="Back to Board"');
   });
 
-  it("holds the pages of the org the select names, and scopes Board to it", () => {
-    const markup = headerAt("/me/week", [ada, acme], null);
-    const inOrg = headerAt("/o/acme/decisions", [ada, acme], acme);
+  it("picks the board's org in the You panel: every org, then All", () => {
+    const panel = settings(headerAt("/o/acme/board", [ada, acme], acme));
 
-    expect(markup).not.toContain("Decisions");
-    for (const page of ["archive", "fields", "members", "settings"]) {
-      expect(inOrg).toMatch(new RegExp(`<a[^>]*href="/o/acme/${page}"`));
+    expect([...panel.matchAll(/href="(\/o\/[^/"]+\/board|\/me)"/g)].map((one) => one[1])).toEqual([
+      "/o/ada/board",
+      "/o/acme/board",
+      "/me",
+    ]);
+    expect(panel).toMatch(/aria-current="page"[^>]*href="\/o\/acme\/board"|href="\/o\/acme\/board"[^>]*aria-current="page"/);
+  });
+
+  it("holds the pages of the org in view, or of the first org on a page that spans them", () => {
+    const inOrg = settings(headerAt("/o/acme/decisions", [ada, acme], acme));
+    const onWeek = settings(headerAt("/me/week", [ada, acme], null));
+
+    for (const page of ["clients", "decisions", "archive", "fields", "members", "settings"]) {
+      // Each opens over the org's board, as a modal. See ADR-0039.
+      expect(inOrg).toContain(`href="/o/acme/board/${page}"`);
+      expect(onWeek).toContain(`href="/o/ada/board/${page}"`);
     }
-    expect(inOrg).toMatch(/<a[^>]*href="\/o\/acme\/board"[^>]*>Board</);
-    expect(inOrg).not.toMatch(/href="\/me"/);
+    expect(inOrg).toContain('href="/orgs/new"');
   });
 
-  it("names the page a person stands on, and offers it no link", () => {
-    const markup = headerAt("/o/acme/decisions", [ada, acme], acme);
+  it("opens the You panel on four tabs, You picked, with every section drawn for a page with no script", () => {
+    const panel = settings(headerAt("/o/acme/board", [ada, acme], acme));
+    const bar = panel.match(/<div[^>]*role="tablist"[^>]*>[\s\S]*?<\/div>/)?.[0] ?? "";
+    const tabs = [...bar.matchAll(/<button[^>]*role="tab"[^>]*>/g)].map((one) => one[0]);
 
-    expect(markup).toMatch(/aria-current="page"[^>]*>Decisions</);
-    expect(markup).not.toMatch(/<a[^>]*href="\/o\/acme\/decisions"/);
-    // ⋯ carries the name of the page, so the bar says where you are.
-    expect(markup).toMatch(/<summary[^>]*>[\s\S]*?Decisions[\s\S]*?<\/summary>/);
+    expect(tabs.map((one) => one.match(/id="you-tab-(\w+)"/)?.[1])).toEqual(["you", "boards", "org", "look"]);
+    expect(tabs.map((one) => one.match(/aria-selected="(\w+)"/)?.[1])).toEqual(["true", "false", "false", "false"]);
+    expect(panel.match(/role="tabpanel"/g)).toHaveLength(4);
   });
 
-  it("puts Account and New org in the person menu", () => {
-    const markup = headerAt("/me", [ada, acme], null);
+  it("merges you and settings into one button that wears your avatar", () => {
+    const markup = headerAt("/me", [ada, acme], null, { name: "Ada Byron", initials: "AB", color: "teal", email: "ada@example.test" });
+    const you = markup.match(/<summary[^>]*aria-label="You[^"]*"[^>]*>[\s\S]*?<\/summary>/)?.[0] ?? "";
+    const panel = settings(markup);
 
-    expect(markup).toMatch(/<a[^>]*href="\/account"/);
-    expect(markup).toMatch(/<a[^>]*href="\/orgs\/new"/);
-  });
-
-  it("draws no select for a person in one org, and always holds their org's pages", () => {
-    const markup = headerAt("/me/week", [ada], ada);
-
-    expect(markup).not.toContain('aria-label="Board"');
-    expect(markup).toMatch(/<a[^>]*href="\/o\/ada\/decisions"/);
-    expect(markup).toMatch(/<a[^>]*href="\/o\/ada\/board"[^>]*>Board</);
-  });
-
-  it("makes the select the board's heading, and no other page's", () => {
-    const board = headerAt("/o/acme/board", [ada, acme], acme);
-    const unified = headerAt("/me", [ada, acme], null);
-    const week = headerAt("/me/week", [ada, acme], null);
-
-    expect(board).toMatch(/<h1[^>]*>[\s\S]*<select[^>]*aria-label="Board"[\s\S]*<\/h1>/);
-    expect(unified).toMatch(/<h1[^>]*>[\s\S]*<select[\s\S]*<\/h1>/);
-    expect(week).not.toContain("<h1");
-  });
-
-  it("heads the board of a person in one org with the org's name", () => {
-    const markup = headerAt("/o/ada/board", [ada], ada);
-
-    expect(markup).toMatch(/<h1[^>]*>[\s\S]*ada[\s\S]*<\/h1>/);
+    expect(you).toContain('aria-label="You: Ada Byron, and settings"');
+    expect(you).toContain(">AB<");
+    // Who you are heads the panel: your name to edit, your email, your colour.
+    expect(panel).toContain('aria-label="Your name"');
+    expect(panel).toContain("ada@example.test");
+    expect(panel).toContain('aria-label="Your colour"');
+    // And the way to the account page and out.
+    expect(panel).toContain('href="/account"');
+    expect(panel).toContain(">Sign out<");
+    // Two dock buttons, and no account modal on the page.
+    expect(markup.match(/aria-label="Dock"[\s\S]*$/)?.[0]).not.toContain("aria-haspopup");
+    expect(markup).not.toContain('role="dialog"');
   });
 });

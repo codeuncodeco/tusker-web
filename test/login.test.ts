@@ -51,7 +51,7 @@ describe("sign in", () => {
     const response = await signInWithPassword();
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/me");
+    expect(response.headers.get("location")).toBe("/");
     expect(cookieFrom(response)).toContain("better-auth");
   });
 

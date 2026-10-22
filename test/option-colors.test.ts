@@ -197,10 +197,12 @@ describe("colouring a value", () => {
       fieldsRoute,
       "/o/codeuncode/fields",
       ada.cookie,
-      { intent: "declare", label: "Kind", type: "select", options: "Bug" },
+      { intent: "declare", label: "Kind", type: "text" },
       { slug: "codeuncode" },
     );
 
+    // A text field has no list of values to colour. A select does now: see
+    // ADR-0036.
     const answer = await caught(setColor(ada.cookie, { Bug: "blue" }, "kind"));
 
     expect(answer.status).toBe(400);

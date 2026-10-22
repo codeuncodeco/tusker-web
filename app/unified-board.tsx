@@ -18,8 +18,11 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 
-import { isFinished, type Status } from "./board";
+import { EMPTY_LINE, flipped, isFinished, type Status } from "./board";
+import { ColumnHead } from "./board-chrome";
+import { BacklogTab, CancelledTab, isSide, PutAway, SideSheet, SIDE_STATUSES, type SideStatus } from "./side-drawer";
 import { ColumnSweep } from "./column-sweep";
 import { landingInOrg } from "./drag";
 import { DragCopy, DragLists, DropList, type Drop } from "./drag-lists";
@@ -40,7 +43,13 @@ export function UnifiedBoard({
   orgs,
   planned: picked,
   day,
+  counts = { backlog: 0, cancelled: 0 },
+  add,
 }: {
+  /** How many tasks Backlog and Cancelled hold, for their tabs. */
+  counts?: Record<SideStatus, number>;
+  /** The add box, which heads To do. */
+  add?: React.ReactNode;
   columns: Column[];
   /** Every org the person belongs to, for the org on a card and the swept toast's links. */
   orgs: OrgHeld[];
@@ -62,8 +71,11 @@ export function UnifiedBoard({
     answered.map((column) => column.status),
   );
   const planned = new Set(drawn.picked);
+  // Backlog and Cancelled live on sheets of their own. See ADR-0041.
+  const open = SIDE_STATUSES.filter((status) => columns.some((column) => column.status === status));
   // A post per press, so every press of a burst is drawn.
   const post = usePost();
+  const [params] = useSearchParams();
   const [on, setOn] = useState<TaskId | null>(null);
   // The name of every org, for the archive links the swept toast carries. It
   // is made once, because the sweep re-binds its effect on a new object.
@@ -124,75 +136,100 @@ export function UnifiedBoard({
 
   return (
     <>
+      <BacklogTab open={open.includes("backlog")} count={counts.backlog} />
+      <CancelledTab open={open.includes("cancelled")} count={counts.cancelled} />
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
         onDrop={onDrop}
         overlay={(id) => <DragCopy title={tasks.get(id)?.title ?? ""} />}
       >
-        {(shown) => (
-          // Each column is as long as its cards, and the page scrolls. The
-          // columns are panes: a divider splits them, and a card is the one
-          // thing on the board with an edge. See #184 and #191.
-          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
-            {columns.map((column) => {
-              const cards = shown[column.status].flatMap((id) => tasks.get(id) ?? []);
-              return (
-                <section
-                  key={column.status}
-                  // Every column takes an equal share of the width, down to the
-                  // width it always had. Past that the row scrolls sideways.
-                  className="flex pt-6 min-w-72 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
-                >
-                  <div className="flex items-baseline gap-3">
-                    <h2 className="font-mono uppercase tracking-wide text-muted">
-                      {column.label} <span className="text-dim">{column.tasks.length}</span>
-                    </h2>
-                    {/* The sweep acts on the whole column, so it is column chrome,
-                        and it sits with the name and the count as it does on the
-                        org board. A column of this board holds cards of several
-                        orgs, so each card names the org that holds it where the
-                        person is in more than one, and the toast links to the
-                        archive of every org the sweep touched. See ADR-0019. */}
-                    {isFinished(column.status) ? (
-                      <ColumnSweep
-                        label={column.label}
-                        cards={column.tasks.map((task) => ({ id: task.id, slug: task.org.slug }))}
-                        undoAt="/me"
-                        names={names}
-                      />
-                    ) : null}
-                  </div>
+        {(shown) => {
+          /** One column: its head, the add box at the top of To do, and its cards. */
+          const columnOf = (column: Column, at: number) => {
+            const cards = shown[column.status]!.flatMap((id) => tasks.get(id) ?? []);
+            const side = isSide(column.status);
+            return (
+              <section
+                key={column.status}
+                // Every column takes an equal share of the width, down to the
+                // width it always had. Past that the row scrolls sideways.
+                style={{ animationDelay: side ? undefined : `${at * 50}ms` }}
+                className="flex min-w-72 flex-1 flex-col gap-3 px-4 pt-4 first:pl-0 last:pr-0 motion-safe:animate-rise-in"
+              >
+                <div className="flex items-baseline gap-3">
+                  <ColumnHead status={column.status} label={column.label} count={column.tasks.length} />
+                  {/* The sweep acts on the whole column, so it is column chrome.
+                      A column of this board holds cards of several orgs, so
+                      the toast links to the archive of every org the sweep
+                      touched. See ADR-0019. */}
+                  {isFinished(column.status) ? (
+                    <ColumnSweep
+                      label={column.label}
+                      cards={column.tasks.map((task) => ({ id: task.id, slug: task.org.slug }))}
+                      undoAt="/me"
+                      names={names}
+                    />
+                  ) : null}
+                  {side ? <PutAway status={column.status as SideStatus} label={column.label} /> : null}
+                </div>
 
-                  {/* As long as its cards, and the page scrolls, not the list.
-                      It fills the rest of a short column, so a drop below the
-                      last card still lands in it. The focus outline is drawn
-                      inside, as the row clips what is past its edge, and
-                      the floor gives an empty column a box to draw it on. See
-                      #193. */}
-                  <DropList
-                    id={column.status}
-                    ids={cards.map((one) => one.id)}
-                    props={keyed(`${column.label} tasks`)}
-                    className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
-                  >
-                    {/* The box files into To do, so an add in flight draws there. */}
-                    {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
-                    {cards.map((task) => (
-                      <UnifiedCard
-                        key={task.id}
-                        task={task}
-                        selected={cursor === task.id}
-                        domId={`card-${task.id}`}
-                        place={() => setOn(task.id)}
-                        showsOrg={showsOrg}
-                      />
-                    ))}
-                  </DropList>
-                </section>
-              );
-            })}
-          </div>
-        )}
+                {/* The add box heads To do, where what it adds lands, outside
+                    every keyed list. See ADR-0022. */}
+                {column.status === "todo" ? add : null}
+
+                {/* As long as its cards, and the page scrolls, not the list.
+                    It fills the rest of a short column, so a drop below the
+                    last card still lands in it. See #193. */}
+                <DropList
+                  id={column.status}
+                  ids={cards.map((one) => one.id)}
+                  props={keyed(`${column.label} tasks`)}
+                  className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
+                >
+                  {/* The box files into To do, so an add in flight draws there. */}
+                  {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
+                  {cards.length === 0 && !(column.status === "todo" && addsSent(sent).length > 0) ? (
+                    <li
+                      aria-hidden="true"
+                      className="pointer-events-none rounded border border-dashed border-border p-3 text-center text-xs text-dim motion-safe:animate-rise-in"
+                    >
+                      {EMPTY_LINE[column.status]}
+                    </li>
+                  ) : null}
+                  {cards.map((task) => (
+                    <UnifiedCard
+                      key={task.id}
+                      task={task}
+                      selected={cursor === task.id}
+                      domId={`card-${task.id}`}
+                      place={() => setOn(task.id)}
+                      showsOrg={showsOrg}
+                      planned={planned.has(task.id)}
+                      act={post}
+                    />
+                  ))}
+                </DropList>
+              </section>
+            );
+          };
+
+          return (
+            <>
+              {columns.filter((column) => isSide(column.status)).map((column, at) => (
+                // Each pulled-out column on a sheet of its own. See ADR-0041.
+                <SideSheet key={column.status} status={column.status as SideStatus}>
+                  {columnOf(column, at)}
+                </SideSheet>
+              ))}
+              {/* Each column is as long as its cards, and the page scrolls.
+                  The columns are panes: a divider splits them, and a card is
+                  the one thing on the board with an edge. See #184 and #191. */}
+              <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
+                {columns.filter((column) => !isSide(column.status)).map(columnOf)}
+              </div>
+            </>
+          );
+        }}
       </DragLists>
     </>
   );

@@ -16,8 +16,12 @@
 import { redirect } from "react-router";
 
 import { resolvedFor, MINE, readUnifiedAssignee } from "../assignee-filter";
-import { BOARD_TOGGLES, narrowingFor, readToggles } from "../board";
-import { ColumnSwitch, TodayChip, UnifiedAssigneeFilter, WeekChip } from "../board-chrome";
+import { BOARD_TOGGLES, type Status, narrowingFor, readToggles } from "../board";
+import { TodayChip, UnifiedAssigneeFilter, UnifiedClientFilter, WeekChip } from "../board-chrome";
+import { BoardFilters, FilterRow } from "../search-panel";
+import { CalendarDay, Folder, ListCheck, Users } from "../icons";
+import { readClient } from "../client-filter";
+import { clientsAcross } from "../clients.server";
 import { cloudflareEnv } from "../context.server";
 import { held } from "../current-org";
 import { postAndReport } from "../pending";
@@ -34,11 +38,12 @@ import { restoreAcross, sweepAcross } from "../sweep.server";
 import { columnsFor, finishedSince, unifiedColumns } from "../unified";
 import { UnifiedAdd } from "../unified-add";
 import { UnifiedBoard } from "../unified-board";
-import { TopRow, TopRowBox } from "../top-row";
+import { TodayMeter } from "../today-meter";
 import { actOnTask } from "../unified-actions.server";
-import { listUnified, membersBySlug } from "../unified.server";
+import { doneAmong, listUnified, membersBySlug } from "../unified.server";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
+import { ModalOutlet, useCloseTo } from "../route-modal";
 import type { Route } from "./+types/me";
 
 export function meta(_: Route.MetaArgs) {
@@ -62,14 +67,23 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // `Anyone`, `Mine` or `Unassigned`, and no member: a member list across orgs
   // names strangers. See ADR-0033.
   const assignee = readUnifiedAssignee(query);
+  // One client of one org, or none. Only a client some org offers narrows:
+  // an old link to a client that went opens the board whole. See ADR-0036.
+  const clients = await clientsAcross(env.DB, set);
+  const asked = readClient(query);
+  const client = asked && clients.some((one) => one.slug === asked.slug && one.value === asked.value) ? asked : null;
 
   // Done and Cancelled cap to the last seven days. Across every org they would
   // otherwise be every task the person ever finished.
-  const tasks = await listUnified(env.DB, set, [], {
-    statuses: shown,
+  // Backlog and Cancelled are read whether or not their drawer is out, so
+  // their tabs can count what they hold under the same narrowing.
+  const read = await listUnified(env.DB, set, [], {
+    statuses: [...new Set<Status>(["backlog", ...shown, "cancelled"])],
     since: finishedSince(day),
     assignee: resolvedFor(assignee, set.personId),
+    client,
   });
+  const tasks = read.filter((task) => shown.includes(task.status));
 
   // The two chips narrow the board to the tasks today's plan holds, or to the
   // tasks this week's set holds. A null plan is a day the person has not
@@ -85,6 +99,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // A board is narrowed by Today, by Week, or by neither. See ADR-0014.
   const { today, week, ids } = narrowingFor(query, inPlan, inWeek);
   const drawn = ids ? tasks.filter((task) => ids.has(task.id)) : tasks;
+  const waiting = ids ? read.filter((task) => ids.has(task.id)) : read;
 
   return {
     orgs: set.orgs.map(held),
@@ -94,13 +109,23 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     /** The person `Mine` names, so the box can start with them picked. */
     personId: set.personId,
     assignee,
+    /** Every client of every org that names a client field, for the chips. */
+    clients,
+    client,
     columns: columnsFor(drawn, shown),
+    /** How many tasks Backlog and Cancelled hold under this narrowing, for their tabs. */
+    counts: {
+      backlog: waiting.filter((task) => task.status === "backlog").length,
+      cancelled: waiting.filter((task) => task.status === "cancelled").length,
+    },
     planned,
     toggles,
     today,
     week,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan: inPlan.size > 0,
+    /** How many of today's planned tasks are done, for the Today meter. */
+    doneToday: await doneAmong(env.DB, set, planned),
     /** This week's set holds a task, so its chip has something to narrow to. */
     hasSet: inWeek.size > 0,
     // The prompt a finished card raised, if the query string still holds one.
@@ -135,19 +160,55 @@ export async function action({ request, context }: Route.ActionArgs) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Me({ loaderData }: Route.ComponentProps) {
+  const closeTo = useCloseTo();
   const { orgs, members, personId, assignee, columns, planned, toggles, today, hasPlan, week, hasSet, day, ask } =
     loaderData;
   // The board opened bare comes back with the filter it was left with. Its key
   // is one no org's board can name.
   useRemembered(null);
 
+  // The filters that narrow anything, which the search button counts. `Mine`
+  // is the start, so it counts for nothing. See ADR-0035.
+  const active = (assignee !== MINE ? 1 : 0) + (loaderData.client ? 1 : 0) + (today || week ? 1 : 0);
+
   return (
-    <main className="flex flex-1 flex-col p-8">
-      <TopRow>
-        {/* One box for the board, outside every keyed list, so no press of a
-            typed word is ever the page's. The picker starts with no org every
-            time. See ADR-0012 and ADR-0027. */}
-        <TopRowBox>
+    // The board takes the whole page: no bar over it, the filters in the
+    // search panel, Backlog and Cancelled in the drawer. See ADR-0038.
+    <main className="flex flex-1 flex-col pl-8 pr-4 sm:pr-16">
+      <BoardFilters active={active} clear={`?assignee=${MINE}`}>
+        {hasPlan ? (
+          <FilterRow label="Today" icon={<ListCheck className="size-3" />}>
+            <TodayMeter done={loaderData.doneToday} planned={planned.length} />
+          </FilterRow>
+        ) : null}
+        <FilterRow label="Who" icon={<Users className="size-3" />}>
+          <UnifiedAssigneeFilter assignee={assignee} />
+        </FilterRow>
+        {loaderData.clients.length > 0 ? (
+          <FilterRow label="Client" icon={<Folder className="size-3" />}>
+            <UnifiedClientFilter clients={loaderData.clients} client={loaderData.client} />
+          </FilterRow>
+        ) : null}
+        {hasPlan || hasSet ? (
+          <FilterRow label="Narrow to" icon={<CalendarDay className="size-3" />}>
+            <span className="flex flex-wrap gap-1">
+              {hasPlan ? <TodayChip today={today} hasPlan /> : null}
+              {hasSet ? <WeekChip week={week} hasSet /> : null}
+            </span>
+          </FilterRow>
+        ) : null}
+      </BoardFilters>
+
+      <UnifiedBoard
+        columns={columns}
+        orgs={orgs}
+        planned={new Set(planned)}
+        day={day}
+        counts={loaderData.counts}
+        // One box for the board, outside every keyed list, so no press of a
+        // typed word is ever the page's. The picker starts with no org every
+        // time. See ADR-0012 and ADR-0027.
+        add={
           <UnifiedAdd
             orgs={orgs}
             members={members}
@@ -156,26 +217,12 @@ export default function Me({ loaderData }: Route.ComponentProps) {
             // On a board narrowed to Mine, a task added here is the person's.
             seed={assignee === MINE ? personId : null}
           />
-        </TopRowBox>
-        {/* No search box here to stand as tall as the title, so the switches
-            drop to the title's text line. They take the rest of the row, and
-            wrap under the box where they do not fit beside it. */}
-        <nav className="flex flex-1 flex-wrap items-baseline justify-end gap-4 pt-1.5">
-          {/* A person with no plan for today gets no chip: there is nothing
-              to narrow to, and the header's ⋯ holds Plan on every page. The
-              week set reads the same way, and ⋯ holds Week. */}
-          {hasPlan ? <TodayChip today={today} hasPlan /> : null}
-          {hasSet ? <WeekChip week={week} hasSet /> : null}
-          <UnifiedAssigneeFilter assignee={assignee} />
-          {BOARD_TOGGLES.map((which) => (
-            <ColumnSwitch key={which} which={which} toggles={toggles} />
-          ))}
-        </nav>
-      </TopRow>
-
-      <UnifiedBoard columns={columns} orgs={orgs} planned={new Set(planned)} day={day} />
+        }
+      />
 
       <DecisionPrompt ask={ask} />
+      {/* A task, or a page of the org, opened over this one. See ADR-0039. */}
+      <ModalOutlet closeTo={closeTo} />
     </main>
   );
 }

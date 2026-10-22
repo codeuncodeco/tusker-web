@@ -84,11 +84,17 @@ function scripted(html: string): string {
 }
 
 describe("an open task", () => {
-  it("draws the title once, as an editable heading, with no Title label", () => {
+  it("draws the title once, as a heading that turns into its box on a click, with no Title label", () => {
     const html = page();
 
+    // The box is drawn for a page with no script; with script, one click on
+    // the title opens it. See ADR-0039.
     expect(html.match(/name="title"/g)).toHaveLength(1);
-    expect(html).toMatch(/<h1[^>]*><span[^>]*>#12<\/span><input[^>]*aria-label="Title"/);
+    expect(html).toMatch(/<h1[^>]*><span[^>]*>#12<\/span><button[^>]*title="Rename"[^>]*>Pack the tent<\/button>/);
+    const box = html.match(/<noscript><input[^>]*><\/noscript>/)?.[0] ?? "";
+    expect(box).toContain('name="title"');
+    expect(box).toContain('form="task-form"');
+    expect(box).toContain('aria-label="Title"');
     expect(html).not.toContain(">Title<");
   });
 
@@ -139,23 +145,20 @@ describe("an open task", () => {
     }
   });
 
-  it("holds the acts, the decision mark and the fields in the aside", () => {
-    const aside = asideOf(page({ fields: [field("kind", "select", ["Bug", "Chore"])] }));
+  it("draws each property as a tile of its own, and the acts beside the title", () => {
+    const html = page({ fields: [field("kind", "select", ["Bug", "Chore"])] });
+    const tiles = [...html.matchAll(/<section[^>]*>[\s\S]*?<\/section>/g)].map((one) => one[0]);
+    const tileOf = (name: string) => tiles.find((one) => one.includes(`name="${name}"`)) ?? "";
 
-    expect(aside).toContain('value="finish"');
-    expect(aside).toContain('name="status"');
-    expect(aside).toContain('name="due_date"');
-    expect(aside).toContain('name="decides"');
-    expect(aside).toContain('name="field.kind"');
-    // The acts row comes first.
-    expect(aside.indexOf('value="finish"')).toBeLessThan(aside.indexOf('name="status"'));
-  });
-
-  it("draws no act at the foot of the main column", () => {
-    const html = page();
-    const main = html.slice(0, html.indexOf("<aside"));
-
-    expect(main).not.toContain('name="intent"');
+    // One control to a tile: no card holds them all. See ADR-0040.
+    for (const name of ["status", "due_date", "decides", "field.kind"]) {
+      expect([name, tileOf(name) !== ""]).toEqual([name, true]);
+    }
+    expect(tileOf("status")).not.toContain('name="due_date"');
+    expect(html).not.toContain("<aside");
+    // The acts sit in their own tile, after the title's.
+    expect(html.indexOf('value="finish"')).toBeGreaterThan(html.indexOf("<h1"));
+    expect(html).toMatch(/>Acts</);
   });
 
   it("says nothing about fields when the org declares none", () => {
@@ -165,23 +168,21 @@ describe("an open task", () => {
     expect(html).not.toContain("/o/acme/fields");
   });
 
-  it("draws the phone bar with the status, Mark done and Details", () => {
-    const bar = page().match(/<div class="fixed inset-x-0 bottom-0[\s\S]*?<\/details><\/div>/)?.[0] ?? "";
+  it("draws no phone bar: the sheet holds every control on a phone too", () => {
+    const html = page();
 
-    expect(bar).toContain("To do");
-    expect(bar).toContain('value="finish"');
-    expect(bar).toContain(">Mark done<");
-    expect(bar).not.toContain(">Finish<");
-    expect(bar).toMatch(/<details data-task-drawer=""><summary[^>]*>Details<\/summary><\/details>/);
+    expect(html).not.toContain("data-task-drawer");
+    expect(html).toContain(">Mark done<");
   });
 });
 
 describe("a finished task", () => {
-  it("reads its aside as text, with Reopen and Archive in the acts row", () => {
-    const aside = asideOf(page({ status: "done", fields: [field("kind", "select", ["Bug"])] }));
+  it("reads its tiles as text, with Reopen and Archive in the acts", () => {
+    const html = page({ status: "done", fields: [field("kind", "select", ["Bug"])] });
+    const aside = html;
 
-    expect(aside).toContain('value="reopen"');
-    expect(aside).toContain('value="archive"');
+    expect(html).toContain('value="reopen"');
+    expect(html).toContain('value="archive"');
     expect(aside).not.toContain("<select");
     expect(aside).toContain("Holds a decision");
     expect(aside).toContain("Bug");
@@ -198,9 +199,29 @@ describe("a finished task", () => {
   it("offers Restore alone once it is archived, in the aside and the bar", () => {
     const html = page({ status: "done", archived: true });
 
-    expect(asideOf(html)).toContain('value="restore"');
+    expect(html).toContain('value="restore"');
     expect(html).not.toContain('value="archive"');
     expect(html).not.toContain('value="reopen"');
-    expect(html.match(/value="restore"/g)).toHaveLength(2);
+    expect(html.match(/value="restore"/g)).toHaveLength(1);
+  });
+});
+
+describe("a task in its modal", () => {
+  it("draws no bar over the page, and puts Back, Forward and ✕ in its first tile", () => {
+    const html = page();
+    const main = html.indexOf("<main");
+    const frame = html.slice(0, main);
+
+    // The modal is the frame, named for a screen reader, with no header bar.
+    expect(frame).toContain('role="dialog"');
+    expect(frame).toContain('aria-label="Task #12"');
+    expect(frame).not.toContain("<header");
+
+    // The first tile, the title's, holds the three controls.
+    const start = html.indexOf("<section", main);
+    const first = html.slice(start, html.indexOf("<section", start + 1));
+    expect(first).toContain("data-modal-controls");
+    for (const name of ["Back", "Forward", "Close"]) expect(first).toContain(`aria-label="${name}"`);
+    expect(first).toContain("Pack the tent");
   });
 });

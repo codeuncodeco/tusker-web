@@ -65,7 +65,10 @@ async function task(
 
 /** The unified board, as one person reads it on one day. */
 function page(cookie: string, query = "", day = DAY) {
-  return meRoute.loader(routeArgs(get(`/me${query}`, `${cookie}; day=${day}`)));
+  // These read the whole board, everybody's work, so each says Anyone unless
+  // it names a filter of its own. The Mine start has tests of its own.
+  const address = query.includes("assignee=") ? query : `${query}${query ? "&" : "?"}assignee=anyone`;
+  return meRoute.loader(routeArgs(get(`/me${address}`, `${cookie}; day=${day}`)));
 }
 
 /** A post to the page, signed by the cookie and named for a day. */

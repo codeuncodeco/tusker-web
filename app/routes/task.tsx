@@ -1,4 +1,4 @@
-import { Form, redirect } from "react-router";
+import { Form, redirect, useLocation } from "react-router";
 
 import { archiveTasks, restoreTasks } from "../archive.server";
 import { drawsAssignees } from "../assignees";
@@ -9,7 +9,6 @@ import {
   readAssignees,
   setAssignees,
 } from "../assignees.server";
-import { BackLink } from "../back-link";
 import { isFinished, readStatus, type Status } from "../board";
 import { colorOf } from "../colors";
 import { listColors } from "../colors.server";
@@ -20,11 +19,14 @@ import { DescriptionBox } from "../description-box";
 import { DescriptionView } from "../description-view";
 import { readData, readValue, type OrgField } from "../fields";
 import { listFields } from "../fields.server";
-import { backPath, pageAddress, pageUrl } from "../paths";
+import { modalParentOf, pageAddress, pageUrl, taskBack } from "../paths";
 import { postAndReport } from "../pending";
 import { refPickers } from "../refs.server";
 import { requireTaskScope, type Scope } from "../scope.server";
-import { TASK_FORM, TaskAside, TaskBar, useDrawnTask } from "../task-aside";
+import { TASK_FORM, TaskActs, TaskTiles, useDrawnTask } from "../task-aside";
+import { Bento, Tile } from "../bento";
+import { Note } from "../icons";
+import { OrgDot } from "../org-chip";
 import { taskLabel, type TaskId } from "../task-number";
 import { taskTimes } from "../task-times";
 import { TaskTitle } from "../task-title";
@@ -38,6 +40,7 @@ import {
   tickDescriptionBox,
   type TaskEdit,
 } from "../tasks.server";
+import { ModalControls, RouteModal } from "../route-modal";
 import type { Route } from "./+types/task";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -59,13 +62,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const assignable = drawsAssignees(scope.org);
 
   return {
-    org: { slug: scope.org.slug, name: scope.org.name },
+    org: { slug: scope.org.slug, name: scope.org.name, color: scope.org.color },
     /**
      * The list this task was opened from, as the `from` query names it, and
      * the org's board for a task opened from nowhere. The back link and `Esc`
      * both follow it. See `app/paths.ts`.
      */
-    back: backPath(new URL(request.url).search, scope.org.slug),
+    back: taskBack(request.url, scope.org.slug),
     task: {
       id: task.id,
       title: task.title,
@@ -105,6 +108,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // dropdown list stays plain: a browser will not style an option, so the
     // dot draws beside the box. See ADR-0006.
     colors: await heldColors(env.DB, scope, fields, task.data),
+    // Every value's colour, for the chips a short select draws. See ADR-0036.
+    optionColors: await listColors(env.DB, scope),
     // The prompt the Finish button raised, if the query string still holds it.
     ask: await askedOn(env.DB, scope, request),
   };
@@ -137,7 +142,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (intent === "delete") {
     const deleted = await markDeleted(env.DB, scope, taskId);
     if (!deleted) throw new Response("Not found", { status: 404 });
-    return redirect(backPath(pageUrl(request.url).search, scope.org.slug));
+    return redirect(taskBack(request.url, scope.org.slug));
   }
 
   // One task, off the board and kept, or put back. Archive is a flag, so
@@ -350,76 +355,80 @@ function refuseFinished(status: Status) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Task({ loaderData, actionData }: Route.ComponentProps) {
-  const { task, back, fields, refs, colors, members, assignees, ask } = loaderData;
+  const { task, back, fields, refs, colors, optionColors, members, assignees, ask } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : null;
   const drawn = useDrawnTask(task, assignees);
+  const { pathname } = useLocation();
 
-  return (
-    // Wider than the other pages under the org layout: the aside sits beside
-    // the task, so the two columns need the room. On a phone the bar sits at
-    // the foot of the page, and the page leaves it room so it covers nothing.
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-8 pb-24 sm:pb-8">
-      {/* The way back to the list `Enter` opened the task from. */}
-      <BackLink to={back} />
-
-      {/* With no script, every control of the page posts with this form, by
-          its `form` attribute: the description's ticks are forms of their
-          own, and a form cannot hold another. With script nothing submits it,
-          because every control saves on its own. */}
-      <Form
-        id={TASK_FORM}
-        method="post"
-        onSubmit={(event) => event.preventDefault()}
-      />
-
-      <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <TaskTitle id={task.id} title={drawn.title} finished={task.finished} />
-
-          {/* A finished task still ticks its boxes, but its text is not
-              edited. */}
-          {task.finished ? (
+  // The task is a sheet: its acts at the head, its title large, and every
+  // property one click away in a card beside the text. Opened over a board or
+  // a view, the board's own modal frames it; opened on its own, as a link
+  // does, it draws the same frame over the page. See ADR-0039.
+  // The task as a bento: the title and the acts across the top, the
+  // description the largest tile, and every property its own tile round it,
+  // each one click. One surface deep: no card inside a card. See ADR-0040.
+  const sheet = (
+    <main className="flex flex-col gap-3">
+      <Form id={TASK_FORM} method="post" onSubmit={(event) => event.preventDefault()} />
+      <Bento>
+        <Tile
+          span={3}
+          label={
             <>
-              <h2>Description</h2>
-              <DescriptionView text={task.description} />
+              <OrgDot color={loaderData.org.color} />
+              {loaderData.org.name}
             </>
+          }
+          // Back, Forward and ✕ of the modal: part of the bento, not a bar
+          // over it. See ADR-0040.
+          action={<ModalControls />}
+        >
+          <TaskTitle id={task.id} title={drawn.title} finished={task.finished} large />
+        </Tile>
+        <Tile
+          span={1}
+          label="Acts"
+          // A column of full-width acts beside the title; on a phone, a row
+          // across the sheet.
+          className="max-sm:col-span-2 [&>div>div]:flex-row [&>div>div]:flex-nowrap sm:[&>div>div]:flex-col sm:[&>div>div]:items-stretch [&_button]:w-full [&_button]:justify-center [&_form]:flex-1 sm:[&_form]:w-full"
+        >
+          <div className="flex flex-1 flex-col justify-end">
+            <TaskActs task={task} />
+          </div>
+        </Tile>
+        <Tile span={2} rows={2} label="Description" icon={<Note className="size-3" />} className="min-h-64">
+          {task.finished ? (
+            <DescriptionView text={task.description} />
           ) : (
-            <DescriptionBox text={task.description} form={TASK_FORM} />
+            <DescriptionBox text={task.description} form={TASK_FORM} headless />
           )}
-
           {error ? (
-            <p role="alert" className="text-danger">
+            <p role="alert" className="text-danger motion-safe:animate-shake">
               {error}
             </p>
           ) : null}
-
-          {/* The whole-task save, for a page with no script. With script every
-              control saves on its own, and the button is never drawn. */}
+          {/* The whole-task save, for a page with no script. With script
+              every control saves on its own, and the button is never drawn. */}
           {task.finished ? null : (
             <noscript>
-              <button
-                form={TASK_FORM}
-                className="self-start rounded border border-border px-3 py-2"
-              >
+              <button form={TASK_FORM} className="self-start rounded border border-border px-3 py-2">
                 Save
               </button>
             </noscript>
           )}
-        </div>
-
-        <TaskAside
+        </Tile>
+        <TaskTiles
           task={task}
           fields={fields}
           refs={refs}
           colors={colors}
+          optionColors={optionColors}
           members={members}
           assignees={assignees}
         />
-      </div>
-
-      <TaskBar task={task} assignees={assignees} />
-
+      </Bento>
       <DecisionPrompt ask={ask} />
     </main>
   );
+  return modalParentOf(pathname) ? sheet : <RouteModal closeTo={back}>{sheet}</RouteModal>;
 }

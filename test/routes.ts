@@ -18,6 +18,7 @@ export async function wipe() {
     env.DB.prepare("DELETE FROM decisions"),
     env.DB.prepare("DELETE FROM task_assignees"),
     env.DB.prepare("DELETE FROM tasks"),
+    env.DB.prepare("DELETE FROM client_resources"),
     env.DB.prepare("DELETE FROM org_ref_options"),
     env.DB.prepare("DELETE FROM org_field_colors"),
     env.DB.prepare("DELETE FROM org_fields"),
@@ -28,6 +29,7 @@ export async function wipe() {
     env.DB.prepare("DELETE FROM session"),
     env.DB.prepare("DELETE FROM account"),
     env.DB.prepare("DELETE FROM verification"),
+    env.DB.prepare("DELETE FROM person_colors"),
     env.DB.prepare('DELETE FROM "user"'),
   ]);
 }
@@ -78,7 +80,12 @@ export async function caught(work: Promise<unknown>): Promise<Response> {
  * a data router, as the app draws it, because its colour scheme select posts
  * through a fetcher.
  */
-export function headerAt(pathname: string, orgs: OrgHeld[], org: OrgHeld | null): string {
-  const Stub = createRoutesStub([{ path: "*", Component: () => createElement(Header, { orgs, org }) }]);
+export function headerAt(
+  pathname: string,
+  orgs: OrgHeld[],
+  org: OrgHeld | null,
+  me?: { name: string; initials: string; color?: string; image?: string; email?: string },
+): string {
+  const Stub = createRoutesStub([{ path: "*", Component: () => createElement(Header, { orgs, org, me }) }]);
   return renderToStaticMarkup(createElement(Stub, { initialEntries: [pathname] }));
 }

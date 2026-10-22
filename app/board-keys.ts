@@ -20,7 +20,7 @@ import { line, type GuideLine } from "./key-guide";
 import { fires } from "./key-map";
 import { BOARD_ARROWS, useKeyedList, type Keyed } from "./keyed-list";
 import { across } from "./keys";
-import { taskPath, useOrigin } from "./paths";
+import { useTaskHref } from "./paths";
 import type { TaskId } from "./task-number";
 
 /** One column as the keys read it: its status, and the ids it draws in order. */
@@ -128,7 +128,7 @@ export function useBoardKeys(
   step: (id: TaskId, way: "up" | "down") => void,
 ): (label: string) => Keyed {
   const navigate = useNavigate();
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
 
   return useKeyedList((key) => {
     const sideways = across(
@@ -147,7 +147,7 @@ export function useBoardKeys(
     // Both posts put the cursor on the card they move, so the person can see
     // where it landed and keep working it by key.
     if (act.act === "on") setOn(act.id);
-    else if (act.act === "open") navigate(taskPath(act.id, origin));
+    else if (act.act === "open") navigate(hrefOf(act.id));
     else if (act.act === "move") move(act.id, act.status);
     else step(act.id, act.way);
 

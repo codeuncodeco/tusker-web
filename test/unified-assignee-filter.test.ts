@@ -81,12 +81,19 @@ async function board() {
 }
 
 describe("narrowing the unified board", () => {
-  it("keeps every task under Anyone, held or not, as no filter does", async () => {
+  it("keeps every task under Anyone, held or not", async () => {
     const { ada } = await board();
 
     const all = ["Ada alone", "Ada's", "Bo's", "Nobody's", "Shared"];
-    expect(titles(await page(ada.cookie))).toEqual(all);
+    expect(titles(await page(ada.cookie, "?assignee=anyone"))).toEqual(all);
     expect(titles(await page(ada.cookie, "?assignee="))).toEqual(all);
+  });
+
+  it("opens on Mine when the address names no filter, so a person starts on their own work", async () => {
+    const { ada } = await board();
+
+    expect(titles(await page(ada.cookie))).toEqual(titles(await page(ada.cookie, `?assignee=${MINE}`)));
+    expect((await page(ada.cookie)).assignee).toBe(MINE);
   });
 
   it("keeps the reader's tasks under Mine, an org of one's included", async () => {
@@ -191,13 +198,14 @@ describe("the org select carries the filter", () => {
 
     expect(await went(ada.cookie, "", ada.person.id)).toBe(`/me?assignee=${MINE}`);
     expect(await went(ada.cookie, "", UNASSIGNED)).toBe(`/me?assignee=${UNASSIGNED}`);
-    expect(await went(ada.cookie, "", bo.person.id)).toBe("/me?assignee=");
+    expect(await went(ada.cookie, "", bo.person.id)).toBe("/me?assignee=anyone");
   });
 
-  it("carries Anyone set by hand, so the next board's memory does not stand in", async () => {
-    const { ada } = await board();
+  it("carries Anyone set by hand, as its word, so the next board's memory and default do not stand in", async () => {
+    const { ada, both } = await board();
 
-    expect(await went(ada.cookie, "", "")).toBe("/me?assignee=");
+    expect(await went(ada.cookie, "", "")).toBe("/me?assignee=anyone");
+    expect(await went(ada.cookie, both.slug, "anyone")).toBe(`/o/${both.slug}/board?assignee=anyone`);
   });
 
   it("opens a board bare when the address held no filter, so its memory holds", async () => {

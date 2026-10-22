@@ -43,8 +43,11 @@ The colour one org carries, drawn wherever a page names that org beside
 another: the unified board, the cross-org list, plan mode, the week page and
 focus mode. It is a palette name or an exact colour, as an option colour is. A
 new org takes the first palette name no org of its maker holds, and any member
-changes it on the org's settings page. An org with no colour draws grey. A person in one org sees no org chip,
-because there is no other org to tell it from. See ADR-0020.
+changes it on the org's settings page. An org with no colour draws grey. It is
+drawn where orgs are picked, the settings panel and the add box's org chips,
+and not on a card: a card names its org by letters. A person in one org sees no
+org chip, because there is no other org to tell it from. See ADR-0020 and
+ADR-0038.
 _Avoid_: Org theme, org tag, workspace colour
 
 **Org chip**:
@@ -56,6 +59,20 @@ quick-add box is the exception: it names the org in full, because that is where
 a person checks which org a new task goes to. An org page draws no chip, and
 nor does a cross-org page for a person in one org.
 _Avoid_: Org badge, org tag, org pill
+
+**Person colour**:
+The colour one person carries, drawn on their avatar on every card of every
+org. One per person, not per membership, so a person reads the same across
+the unified board. Tusker gives each new account the next palette name, and
+the person changes it on the account page. See ADR-0034.
+_Avoid_: User colour, member colour, avatar colour
+
+**Avatar**:
+The mark that stands for one person on a card, a picker or a filter: their
+picture where they keep one, and their initials on their colour where they do
+not. It is a picture of a name, so the name is always said beside it to a
+screen reader.
+_Avoid_: Profile picture, DP, badge
 
 **Member**:
 A person with access to an org. Membership is the only permission check, so a
@@ -108,6 +125,26 @@ is the other, and it names an org and no person. Every read an org key can
 reach takes a read scope, and every write still takes a scope.
 _Avoid_: Anonymous scope, key context
 
+**Client page**:
+The page of one client of one org, at `/o/<slug>/clients/<value>`. It holds the
+client's links, its meeting notes and its open tasks, under a wash of the
+client's colour. The org's **Clients** page lists every client with what is
+open for it. See ADR-0036.
+_Avoid_: Client repository, client folder, client profile
+
+**Client link**:
+One address an org keeps on a client page: a Figma file, a brief, a shared
+folder, a recording. A paste adds it at once. Its first title is read from the
+address alone, because Tusker fetches nothing to name a link, and one click
+renames it.
+_Avoid_: Bookmark, resource, attachment
+
+**Meeting note**:
+One meeting, written down on a client page: the day it was held, a title, and
+raw markdown as a description holds, checkbox lines included. "New note"
+starts one dated today.
+_Avoid_: Minutes, client note, doc
+
 **Org app**:
 A separate application that an org runs, such as blrhikes-app. An org app reads
 tasks from the Tusker API and supplies the option lists for reference fields. It
@@ -116,7 +153,10 @@ _Avoid_: Linked client, remote app, integration
 
 **Client**:
 A customer of an org. This is a custom field an org declares, not a core table
-and not a synonym for an org.
+and not a synonym for an org. An org marks one select or reference field as
+its **client field**. That field's values are its clients. Each client gets a
+tag on every card, a filter chip on every board, and a client page. See
+ADR-0036.
 _Avoid_: Customer, account
 
 ### Work
@@ -185,7 +225,7 @@ _Avoid_: Shortcut badge, keycap, tooltip
 
 **Key guide**:
 The dialog that names every list key the page a person stands on gives. `?`
-opens it from inside a keyed list, and "Keys ?" in the person menu opens it
+opens it from inside a keyed list, and the keys button in the settings panel opens it
 from anywhere on that page. A page that gives no list keys has no key guide,
 and a phone draws none, because it has no keyboard. It is the one place a
 person learns the keys that no control carries a hint for.
@@ -400,8 +440,9 @@ _Avoid_: Source URL, endpoint root
 **Option colour**:
 A colour one value of a reference field carries, so a card tells one client from
 another at a glance. It belongs to the value, not to the field, and Tusker holds
-it rather than the org app. A value with no option colour draws plain. See
-ADR-0006.
+it rather than the org app. A value with no option colour draws plain. A card
+draws the colour of the client's value alone; the other fields' values read
+as plain words. See ADR-0006 and ADR-0038.
 _Avoid_: Field colour, tag colour, client dot
 
 **Palette**:
@@ -468,21 +509,74 @@ The bare word is right where one scope is in view, or where the rule holds for
 both. Where the two stand together, name them.
 _Avoid_: Kanban, board view, org filter
 
+**Page modal**:
+A page off a board or a view, drawn over it: a task, a client, and every page of
+an org. It is a child route, so the address names it and Back closes it. It draws
+no bar of its own: Back, Forward and ✕ sit in the page's head tile, as part of
+the bento, and a page with no controls gets a lone ✕ in the corner. A screen
+reader still hears the page's name. The page behind stays drawn, with its own
+address. See ADR-0039 and ADR-0040.
+_Avoid_: Popup, overlay page, lightbox
+
+**Tile**:
+One part of a page laid out as a bento: a surface on the page's ground, with a
+small-caps label and its glyph, sized by what it holds. Nothing inside a tile
+draws a box of its own. A task's sheet is tiles, and so is every page off the
+board. See ADR-0040.
+_Avoid_: Card, panel, widget, box
+
+**Sound**:
+The small, quiet notes the app plays for what a person does: a tick for any
+control, a chime for a finished task, and others for open, close, add, undo and
+an error. It is on by default, and muted in the You panel. See ADR-0040.
+_Avoid_: Audio feedback, SFX
+
+**Dock**:
+The two round buttons fixed to the bottom right of every signed-in page: the
+**View button** and the **You panel**'s button, which wears the person's
+avatar.
+Each is a link or a `<details>` underneath, so each still reaches its page
+with no script. See ADR-0037.
+_Avoid_: Toolbar, floating menu, FAB
+
+**View button**:
+The dock's first button. One click steps to the next view: Board, Week, Plan,
+Focus, and round again; Shift-click steps back. The pointer over it, or a first
+tap on a phone, opens a dial: every view on a quarter arc round it, the one in
+view filled. The centre still steps, and the dial stays open. Board is the board of the org
+in view, else the board the browser last stood on, else the first org's. It
+works as the colour scheme button does: one glyph, one step a click.
+_Avoid_: View switcher, tabs, page menu
+
+**You panel**:
+What the dock's second button opens. The button wears the person's avatar,
+because it is them and their settings at once. The panel is a small card of
+one size with four tabs, one section each:
+- **You**: picture, name, email and colour, then Account and Sign out.
+- **Boards**: the **Org select** and New org.
+- **Org**: the pages of the org in view, or of the first org on a page that
+  spans them: Clients, Decisions, Archive, Fields, Members and its settings.
+- **Look**: the **Colour scheme**, **Sound** and keys.
+
+It opens on the tab last used. With no script every section is drawn, stacked.
+See ADR-0040.
+_Avoid_: Settings panel, profile menu, admin menu
+
 **Org select**:
-The control in the header that sets the board's scope: All, then every org the
-person belongs to. A pick goes to that scope's board at once. It reads the
-address, so it names the org of the org page a person stands on, and All on
-every person page. A person in one org has nothing to pick, so it is not drawn:
-that person always stands in their one org, their board is that org's board,
-and the header's menu always holds its pages. A pick carries the
-**Assignee filter**: `Mine` on All is the person's own name in an org, and back
-again, `Unassigned` stays, and another member becomes `Anyone`. An org of one
-draws no filter, so the value is dropped on the way there.
+The part of the settings panel that sets the board's scope: every org the
+person belongs to, first joined first, then All. A pick goes to that scope's
+board at once. Tusker starts on the first org's board, and `/` sends a
+signed-in person there, so All is one pick away rather than the start. A
+person in one org has nothing to pick: they always stand in their one org. A
+pick carries the **Assignee filter**: `Mine` on All is the person's own name in
+an org, and back again, `Unassigned` stays, and another member becomes
+`Anyone`. An org of one draws no filter, so the value is dropped on the way
+there. See ADR-0029 and ADR-0037.
 _Avoid_: Org switcher, org dropdown, org filter
 
 **Org board**:
 The To do, In progress and Done columns for one org, at `/o/:slug/board`, with
-Backlog and Cancelled shown by rule. The order inside a column is the org's and
+Backlog and Cancelled on their **Sheets**. The order inside a column is the org's and
 it is stored, so this is the one board that binds `J` and `K`. A drag draws
 where the card will land, and the drop writes that place. A card carries no
 reorder button, and the **Key guide** names `J` and `K`. See ADR-0016, ADR-0025 and ADR-0026.
@@ -685,49 +779,60 @@ task. No row stores a batch.
 _Avoid_: Chunk, sprint, session
 
 **Header**:
-The one bar every signed-in page draws, in one row. At its centre, the **Org
-select** and a menu beside it that names the page a person stands on. The menu
-holds one Board, whose scope the select sets, then Week, Plan and Focus, then
-the pages of the org the select names: Decisions, Archive, Fields, Members and
-Settings. While the select reads All, no org is named, so the menu holds no org
-page: a person picks the org first. A person in one org always has it named.
-On the board the select is the page's
-heading, and every other page heads itself. At the far right, a person menu
-holds Account and New org, which belong to no org. A label names the
-destination and never what the page holds, so "Week" and "Plan" stand while
-those pages head with the week and the day they draw. The address is the only
-place the header reads an org from. Beside the person menu, a control sets
-the **Colour scheme**. See ADR-0011 and ADR-0029.
+No bar. A signed-in page gives its width and height to the work: the **Search
+panel**'s button sits in the top right corner and the **Dock** in the bottom
+right. On a board the page's heading, "Studio / Board", is said to a screen
+reader, and the View button's title says it to the eye. See ADR-0037 and
+ADR-0038.
 _Avoid_: Chrome, nav bar, top bar
 
-**Top row**:
-The row of a board under the header: the quick-add box at the left, and the
-search, the filters, the chips and the column switches at the right. A border
-splits it from the columns. On a wide screen it stays in sight with the header
-while the page scrolls, and the columns do not scroll on their own. On a phone
-it scrolls away with the page.
-_Avoid_: Top bar, toolbar, board controls
+**Search panel**:
+What the search button in the top right corner opens, fixed on every
+signed-in page. Its box is a global search: tasks by title or number, clients
+and pages, across every org the person belongs to, as they type. It shows one
+thing at a time. With the box empty it shows the board's filters: the assignee
+filter, the field filters, the client filter and the Today and Week chips, a
+row of chips each, the first chip naming the row. With words in the box it
+shows the answers instead, one flat list. The button counts the filters that
+narrow anything. `/` opens it, and Cmd or Ctrl and K. A board draws no Top row
+any more: the add box heads To do, and the board takes the page. See ADR-0038.
+_Avoid_: Top bar, toolbar, board controls, command palette
+
+**Sheet**:
+Where Backlog and Cancelled live, off the board, each on a sheet of its own.
+Backlog's tab sits at the left edge of the screen, and its sheet hangs from the
+top-left corner. Cancelled's tab sits in the bottom-left corner, and its sheet
+rises from there. Each sheet is as tall as its cards. Neither moves or resizes
+the other, and each tab rides its own sheet only. With both out they may
+overlap, and the one opened or touched last lies on top. Each tab is hidden
+but for its edge, and a tab whose column holds nothing is not drawn. A card
+drags from a sheet onto the board and back. An open sheet is an address, as
+the column switches were: `backlog=1`, `cancelled=1`. On an org board with no
+live task, Backlog's tab glows instead of opening by itself. See ADR-0038 and
+ADR-0041.
+_Avoid_: Drawer, sidebar, side panel, hidden columns
 
 **Assignee filter**:
-The select on a board that narrows it by who holds a task. On the org board it
-is `Anyone`, `Unassigned`, then each member in name order. `Anyone` is the start
-and narrows nothing. A member answers for a task they hold among others, and
+The chips on a board that narrow it to the tasks one person holds. The org board
+draws the reader's own chip, `Anyone`, `Unassigned`, then each other member as
+an avatar. The unified board draws `Mine`, `Anyone` and `Unassigned`, and names
+no member, because a member list there would name strangers. The start is the
+reader's own work: an address with no filter is `Mine`, and `Anyone` is said
+out loud as `anyone`. A member answers for a task they hold among others, and
 `Unassigned` answers for a task nobody holds. It lives in the address, it joins
 the remembered narrowing, and it narrows what the Today chip and the search
 already left. An org that holds one member carries no filter, because it draws
-no assignee.
-On the unified board it is `Anyone`, `Mine` and `Unassigned`, and names no
-member: a member select there would name strangers. `Mine` is the person
-reading, and rides the address as `assignee=me`, so a shared link shows
-whoever opens it their own work. It finds the tasks of each org of one the
+no assignee. `Mine` rides the address as `assignee=me`, so a shared link shows
+whoever opens it their own work, and it finds the tasks of each org of one the
 person works in, because an org of one stores its member as the holder. On
-`Mine`, the quick-add box starts with the person picked. See ADR-0013, ADR-0017 and
-ADR-0033.
+`Mine`, the quick-add box starts with the person picked. See ADR-0013,
+ADR-0017, ADR-0033 and ADR-0035.
 _Avoid_: My tasks toggle, owner filter
 
 **Field filter**:
-A select on the org board that narrows it to the tasks holding one value of one
-custom field: `Any`, then the values the field offers. The org board draws one
+A row of chips on the org board that narrows it to the tasks holding one value
+of one custom field: `Any`, then the values the field offers, each with its
+option colour. A field with more than eight values draws a select instead. The org board draws one
 for each field the org marks filterable, and only for a select field, which
 offers its options, or a reference field, which offers its cached ref options.
 A text or a date field has no closed list of values, so it draws none, even
@@ -802,19 +907,19 @@ holds it. It names a card and not a place,
 so the card keeps the cursor while the page redraws around it. It starts empty,
 `Escape` empties it again, and `j` and `k` fill it: `j` takes the first card,
 `k` the last, and `ArrowDown` and `ArrowUp` do the same. A click on a card body
-places it. On a board `ArrowLeft` and `ArrowRight` carry it across the columns,
+places it; a drag from the body moves the card instead (see **Card drag**). On a board `ArrowLeft` and `ArrowRight` carry it across the columns,
 and `<` and `>` still move the card. A card the page stops drawing
 takes the cursor with it, and every key that needs a card does nothing while
 the cursor is empty. Focus mode draws three rows and gives no click.
 See ADR-0015 and ADR-0022.
 _Avoid_: Selection, focus, highlight
 
-**Grip**:
-The six-dot mark at the left edge of a card or a plan row, and the one part of
-it a drag starts from. The rest of the card is for reading and for the cursor,
-so a swipe over it scrolls. The grip adds width and never a line, and it is for
-the pointer alone: the keys already move a card.
-_Avoid_: Drag handle, handle, grabber
+**Card drag**:
+A card, or a plan row that drags, drags from anywhere on it. A mouse drags once
+it moves five pixels, and a press that does not move is a click. A finger drags
+after a short hold, so a swipe over a card still scrolls the column. The drag
+makes no card a tab stop: the keys already move a card. See ADR-0041.
+_Avoid_: Grip, drag handle, grabber
 
 ### Look
 
@@ -831,8 +936,9 @@ Whether a page draws light or dark: Light, Dark, or System, which follows the
 operating system. System is what a browser holds until a person picks. The
 pick belongs to the browser and not to the person, so a laptop and a phone can
 differ, and it outlives a sign-out. Every page honours it, the signed-out ones
-too, but only a signed-in page draws the control that changes it, beside the
-person menu.
+too, but only a signed-in page draws the control that changes it, in the
+settings panel. The control is one button: each click steps Light, Dark, System
+and round again, and the new scheme dissolves in slowly over the old.
 _Avoid_: Theme, appearance, dark mode
 
 **Ground**:

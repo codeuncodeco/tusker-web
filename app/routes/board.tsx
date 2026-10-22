@@ -10,13 +10,15 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Link, useFetcher } from "react-router";
+import { Link, useFetcher, useSearchParams } from "react-router";
 
 import {
   BOARD_TOGGLES,
   addStatus,
   STATUS_LABEL,
   backlogByRule,
+  EMPTY_LINE,
+  flipped,
   columnsToShow,
   isFinished,
   readStatus,
@@ -25,12 +27,15 @@ import {
   type Status,
 } from "../board";
 import { archiveTasks, readTaskIds, restoreTasks } from "../archive.server";
-import { AssigneeFilter, ColumnSwitch, FieldFilterSelect, SearchBox, TodayChip, WeekChip } from "../board-chrome";
+import { AssigneeFilter, ColumnHead, FieldFilterSelect, SearchChip, TodayChip, WeekChip } from "../board-chrome";
+import { BoardFilters, FilterRow } from "../search-panel";
+import { CalendarDay, Folder, Search, Tag, Users } from "../icons";
+import { BacklogTab, CancelledTab, isSide, PutAway, SideSheet, SIDE_STATUSES, type SideStatus } from "../side-drawer";
 import { ColumnSweep } from "../column-sweep";
 import { landing } from "../drag";
-import { DragCopy, DragLists, DropList, Grip, useDragItem, type Drop } from "../drag-lists";
+import { DragCopy, DragLists, DropList, useDragItem, type Drop } from "../drag-lists";
 import { useBoardKeys } from "../board-keys";
-import { ANYONE, keeps, readAssignee, seededBy } from "../assignee-filter";
+import { ANYONE, keeps, readBoardAssignee, seededBy } from "../assignee-filter";
 import { drawsAssignees, type Assignee } from "../assignees";
 import { assigneesByTask, membersOf, readAssignees } from "../assignees.server";
 import { AssigneePicker } from "../assignee-picker";
@@ -39,7 +44,6 @@ import { cloudflareEnv } from "../context.server";
 import { dayOf } from "../day";
 import { DecisionPrompt } from "../decision-prompt";
 import { askedOn, decide, promptFor } from "../decisions.server";
-import { Dot } from "../dot";
 import {
   filterSelects,
   fieldName,
@@ -51,10 +55,14 @@ import {
 import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
+import { ClientTag, clientPath } from "../client-tag";
+import { colorCss } from "../colors";
+import { FinishCircle } from "../finish-circle";
 import { QuickAddBox, useAddKey, useQuickAddDraft, useSendDraft } from "../quick-add";
 import { refLabels, refOptionsOfOrg } from "../refs.server";
 import { useLocalDay } from "../local-day";
-import { taskPath, useOrigin } from "../paths";
+import { markOpening } from "../route-modal";
+import { useTaskHref } from "../paths";
 import { addsSent, boardSent, postAndReport, usePost, useSent } from "../pending";
 import { PendingAdds } from "../pending-adds";
 import { readPlan } from "../plans.server";
@@ -64,7 +72,8 @@ import { useRemembered } from "../remembered";
 import { requireScope } from "../scope.server";
 import { readSearch } from "../search";
 import { countByStatus, createTasks, listTasks, moveTask, newTasksFrom, stepTask } from "../tasks.server";
-import { revealCursor, TopRow, TopRowBox } from "../top-row";
+import { revealCursor } from "../top-row";
+import { ModalOutlet, useCloseTo } from "../route-modal";
 import type { Route } from "./+types/board";
 import { readTaskId, type TaskId } from "../task-number";
 
@@ -103,7 +112,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const [assignees, members] = draws
     ? await Promise.all([assigneesByTask(env.DB, scope), membersOf(env.DB, scope)])
     : [new Map<TaskId, Assignee[]>(), [] as Assignee[]];
-  const assignee = draws ? readAssignee(query) : ANYONE;
+  // A bare address is the reader's own work. See ADR-0035.
+  const assignee = draws ? readBoardAssignee(query, scope.personId) : ANYONE;
   // One select per field the org marks filterable, and the values the address
   // narrows by. A value for a field that draws no select is ignored, so an old
   // link still opens. A reference offers its cached refs, read for the whole
@@ -156,7 +166,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   }));
 
   return {
-    org: { slug: scope.org.slug, name: scope.org.name },
+    org: { slug: scope.org.slug, name: scope.org.name, color: scope.org.color },
     columns,
     /**
      * The org's members, in name order: the picker on the box offers them,
@@ -172,8 +182,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     search,
     /** The value the select holds, so a reload draws the filter it ran. */
     assignee,
+    /** The reader, whom the filter names first and a bare address narrows to. */
+    personId: scope.personId,
     /** One select per filterable field, each holding the value it narrows by. */
-    filters: filterSelects(declared, fieldValues, refs),
+    filters: filterSelects(declared, fieldValues, refs, colors),
     day,
     /** Today's plan holds a task, so the chip has something to narrow to. */
     hasPlan: held.size > 0,
@@ -182,6 +194,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     // The rule can show Backlog on its own, and then the toggle has nothing to
     // add. The header reads this to leave the toggle out.
     backlogByRule: backlogByRule(counts),
+    /** How many tasks wait in Backlog, for the bar it folds into. */
+    backlogCount: counts.backlog,
+    /** How many tasks Cancelled holds, for its tab. */
+    cancelledCount: counts.cancelled,
   };
 }
 
@@ -336,7 +352,7 @@ function QuickAdd({
 type Move = (id: TaskId, status: Status, before?: TaskId | null) => void;
 
 /**
- * One card. It carries no reorder button. A drag from its grip places it, and
+ * One card. It carries no reorder button. A drag from anywhere on it places it, and
  * the keys step it: `>` and `<` move the card to another column, and `J` and
  * `K` step it inside its column. See ADR-0016 and ADR-0026.
  *
@@ -349,10 +365,22 @@ function CardItem({
   selected,
   domId,
   place,
+  slug,
+  finished,
+  move,
+  color,
 }: {
   card: Card;
   selected: boolean;
   domId: string;
+  /** The org's slug, which the client tag's page sits under. */
+  slug: string;
+  /** True for a card in Done or Cancelled: its ring is ticked. */
+  finished: boolean;
+  /** The board's move, which the ring posts as `x` does. */
+  move: Move;
+  /** The org's colour, which the burst of a finish takes. */
+  color: string | null;
   /**
    * Puts the keyboard cursor on this card. The keys act on the cursor, and `j`
    * was the only way to move it: on a long column that put them near the top
@@ -360,7 +388,7 @@ function CardItem({
    */
   place: () => void;
 }) {
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
   const drag = useDragItem(card.id);
 
   return (
@@ -370,15 +398,23 @@ function CardItem({
       onClick={place}
       ref={drag.ref}
       style={drag.style}
+      // The whole card drags; a press that does not move is a click.
+      {...drag.listeners}
       // The card being dragged stays faded where it will land, and the copy
       // under the pointer is the one that moves.
-      className={`flex flex-col gap-2 rounded border p-3 shadow-sm ${
+      className={`press-soft flex flex-col gap-2 rounded border p-3 shadow-sm hover:shadow-md ${drag.card} ${
         selected ? "border-fg bg-surface-2" : "border-border bg-surface"
       } ${drag.dragging ? "opacity-40" : ""}`}
     >
       <span className="flex items-baseline gap-2">
-        <Grip grip={drag.grip} />
-        <Link to={taskPath(card.id, origin)} className="flex-1 underline-offset-2 hover:underline">
+        <FinishCircle
+          finished={finished}
+          title={card.title}
+          color={color ? colorCss(color) : undefined}
+          onFinish={() => move(card.id, "done")}
+          onReopen={() => move(card.id, "todo")}
+        />
+        <Link to={hrefOf(card.id)} viewTransition onClick={(event) => markOpening(event.currentTarget.closest("li"))} className="flex-1 underline-offset-2 hover:underline">
           {card.title}
         </Link>
         <Initials assignees={card.assignees} />
@@ -387,15 +423,20 @@ function CardItem({
       {/* One line: a pill that does not fit is cut off, and never wraps. */}
       {card.fields.length > 0 ? (
         <ul className="flex gap-2 overflow-hidden text-xs text-muted">
-          {card.fields.map((field) => (
-            <li
-              key={field.key}
-              className="flex items-center gap-1 whitespace-nowrap rounded bg-surface-2 px-1.5 py-0.5"
-            >
-              <Dot color={field.color} />
-              <span className="text-dim">{field.label}</span> {field.value}
-            </li>
-          ))}
+          {card.fields.map((field) =>
+            // The client is a tag of its own, first, and opens the client's
+            // page. See ADR-0036.
+            field.client ? (
+              <li key={field.key} className="flex">
+                <ClientTag label={field.value} color={field.color} to={clientPath(slug, field.client.stored)} />
+              </li>
+            ) : (
+              // Only the client carries a colour on a card. See ADR-0038.
+              <li key={field.key} className="flex items-center gap-1 whitespace-nowrap px-0.5 py-0.5">
+                <span className="text-dim">{field.label}</span> {field.value}
+              </li>
+            ),
+          )}
         </ul>
       ) : null}
     </li>
@@ -403,12 +444,21 @@ function CardItem({
 }
 
 export default function Board({ loaderData }: Route.ComponentProps) {
+  const closeTo = useCloseTo();
   const { org, members, toggles, today, hasPlan, week, hasSet, day, ask, search } = loaderData;
   const { assignee, filters } = loaderData;
+  const [params] = useSearchParams();
   // The board as the server holds it, with every post still in flight laid
   // over it, so a move or a step shows before the server answers. See #168.
   const sent = useSent();
-  const columns = boardSent(loaderData.columns, sent);
+  // Backlog and Cancelled live on sheets of their own, and only a sheet
+  // pulled out draws its column: the keys and the drag walk what is on
+  // screen. Backlog the rule asks for is not pulled out for the person; its
+  // tab calls instead. See ADR-0038 and ADR-0041.
+  const open = SIDE_STATUSES.filter((one) => toggles[one]);
+  const columns = boardSent(loaderData.columns, sent).filter(
+    (column) => !isSide(column.status) || open.includes(column.status),
+  );
   // Each press posts on its own, so a held key is every press and not the
   // last one: the board draws all of them while they are in flight.
   const post = usePost();
@@ -480,28 +530,120 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   // stays clear of the Top row stuck over it.
   useEffect(() => revealCursor(board.current), [cursor]);
 
-  return (
-    <main className="flex flex-1 flex-col p-8">
-      <TopRow>
-        {/* One box for the board, outside every keyed list, so a typed word is
-            never a press the page reads. See ADR-0022. */}
-        <TopRowBox>
-          <QuickAdd members={members} assignee={assignee} filters={filters} />
-        </TopRowBox>
-        {/* The filters take the rest of the row, and wrap under the box where
-            they do not fit beside it. */}
-        <nav className="flex flex-1 flex-wrap items-baseline justify-end gap-4">
-          <SearchBox search={search} />
-          <AssigneeFilter assignee={assignee} members={members} />
-          {filters.map((filter) => (
-            <FieldFilterSelect key={filter.key} filter={filter} />
+  // The filters that narrow anything, which the search button counts. The
+  // reader's own work is the start, so it counts for nothing. See ADR-0035.
+  const active =
+    (members.length > 0 && assignee !== loaderData.personId ? 1 : 0) +
+    filters.filter((filter) => filter.value).length +
+    (today || week ? 1 : 0) +
+    (search ? 1 : 0);
+
+  /** One column: its head, the add box at the top of To do, and its cards. */
+  function columnOf(column: (typeof columns)[number], at: number, shown: Record<string, TaskId[]>) {
+    const drawn = shown[column.status]!.flatMap((id) => cards.get(id) ?? []);
+    const side = isSide(column.status);
+    return (
+      <section
+        key={column.status}
+        // Every column takes an equal share of the width, down to the width
+        // it always had. Past that the row scrolls sideways. Each rises in,
+        // one after another.
+        style={{ animationDelay: side ? undefined : `${at * 50}ms` }}
+        className="flex min-w-72 flex-1 flex-col gap-3 px-4 pt-4 first:pl-0 last:pr-0 motion-safe:animate-rise-in"
+      >
+        <div className="flex items-baseline gap-3">
+          <ColumnHead status={column.status} label={column.label} count={column.tasks.length} />
+          {/* The sweep acts on the whole column, so it is column chrome. It
+              sits with the name and the count, so the act on the column is
+              where the column says what it holds. */}
+          {isFinished(column.status) ? (
+            <ColumnSweep
+              label={column.label}
+              cards={column.tasks.map((card) => ({ id: card.id, slug: org.slug }))}
+              undoAt={`/o/${org.slug}/board`}
+            />
+          ) : null}
+          {side ? <PutAway status={column.status as SideStatus} label={column.label} /> : null}
+        </div>
+
+        {/* The add box heads To do, where what it adds lands. It sits outside
+            the keyed list, so a typed word is never a press the page reads.
+            See ADR-0022. */}
+        {column.status === "todo" ? <QuickAdd members={members} assignee={assignee} filters={filters} /> : null}
+
+        {/* This is the keyed list: the cards and nothing else. It is as long
+            as its cards, and the page scrolls, not the list. It fills the rest
+            of a short column, so a drop below the last card still lands in
+            it. See #193. */}
+        <DropList
+          id={column.status}
+          ids={drawn.map((one) => one.id)}
+          props={keyed(`${column.label} tasks`)}
+          className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
+        >
+          {/* The box files into To do, so an add in flight draws there. */}
+          {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
+          {drawn.length === 0 && !(column.status === "todo" && addsSent(sent).length > 0) ? (
+            <li
+              aria-hidden="true"
+              className="pointer-events-none rounded border border-dashed border-border p-3 text-center text-xs text-dim motion-safe:animate-rise-in"
+            >
+              {EMPTY_LINE[column.status]}
+            </li>
+          ) : null}
+          {drawn.map((card) => (
+            <CardItem
+              key={card.id}
+              card={card}
+              selected={cursor === card.id}
+              domId={`card-${card.id}`}
+              place={() => setOn(card.id)}
+              slug={org.slug}
+              finished={column.status === "done" || column.status === "cancelled"}
+              move={move}
+              color={org.color}
+            />
           ))}
-          <TodayChip today={today} hasPlan={hasPlan} />
-          <WeekChip week={week} hasSet={hasSet} />
-          {loaderData.backlogByRule ? null : <ColumnSwitch which="backlog" toggles={toggles} />}
-          <ColumnSwitch which="cancelled" toggles={toggles} />
-        </nav>
-      </TopRow>
+        </DropList>
+      </section>
+    );
+  }
+
+  return (
+    // The board takes the whole page: no bar over it, the filters in the
+    // search panel, Backlog and Cancelled in the drawer. Room at the left for
+    // the drawer's tabs and at the right for the search button.
+    <main className="flex flex-1 flex-col pl-8 pr-4 sm:pr-16">
+      <BoardFilters active={active} clear={`?assignee=${encodeURIComponent(loaderData.personId)}`}>
+        {search ? (
+          <FilterRow label="Search" icon={<Search className="size-3" />}>
+            <SearchChip search={search} />
+          </FilterRow>
+        ) : null}
+        {members.length > 0 ? (
+          <FilterRow label="Who" icon={<Users className="size-3" />}>
+            <AssigneeFilter assignee={assignee} members={members} personId={loaderData.personId} />
+          </FilterRow>
+        ) : null}
+        {filters.map((filter) => (
+          <FilterRow
+            key={filter.key}
+            label={filter.label}
+            icon={filter.client ? <Folder className="size-3" /> : <Tag className="size-3" />}
+          >
+            <FieldFilterSelect filter={filter} />
+          </FilterRow>
+        ))}
+        <FilterRow label="Narrow to" icon={<CalendarDay className="size-3" />}>
+          <span className="flex flex-wrap gap-1">
+            <TodayChip today={today} hasPlan={hasPlan} />
+            <WeekChip week={week} hasSet={hasSet} />
+          </span>
+        </FilterRow>
+      </BoardFilters>
+
+      <BacklogTab open={open.includes("backlog")} count={loaderData.backlogCount} calls={loaderData.backlogByRule} />
+      <CancelledTab open={open.includes("cancelled")} count={loaderData.cancelledCount} />
 
       <DragLists
         lists={Object.fromEntries(columns.map((column) => [column.status, column.tasks.map((one) => one.id)]))}
@@ -509,70 +651,26 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         overlay={(id) => <DragCopy title={cards.get(id)?.title ?? ""} />}
       >
         {(shown) => (
-          // Each column is as long as its cards, and the page scrolls. The
-          // columns are panes: a divider splits them, and a card is the one
-          // thing on the board with an edge. See #184 and #191.
-          <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
-            {columns.map((column) => {
-              const drawn = shown[column.status].flatMap((id) => cards.get(id) ?? []);
-              return (
-                <section
-                  key={column.status}
-                  // Every column takes an equal share of the width, down to the
-                  // width it always had. Past that the row scrolls sideways.
-                  className="flex min-w-72 pt-6 flex-1 flex-col gap-3 px-4 first:pl-0 last:pr-0"
-                >
-                  <div className="flex items-baseline gap-3">
-                    <h2 className="font-mono uppercase tracking-wide text-muted">
-                      {column.label} <span className="text-dim">{column.tasks.length}</span>
-                    </h2>
-                    {/* The sweep acts on the whole column, so it is column chrome.
-                        It sits with the name and the count, the way the extension
-                        drew it, so the act on the column is where the column says
-                        what it holds. The head scrolls away with the column's
-                        cards. */}
-                    {isFinished(column.status) ? (
-                      <ColumnSweep
-                        label={column.label}
-                        cards={column.tasks.map((card) => ({ id: card.id, slug: org.slug }))}
-                        undoAt={`/o/${org.slug}/board`}
-                      />
-                    ) : null}
-                  </div>
-
-                  {/* This is the keyed list: the cards and nothing else. It is
-                      as long as its cards, and the page scrolls, not the list.
-                      It fills the rest of a short column, so a drop below the
-                      last card still lands in it. The focus outline is drawn
-                      inside, as the row clips what is past its edge, and the
-                      floor gives an empty column a box to draw it on. See
-                      #193. */}
-                  <DropList
-                    id={column.status}
-                    ids={drawn.map((one) => one.id)}
-                    props={keyed(`${column.label} tasks`)}
-                    className="flex min-h-12 flex-1 flex-col gap-2 focus-visible:-outline-offset-2"
-                  >
-                    {/* The box files into To do, so an add in flight draws there. */}
-                    {column.status === "todo" ? <PendingAdds titles={addsSent(sent)} /> : null}
-                    {drawn.map((card) => (
-                      <CardItem
-                        key={card.id}
-                        card={card}
-                        selected={cursor === card.id}
-                        domId={`card-${card.id}`}
-                        place={() => setOn(card.id)}
-                      />
-                    ))}
-                  </DropList>
-                </section>
-              );
-            })}
-          </div>
+          <>
+            {columns.filter((column) => isSide(column.status)).map((column, at) => (
+              // Each pulled-out column on a sheet of its own. See ADR-0041.
+              <SideSheet key={column.status} status={column.status as SideStatus}>
+                {columnOf(column, at, shown)}
+              </SideSheet>
+            ))}
+            {/* Each column is as long as its cards, and the page scrolls. The
+                columns are panes: a divider splits them, and a card is the one
+                thing on the board with an edge. See #184 and #191. */}
+            <div ref={board} className="flex flex-1 divide-x divide-border overflow-x-auto">
+              {columns.filter((column) => !isSide(column.status)).map((column, at) => columnOf(column, at, shown))}
+            </div>
+          </>
         )}
       </DragLists>
 
       <DecisionPrompt ask={ask} />
+      {/* A task, or a page of the org, opened over this one. See ADR-0039. */}
+      <ModalOutlet closeTo={closeTo} />
     </main>
   );
 }

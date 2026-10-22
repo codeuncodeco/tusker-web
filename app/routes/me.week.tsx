@@ -50,6 +50,7 @@ import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import { isWeek, weekAfter, weekBefore, weekIn, weekLabel, weekSpan } from "../week";
 import { addToWeek, moveInWeek, readWeekSet, startWeek } from "../weeks.server";
+import { ModalOutlet, useCloseTo } from "../route-modal";
 import type { Route } from "./+types/me.week";
 import { readTaskId } from "../task-number";
 
@@ -214,6 +215,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Week({ loaderData }: Route.ComponentProps) {
+  const closeTo = useCloseTo();
   const {
     orgs,
     members,
@@ -245,7 +247,7 @@ export default function Week({ loaderData }: Route.ComponentProps) {
   const done = inWeek.filter((one) => one.finished).length;
 
   return (
-    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
+    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8 max-sm:pt-16">
       <header className="flex flex-wrap items-baseline gap-4">
         {/* The heading is the week itself. "Your week" said only what the nav
             label says already, and `2026-W36` is the address and not a
@@ -298,6 +300,8 @@ export default function Week({ loaderData }: Route.ComponentProps) {
       />
 
       <DecisionPrompt ask={ask} />
+      {/* A task, or a page of the org, opened over this one. See ADR-0039. */}
+      <ModalOutlet closeTo={closeTo} />
     </main>
   );
 }

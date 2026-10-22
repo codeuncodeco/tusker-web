@@ -69,6 +69,8 @@ export function SavedInput({
         dropped.current = false;
         setDraft(null);
         if (keep) onSave(typed);
+        // The caller may want the leaving too, as a title that shuts its box.
+        box.onBlur?.(event);
       }}
     />
   );

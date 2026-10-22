@@ -16,3 +16,11 @@ interface Env extends Secrets {}
 declare namespace Cloudflare {
   interface Env extends Secrets {}
 }
+
+/**
+ * Acts a host lends the settings panel, each a row with a label: the sandbox
+ * lends "Reset sample data". `main` lends none.
+ */
+interface Window {
+  tuskerExtras?: { label: string; run: () => void }[];
+}

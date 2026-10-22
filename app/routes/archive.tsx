@@ -25,10 +25,13 @@ import { shownOnCard, type Shown } from "../fields";
 import { listFields } from "../fields.server";
 import { Initials } from "../initials";
 import { useLocalDay } from "../local-day";
-import { taskPath, useOrigin } from "../paths";
+import { useTaskHref } from "../paths";
 import { readPlan } from "../plans.server";
 import { refLabels } from "../refs.server";
+import { ModalControls } from "../route-modal";
 import { requireScope } from "../scope.server";
+import { Bento, Stat, Tile } from "../bento";
+import { BoxArchive } from "../icons";
 import type { Route } from "./+types/archive";
 import type { TaskId } from "../task-number";
 
@@ -124,63 +127,67 @@ function Restore({ id, title }: { id: TaskId; title: string }) {
 
 export default function Archive({ loaderData }: Route.ComponentProps) {
   const { org, lines, today, hasPlan, day } = loaderData;
-  const origin = useOrigin();
+  const hrefOf = useTaskHref();
 
   useLocalDay(day);
 
+  // A bento: a head with the count and the Today chip, then one tile per
+  // archived task, two abreast, each with its Restore. See ADR-0040.
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-8">
-      <header className="flex flex-wrap items-baseline gap-4">
-        <h1 className="text-2xl tracking-tight">Archive</h1>
-        <nav className="flex items-baseline gap-4">
-          <TodayChip today={today} hasPlan={hasPlan} />
-        </nav>
-      </header>
+    <main className="flex flex-col gap-3">
+      <Bento>
+        <Tile span={4} tone="plain" className="p-1!">
+          <header className="flex items-start gap-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-6 gap-y-2">
+              <h1 className="font-serif text-3xl tracking-tight">Archive</h1>
+              <Stat value={lines.length} word={lines.length === 1 ? "task kept" : "tasks kept"} />
+              <nav className="ml-auto flex items-baseline gap-4">
+                <TodayChip today={today} hasPlan={hasPlan} />
+              </nav>
+            </div>
+            <ModalControls />
+          </header>
+        </Tile>
 
-      {lines.length === 0 ? (
-        <p className="text-muted">
-          Nothing archived yet. Finish some work, then sweep the Done column on the{" "}
-          <Link to={`/o/${org.slug}/board`} className="underline">
-            board
-          </Link>
-          .
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {lines.map((line) => (
-            <li
+        {lines.length === 0 ? (
+          <Tile span={4}>
+            <p className="text-muted">
+              Nothing archived yet. Finish some work, then sweep the Done column on the{" "}
+              <Link to={`/o/${org.slug}/board`} className="underline">
+                board
+              </Link>
+              .
+            </p>
+          </Tile>
+        ) : (
+          lines.map((line) => (
+            <Tile
               key={line.id}
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded border border-border p-3"
+              span={2}
+              label={`${line.status} · ${line.archivedAt ? dayDate(line.archivedAt.slice(0, 10)) : "—"}`}
+              icon={<BoxArchive className="size-3" />}
+              action={<Initials assignees={line.assignees} />}
             >
-              <Link
-                to={taskPath(line.id, origin)}
-                className="flex-1 underline-offset-2 hover:underline"
-              >
+              <Link to={hrefOf(line.id)} className="font-medium underline-offset-2 hover:underline">
                 {line.title}
               </Link>
-
-              {line.fields.map((field) => (
-                <span
-                  key={field.key}
-                  className="flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-xs"
-                >
-                  <Dot color={field.color} />
-                  <span className="text-dim">{field.label}</span> {field.value}
+              {line.fields.length > 0 ? (
+                <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                  {line.fields.map((field) => (
+                    <span key={field.key} className="flex items-center gap-1">
+                      <Dot color={field.color} />
+                      <span className="text-dim">{field.label}</span> {field.value}
+                    </span>
+                  ))}
                 </span>
-              ))}
-
-              <Initials assignees={line.assignees} />
-              <span className="text-xs uppercase tracking-wide text-muted">
-                {line.status}
-              </span>
-              <span className="text-xs tabular-nums text-muted">
-                {line.archivedAt ? dayDate(line.archivedAt.slice(0, 10)) : "—"}
-              </span>
-              <Restore id={line.id} title={line.title} />
-            </li>
-          ))}
-        </ul>
-      )}
+              ) : null}
+              <div className="mt-auto">
+                <Restore id={line.id} title={line.title} />
+              </div>
+            </Tile>
+          ))
+        )}
+      </Bento>
     </main>
   );
 }

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Links,
   Meta,
@@ -17,6 +18,7 @@ import {
 } from "./colour-scheme";
 import { KeyedSurfaceProvider } from "./keyed-list";
 import type { Route } from "./+types/root";
+import { listenForPresses } from "./sound";
 import { ToastProvider } from "./toast";
 import "./app.css";
 
@@ -67,6 +69,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Every press on the page loads the sound once and taps. See `app/sound.ts`.
+  useEffect(listenForPresses, []);
+
   // The org the cross-org quick-add box files into lives here, so the pick
   // holds across a move between pages and dies on a reload. See ADR-0012.
   // One place a page raises a message about a batch it just ran, drawn over

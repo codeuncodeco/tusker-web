@@ -30,10 +30,13 @@ const EDIT = "e";
 export function DescriptionBox({
   text,
   form,
+  headless = false,
 }: {
   text: string;
   /** The id of the form the no-script textarea posts with. */
   form: string;
+  /** True where a tile names it already: the heading is said to a screen reader only. */
+  headless?: boolean;
 }) {
   const save = useFetcher();
   const [editing, setEditing] = useState(false);
@@ -70,7 +73,7 @@ export function DescriptionBox({
   }, [editing]);
 
   const heading = (
-    <h2>
+    <h2 className={headless ? "sr-only" : undefined}>
       Description
       {hint}
     </h2>

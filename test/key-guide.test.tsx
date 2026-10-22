@@ -29,7 +29,7 @@ describe("the press that opens the guide", () => {
   // No page draws a dialog, so every press reaches the list's guard.
   afterEach(() => vi.unstubAllGlobals());
   function noDialog() {
-    vi.stubGlobal("document", { querySelector: () => null });
+    vi.stubGlobal("document", { querySelector: () => null, querySelectorAll: () => [] });
   }
 
   it("is ?, from inside a keyed list", () => {
@@ -47,8 +47,18 @@ describe("the press that opens the guide", () => {
 
   // The guide is a dialog, and a press under a dialog is not the page's.
   it("opens nothing while a dialog is up", () => {
-    vi.stubGlobal("document", { querySelector: () => ({}) });
+    // A prompt: a dialog that is not a page.
+    const prompt = { hasAttribute: () => false, contains: () => true };
+    vi.stubGlobal("document", { querySelector: () => prompt, querySelectorAll: () => [prompt] });
     expect(hear(keydown("?"))).toEqual({ kept: false, opened: false });
+  });
+
+  // A page opened as a modal is the page: a press inside it is the page's.
+  // See ADR-0039.
+  it("hears a press inside a page opened as a modal", () => {
+    const page = { hasAttribute: (name: string) => name === "data-page", contains: () => true };
+    vi.stubGlobal("document", { querySelector: () => page, querySelectorAll: () => [page] });
+    expect(hear(keydown("?"))).toEqual({ kept: true, opened: true });
   });
 });
 

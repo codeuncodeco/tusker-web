@@ -14,6 +14,8 @@
  * name a person says and types. See ADR-0030.
  */
 
+import { useState } from "react";
+
 import { usePost } from "./pending";
 import { SavedInput } from "./saved-input";
 import { TASK_FORM } from "./task-aside";
@@ -23,27 +25,55 @@ export function TaskTitle({
   id,
   title,
   finished,
+  large = false,
 }: {
   id: TaskId;
   title: string;
   finished: boolean;
+  /** True on a task opened as a modal, where the title heads the sheet. */
+  large?: boolean;
 }) {
   const post = usePost({ flushSync: true });
+  const [editing, setEditing] = useState(false);
   const label = <span className="shrink-0 font-mono text-dim">{taskLabel(id)}</span>;
 
   if (finished) {
     return (
-      <h1 className="flex items-baseline gap-3 text-2xl tracking-tight">
+      <h1 className={`flex items-baseline gap-3 tracking-tight ${large ? "text-3xl sm:text-4xl" : "text-2xl"}`}>
         {label}
         <span className="min-w-0">{title}</span>
       </h1>
     );
   }
 
+  // A large title reads as text, wrapping, and a click turns it into the box
+  // it is edited in, one click as the box was. See ADR-0039.
+  if (large && !editing) {
+    return (
+      <h1 className="flex items-baseline gap-3 text-2xl tracking-tight sm:text-4xl">
+        {label}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          title="Rename"
+          className="-mx-2 min-w-0 flex-1 cursor-text rounded-lg px-2 py-1 text-left [overflow-wrap:anywhere] hover:bg-surface-2 noscript:hidden"
+        >
+          {title}
+        </button>
+        {/* With no script the title is a box of the page's one form. */}
+        <noscript>
+          <input name="title" form={TASK_FORM} aria-label="Title" required defaultValue={title} className="w-full bg-transparent" />
+        </noscript>
+      </h1>
+    );
+  }
+
   return (
-    <h1 className="flex items-baseline gap-3 text-2xl tracking-tight">
+    <h1 className={`flex items-baseline gap-3 tracking-tight ${large ? "text-2xl sm:text-4xl" : "text-2xl"}`}>
       {label}
       <SavedInput
+        autoFocus={large}
+        onBlur={() => setEditing(false)}
         name="title"
         form={TASK_FORM}
         aria-label="Title"

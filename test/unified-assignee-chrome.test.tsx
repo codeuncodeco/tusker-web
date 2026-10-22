@@ -1,5 +1,5 @@
 /**
- * What the unified board draws for its assignee filter: the select, the box it
+ * What the unified board draws for its assignee filter: the chips, the box it
  * seeds, and the org select that carries the value to another board.
  * See ADR-0033.
  */
@@ -27,43 +27,46 @@ function drawnAt(path: string, element: React.ReactNode): string {
   return renderToStaticMarkup(<Stub initialEntries={[path]} />);
 }
 
-describe("the select", () => {
-  it("offers Anyone, Mine and Unassigned, and no member", () => {
-    const html = drawnAt("/me", <UnifiedAssigneeFilter assignee="" />);
+/** The chips of the filter, as `[href, pressed, words]`. */
+function chips(html: string): [string, string, string][] {
+  return [...html.matchAll(/<a ([^>]*)>([^<]*)</g)].map((one) => [
+    (one[1]!.match(/href="([^"]*)"/)?.[1] ?? "").replace(/&amp;/g, "&"),
+    one[1]!.match(/aria-pressed="([^"]*)"/)?.[1] ?? "",
+    one[2]!,
+  ]);
+}
 
-    const options = [...html.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)</g)].map((one) => [
-      one[1],
-      one[2],
-    ]);
-    expect(options).toEqual([
-      ["", "Anyone"],
-      [MINE, "Mine"],
-      ["unassigned", "Unassigned"],
+describe("the chips", () => {
+  it("offer Mine, Anyone and Unassigned, each one click away, and no member", () => {
+    const html = drawnAt("/me", <UnifiedAssigneeFilter assignee={MINE} />);
+
+    expect(chips(html)).toEqual([
+      [`/me?assignee=${MINE}`, "true", "Mine"],
+      ["/me?assignee=anyone", "false", "Anyone"],
+      ["/me?assignee=unassigned", "false", "Unassigned"],
     ]);
   });
 
-  it("holds the value the address carries", () => {
-    const html = drawnAt(`/me?assignee=${MINE}`, <UnifiedAssigneeFilter assignee={MINE} />);
+  it("press the value the board narrows by", () => {
+    const html = drawnAt("/me?assignee=anyone", <UnifiedAssigneeFilter assignee="" />);
 
-    expect(html).toContain(`<option value="${MINE}" selected="">Mine</option>`);
+    expect(chips(html).map((one) => one[1])).toEqual(["false", "true", "false"]);
   });
 
-  it("keeps the chips and the columns in the address, and drops its own old value", () => {
+  it("keep the chips and the columns in the address, and drop their own old value", () => {
     const html = drawnAt(
       `/me?today=1&backlog=1&assignee=${MINE}`,
       <UnifiedAssigneeFilter assignee={MINE} />,
     );
 
-    expect(html).toContain('<input type="hidden" name="today" value="1"/>');
-    expect(html).toContain('<input type="hidden" name="backlog" value="1"/>');
-    expect(html).not.toContain('type="hidden" name="assignee"');
+    expect(chips(html)[2]![0]).toBe("/me?today=1&backlog=1&assignee=unassigned");
   });
 
-  it("is a GET form, with a button for a browser that runs no script", () => {
-    const html = drawnAt("/me", <UnifiedAssigneeFilter assignee="" />);
+  it("are links, so a browser that runs no script narrows too", () => {
+    const html = drawnAt("/me", <UnifiedAssigneeFilter assignee={MINE} />);
 
-    expect(html).toMatch(/<form [^>]*method="get"/);
-    expect(html).toContain('<button class="sr-only">Filter</button>');
+    expect(html).not.toContain("<form");
+    expect(html).not.toContain("<select");
   });
 });
 
@@ -91,17 +94,17 @@ describe("the box on a board narrowed to Mine", () => {
   });
 });
 
-describe("the org select", () => {
-  it("carries the board's filter, so a pick with no script keeps it", () => {
+describe("the org picks in the settings panel", () => {
+  it("carry the board's filter through /go, so the next board reads it in its own words", () => {
     const html = headerAt(`/me?assignee=${MINE}`, [ADA, ACME], null);
 
-    expect(html).toContain(`<input type="hidden" name="assignee" value="${MINE}"/>`);
+    expect(html).toContain(`href="/go?to=acme&amp;assignee=${MINE}"`);
   });
 
-  it("carries Anyone set by hand", () => {
+  it("carry Anyone set by hand", () => {
     const html = headerAt("/o/acme/board?assignee=", [ADA, ACME], ACME);
 
-    expect(html).toContain('<input type="hidden" name="assignee" value=""/>');
+    expect(html).toContain('href="/go?to=ada&amp;assignee="');
   });
 
   it("carries nothing from an address with no filter", () => {

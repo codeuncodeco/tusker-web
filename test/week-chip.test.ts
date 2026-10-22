@@ -65,13 +65,21 @@ async function plan(personId: string, taskIds: TaskId[], day = DAY) {
 /** The org board, as one person reads it on the day their browser is in. */
 function board(cookie: string, slug: string, query = "", day = DAY) {
   return boardRoute.loader(
-    routeArgs(get(`/o/${slug}/board${query}`, `${cookie}; day=${day}`), { slug }),
+    routeArgs(get(`/o/${slug}/board${everybody(query)}`, `${cookie}; day=${day}`), { slug }),
   );
+}
+
+/**
+ * The address, widened to everybody's work unless it names a filter: these
+ * tests are about the chips, and a board opens on the reader's own work.
+ */
+function everybody(query: string): string {
+  return query.includes("assignee=") ? query : `${query}${query ? "&" : "?"}assignee=anyone`;
 }
 
 /** The unified board, as one person reads it on that day. */
 function unified(cookie: string, query = "", day = DAY) {
-  return unifiedRoute.loader(routeArgs(get(`/me${query}`, `${cookie}; day=${day}`)));
+  return unifiedRoute.loader(routeArgs(get(`/me${everybody(query)}`, `${cookie}; day=${day}`)));
 }
 
 /** Every task one board draws, in column order. */

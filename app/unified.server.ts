@@ -8,12 +8,13 @@
  */
 
 import { keeps } from "./assignee-filter";
+import type { ClientPick } from "./client-filter";
 import { drawsAssignees, type Assignee } from "./assignees";
 import { assigneesByTask, membersInOrgs } from "./assignees.server";
 import { FINISHED_STATUSES, type Status } from "./board";
 import { listColors } from "./colors.server";
 import { notDeleted } from "./deleted.server";
-import { shownOnCard, type Shown } from "./fields";
+import { clientField, shownOnCard, type Shown } from "./fields";
 import { listFields } from "./fields.server";
 import { refLabels } from "./refs.server";
 import { scopeIn, type OrgSet } from "./scope.server";
@@ -40,6 +41,12 @@ export type Wanted = {
    * an org of one holds answers for its member, though no card draws it.
    */
   assignee?: string;
+  /**
+   * The one client to keep, by its org and the value its tasks store. Absent
+   * keeps every task. A task of an org with no client field never answers.
+   * See ADR-0036.
+   */
+  client?: ClientPick | null;
 };
 
 /** The live set: To do and In progress, the work a person still holds. */
@@ -84,9 +91,13 @@ export async function listUnified(
 
   // An org of one stores its holder but draws none. See ADR-0032.
   const draws = new Set(set.orgs.filter(drawsAssignees).map((org) => org.id));
-  const { assignee } = want;
-  const kept =
-    assignee === undefined ? rows : rows.filter((row) => keeps(assignee, held.get(row.id) ?? []));
+  const { assignee, client } = want;
+  const slugOf = new Map(set.orgs.map((org) => [org.id, org.slug]));
+  const kept = rows.filter(
+    (row) =>
+      (assignee === undefined || keeps(assignee, held.get(row.id) ?? [])) &&
+      (!client || keepsClient(client, slugOf.get(row.org_id), shown.get(row.org_id)!.clientKey, row.data)),
+  );
 
   return kept.map((row) => ({
     id: row.id,
@@ -96,7 +107,7 @@ export async function listUnified(
     due_date: row.due_date,
     percentile: row.percentile,
     created_at: row.created_at,
-    fields: shown.get(row.org_id)!(JSON.parse(row.data) as Record<string, string>),
+    fields: shown.get(row.org_id)!.show(JSON.parse(row.data) as Record<string, string>),
     assignees: draws.has(row.org_id) ? (held.get(row.id) ?? []) : [],
     finished: row.status === "done" || row.status === "cancelled",
   }));
@@ -169,6 +180,18 @@ async function placedRows(
 /** What one org's card shows of one task's stored values. */
 type ShowFields = (data: Record<string, string>) => Shown[];
 
+/** How to read one org's cards, and the key its client field holds, if any. */
+type OrgCards = { show: ShowFields; clientKey: string | null };
+
+/**
+ * True while a row belongs to the client the board narrows to: its org is the
+ * client's, and it stores the client's value under that org's client field.
+ */
+function keepsClient(client: ClientPick, slug: string | undefined, key: string | null, data: string): boolean {
+  if (slug !== client.slug || key === null) return false;
+  return (JSON.parse(data) as Record<string, string>)[key] === client.value;
+}
+
 /**
  * How to read a card, per org.
  *
@@ -177,7 +200,7 @@ type ShowFields = (data: Record<string, string>) => Shown[];
  * rows must not become sixty calls to org apps, so an id the cache does not
  * hold shows raw.
  */
-async function cardsByOrg(db: D1Database, set: OrgSet): Promise<Map<string, ShowFields>> {
+async function cardsByOrg(db: D1Database, set: OrgSet): Promise<Map<string, OrgCards>> {
   const read = await Promise.all(
     set.orgs.map(async (org) => {
       const scope = scopeIn(set, org.id)!;
@@ -186,10 +209,8 @@ async function cardsByOrg(db: D1Database, set: OrgSet): Promise<Map<string, Show
         refLabels(db, scope),
         listColors(db, scope),
       ]);
-      return [
-        org.id,
-        (data: Record<string, string>) => shownOnCard(declared, data, labels, colors),
-      ] as const;
+      const show: ShowFields = (data) => shownOnCard(declared, data, labels, colors);
+      return [org.id, { show, clientKey: clientField(declared)?.key ?? null }] as const;
     }),
   );
   return new Map(read);
@@ -235,4 +256,22 @@ export async function membersBySlug(
   const teams = set.orgs.filter(drawsAssignees);
   const members = await membersInOrgs(db, teams.map((org) => org.id));
   return Object.fromEntries(teams.map((org) => [org.slug, members.get(org.id) ?? []]));
+}
+
+/**
+ * How many of these tasks are done, among the orgs of the set: the count the
+ * Today meter fills to. A task of an org the person left counts for nothing,
+ * as it reads for nothing. See `TodayMeter`.
+ */
+export async function doneAmong(db: D1Database, set: OrgSet, ids: TaskId[]): Promise<number> {
+  if (ids.length === 0 || set.orgs.length === 0) return 0;
+  const row = await db
+    .prepare(
+      `SELECT count(*) AS n FROM tasks
+       WHERE id IN (${holes(ids.length)}) AND org_id IN (${holes(set.orgs.length)})
+         AND status = 'done' AND ${notDeleted()}`,
+    )
+    .bind(...ids, ...set.orgs.map((org) => org.id))
+    .first<{ n: number }>();
+  return row?.n ?? 0;
 }

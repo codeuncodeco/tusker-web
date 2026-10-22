@@ -23,6 +23,7 @@ import { tellsOrgsApart } from "../org-chip";
 import { planPicks } from "../picks.server";
 import { requireOrgSet } from "../scope.server";
 import { actOnTask } from "../unified-actions.server";
+import { ModalOutlet, useCloseTo } from "../route-modal";
 import type { Route } from "./+types/me.focus";
 
 export function meta(_: Route.MetaArgs) {
@@ -73,12 +74,13 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Focus({ loaderData }: Route.ComponentProps) {
+  const closeTo = useCloseTo();
   const { focus, day, ask, showsOrg } = loaderData;
   const { batch, planned, planEmpty, weekEmpty, more } = focus;
   useLocalDay(day);
 
   return (
-    <main className="mx-auto flex flex-1 w-full max-w-2xl flex-col gap-6 p-8">
+    <main className="mx-auto flex flex-1 w-full max-w-2xl flex-col gap-6 p-8 max-sm:pt-16">
       <header className="flex flex-wrap items-baseline gap-4">
         <h1 className="text-2xl tracking-tight">Focus</h1>
         {batch.number > 0 ? (
@@ -115,6 +117,8 @@ export default function Focus({ loaderData }: Route.ComponentProps) {
       {batch.tasks.length === 0 && more > 0 ? <TakeMore /> : null}
 
       <DecisionPrompt ask={ask} />
+      {/* A task, or a page of the org, opened over this one. See ADR-0039. */}
+      <ModalOutlet closeTo={closeTo} />
     </main>
   );
 }

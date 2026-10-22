@@ -1,5 +1,5 @@
 import { notDeleted } from "./deleted.server";
-import type { FieldType, OrgField } from "./fields";
+import { canNameClient, type FieldType, type OrgField } from "./fields";
 import type { ReadScope, Scope } from "./scope.server";
 
 /** The row as the table holds it: options as JSON, the flags as 0 or 1. */
@@ -13,6 +13,7 @@ type Row = {
   show_on_card: number;
   filterable: number;
   position: number;
+  names_client: number;
 };
 
 /**
@@ -21,7 +22,7 @@ type Row = {
  * `refs.server.ts` is its one reader.
  */
 const COLUMNS = `key, label, type, options, refs_path, refs_pulled_at,
-  show_on_card, filterable, position`;
+  show_on_card, filterable, position, names_client`;
 
 /** The order every screen draws the fields in. */
 const IN_ORDER = "ORDER BY position, key";
@@ -217,5 +218,37 @@ function asField(row: Row): OrgField {
     show_on_card: row.show_on_card === 1,
     filterable: row.filterable === 1,
     position: row.position,
+    // Said only where it holds, so a field that names no client reads as it
+    // always did.
+    ...(row.names_client === 1 ? { client: true } : {}),
   };
+}
+
+/**
+ * Names one field as the org's client field, or none for null. The other
+ * fields let go of it in the same batch, so an org never holds two. A key the
+ * org does not declare, or a field that cannot name a client, answers false
+ * and changes nothing. See ADR-0036.
+ */
+export async function markClientField(
+  db: D1Database,
+  scope: Scope,
+  key: string | null,
+): Promise<boolean> {
+  if (key !== null) {
+    const field = await readField(db, scope, key);
+    if (!field || !canNameClient(field.type)) return false;
+  }
+
+  await db.batch([
+    db.prepare("UPDATE org_fields SET names_client = 0 WHERE org_id = ?").bind(scope.org.id),
+    ...(key === null
+      ? []
+      : [
+          db
+            .prepare("UPDATE org_fields SET names_client = 1 WHERE org_id = ? AND key = ?")
+            .bind(scope.org.id, key),
+        ]),
+  ]);
+  return true;
 }

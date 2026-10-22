@@ -19,8 +19,20 @@ import { readTrimmed, without } from "./query";
 /** The name the filter rides under in the address. */
 export const ASSIGNEE_NAME = "assignee";
 
-/** The start: every task, held or not. It is the absent value as well. */
+/**
+ * Every task, held or not: the value the loaders narrow by when nothing is
+ * narrowed. It is no longer the start: a board opens on the reader's own
+ * work. See ADR-0035.
+ */
 export const ANYONE = "";
+
+/**
+ * The word an address says `Anyone` with. An absent filter now means the
+ * reader's own work, so a person who widens the board to everybody says so
+ * out loud, and the board remembers it. An empty value, as an older link or
+ * the org select said it, reads the same. See ADR-0035.
+ */
+export const ANYONE_WORD = "anyone";
 
 /** The tasks nobody holds. No member id can collide: an id is never empty. */
 export const UNASSIGNED = "unassigned";
@@ -44,12 +56,34 @@ export function readAssignee(params: URLSearchParams): string {
 
 /**
  * The value the unified board narrows by: `Anyone`, `Mine` or `Unassigned`.
- * Anything else, a member id from an org board included, is `Anyone`, because
- * this board names no member.
+ * An address with no filter in it is `Mine`: a person opens Tusker to do their
+ * own work. Anything else, a member id from an org board included, is
+ * `Anyone`, because this board names no member. See ADR-0033 and ADR-0035.
  */
 export function readUnifiedAssignee(params: URLSearchParams): string {
+  if (!params.has(ASSIGNEE_NAME)) return MINE;
   const value = readAssignee(params);
   return value === MINE || value === UNASSIGNED ? value : ANYONE;
+}
+
+/**
+ * The value an org board narrows by, as one person reads it. An address with
+ * no filter in it is the reader's own id, so the board opens on their work.
+ * `anyone`, and the empty value, are `Anyone`. Every other value stands for
+ * itself: `Unassigned`, or a member's id. See ADR-0035.
+ */
+export function readBoardAssignee(params: URLSearchParams, personId: string): string {
+  if (!params.has(ASSIGNEE_NAME)) return personId;
+  const value = readAssignee(params);
+  return value === ANYONE_WORD ? ANYONE : value;
+}
+
+/**
+ * The address a filter value is said in. `Anyone` is said as its word, so it
+ * is not mistaken for an absent filter, which is the reader's own work.
+ */
+export function addressed(value: string): string {
+  return value === ANYONE ? ANYONE_WORD : value;
 }
 
 /**
@@ -70,9 +104,9 @@ export function resolvedFor(assignee: string, personId: string): string {
  * The person is the one member both boards can name: `Mine` on All, and their
  * own name in an org. `Unassigned` means the same on both. Another member is
  * nobody on All, and may be nobody in another org, so it becomes `Anyone`.
- * `Anyone` stays `Anyone`. Each is said out loud, so the next board's memory
- * does not stand in for a filter the person set. An org of one draws no
- * filter, so the value is dropped.
+ * `Anyone` stays `Anyone`, said as its word. Each is said out loud, so the
+ * next board's memory and its default do not stand in for a filter the person
+ * set. An org of one draws no filter, so the value is dropped.
  *
  * Null carries nothing: the address held no filter, or the next board draws
  * none, and the board opens bare, with its memory.
@@ -84,10 +118,10 @@ export function carried(
 ): string | null {
   if (assignee === null) return null;
   if (to !== null && !drawsAssignees(to)) return null;
-  if (assignee === ANYONE) return ANYONE;
+  if (assignee === ANYONE || assignee === ANYONE_WORD) return ANYONE_WORD;
   if (assignee === UNASSIGNED) return UNASSIGNED;
   if (assignee === MINE || assignee === personId) return to === null ? MINE : personId;
-  return ANYONE;
+  return ANYONE_WORD;
 }
 
 /**

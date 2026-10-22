@@ -53,6 +53,7 @@ import { listUnified, membersBySlug } from "../unified.server";
 import { UnifiedList } from "../unified-list";
 import { weekOf } from "../week";
 import { readWeekSet } from "../weeks.server";
+import { ModalOutlet, useCloseTo } from "../route-modal";
 import type { Route } from "./+types/me.plan";
 import { readTaskId } from "../task-number";
 
@@ -194,6 +195,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 export const clientAction = (args: Route.ClientActionArgs) => postAndReport(args);
 
 export default function Plan({ loaderData }: Route.ComponentProps) {
+  const closeTo = useCloseTo();
   const {
     orgs,
     members,
@@ -224,7 +226,7 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
     : pickedOnly(drawn.tasks, drawn.picked);
 
   return (
-    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8">
+    <main className="mx-auto flex flex-1 w-full max-w-3xl flex-col gap-6 p-8 max-sm:pt-16">
       <header className="flex flex-wrap items-baseline gap-4">
         {/* The heading is the day itself. "Your plan" said only what the nav
             label says already, and the day is what a person came to read.
@@ -263,6 +265,8 @@ export default function Plan({ loaderData }: Route.ComponentProps) {
       />
 
       <DecisionPrompt ask={ask} />
+      {/* A task, or a page of the org, opened over this one. See ADR-0039. */}
+      <ModalOutlet closeTo={closeTo} />
     </main>
   );
 }
